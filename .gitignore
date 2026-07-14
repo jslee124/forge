@@ -1,0 +1,25 @@
+node_modules/
+dist/
+*.tsbuildinfo
+
+.env
+.env.local
+.env.*.local
+
+.DS_Store
+Thumbs.db
+
+*.log
+npm-debug.log*
+
+coverage/
+.nyc_output/
+
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Forge trace output
+traces/
+*.jsonl
