@@ -26,6 +26,7 @@ import {
 
 import type { AskOptions, WritableOutput } from "./ask.js";
 import { parseThinkingMode } from "./ask.js";
+import { formatDiffPanel } from "./diff.js";
 import { createSigintCancellationScope } from "./signals.js";
 
 export interface RunDependencies {
@@ -37,6 +38,8 @@ export interface RunDependencies {
   readonly approvalChannel?: ApprovalChannel;
   readonly conversation?: readonly ModelConversationMessage[];
   readonly onResult?: (result: RunResult) => void;
+  readonly onEvent?: (event: RunEvent) => void | Promise<void>;
+  readonly renderEventsToOutput?: boolean;
   readonly createAdapter?: (
     options: CreateDeepSeekModelAdapterOptions,
   ) => ModelAdapter;
@@ -78,7 +81,12 @@ export async function runTask(
         limits: { maxOutputBytes: 65_536, maxEntries: 200 },
       },
       signal: dependencies.signal,
-      onEvent: render,
+      onEvent: async (event) => {
+        if (dependencies.renderEventsToOutput !== false) {
+          render(event);
+        }
+        await dependencies.onEvent?.(event);
+      },
     });
 
     dependencies.onResult?.(result);
@@ -132,17 +140,26 @@ export function createTerminalApprovalChannel(
   input: NodeJS.ReadableStream,
   output: NodeJS.WritableStream,
 ): ApprovalChannel {
-  return createApprovalChannel(async (prompt, signal) => {
-    const { createInterface } = await import("node:readline/promises");
-    const readline = createInterface({ input, output });
-    try {
-      return await readline.question(prompt, { signal });
-    } catch {
-      return null;
-    } finally {
-      readline.close();
-    }
-  }, output);
+  return createApprovalChannel(
+    async (prompt, signal) => {
+      const { createInterface } = await import("node:readline/promises");
+      const readline = createInterface({ input, output });
+      try {
+        return await readline.question(prompt, { signal });
+      } catch {
+        return null;
+      } finally {
+        readline.close();
+      }
+    },
+    output,
+    {
+      color:
+        "isTTY" in output &&
+        output.isTTY === true &&
+        !("NO_COLOR" in process.env),
+    },
+  );
 }
 
 export type ApprovalQuestion = (
@@ -153,6 +170,7 @@ export type ApprovalQuestion = (
 export function createApprovalChannel(
   question: ApprovalQuestion,
   output: WritableOutput,
+  options: { readonly color?: boolean } = {},
 ): ApprovalChannel {
   return {
     request: async (action, signal, context) => {
@@ -174,7 +192,9 @@ export function createApprovalChannel(
           );
           return false;
         }
-        output.write(`${preview.output.diff}\n`);
+        output.write(
+          `${formatDiffPanel(preview.output.diff, options.color === true)}\n`,
+        );
       } else if (action.tool.name === "create_file") {
         const preview = await previewCreateFile(
           action.input as CreateFileInput,
@@ -192,7 +212,9 @@ export function createApprovalChannel(
           );
           return false;
         }
-        output.write(`${preview.output.diff}\n`);
+        output.write(
+          `${formatDiffPanel(preview.output.diff, options.color === true)}\n`,
+        );
       } else if (action.tool.name === "run_command") {
         const command = action.input as {
           readonly program: string;

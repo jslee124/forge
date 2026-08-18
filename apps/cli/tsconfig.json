@@ -5,13 +5,14 @@
     "rootDir": "src",
     "outDir": "dist",
     "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo",
-    "types": ["node"]
+    "types": ["node"],
+    "jsx": "react-jsx"
   },
   "references": [
     { "path": "../../packages/core" },
     { "path": "../../packages/model-deepseek" },
     { "path": "../../packages/tools" }
   ],
-  "include": ["src/**/*.ts"],
-  "exclude": ["src/**/*.test.ts"]
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx"]
 }

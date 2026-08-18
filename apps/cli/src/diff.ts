@@ -1,0 +1,109 @@
+const ANSI = {
+  reset: "\u001B[0m",
+  bold: "\u001B[1m",
+  cyan: "\u001B[36m",
+  green: "\u001B[32m",
+  red: "\u001B[31m",
+  yellow: "\u001B[33m",
+};
+
+export interface DiffSummary {
+  readonly operation: "create" | "modify" | "delete";
+  readonly path: string;
+  readonly additions: number;
+  readonly deletions: number;
+}
+
+export function summarizeUnifiedDiff(diff: string): DiffSummary {
+  const lines = diff.split("\n");
+  const oldHeader = lines.find((line) => line.startsWith("--- "))?.slice(4);
+  const newHeader = lines.find((line) => line.startsWith("+++ "))?.slice(4);
+  const operation =
+    oldHeader === "/dev/null"
+      ? "create"
+      : newHeader === "/dev/null"
+        ? "delete"
+        : "modify";
+  const rawPath = operation === "delete" ? oldHeader : newHeader;
+  const filePath = rawPath?.replace(/^[ab]\//u, "") ?? "unknown";
+  return {
+    operation,
+    path: filePath,
+    additions: lines.filter(
+      (line) => line.startsWith("+") && !line.startsWith("+++"),
+    ).length,
+    deletions: lines.filter(
+      (line) => line.startsWith("-") && !line.startsWith("---"),
+    ).length,
+  };
+}
+
+export function formatDiffPanel(diff: string, color: boolean): string {
+  const summary = summarizeUnifiedDiff(diff);
+  const title = `${summary.operation.toUpperCase()} ${summary.path}  +${summary.additions} -${summary.deletions}`;
+  const body = numberDiffLines(diff)
+    .map(({ line, oldLine, newLine }) => {
+      const gutter = `${formatLineNumber(oldLine)} ${formatLineNumber(newLine)} │ `;
+      return `${paint(gutter, ANSI.yellow, color)}${colorizeDiffLine(line, color)}`;
+    })
+    .join("\n");
+  return [
+    paint(`╭─ ${title}`, ANSI.bold, color),
+    body,
+    paint("╰─ Review the exact change before approval", ANSI.bold, color),
+  ].join("\n");
+}
+
+function numberDiffLines(diff: string): readonly {
+  readonly line: string;
+  readonly oldLine?: number;
+  readonly newLine?: number;
+}[] {
+  let oldLine: number | undefined;
+  let newLine: number | undefined;
+  return diff.split("\n").map((line) => {
+    const hunk = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/u.exec(line);
+    if (hunk) {
+      oldLine = Number(hunk[1]);
+      newLine = Number(hunk[2]);
+      return { line };
+    }
+    if (line.startsWith("---") || line.startsWith("+++")) return { line };
+    if (line.startsWith("-")) {
+      const numbered = oldLine === undefined ? { line } : { line, oldLine };
+      if (oldLine !== undefined) oldLine += 1;
+      return numbered;
+    }
+    if (line.startsWith("+")) {
+      const numbered = newLine === undefined ? { line } : { line, newLine };
+      if (newLine !== undefined) newLine += 1;
+      return numbered;
+    }
+    const numbered = {
+      line,
+      ...(oldLine === undefined ? {} : { oldLine }),
+      ...(newLine === undefined ? {} : { newLine }),
+    };
+    if (oldLine !== undefined) oldLine += 1;
+    if (newLine !== undefined) newLine += 1;
+    return numbered;
+  });
+}
+
+function formatLineNumber(value: number | undefined): string {
+  return value === undefined ? "    " : String(value).padStart(4);
+}
+
+function colorizeDiffLine(line: string, color: boolean): string {
+  if (line.startsWith("+++") || line.startsWith("---")) {
+    return paint(line, ANSI.bold, color);
+  }
+  if (line.startsWith("@@")) return paint(line, ANSI.cyan, color);
+  if (line.startsWith("+")) return paint(line, ANSI.green, color);
+  if (line.startsWith("-")) return paint(line, ANSI.red, color);
+  return line;
+}
+
+function paint(value: string, code: string, enabled: boolean): string {
+  return enabled ? `${code}${value}${ANSI.reset}` : value;
+}

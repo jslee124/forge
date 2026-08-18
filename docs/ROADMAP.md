@@ -2,10 +2,10 @@
 
 ## Current milestone
 
-**Milestone 4.5: Interactive CLI is complete.** The active milestone is
-**Milestone 4.6: Interactive TUI and context mentions**. Milestone 5 follows it
-with configuration, instructions, and permission profiles. No later milestone
-should be treated as implemented merely because its design is documented.
+**Milestone 4.6: Interactive TUI and context mentions is complete.** The next
+milestone is **Milestone 5: Configuration, instructions, and permission
+profiles**. No later milestone should be treated as implemented merely because
+its design is documented.
 
 ## Working rules
 
@@ -176,20 +176,20 @@ Goal: replace the minimal readline prompt with a discoverable, multi-line
 terminal interface while preserving the Forge-owned runtime and safety model.
 The detailed interaction contract lives in [Interactive CLI UI](CLI_UI.md).
 
-- [ ] Use Ink for the interactive rendering layer inside `apps/cli`
-- [ ] Implement a multi-line prompt editor where Enter submits and Shift+Enter
+- [x] Use Ink for the interactive rendering layer inside `apps/cli`
+- [x] Implement a multi-line prompt editor where Enter submits and Shift+Enter
   inserts a newline, with Ctrl+J as a portable fallback
-- [ ] Open and filter the command menu when `/` is typed at the start of input
-- [ ] Drive `/help` and completion from one command registry
-- [ ] Open a bounded fuzzy workspace-file picker for the active `@` token
-- [ ] Keep selected file mentions as structured workspace-relative paths
-- [ ] Send mentioned paths to the model without automatically injecting entire
+- [x] Open and filter the command menu when `/` is typed at the start of input
+- [x] Drive `/help` and completion from one command registry
+- [x] Open a bounded fuzzy workspace-file picker for the active `@` token
+- [x] Keep selected file mentions as structured workspace-relative paths
+- [x] Send mentioned paths to the model without automatically injecting entire
   file contents
-- [ ] Render clear running, streaming, cancellation, and approval states
-- [ ] Show create/modify/delete diff panels with file headers, line numbers,
+- [x] Render clear running, streaming, cancellation, and approval states
+- [x] Show create/modify/delete diff panels with file headers, line numbers,
   colored additions/removals, and a usable no-color representation
-- [ ] Preserve safe diff limits and prevent approval of an undisplayed change
-- [ ] Test keyboard input, menus, mentions, state transitions, diff rendering,
+- [x] Preserve safe diff limits and prevent approval of an undisplayed change
+- [x] Test keyboard input, menus, mentions, state transitions, diff rendering,
   terminal resize, and non-TTY behavior without paid model calls
 
 Acceptance criteria:

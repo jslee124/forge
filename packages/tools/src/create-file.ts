@@ -137,11 +137,18 @@ async function resolveCreateTarget(
 }
 
 function formatCreateDiff(path: string, content: string): string {
-  const addedLines = content.split("\n").map((line) => `+${line}`);
+  const contentWithoutFinalNewline = content.endsWith("\n")
+    ? content.slice(0, -1)
+    : content;
+  const contentLines =
+    contentWithoutFinalNewline === ""
+      ? []
+      : contentWithoutFinalNewline.split("\n");
+  const addedLines = contentLines.map((line) => `+${line}`);
   return [
     "--- /dev/null",
     `+++ b/${path}`,
-    "@@ -0,0 +1 @@",
+    `@@ -0,0 +1,${contentLines.length} @@`,
     ...addedLines,
     "",
   ].join("\n");

@@ -3,7 +3,12 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { PassThrough } from "node:stream";
 
-import type { ModelAdapter, ModelRequest, ModelStreamEvent } from "@forge/core";
+import type {
+  ModelAdapter,
+  ModelRequest,
+  ModelStreamEvent,
+  RunEvent,
+} from "@forge/core";
 import { applyPatchTool, createFileTool, resolveWorkspace } from "@forge/tools";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -127,6 +132,38 @@ describe("forge run", () => {
         output: { content: "Forge repository\n" },
       },
     });
+  });
+
+  it("delivers structured events without duplicating terminal labels", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "forge-run-"));
+    temporaryDirectories.push(root);
+    await writeFile(path.join(root, "README.md"), "Forge repository\n");
+    const stdout = outputBuffer();
+    const stderr = outputBuffer();
+    const events: RunEvent[] = [];
+
+    const exitCode = await runTask(
+      "What does README say?",
+      {},
+      {
+        env: { DEEPSEEK_API_KEY: "test-secret" },
+        cwd: root,
+        stdout: stdout.output,
+        stderr: stderr.output,
+        signal: new AbortController().signal,
+        createAdapter: () => new ReadThenAnswerModel(),
+        renderEventsToOutput: false,
+        onEvent: (event) => {
+          events.push(event);
+        },
+      },
+    );
+
+    expect(exitCode).toBe(0);
+    expect(events.some((event) => event.type === "model.text")).toBe(true);
+    expect(events.some((event) => event.type === "tool.proposed")).toBe(true);
+    expect(stdout.read()).toBe("");
+    expect(stderr.read()).toBe("");
   });
 
   it("returns configuration exit code 2 when the API key is missing", async () => {

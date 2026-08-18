@@ -6,6 +6,8 @@ import type {
 import type { CreateDeepSeekModelAdapterOptions } from "@forge/model-deepseek";
 
 import type { AskOptions, WritableOutput } from "./ask.js";
+import { formatSlashCommandHelp } from "./commands.js";
+import { runInkInteractiveFromCli } from "./interactive-ui.js";
 import { createApprovalChannel, type RunDependencies, runTask } from "./run.js";
 
 export interface InteractiveTerminal {
@@ -155,13 +157,9 @@ export async function runInteractiveFromCli(
   options: AskOptions,
   env: NodeJS.ProcessEnv = process.env,
 ): Promise<number> {
-  const terminal = await createReadlineTerminal(process.stdin, process.stdout);
-  return runInteractiveSession(options, {
+  return runInkInteractiveFromCli(options, {
     env,
     cwd: process.cwd(),
-    terminal,
-    stdout: process.stdout,
-    stderr: process.stderr,
   });
 }
 
@@ -217,15 +215,7 @@ function handleSlashCommand(
       stdout.write("Conversation context cleared.\n");
       return "continue";
     case "/help":
-      stdout.write(
-        [
-          "Interactive commands:",
-          "  /help   Show this help",
-          "  /clear  Clear conversation context",
-          "  /exit   Exit Forge",
-          "",
-        ].join("\n"),
-      );
+      stdout.write(formatSlashCommandHelp());
       return "continue";
     default:
       stdout.write(`Unknown command: ${command}. Type /help for commands.\n`);

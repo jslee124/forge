@@ -2,9 +2,9 @@
 
 ## Status
 
-This document defines the planned Milestone 4.6 terminal experience. The
-existing Milestone 4.5 readline session remains the implemented behavior until
-the acceptance criteria in this document and the roadmap are complete.
+This document defines the implemented Milestone 4.6 terminal experience. Ink
+now provides the interactive renderer while the non-interactive commands and
+Forge-owned runtime retain their existing boundaries.
 
 ## Goals
 
@@ -19,7 +19,7 @@ The terminal UI should provide:
 - A readable diff review before file-write approval
 - Keyboard-only operation with predictable cancellation
 
-Ink is the planned renderer for the interactive CLI. Commander remains
+Ink is the renderer for the interactive CLI. Commander remains
 responsible for process-level command parsing. React and Ink must stay inside
 `apps/cli`; `@forge/core` must remain independent of the terminal framework.
 
@@ -48,6 +48,11 @@ session-exit behavior when Forge is otherwise idle.
 - Because some legacy terminals do not distinguish Shift+Enter from Enter,
   Ctrl+J also inserts a newline as a portable fallback. The input footer should
   advertise the shortcut that is available.
+- The VS Code integrated terminal requires a user keybinding that maps
+  Shift+Enter to `workbench.action.terminal.sendSequence` with the text
+  `\u000a`. Forge reports this limitation in its footer instead of claiming the
+  modifier is available. Forge does not automatically edit editor-wide user
+  settings.
 - The editor preserves newlines exactly when constructing the user message.
 - Left/right movement, backspace, delete, Home/End, paste, Unicode text, and
   terminal resize must not corrupt the buffer or display.

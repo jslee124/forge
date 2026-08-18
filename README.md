@@ -7,10 +7,10 @@ It is a learning project and portfolio project focused on the engineering behind
 coding agents: model interaction, tool execution, safety boundaries, execution
 traces, plugins, and reproducible evaluations.
 
-> Status: Milestone 4.5 complete. Forge supports bounded coding runs and an
-> in-memory, multi-turn interactive terminal session. Milestone 4.6 will add a
-> multi-line Ink interface, `/` command discovery, `@` file mentions, and
-> clearer diff review before configuration work begins.
+> Status: Milestone 4.6 complete. Forge supports bounded coding runs and a
+> multi-line Ink terminal with `/` command discovery, `@` file mentions, and
+> readable diff review. Configuration, repository instructions, and permission
+> profiles are next.
 
 ## Vision
 
@@ -95,7 +95,7 @@ added later as optional adapters and evaluation baselines.
 - ESM-only TypeScript monorepo
 - TypeScript project references and `tsc -b` for builds
 - Commander for CLI parsing
-- Ink and React for the planned interactive terminal UI
+- Ink and React for the interactive terminal UI
 - Zod for runtime schemas
 - Biome for formatting and linting
 - Vitest for tests
@@ -140,10 +140,26 @@ fresh workspace-write approval scope; command approvals are never reused.
 Available commands are `/help`, `/clear`, and `/exit`. Ctrl+C cancels an active
 task and returns to the prompt; press it again to exit.
 
-The current Milestone 4.5 prompt is intentionally minimal. The planned
-[interactive CLI UI](docs/CLI_UI.md) adds Shift+Enter multi-line input, live `/`
-command completion, `@` workspace-file selection, and a clearer diff approval
-panel. These features are not implemented yet.
+The [interactive CLI UI](docs/CLI_UI.md) supports Shift+Enter or Ctrl+J for a
+newline, live `/` command completion, and bounded fuzzy `@` workspace-file
+selection. A selected path is sent to the model as an explicit reference; the
+model still reads its contents through the normal `read_file` tool. File-write
+approval shows a colored, line-numbered diff with a no-color fallback.
+
+Some macOS terminals, including the VS Code integrated terminal, send the same
+byte for Enter and Shift+Enter. Forge cannot distinguish those keys at the TTY
+boundary, so Ctrl+J works as the portable newline shortcut. To make Shift+Enter
+send that shortcut in VS Code, open **Preferences: Open Keyboard Shortcuts
+(JSON)** and add:
+
+```json
+{
+  "key": "shift+enter",
+  "command": "workbench.action.terminal.sendSequence",
+  "when": "terminalFocus",
+  "args": { "text": "\u000a" }
+}
+```
 
 To make the development build available as `forge` globally:
 
