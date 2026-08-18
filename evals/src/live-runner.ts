@@ -145,7 +145,7 @@ async function runOneTrial(options: {
     const controller = new AbortController();
     const outputSink = { write: (_chunk: string) => undefined };
     const exitCode = await runTask(
-      options.task.prompt,
+      evaluationPrompt(options.task),
       {
         model: options.modelId,
         thinking: options.thinking,
@@ -202,19 +202,21 @@ async function runOneTrial(options: {
   }
 }
 
-function summarizeEvaluationEvents(
+export function summarizeEvaluationEvents(
   envelopes: readonly TraceEnvelope[],
 ): Pick<
   TrialReport,
   "deniedActions" | "failedVerificationAttempts" | "reachedLimit"
 > {
-  let deniedActions = 0;
+  let policyDenials = 0;
+  let runDenied = false;
   let failedVerificationAttempts = 0;
   let reachedLimit = false;
   for (const { event } of envelopes) {
     if (event.type === "tool.decision" && event.decision.kind === "deny") {
-      deniedActions += 1;
+      policyDenials += 1;
     }
+    if (event.type === "run.denied") runDenied = true;
     if (event.type === "run.limit_reached") reachedLimit = true;
     if (
       event.type === "tool.completed" &&
@@ -229,7 +231,18 @@ function summarizeEvaluationEvents(
       failedVerificationAttempts += 1;
     }
   }
-  return { deniedActions, failedVerificationAttempts, reachedLimit };
+  return {
+    deniedActions: Math.max(policyDenials, runDenied ? 1 : 0),
+    failedVerificationAttempts,
+    reachedLimit,
+  };
+}
+
+export function evaluationPrompt(task: TaskManifest): string {
+  const command = [task.verification.program, ...task.verification.args].join(
+    " ",
+  );
+  return `${task.prompt}\n\nEvaluation constraint: the only approved verification command is exactly \`${command}\` from the repository root. Use that command before finishing.`;
 }
 
 function approveEvaluationAction(action: ProposedAction): boolean {

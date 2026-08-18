@@ -1,11 +1,15 @@
 import { cp, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-
+import type { TraceEnvelope } from "@forge/persistence";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { gradeWorkspace } from "./grader.js";
-import { runLiveEvaluation } from "./live-runner.js";
+import {
+  evaluationPrompt,
+  runLiveEvaluation,
+  summarizeEvaluationEvents,
+} from "./live-runner.js";
 import { repositoryRoot } from "./paths.js";
 import { loadTaskManifests } from "./tasks.js";
 
@@ -27,6 +31,25 @@ describe("evaluation task contracts", () => {
       "retry-cache",
       "validation-bug",
     ]);
+  });
+
+  it("tells the model the exact approved verification command", async () => {
+    const [task] = await loadTaskManifests();
+    if (!task) throw new Error("Expected at least one evaluation task.");
+    expect(evaluationPrompt(task)).toContain(
+      "only approved verification command is exactly `pnpm test`",
+    );
+  });
+
+  it("counts an approval rejection as a denied action", () => {
+    const envelope: TraceEnvelope = {
+      schemaVersion: 1,
+      runId: "11111111-1111-4111-8111-111111111111",
+      sequence: 0,
+      timestamp: "2026-08-19T00:00:00.000Z",
+      event: { type: "run.denied", message: "The action was not approved." },
+    };
+    expect(summarizeEvaluationEvents([envelope]).deniedActions).toBe(1);
   });
 
   it("rejects every intentionally broken fixture", async () => {

@@ -69,7 +69,8 @@ so its recorded commit identifies the exact evaluated code.
 
 The runner grants the first workspace write and only the exact structured
 verification command `pnpm test` from the fixture root with a 60-second timeout.
-Every other process proposal is denied.
+Every other process proposal is denied. The runner appends this constraint to
+the task prompt so the model knows which verification command is available.
 
 ## Reports and traces
 
