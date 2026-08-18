@@ -28,6 +28,7 @@ import {
   moveEditorCursor,
   slashCommandQuery,
 } from "./interactive-model.js";
+import { TerminalMarkdown } from "./markdown.js";
 import {
   createPersistentInteractiveSession,
   type InteractiveSessionPersistence,
@@ -815,7 +816,7 @@ function TranscriptBlock({
           <Text bold color="magenta">
             ◆ Reasoning
           </Text>
-          <Text dimColor>{entry.text}</Text>
+          <TerminalMarkdown dimColor>{entry.text}</TerminalMarkdown>
         </Box>
       );
     case "answer":
@@ -830,7 +831,7 @@ function TranscriptBlock({
           <Text bold color="green">
             ● Answer
           </Text>
-          <Text>{entry.text}</Text>
+          <TerminalMarkdown>{entry.text}</TerminalMarkdown>
         </Box>
       );
     case "tool":

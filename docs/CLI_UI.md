@@ -16,6 +16,8 @@ The terminal UI should provide:
 - Discoverable slash-command completion
 - Workspace-file completion with `@`
 - Clear streamed reasoning, answers, tool activity, and run state
+- Terminal-native Markdown for headings, lists, quotes, links, inline code,
+  emphasis, and fenced code blocks
 - A readable diff review before file-write approval
 - Keyboard-only operation with predictable cancellation
 
@@ -149,6 +151,10 @@ success from presentation state or parse previously rendered terminal text.
 Core events and approval requests remain the source of truth. Interactive and
 non-interactive commands continue to share the same Forge-owned runtime,
 workspace validation, policy gateway, and tool execution behavior.
+
+Model Markdown is rendered as a bounded terminal-native subset rather than
+HTML. The renderer must tolerate incomplete constructs while text is streaming
+and strip model-supplied ANSI control sequences before styling output.
 
 ## Test strategy
 
