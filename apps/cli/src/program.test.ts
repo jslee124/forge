@@ -19,6 +19,12 @@ describe("Forge CLI", () => {
     expect(program.commands.map((command) => command.name())).toContain(
       "config",
     );
+    expect(program.commands.map((command) => command.name())).toContain(
+      "inspect",
+    );
+    expect(program.commands.map((command) => command.name())).toContain(
+      "resume",
+    );
   });
 
   it("passes model options and environment to the ask command", async () => {
@@ -156,6 +162,31 @@ describe("Forge CLI", () => {
     await program.parseAsync(["node", "forge", "config", "show"]);
 
     expect(received).toBe("show:/tmp/forge-test-home");
+    expect(exitCode).toBe(0);
+  });
+
+  it("routes inspect and resume commands", async () => {
+    const received: string[] = [];
+    let exitCode: number | undefined;
+    const program = createProgram({
+      env: { FORGE_HOME: "/tmp/forge-test-home" },
+      runInspect: async (runId) => {
+        received.push(`inspect:${runId}`);
+        return 0;
+      },
+      runResume: async (sessionId, options) => {
+        received.push(`resume:${sessionId ?? "last"}:${options.last === true}`);
+        return 0;
+      },
+      setExitCode: (value) => {
+        exitCode = value;
+      },
+    });
+
+    await program.parseAsync(["node", "forge", "inspect", "run-id"]);
+    await program.parseAsync(["node", "forge", "resume", "--last"]);
+
+    expect(received).toEqual(["inspect:run-id", "resume:last:true"]);
     expect(exitCode).toBe(0);
   });
 });

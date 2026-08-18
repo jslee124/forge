@@ -1,0 +1,19 @@
+{
+  "name": "@forge/persistence",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@forge/core": "workspace:*",
+    "zod": "^4.4.3"
+  }
+}

@@ -2,11 +2,13 @@
 
 ## Status
 
-This document defines Forge's implemented security model through Milestone 5.
+This document defines Forge's implemented security model through Milestone 6.
 Built-in tools stay inside the selected workspace, every valid tool action
 passes through a policy decision, and approval-required actions are denied when
 no approval channel is available. The `safe` and `workspace-write` permission
-profiles are implemented; `full-access` remains deferred.
+profiles are implemented. Persisted sessions restore completed conversation
+only, and every resumed run receives fresh policy and approval state;
+`full-access` remains deferred.
 
 ## Principle
 

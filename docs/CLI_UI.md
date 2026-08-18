@@ -68,7 +68,7 @@ commands. Additional characters filter the list by command name.
 
 Each command is defined once with its name, description, and handler. The same
 registry drives completion and `/help`, preventing the two surfaces from
-drifting. The initial registry contains `/help`, `/clear`, and `/exit`.
+drifting. The registry contains `/help`, `/clear`, `/resume`, and `/exit`.
 
 - Up/Down changes the highlighted command.
 - Enter executes the highlighted command.

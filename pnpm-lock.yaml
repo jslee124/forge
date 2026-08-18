@@ -32,6 +32,9 @@ importers:
       '@forge/model-deepseek':
         specifier: workspace:*
         version: link:../../packages/model-deepseek
+      '@forge/persistence':
+        specifier: workspace:*
+        version: link:../../packages/persistence
       '@forge/tools':
         specifier: workspace:*
         version: link:../../packages/tools
@@ -76,6 +79,15 @@ importers:
         specifier: ^7.0.66
         version: 7.0.66(zod@4.4.3)
     devDependencies:
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
+
+  packages/persistence:
+    dependencies:
+      '@forge/core':
+        specifier: workspace:*
+        version: link:../core
       zod:
         specifier: ^4.4.3
         version: 4.4.3

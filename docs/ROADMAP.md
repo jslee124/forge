@@ -2,10 +2,10 @@
 
 ## Current milestone
 
-**Milestone 5: Configuration, instructions, and permission profiles is
-complete.** The next milestone is **Milestone 6: Structured traces, persistent
-sessions, and resume**. No later milestone should be treated as implemented
-merely because its design is documented.
+**Milestone 6: Structured traces, persistent sessions, and resume is complete.**
+The next milestone is **Milestone 7: Evaluation and first release**. No later
+milestone should be treated as implemented merely because its design is
+documented.
 
 ## Working rules
 
@@ -240,23 +240,23 @@ restart, and verify that persistence cannot weaken the safety boundary. The
 detailed persistence contract lives in [Persistent Sessions and Run
 Traces](SESSIONS.md).
 
-- [ ] Define versioned run-event schemas
-- [ ] Render terminal output from the event stream
-- [ ] Persist events as JSONL
-- [ ] Add versioned session snapshots under `FORGE_HOME`
-- [ ] Assign separate session IDs and run IDs
-- [ ] Persist only completed user/assistant conversation turns
-- [ ] Represent provider-returned reasoning as typed events
-- [ ] Redact configured credentials and known secrets
-- [ ] Add `forge inspect <run-id>`
-- [ ] Add `forge resume <session-id>` and `forge resume --last`
-- [ ] Add an interactive `/resume` session picker scoped to the workspace
-- [ ] Reload current configuration and instructions when a session resumes
-- [ ] Never restore approvals, provider continuations, or incomplete tool calls
-- [ ] Record duration, model steps, tool calls, token usage, and terminal status
-- [ ] Test external paths, symlinks, missing approval UI, decision precedence,
+- [x] Define versioned run-event schemas
+- [x] Render terminal output from the event stream
+- [x] Persist events as JSONL
+- [x] Add versioned session snapshots under `FORGE_HOME`
+- [x] Assign separate session IDs and run IDs
+- [x] Persist only completed user/assistant conversation turns
+- [x] Represent provider-returned reasoning as typed events
+- [x] Redact configured credentials and known secrets
+- [x] Add `forge inspect <run-id>`
+- [x] Add `forge resume <session-id>` and `forge resume --last`
+- [x] Add an interactive `/resume` session picker scoped to the workspace
+- [x] Reload current configuration and instructions when a session resumes
+- [x] Never restore approvals, provider continuations, or incomplete tool calls
+- [x] Record duration, model steps, tool calls, token usage, and terminal status
+- [x] Test external paths, symlinks, missing approval UI, decision precedence,
   command timeouts, and representative destructive programs
-- [ ] Keep `docs/SECURITY.md` aligned with implemented behavior
+- [x] Keep `docs/SECURITY.md` aligned with implemented behavior
 
 Acceptance criteria:
 

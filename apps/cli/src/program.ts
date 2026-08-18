@@ -4,6 +4,8 @@ import { Command } from "commander";
 
 import { type AskOptions, runAskFromCli } from "./ask.js";
 import { runConfigCommand } from "./config-command.js";
+import { runInspectFromCli } from "./inspect.js";
+import { type ResumeOptions, runResumeFromCli } from "./resume.js";
 import { runTaskFromCli } from "./run.js";
 import { runInteractiveFromCli } from "./session.js";
 
@@ -28,6 +30,15 @@ export interface ProgramDependencies {
     mode: "show" | "validate",
     env: NodeJS.ProcessEnv,
   ) => Promise<number>;
+  readonly runInspect?: (
+    runId: string,
+    env: NodeJS.ProcessEnv,
+  ) => Promise<number>;
+  readonly runResume?: (
+    sessionId: string | undefined,
+    options: ResumeOptions,
+    env: NodeJS.ProcessEnv,
+  ) => Promise<number>;
 }
 
 export function createProgram(dependencies: ProgramDependencies = {}): Command {
@@ -48,6 +59,8 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
         stdout: process.stdout,
         stderr: process.stderr,
       }));
+  const inspect = dependencies.runInspect ?? runInspectFromCli;
+  const resume = dependencies.runResume ?? runResumeFromCli;
   const program = new Command()
     .name("forge")
     .description("A safe, observable, and evaluable coding agent")
@@ -123,6 +136,29 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
     .command("validate")
     .description("Validate user and project configuration")
     .action(async () => setExitCode(await config("validate", env)));
+
+  program
+    .command("inspect")
+    .description("Inspect a persisted run trace")
+    .argument("<run-id>", "run UUID")
+    .action(async (runId: string) => {
+      setExitCode(await inspect(runId, env));
+    });
+
+  program
+    .command("resume")
+    .description("Resume a persisted interactive session")
+    .argument("[session-id]", "session UUID")
+    .option("--last", "resume the latest session in this workspace")
+    .option("--model <model>", "DeepSeek model ID")
+    .option("--thinking <mode>", "thinking mode: enabled or disabled")
+    .option(
+      "--permission-profile <profile>",
+      "permission profile: safe or workspace-write",
+    )
+    .action(async (sessionId: string | undefined, options: ResumeOptions) => {
+      setExitCode(await resume(sessionId, options, env));
+    });
 
   return program;
 }

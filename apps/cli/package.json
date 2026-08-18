@@ -19,6 +19,7 @@
     "@forge/config": "workspace:*",
     "@forge/core": "workspace:*",
     "@forge/model-deepseek": "workspace:*",
+    "@forge/persistence": "workspace:*",
     "@forge/tools": "workspace:*",
     "commander": "^15.0.0",
     "ink": "^7.1.1",

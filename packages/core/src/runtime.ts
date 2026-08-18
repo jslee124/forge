@@ -32,7 +32,11 @@ export type RunStatus =
   | "limit_reached";
 
 export type RunEvent =
-  | { readonly type: "run.started"; readonly prompt: string }
+  | {
+      readonly type: "run.started";
+      readonly prompt: string;
+      readonly context?: RunContextSnapshot;
+    }
   | { readonly type: "model.started"; readonly step: number }
   | {
       readonly type: "model.reasoning" | "model.text";
@@ -87,8 +91,17 @@ export interface RunLimits {
   readonly maxToolCalls: number;
 }
 
+export interface RunContextSnapshot {
+  readonly workspaceRoot: string;
+  readonly workingDirectory: string;
+  readonly modelId: string;
+  readonly permissionProfile: string;
+  readonly instructionPaths: readonly string[];
+}
+
 export interface RunAgentOptions {
   readonly prompt: string;
+  readonly context?: RunContextSnapshot;
   readonly instructions?: string;
   readonly conversation?: readonly ModelConversationMessage[];
   readonly model: ModelAdapter;
@@ -136,7 +149,11 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
   let toolResults: readonly ModelToolResult[] | undefined;
   let finalText = "";
 
-  await emit({ type: "run.started", prompt: options.prompt });
+  await emit({
+    type: "run.started",
+    prompt: options.prompt,
+    ...(options.context ? { context: options.context } : {}),
+  });
 
   while (true) {
     if (options.signal.aborted) {

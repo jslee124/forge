@@ -98,7 +98,7 @@ AI SDK -> Model Provider
 The CLI is responsible for:
 
 - Parsing commands and configuration
-- Managing the in-memory interactive session, multi-line editor, slash-command
+- Managing the persistent interactive session, multi-line editor, slash-command
   completion, and structured `@` file mentions
 - Selecting the workspace
 - Rendering streamed events and readable diffs
@@ -115,7 +115,7 @@ trace events by injecting file contents automatically.
 
 Each interactive prompt starts a fresh bounded run and approval-policy instance.
 Only completed user and assistant text is carried into the next prompt. That
-conversation may be persisted as a session and restored after restart, while
+conversation is persisted as a session and can be restored after restart, while
 tool continuation metadata and approvals remain scoped to the run that produced
 them. See [Persistent Sessions and Run Traces](SESSIONS.md).
 

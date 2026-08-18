@@ -2,6 +2,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import type { ForgeTool, RunResult } from "@forge/core";
+import type { SessionSummary } from "@forge/persistence";
 import { renderToString } from "ink";
 import { render } from "ink-testing-library";
 import { afterEach, describe, expect, it } from "vitest";
@@ -11,6 +12,7 @@ import {
   INK_KEYBOARD_MODE,
   InteractiveApp,
 } from "./interactive-ui.js";
+import type { InteractiveSessionPersistence } from "./persistent-session.js";
 
 const temporaryDirectories: string[] = [];
 
@@ -237,6 +239,55 @@ describe("Ink interactive terminal", () => {
     expect(narrow).toContain("Forge");
     expect(wide).toContain("Forge");
     expect(narrow).not.toBe(wide);
+  });
+
+  it("opens /resume picker and restores the selected conversation", async () => {
+    const root = await createWorkspace();
+    const sessionId = "5ca1ab1e-87c6-4a23-bf61-e346bbaf95ed";
+    const summary: SessionSummary = {
+      id: sessionId,
+      updatedAt: "2026-08-18T10:00:00.000Z",
+      workspaceRoot: root,
+      workingDirectory: root,
+      title: "Previous task",
+      messageCount: 2,
+      runCount: 1,
+      lastRunStatus: "completed",
+    };
+    const sessionPersistence: InteractiveSessionPersistence = {
+      messages: [],
+      sessionId: undefined,
+      prepareRun: async () => sessionId,
+      recordRun: async () => undefined,
+      clear: () => undefined,
+      list: async () => [summary],
+      resume: async () => [
+        { role: "user", content: "Previous task" },
+        { role: "assistant", content: "Previous answer" },
+      ],
+    };
+    const instance = render(
+      <InteractiveApp
+        options={{}}
+        env={{}}
+        cwd={root}
+        sessionPersistence={sessionPersistence}
+      />,
+    );
+
+    await settle();
+    instance.stdin.write("/resume");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+    expect(instance.lastFrame()).toContain("Resume saved session");
+    expect(instance.lastFrame()).toContain("Previous task");
+    instance.stdin.write("\r");
+    await settle();
+
+    expect(instance.lastFrame()).toContain("Previous answer");
+    expect(instance.lastFrame()).toContain(`Resumed session ${sessionId}`);
+    instance.unmount();
   });
 });
 

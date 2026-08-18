@@ -7,10 +7,10 @@ It is a learning project and portfolio project focused on the engineering behind
 coding agents: model interaction, tool execution, safety boundaries, execution
 traces, plugins, and reproducible evaluations.
 
-> Status: Milestone 5 complete. Forge supports bounded coding runs, a multi-line
-> Ink terminal, versioned user/project configuration, hierarchical `AGENTS.md`
-> instructions, and explicit permission profiles. Structured trace persistence,
-> resumable sessions, and security hardening are next.
+> Status: Milestone 6 complete. Forge supports bounded coding runs, a multi-line
+> Ink terminal, versioned configuration and instructions, explicit permission
+> profiles, versioned JSONL traces, run inspection, and resumable local sessions.
+> Evaluation and the first reproducible release are next.
 
 ## Vision
 
@@ -135,13 +135,13 @@ export DEEPSEEK_API_KEY="your-api-key"
 pnpm forge
 ```
 
-The interactive prompt preserves completed user/assistant turns in memory for
-the current process. Milestone 6 will persist those completed turns so
-`forge resume` and `/resume` can continue them after restart. Each prompt is
-still a separate bounded agent run with a fresh workspace-write approval scope;
-command approvals are never reused.
-Available commands are `/help`, `/clear`, and `/exit`. Ctrl+C cancels an active
-task and returns to the prompt; press it again to exit.
+The interactive prompt persists completed user/assistant turns under
+`$FORGE_HOME/sessions/`. Continue one after restart with `forge resume <id>`,
+`forge resume --last`, or the interactive `/resume` picker. Each prompt remains
+a separate bounded run with fresh policy and approval state; pending tool calls,
+provider continuations, and command approvals are never restored.
+Available commands are `/help`, `/clear`, `/resume`, and `/exit`. Ctrl+C cancels
+an active task and returns to the prompt; press it again to exit.
 
 The [interactive CLI UI](docs/CLI_UI.md) supports Shift+Enter or Ctrl+J for a
 newline, live `/` command completion, and bounded fuzzy `@` workspace-file
@@ -239,6 +239,18 @@ directory, preferring `AGENTS.override.md` over `AGENTS.md` at each level. Each
 instruction retains its source path and remains prompt input only; it cannot
 approve tools or widen permissions.
 
+Every traced coding run prints its run ID and stores a versioned JSONL event
+stream under `$FORGE_HOME/runs/`. Inspect it without contacting the model or
+executing tools:
+
+```bash
+pnpm forge inspect <run-id>
+```
+
+Session snapshots and traces may contain repository text, diffs, commands, and
+model output. Forge redacts configured credentials, but these files should still
+be treated as sensitive local data.
+
 The API key is read from the process environment for each invocation and is not
 saved by Forge. A missing key exits with code `2`; provider and network failures
 exit with code `1`; Ctrl+C cancels an active request and exits with code `130`.
@@ -274,7 +286,10 @@ slash commands, task cancellation, and a global development-link workflow.
 Milestone 4.6 added the interactive TUI, multi-line editing, command and file
 completion, and readable diff review. Milestone 5 added versioned configuration
 with provenance, hierarchical repository instructions, enforced limits, and
-the `safe` and `workspace-write` permission profiles.
+the `safe` and `workspace-write` permission profiles. Milestone 6 added
+versioned JSONL traces, run inspection, persistent workspace-scoped sessions,
+restart-safe resume by ID or recency, and fresh security state for every resumed
+run.
 
 ## License
 

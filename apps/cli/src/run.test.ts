@@ -12,7 +12,11 @@ import type {
 import { applyPatchTool, createFileTool, resolveWorkspace } from "@forge/tools";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { createTerminalApprovalChannel, runTask } from "./run.js";
+import {
+  createTerminalApprovalChannel,
+  type RunMetadata,
+  runTask,
+} from "./run.js";
 
 const temporaryDirectories: string[] = [];
 const usage = {
@@ -107,17 +111,21 @@ describe("forge run", () => {
     const stdout = outputBuffer();
     const stderr = outputBuffer();
     const model = new ReadThenAnswerModel();
+    let metadata: RunMetadata | undefined;
 
     const exitCode = await runTask(
-      "What does README say?",
+      "What does README say? test-secret",
       {},
       {
-        env: { DEEPSEEK_API_KEY: "test-secret" },
+        env: { DEEPSEEK_API_KEY: "test-secret", FORGE_HOME: root },
         cwd: root,
         stdout: stdout.output,
         stderr: stderr.output,
         signal: new AbortController().signal,
         createAdapter: () => model,
+        onResult: (_result, nextMetadata) => {
+          metadata = nextMetadata;
+        },
       },
     );
 
@@ -128,6 +136,21 @@ describe("forge run", () => {
     expect(stderr.read()).toContain("[tool] completed read_file");
     expect(model.requests[0]?.instructions).toContain("Keep answers concise.");
     expect(model.requests[0]?.instructions).toContain(
+      path.join(root, "AGENTS.md"),
+    );
+    if (!metadata) throw new Error("Expected run metadata.");
+    const trace = await readFile(
+      path.join(root, "runs", `${metadata.runId}.jsonl`),
+      "utf8",
+    );
+    expect(trace).toContain('"schemaVersion":1');
+    expect(trace).not.toContain("test-secret");
+    const firstEvent = JSON.parse(trace.split("\n")[0] ?? "null") as {
+      readonly event?: {
+        readonly context?: { readonly instructionPaths?: readonly string[] };
+      };
+    };
+    expect(firstEvent.event?.context?.instructionPaths).toContain(
       path.join(root, "AGENTS.md"),
     );
     expect(model.requests[1]?.toolResults?.[0]).toMatchObject({
@@ -151,7 +174,7 @@ describe("forge run", () => {
       "What does README say?",
       {},
       {
-        env: { DEEPSEEK_API_KEY: "test-secret" },
+        env: { DEEPSEEK_API_KEY: "test-secret", FORGE_HOME: root },
         cwd: root,
         stdout: stdout.output,
         stderr: stderr.output,
@@ -206,7 +229,7 @@ describe("forge run", () => {
       "Create hello.md",
       {},
       {
-        env: { DEEPSEEK_API_KEY: "test-secret" },
+        env: { DEEPSEEK_API_KEY: "test-secret", FORGE_HOME: root },
         cwd: root,
         stdout: stdout.output,
         stderr: stderr.output,
@@ -238,7 +261,7 @@ describe("forge run", () => {
       "Create hello.md",
       { permissionProfile: "workspace-write" },
       {
-        env: { DEEPSEEK_API_KEY: "test-secret" },
+        env: { DEEPSEEK_API_KEY: "test-secret", FORGE_HOME: root },
         cwd: root,
         stdout: outputBuffer().output,
         stderr: outputBuffer().output,

@@ -12,6 +12,7 @@
     { "path": "../../packages/config" },
     { "path": "../../packages/core" },
     { "path": "../../packages/model-deepseek" },
+    { "path": "../../packages/persistence" },
     { "path": "../../packages/tools" }
   ],
   "include": ["src/**/*.ts", "src/**/*.tsx"],

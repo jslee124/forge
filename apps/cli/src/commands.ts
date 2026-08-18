@@ -1,11 +1,12 @@
 export interface SlashCommand {
-  readonly name: "/help" | "/clear" | "/exit";
+  readonly name: "/help" | "/clear" | "/resume" | "/exit";
   readonly description: string;
 }
 
 export const SLASH_COMMANDS: readonly SlashCommand[] = [
   { name: "/help", description: "Show available commands" },
   { name: "/clear", description: "Clear conversation context" },
+  { name: "/resume", description: "Resume a saved workspace session" },
   { name: "/exit", description: "Exit Forge" },
 ];
 

@@ -19,8 +19,9 @@ tool's normal approval and trace pipeline.
 
 Milestone 5 implements the version 1 configuration schema, user/project config
 merge, instruction discovery, provenance reporting, and the `safe` and
-`workspace-write` profiles. Plugin and portable skill discovery remain later
-work.
+`workspace-write` profiles. Milestone 6 persists versioned sessions and run
+traces under `FORGE_HOME` while reloading that context for every resumed run.
+Plugin and portable skill discovery remain later work.
 
 ## `AGENTS.md`
 
@@ -74,7 +75,7 @@ operating system rather than relative to the current working directory. A
 `FORGE_HOME` environment variable may override the location for portable
 installations, testing, or managed environments.
 
-The planned user layout is:
+The user layout is:
 
 ```text
 ~/.forge/

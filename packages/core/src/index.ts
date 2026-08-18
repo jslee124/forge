@@ -26,6 +26,7 @@ export {
   DEFAULT_MAX_TOOL_CALLS,
   exitCodeForRunStatus,
   type RunAgentOptions,
+  type RunContextSnapshot,
   type RunEvent,
   type RunLimits,
   type RunResult,

@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import {
   ForgeConfigError,
   loadForgeConfig,
@@ -21,6 +23,11 @@ import {
   type DeepSeekThinkingMode,
 } from "@forge/model-deepseek";
 import {
+  configuredSecrets,
+  JsonlTraceWriter,
+  PersistenceError,
+} from "@forge/persistence";
+import {
   type ApplyPatchInput,
   builtinTools,
   type CreateFileInput,
@@ -43,12 +50,20 @@ export interface RunDependencies {
   readonly signal: AbortSignal;
   readonly approvalChannel?: ApprovalChannel;
   readonly conversation?: readonly ModelConversationMessage[];
-  readonly onResult?: (result: RunResult) => void;
+  readonly sessionId?: string;
+  readonly runId?: string;
+  readonly onResult?: (result: RunResult, metadata?: RunMetadata) => void;
   readonly onEvent?: (event: RunEvent) => void | Promise<void>;
   readonly renderEventsToOutput?: boolean;
   readonly createAdapter?: (
     options: CreateDeepSeekModelAdapterOptions,
   ) => ModelAdapter;
+}
+
+export interface RunMetadata {
+  readonly runId: string;
+  readonly sessionId?: string;
+  readonly tracePersisted: boolean;
 }
 
 export async function runTask(
@@ -69,6 +84,22 @@ export async function runTask(
     const thinking: DeepSeekThinkingMode = parseThinkingMode(
       loaded.config.model.thinking,
     );
+    const runId = dependencies.runId ?? randomUUID();
+    const metadata: RunMetadata = {
+      runId,
+      ...(dependencies.sessionId ? { sessionId: dependencies.sessionId } : {}),
+      tracePersisted: loaded.config.trace.enabled,
+    };
+    const trace = loaded.config.trace.enabled
+      ? new JsonlTraceWriter({
+          forgeHome: loaded.forgeHome,
+          runId,
+          ...(dependencies.sessionId
+            ? { sessionId: dependencies.sessionId }
+            : {}),
+          secrets: configuredSecrets(dependencies.env),
+        })
+      : undefined;
     const model = (dependencies.createAdapter ?? createDeepSeekModelAdapter)({
       env: dependencies.env,
       model: loaded.config.model.id || DEFAULT_DEEPSEEK_MODEL,
@@ -84,6 +115,13 @@ export async function runTask(
     );
     const result = await runAgent({
       prompt,
+      context: {
+        workspaceRoot: loaded.workspaceRoot,
+        workingDirectory: loaded.workingDirectory,
+        modelId: loaded.config.model.id,
+        permissionProfile: loaded.config.permissionProfile,
+        instructionPaths: instructions.files.map(({ path }) => path),
+      },
       ...(instructions.prompt ? { instructions: instructions.prompt } : {}),
       ...(dependencies.conversation
         ? { conversation: dependencies.conversation }
@@ -115,11 +153,12 @@ export async function runTask(
         if (dependencies.renderEventsToOutput !== false) {
           render(event);
         }
+        await trace?.append(event);
         await dependencies.onEvent?.(event);
       },
     });
 
-    dependencies.onResult?.(result);
+    dependencies.onResult?.(result, metadata);
 
     return result.exitCode;
   } catch (error) {
@@ -134,6 +173,10 @@ export async function runTask(
     ) {
       dependencies.stderr.write(`Configuration error: ${error.message}\n`);
       return 2;
+    }
+    if (error instanceof PersistenceError) {
+      dependencies.stderr.write(`Persistence error: ${error.message}\n`);
+      return 1;
     }
     dependencies.stderr.write("Unexpected error while starting the run.\n");
     return 1;
@@ -153,6 +196,11 @@ export async function runTaskFromCli(
       stdout: process.stdout,
       stderr: process.stderr,
       signal: cancellation.signal,
+      onResult: (_result, metadata) => {
+        if (metadata?.tracePersisted) {
+          process.stderr.write(`[run] ${metadata.runId}\n`);
+        }
+      },
       ...(process.stdin.isTTY && process.stderr.isTTY
         ? {
             approvalChannel: createTerminalApprovalChannel(

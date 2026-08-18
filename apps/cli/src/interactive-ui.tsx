@@ -3,6 +3,7 @@ import type {
   RunEvent,
   RunResult,
 } from "@forge/core";
+import type { SessionSummary } from "@forge/persistence";
 import { Box, render, Text, useApp, useInput, usePaste } from "ink";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -28,13 +29,18 @@ import {
   slashCommandQuery,
 } from "./interactive-model.js";
 import {
+  createPersistentInteractiveSession,
+  type InteractiveSessionPersistence,
+} from "./persistent-session.js";
+import {
   type CommandApprovalPreview,
   createApprovalChannel,
   type RunDependencies,
+  type RunMetadata,
   runTask,
 } from "./run.js";
 
-type Phase = "editing" | "running" | "approving";
+type Phase = "editing" | "running" | "approving" | "resuming";
 type TranscriptKind =
   | "user"
   | "reasoning"
@@ -65,6 +71,7 @@ export interface InteractiveUiDependencies {
     options: AskOptions,
     dependencies: RunDependencies,
   ) => Promise<number>;
+  readonly sessionPersistence?: InteractiveSessionPersistence;
 }
 
 interface InteractiveAppProps extends InteractiveUiDependencies {
@@ -85,8 +92,25 @@ export async function runInkInteractiveFromCli(
     return 2;
   }
 
+  let sessionPersistence = dependencies.sessionPersistence;
+  try {
+    sessionPersistence ??= await createPersistentInteractiveSession({
+      cwd: dependencies.cwd,
+      env: dependencies.env,
+    });
+  } catch (error) {
+    process.stderr.write(
+      `Could not initialize persistent sessions: ${error instanceof Error ? error.message : "unknown error"}\n`,
+    );
+    return 2;
+  }
+
   const instance = render(
-    <InteractiveApp {...dependencies} options={options} />,
+    <InteractiveApp
+      {...dependencies}
+      sessionPersistence={sessionPersistence}
+      options={options}
+    />,
     {
       stdin: process.stdin,
       stdout: process.stdout,
@@ -111,22 +135,27 @@ export function InteractiveApp({
   env,
   cwd,
   executeTask = runTask,
+  sessionPersistence,
 }: InteractiveAppProps): React.JSX.Element {
   const { exit } = useApp();
   const { TERM_PROGRAM: terminalProgram } = env;
   const isVsCodeTerminal = terminalProgram === "vscode";
   const [editor, setEditor] = useState<EditorState>(() => createEditorState());
   const [phase, setPhase] = useState<Phase>("editing");
-  const [transcript, setTranscript] = useState<readonly TranscriptEntry[]>([]);
+  const initialMessages = sessionPersistence?.messages ?? [];
+  const [transcript, setTranscript] = useState<readonly TranscriptEntry[]>(() =>
+    conversationTranscript(initialMessages),
+  );
   const [files, setFiles] = useState<readonly string[]>([]);
   const [filesLoading, setFilesLoading] = useState(true);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [dismissedCompletion, setDismissedCompletion] = useState<string>();
   const [approval, setApproval] = useState<PendingApproval>();
-  const conversation = useRef<ModelConversationMessage[]>([]);
+  const [sessions, setSessions] = useState<readonly SessionSummary[]>([]);
+  const conversation = useRef<ModelConversationMessage[]>([...initialMessages]);
   const activeController = useRef<AbortController | undefined>(undefined);
   const idleExitArmed = useRef(false);
-  const nextTranscriptId = useRef(0);
+  const nextTranscriptId = useRef(initialMessages.length);
 
   const completionSignature = `${editor.value}\u0000${editor.cursor}`;
   const mentionQuery = activeMentionQuery(editor.value, editor.cursor);
@@ -265,8 +294,38 @@ export function InteractiveApp({
         return;
       case "/clear":
         conversation.current = [];
+        sessionPersistence?.clear();
         setTranscript([]);
         setEditor(createEditorState());
+        return;
+      case "/resume":
+        setEditor(createEditorState());
+        if (!sessionPersistence) {
+          appendEntry("warning", "Persistent sessions are unavailable.\n");
+          return;
+        }
+        setPhase("resuming");
+        setSelectedIndex(0);
+        void sessionPersistence.list().then(
+          (available) => {
+            if (available.length === 0) {
+              appendEntry(
+                "system",
+                "No saved session exists for this workspace.",
+              );
+              setPhase("editing");
+              return;
+            }
+            setSessions(available.slice(0, 10));
+          },
+          (error: unknown) => {
+            appendEntry(
+              "error",
+              `Could not list sessions: ${error instanceof Error ? error.message : "unknown error"}`,
+            );
+            setPhase("editing");
+          },
+        );
         return;
       case "/help":
         appendEntry("system", formatSlashCommandHelp());
@@ -296,6 +355,7 @@ export function InteractiveApp({
     setPhase("running");
     appendEntry("user", editor.value);
     let result: RunResult | undefined;
+    let metadata: RunMetadata | undefined;
     let commandPreview: CommandApprovalPreview | undefined;
 
     const approvalChannel = createApprovalChannel(
@@ -327,33 +387,48 @@ export function InteractiveApp({
       },
     );
 
-    void executeTask(prompt, options, {
-      env,
-      cwd,
-      stdout,
-      stderr,
-      signal: controller.signal,
-      approvalChannel,
-      conversation: [...conversation.current],
-      onEvent: handleRunEvent,
-      renderEventsToOutput: false,
-      onResult: (nextResult) => {
-        result = nextResult;
-      },
-    }).finally(() => {
-      if (result?.status === "completed") {
-        conversation.current.push({ role: "user", content: prompt });
-        if (result.finalText !== "") {
-          conversation.current.push({
-            role: "assistant",
-            content: result.finalText,
-          });
-        }
+    void (async () => {
+      const sessionId = await sessionPersistence?.prepareRun();
+      await executeTask(prompt, options, {
+        env,
+        cwd,
+        stdout,
+        stderr,
+        signal: controller.signal,
+        approvalChannel,
+        conversation: [...conversation.current],
+        ...(sessionId ? { sessionId } : {}),
+        onEvent: handleRunEvent,
+        renderEventsToOutput: false,
+        onResult: (nextResult, nextMetadata) => {
+          result = nextResult;
+          metadata = nextMetadata;
+        },
+      });
+      if (result && metadata && sessionPersistence) {
+        await sessionPersistence.recordRun(prompt, result, metadata);
       }
-      activeController.current = undefined;
-      setApproval(undefined);
-      setPhase("editing");
-    });
+    })()
+      .catch((error: unknown) => {
+        appendEntry(
+          "error",
+          `Session persistence failed: ${error instanceof Error ? error.message : "unknown error"}`,
+        );
+      })
+      .finally(() => {
+        if (result?.status === "completed") {
+          conversation.current.push({ role: "user", content: prompt });
+          if (result.finalText !== "") {
+            conversation.current.push({
+              role: "assistant",
+              content: result.finalText,
+            });
+          }
+        }
+        activeController.current = undefined;
+        setApproval(undefined);
+        setPhase("editing");
+      });
   };
 
   const cancelOrExit = (): void => {
@@ -395,6 +470,46 @@ export function InteractiveApp({
       const answer = input.toLocaleLowerCase();
       if (answer === "y") finishApproval("y");
       else if (answer === "n" || key.escape || key.return) finishApproval("n");
+      return;
+    }
+    if (phase === "resuming") {
+      if (key.escape) {
+        setSessions([]);
+        setPhase("editing");
+        return;
+      }
+      if (key.upArrow || key.downArrow) {
+        setSelectedIndex((current) => {
+          if (sessions.length === 0) return 0;
+          const delta = key.upArrow ? -1 : 1;
+          return (current + delta + sessions.length) % sessions.length;
+        });
+        return;
+      }
+      if (key.return) {
+        const selected = sessions[Math.min(selectedIndex, sessions.length - 1)];
+        if (selected && sessionPersistence) {
+          void sessionPersistence.resume(selected.id).then(
+            (messages) => {
+              conversation.current = [...messages];
+              const restored = conversationTranscript(messages);
+              nextTranscriptId.current = restored.length;
+              setTranscript(restored);
+              setSessions([]);
+              setPhase("editing");
+              appendEntry("system", `Resumed session ${selected.id}.`);
+            },
+            (error: unknown) => {
+              appendEntry(
+                "error",
+                `Could not resume session: ${error instanceof Error ? error.message : "unknown error"}`,
+              );
+              setPhase("editing");
+            },
+          );
+        }
+        return;
+      }
       return;
     }
     if (phase === "running") return;
@@ -556,6 +671,33 @@ export function InteractiveApp({
         </Box>
       ) : null}
 
+      {phase === "resuming" ? (
+        <Box
+          borderStyle="round"
+          borderColor="cyan"
+          flexDirection="column"
+          paddingX={1}
+        >
+          <Text bold color="cyan">
+            Resume saved session
+          </Text>
+          {sessions.length === 0 ? (
+            <Text dimColor>Loading sessions…</Text>
+          ) : null}
+          {sessions.map((session, index) => (
+            <Text
+              key={session.id}
+              bold={index === selectedIndex}
+              {...(index === selectedIndex ? { color: "cyan" as const } : {})}
+            >
+              {index === selectedIndex ? "› " : "  "}
+              {session.title} · {session.updatedAt} · {session.id.slice(0, 8)}
+            </Text>
+          ))}
+          <Text dimColor>Enter resume · Esc cancel</Text>
+        </Box>
+      ) : null}
+
       <Box
         borderStyle="round"
         borderColor={phase === "editing" ? "green" : "gray"}
@@ -601,10 +743,22 @@ export function InteractiveApp({
           ? `${filesLoading ? "Indexing files · " : ""}Enter submit · ${isVsCodeTerminal ? "Ctrl+J newline · configure Shift+Enter in VS Code" : "Shift+Enter/Ctrl+J newline"} · Ctrl+C cancel/exit`
           : phase === "running"
             ? "● Running · Ctrl+C cancel"
-            : "Waiting for approval"}
+            : phase === "approving"
+              ? "Waiting for approval"
+              : "Choose a saved session"}
       </Text>
     </Box>
   );
+}
+
+function conversationTranscript(
+  messages: readonly ModelConversationMessage[],
+): readonly TranscriptEntry[] {
+  return messages.map((message, index) => ({
+    id: index,
+    kind: message.role === "user" ? "user" : "answer",
+    text: message.content,
+  }));
 }
 
 function formatDuration(milliseconds: number): string {
