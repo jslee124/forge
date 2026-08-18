@@ -6,6 +6,7 @@
     { "path": "./packages/model-deepseek" },
     { "path": "./packages/persistence" },
     { "path": "./packages/tools" },
-    { "path": "./apps/cli" }
+    { "path": "./apps/cli" },
+    { "path": "./evals" }
   ]
 }

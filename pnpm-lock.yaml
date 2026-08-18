@@ -55,6 +55,24 @@ importers:
         specifier: ^4.0.0
         version: 4.0.0(@types/react@19.2.18)
 
+  evals:
+    dependencies:
+      '@forge/cli':
+        specifier: workspace:*
+        version: link:../apps/cli
+      '@forge/core':
+        specifier: workspace:*
+        version: link:../packages/core
+      '@forge/model-deepseek':
+        specifier: workspace:*
+        version: link:../packages/model-deepseek
+      '@forge/persistence':
+        specifier: workspace:*
+        version: link:../packages/persistence
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
+
   packages/config:
     dependencies:
       zod:

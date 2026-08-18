@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "id": "validation-bug",
+  "fixture": "fixtures/validation-bug",
+  "prompt": "Make parsePort accept only base-10 integer strings from 1 through 65535. Reject empty input, whitespace-only input, signs, decimals, exponent notation, trailing characters, zero, and values above 65535. Preserve the public API, update tests when useful, and run the repository test command before finishing.",
+  "verification": {
+    "program": "pnpm",
+    "args": ["test"],
+    "cwd": "."
+  },
+  "hiddenGrader": "validation-bug.mjs"
+}

@@ -7,10 +7,10 @@ It is a learning project and portfolio project focused on the engineering behind
 coding agents: model interaction, tool execution, safety boundaries, execution
 traces, plugins, and reproducible evaluations.
 
-> Status: Milestone 6 complete. Forge supports bounded coding runs, a multi-line
-> Ink terminal, versioned configuration and instructions, explicit permission
-> profiles, versioned JSONL traces, run inspection, and resumable local sessions.
-> Evaluation and the first reproducible release are next.
+> Status: Milestone 7 release work is in progress. The deterministic evaluation
+> harness, three fixture tasks, external graders, report generator, and MIT
+> license are implemented. A live DeepSeek report and the `v0.1` tag remain
+> intentionally unpublished until the live release gates pass.
 
 ## Vision
 
@@ -87,6 +87,7 @@ added later as optional adapters and evaluation baselines.
 - [Persistent sessions and run traces](docs/SESSIONS.md)
 - [Plugin model](docs/PLUGINS.md)
 - [v0.1 acceptance and evaluation specification](docs/V0.1_SPEC.md)
+- [Evaluation commands, reports, and current evidence](docs/EVALUATION.md)
 - [Roadmap](docs/ROADMAP.md)
 
 ## Initial technical baseline
@@ -266,6 +267,50 @@ pnpm test
 `pnpm check` runs Biome and strict TypeScript checks. `pnpm test` builds the
 workspace and runs Vitest. The same commands run in GitHub Actions.
 
+## Evaluation
+
+Run the paid-call-free recovery and grader checks:
+
+```bash
+pnpm eval:deterministic
+```
+
+Forge includes three small TypeScript tasks: strict port validation, rejected
+promise cache recovery, and falsy configuration merging. Every task runs in a
+fresh temporary workspace and is checked by fixture-owned tests plus an external
+grader that the Agent cannot edit.
+
+Live trials are deliberately opt-in because they make paid DeepSeek requests:
+
+```bash
+export DEEPSEEK_API_KEY="your-api-key"
+FORGE_EVAL_LIVE=1 pnpm eval:live
+```
+
+The runner records all successes and failures, the exact commit and model
+settings, trace-derived duration/steps/tool calls/token usage, grader results,
+and redacted JSONL traces. See the [evaluation guide](docs/EVALUATION.md) before
+running or publishing live evidence.
+
+## Current results
+
+The deterministic evaluation passed 2 test files and 6 tests on 2026-08-19.
+The complete project suite passed 22 test files and 108 tests. No live DeepSeek
+release report has been recorded in this checkout, so Forge does not currently
+claim a live pass rate or a completed v0.1 release.
+
+## Limitations
+
+- Only DeepSeek is implemented as a real provider.
+- Model behavior is nondeterministic; runtime tests do not prove live task
+  success.
+- Built-in file tools enforce a workspace boundary, but Forge is not an OS
+  sandbox and approved commands run with the user's process privileges.
+- Resume restores completed conversation text, not active tool calls or old
+  approvals.
+- Plugins, `.agents/skills`, multi-agent orchestration, RAG, IDE integration,
+  and cross-machine session synchronization are not implemented.
+
 ## Development approach
 
 Development is organized into small, testable milestones. Each milestone must
@@ -289,8 +334,10 @@ with provenance, hierarchical repository instructions, enforced limits, and
 the `safe` and `workspace-write` permission profiles. Milestone 6 added
 versioned JSONL traces, run inspection, persistent workspace-scoped sessions,
 restart-safe resume by ID or recency, and fresh security state for every resumed
-run.
+run. Milestone 7 adds reproducible fixture manifests, external graders, an
+opt-in live runner, trace-derived reports, and release documentation; live
+provider evidence remains required before tagging v0.1.
 
 ## License
 
-A license will be selected before the first public release.
+[MIT](LICENSE)

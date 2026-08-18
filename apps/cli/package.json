@@ -10,6 +10,10 @@
     ".": {
       "types": "./dist/program.d.ts",
       "import": "./dist/program.js"
+    },
+    "./run": {
+      "types": "./dist/run.d.ts",
+      "import": "./dist/run.js"
     }
   },
   "files": [

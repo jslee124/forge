@@ -1,0 +1,16 @@
+{
+  "name": "@forge/evals",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "live": "node dist/cli.js --live"
+  },
+  "dependencies": {
+    "@forge/cli": "workspace:*",
+    "@forge/core": "workspace:*",
+    "@forge/model-deepseek": "workspace:*",
+    "@forge/persistence": "workspace:*",
+    "zod": "^4.4.3"
+  }
+}

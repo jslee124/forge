@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "id": "retry-cache",
+  "fixture": "fixtures/retry-cache",
+  "prompt": "Fix RetryCache so concurrent callers still share one in-flight load, successful values remain cached, and a rejected load is removed so a later call can retry. Do not let an older rejection delete a newer entry. Preserve the public API and run the repository test command before finishing.",
+  "verification": {
+    "program": "pnpm",
+    "args": ["test"],
+    "cwd": "."
+  },
+  "hiddenGrader": "retry-cache.mjs"
+}

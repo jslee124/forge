@@ -6,7 +6,8 @@
   "packageManager": "pnpm@11.18.0",
   "workspaces": [
     "apps/*",
-    "packages/*"
+    "packages/*",
+    "evals"
   ],
   "engines": {
     "node": ">=24"
@@ -15,6 +16,8 @@
     "build": "tsc -b",
     "check": "biome check . && pnpm typecheck",
     "clean": "tsc -b --clean",
+    "eval:deterministic": "pnpm build && vitest run packages/tools/src/recovery.test.ts evals/src/evaluation.test.ts",
+    "eval:live": "pnpm build && pnpm --filter @forge/evals live",
     "forge": "tsc -b && node apps/cli/dist/index.js",
     "format": "biome format --write .",
     "link:global": "pnpm build && npm link --workspace @forge/cli",

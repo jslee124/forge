@@ -1,0 +1,7 @@
+{"version":2,"width":100,"height":24,"timestamp":1787070633,"env":{"SHELL":"/bin/zsh","TERM":"xterm-256color"}}
+[0.2,"o","$ pnpm eval:deterministic\r\n"]
+[0.8,"o","$ pnpm build && vitest run packages/tools/src/recovery.test.ts evals/src/evaluation.test.ts\r\n"]
+[1.2,"o","\r\n RUN  v4.1.10 /Users/mori/codes/forge\r\n"]
+[1.8,"o"," ✓ packages/tools/src/recovery.test.ts (1 test)\r\n"]
+[2.2,"o"," ✓ evals/src/evaluation.test.ts (5 tests)\r\n"]
+[2.8,"o","\r\n Test Files  2 passed (2)\r\n      Tests  6 passed (6)\r\n"]

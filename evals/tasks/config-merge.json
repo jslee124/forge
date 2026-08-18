@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "id": "config-merge",
+  "fixture": "fixtures/config-merge",
+  "prompt": "Fix mergeWorkerOptions so defaults apply only when a property is absent or undefined. Explicit falsy values such as false, 0, and an empty string must be preserved. Preserve the public API and run the repository test command before finishing.",
+  "verification": {
+    "program": "pnpm",
+    "args": ["test"],
+    "cwd": "."
+  },
+  "hiddenGrader": "config-merge.mjs"
+}

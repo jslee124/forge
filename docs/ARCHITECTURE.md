@@ -49,6 +49,12 @@ fixtures/                   # Small repository tasks used by integration tests
 evals/                      # Task manifests, graders, trial runner, reports
 ```
 
+`evals/` is a private workspace package. Its live runner imports the real CLI
+run boundary, copies one fixture into a fresh temporary workspace, applies a
+narrow test approval channel, persists the normal run trace, and invokes the
+external grader only after the Agent stops. Generated artifacts are ignored
+until a reviewed report is selected for publication.
+
 Milestone 0 creates only `apps/cli` and `packages/core`. Later milestones add
 the provider, tools, configuration, fixtures, and evaluation workspaces. A
 generic `shared` package is intentionally avoided.
