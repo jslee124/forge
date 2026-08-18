@@ -25,3 +25,4 @@ evals/artifacts/
 # Forge trace output
 traces/
 *.jsonl
+!evals/reports/**/*.jsonl

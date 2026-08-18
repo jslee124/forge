@@ -1,4 +1,4 @@
-export const FORGE_VERSION = "0.0.0";
+export const FORGE_VERSION = "0.1.0";
 
 export { ModelConfigurationError, ModelProviderError } from "./errors.js";
 export type {

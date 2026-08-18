@@ -1,0 +1,462 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-08-18T16:43:20.980Z",
+  "forgeCommit": "65c0a51a001005bd7610e14d5e885fdfbfe49d5d",
+  "provider": "deepseek",
+  "modelId": "deepseek-v4-flash",
+  "thinking": "enabled",
+  "trials": [
+    {
+      "taskId": "config-merge",
+      "trial": 1,
+      "runId": "81f38389-61dc-4982-8b28-bac9cbaa34dd",
+      "status": "completed",
+      "exitCode": 0,
+      "passed": true,
+      "grade": {
+        "passed": true,
+        "publicTests": {
+          "exitCode": 0,
+          "stdout": "▶ mergeWorkerOptions\n  ✔ uses defaults for omitted fields (0.428833ms)\n  ✔ preserves an explicit false override (0.046583ms)\n  ✔ preserves an explicit zero override (0.040709ms)\n  ✔ preserves an explicit empty-string override (0.036834ms)\n✔ mergeWorkerOptions (0.927667ms)\nℹ tests 4\nℹ suites 1\nℹ pass 4\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 59.795084\n",
+          "stderr": "$ node --experimental-strip-types --test test/*.test.ts\n",
+          "timedOut": false
+        },
+        "hiddenTests": {
+          "exitCode": 0,
+          "stdout": "",
+          "stderr": "",
+          "timedOut": false
+        }
+      },
+      "trace": {
+        "runId": "81f38389-61dc-4982-8b28-bac9cbaa34dd",
+        "startedAt": "2026-08-18T16:43:21.003Z",
+        "finishedAt": "2026-08-18T16:43:38.400Z",
+        "durationMs": 17397,
+        "modelSteps": 7,
+        "toolCalls": 8,
+        "toolsByName": {
+          "list_files": 1,
+          "read_file": 4,
+          "apply_patch": 2,
+          "run_command": 1
+        },
+        "usage": {
+          "inputTokens": 17693,
+          "outputTokens": 1720,
+          "reasoningTokens": 524,
+          "cachedInputTokens": 15616,
+          "cacheWriteTokens": 0,
+          "totalTokens": 19413
+        },
+        "status": "completed"
+      },
+      "deniedActions": 0,
+      "failedVerificationAttempts": 0,
+      "reachedLimit": false,
+      "traceFile": "traces/81f38389-61dc-4982-8b28-bac9cbaa34dd.jsonl"
+    },
+    {
+      "taskId": "config-merge",
+      "trial": 2,
+      "runId": "783605ae-134c-4762-ac6f-c77464892605",
+      "status": "completed",
+      "exitCode": 0,
+      "passed": true,
+      "grade": {
+        "passed": true,
+        "publicTests": {
+          "exitCode": 0,
+          "stdout": "▶ mergeWorkerOptions\n  ✔ uses defaults for omitted fields (0.422958ms)\n  ✔ preserves an explicit false override (0.04725ms)\n✔ mergeWorkerOptions (0.817625ms)\nℹ tests 2\nℹ suites 1\nℹ pass 2\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 56.804583\n",
+          "stderr": "$ node --experimental-strip-types --test test/*.test.ts\n",
+          "timedOut": false
+        },
+        "hiddenTests": {
+          "exitCode": 0,
+          "stdout": "",
+          "stderr": "",
+          "timedOut": false
+        }
+      },
+      "trace": {
+        "runId": "783605ae-134c-4762-ac6f-c77464892605",
+        "startedAt": "2026-08-18T16:43:38.744Z",
+        "finishedAt": "2026-08-18T16:43:49.688Z",
+        "durationMs": 10944,
+        "modelSteps": 5,
+        "toolCalls": 8,
+        "toolsByName": {
+          "search": 1,
+          "list_files": 1,
+          "read_file": 4,
+          "apply_patch": 1,
+          "run_command": 1
+        },
+        "usage": {
+          "inputTokens": 11971,
+          "outputTokens": 932,
+          "reasoningTokens": 166,
+          "cachedInputTokens": 9984,
+          "cacheWriteTokens": 0,
+          "totalTokens": 12903
+        },
+        "status": "completed"
+      },
+      "deniedActions": 0,
+      "failedVerificationAttempts": 0,
+      "reachedLimit": false,
+      "traceFile": "traces/783605ae-134c-4762-ac6f-c77464892605.jsonl"
+    },
+    {
+      "taskId": "config-merge",
+      "trial": 3,
+      "runId": "6ab3ac2b-dadf-4a3f-a4d1-9b7341b79104",
+      "status": "completed",
+      "exitCode": 0,
+      "passed": true,
+      "grade": {
+        "passed": true,
+        "publicTests": {
+          "exitCode": 0,
+          "stdout": "▶ mergeWorkerOptions\n  ✔ uses defaults for omitted fields (0.474917ms)\n  ✔ preserves an explicit false override (0.050708ms)\n✔ mergeWorkerOptions (0.884708ms)\nℹ tests 2\nℹ suites 1\nℹ pass 2\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 57.861667\n",
+          "stderr": "$ node --experimental-strip-types --test test/*.test.ts\n",
+          "timedOut": false
+        },
+        "hiddenTests": {
+          "exitCode": 0,
+          "stdout": "",
+          "stderr": "",
+          "timedOut": false
+        }
+      },
+      "trace": {
+        "runId": "6ab3ac2b-dadf-4a3f-a4d1-9b7341b79104",
+        "startedAt": "2026-08-18T16:43:50.024Z",
+        "finishedAt": "2026-08-18T16:44:03.470Z",
+        "durationMs": 13446,
+        "modelSteps": 5,
+        "toolCalls": 7,
+        "toolsByName": {
+          "list_files": 1,
+          "read_file": 4,
+          "apply_patch": 1,
+          "run_command": 1
+        },
+        "usage": {
+          "inputTokens": 11538,
+          "outputTokens": 1400,
+          "reasoningTokens": 613,
+          "cachedInputTokens": 10112,
+          "cacheWriteTokens": 0,
+          "totalTokens": 12938
+        },
+        "status": "completed"
+      },
+      "deniedActions": 0,
+      "failedVerificationAttempts": 0,
+      "reachedLimit": false,
+      "traceFile": "traces/6ab3ac2b-dadf-4a3f-a4d1-9b7341b79104.jsonl"
+    },
+    {
+      "taskId": "retry-cache",
+      "trial": 1,
+      "runId": "16c7e4a1-02cf-45f3-bf9c-f97a7e9020d1",
+      "status": "denied",
+      "exitCode": 4,
+      "passed": false,
+      "grade": {
+        "passed": true,
+        "publicTests": {
+          "exitCode": 0,
+          "stdout": "Already up to date\n\nDone in 170ms using pnpm v11.18.0\n▶ RetryCache\n  ✔ deduplicates concurrent successful loads (0.255917ms)\n  ✔ retries after a rejected load (0.166375ms)\n✔ RetryCache (0.789584ms)\nℹ tests 2\nℹ suites 1\nℹ pass 2\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 57.402333\n",
+          "stderr": "$ node --experimental-strip-types --test test/*.test.ts\n",
+          "timedOut": false
+        },
+        "hiddenTests": {
+          "exitCode": 0,
+          "stdout": "",
+          "stderr": "",
+          "timedOut": false
+        }
+      },
+      "trace": {
+        "runId": "16c7e4a1-02cf-45f3-bf9c-f97a7e9020d1",
+        "startedAt": "2026-08-18T16:44:03.820Z",
+        "finishedAt": "2026-08-18T16:45:09.495Z",
+        "durationMs": 65675,
+        "modelSteps": 5,
+        "toolCalls": 8,
+        "toolsByName": {
+          "list_files": 1,
+          "read_file": 5,
+          "apply_patch": 1,
+          "run_command": 1
+        },
+        "usage": {
+          "inputTokens": 27060,
+          "outputTokens": 8684,
+          "reasoningTokens": 7921,
+          "cachedInputTokens": 25344,
+          "cacheWriteTokens": 0,
+          "totalTokens": 35744
+        },
+        "status": "denied"
+      },
+      "deniedActions": 1,
+      "failedVerificationAttempts": 0,
+      "reachedLimit": false,
+      "traceFile": "traces/16c7e4a1-02cf-45f3-bf9c-f97a7e9020d1.jsonl"
+    },
+    {
+      "taskId": "retry-cache",
+      "trial": 2,
+      "runId": "adce50f7-03d3-4ada-8c1b-b606f24c5386",
+      "status": "completed",
+      "exitCode": 0,
+      "passed": true,
+      "grade": {
+        "passed": true,
+        "publicTests": {
+          "exitCode": 0,
+          "stdout": "▶ RetryCache\n  ✔ deduplicates concurrent successful loads (0.250167ms)\n  ✔ retries after a rejected load (0.152667ms)\n✔ RetryCache (0.760583ms)\nℹ tests 2\nℹ suites 1\nℹ pass 2\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 57.982583\n",
+          "stderr": "$ node --experimental-strip-types --test test/*.test.ts\n",
+          "timedOut": false
+        },
+        "hiddenTests": {
+          "exitCode": 0,
+          "stdout": "",
+          "stderr": "",
+          "timedOut": false
+        }
+      },
+      "trace": {
+        "runId": "adce50f7-03d3-4ada-8c1b-b606f24c5386",
+        "startedAt": "2026-08-18T16:45:10.046Z",
+        "finishedAt": "2026-08-18T16:46:01.209Z",
+        "durationMs": 51163,
+        "modelSteps": 6,
+        "toolCalls": 8,
+        "toolsByName": {
+          "list_files": 1,
+          "read_file": 5,
+          "apply_patch": 1,
+          "run_command": 1
+        },
+        "usage": {
+          "inputTokens": 24890,
+          "outputTokens": 6743,
+          "reasoningTokens": 5625,
+          "cachedInputTokens": 23040,
+          "cacheWriteTokens": 0,
+          "totalTokens": 31633
+        },
+        "status": "completed"
+      },
+      "deniedActions": 0,
+      "failedVerificationAttempts": 0,
+      "reachedLimit": false,
+      "traceFile": "traces/adce50f7-03d3-4ada-8c1b-b606f24c5386.jsonl"
+    },
+    {
+      "taskId": "retry-cache",
+      "trial": 3,
+      "runId": "2dd9db6e-c8ef-47a3-9f78-a87574cc547a",
+      "status": "completed",
+      "exitCode": 0,
+      "passed": true,
+      "grade": {
+        "passed": true,
+        "publicTests": {
+          "exitCode": 0,
+          "stdout": "▶ RetryCache\n  ✔ deduplicates concurrent successful loads (0.248333ms)\n  ✔ retries after a rejected load (0.147084ms)\n✔ RetryCache (0.742083ms)\nℹ tests 2\nℹ suites 1\nℹ pass 2\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 59.259167\n",
+          "stderr": "$ node --experimental-strip-types --test test/*.test.ts\n",
+          "timedOut": false
+        },
+        "hiddenTests": {
+          "exitCode": 0,
+          "stdout": "",
+          "stderr": "",
+          "timedOut": false
+        }
+      },
+      "trace": {
+        "runId": "2dd9db6e-c8ef-47a3-9f78-a87574cc547a",
+        "startedAt": "2026-08-18T16:46:01.560Z",
+        "finishedAt": "2026-08-18T16:47:08.055Z",
+        "durationMs": 66495,
+        "modelSteps": 7,
+        "toolCalls": 8,
+        "toolsByName": {
+          "list_files": 1,
+          "read_file": 5,
+          "apply_patch": 1,
+          "run_command": 1
+        },
+        "usage": {
+          "inputTokens": 44607,
+          "outputTokens": 7995,
+          "reasoningTokens": 6900,
+          "cachedInputTokens": 42624,
+          "cacheWriteTokens": 0,
+          "totalTokens": 52602
+        },
+        "status": "completed"
+      },
+      "deniedActions": 0,
+      "failedVerificationAttempts": 0,
+      "reachedLimit": false,
+      "traceFile": "traces/2dd9db6e-c8ef-47a3-9f78-a87574cc547a.jsonl"
+    },
+    {
+      "taskId": "validation-bug",
+      "trial": 1,
+      "runId": "1548aaf2-f40c-47b7-8e0c-f69cbc976255",
+      "status": "completed",
+      "exitCode": 0,
+      "passed": true,
+      "grade": {
+        "passed": true,
+        "publicTests": {
+          "exitCode": 0,
+          "stdout": "▶ parsePort\n  ✔ accepts decimal integer ports in range (0.250167ms)\n  ✔ rejects malformed and out-of-range input (0.212792ms)\n✔ parsePort (0.824625ms)\nℹ tests 2\nℹ suites 1\nℹ pass 2\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 57.279583\n",
+          "stderr": "$ node --experimental-strip-types --test test/*.test.ts\n",
+          "timedOut": false
+        },
+        "hiddenTests": {
+          "exitCode": 0,
+          "stdout": "",
+          "stderr": "",
+          "timedOut": false
+        }
+      },
+      "trace": {
+        "runId": "1548aaf2-f40c-47b7-8e0c-f69cbc976255",
+        "startedAt": "2026-08-18T16:47:08.404Z",
+        "finishedAt": "2026-08-18T16:47:32.802Z",
+        "durationMs": 24398,
+        "modelSteps": 6,
+        "toolCalls": 8,
+        "toolsByName": {
+          "list_files": 1,
+          "read_file": 4,
+          "apply_patch": 2,
+          "run_command": 1
+        },
+        "usage": {
+          "inputTokens": 16802,
+          "outputTokens": 2781,
+          "reasoningTokens": 1865,
+          "cachedInputTokens": 14976,
+          "cacheWriteTokens": 0,
+          "totalTokens": 19583
+        },
+        "status": "completed"
+      },
+      "deniedActions": 0,
+      "failedVerificationAttempts": 0,
+      "reachedLimit": false,
+      "traceFile": "traces/1548aaf2-f40c-47b7-8e0c-f69cbc976255.jsonl"
+    },
+    {
+      "taskId": "validation-bug",
+      "trial": 2,
+      "runId": "d7547e89-f74c-4392-b502-ef75018ee462",
+      "status": "denied",
+      "exitCode": 4,
+      "passed": false,
+      "grade": {
+        "passed": false,
+        "publicTests": {
+          "exitCode": 0,
+          "stdout": "Already up to date\n\nDone in 180ms using pnpm v11.18.0\n▶ parsePort\n  ✔ accepts decimal integer ports in range (0.291709ms)\n  ✔ rejects malformed and out-of-range input (0.257875ms)\n✔ parsePort (0.95875ms)\nℹ tests 2\nℹ suites 1\nℹ pass 2\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 59.757833\n",
+          "stderr": "$ node --experimental-strip-types --test test/*.test.ts\n",
+          "timedOut": false
+        },
+        "hiddenTests": {
+          "exitCode": 1,
+          "stdout": "",
+          "stderr": "file:///private/var/folders/w7/z_5r0yxj7wl6gns_brgt2jv00000gn/T/forge-live-eval-c4lhal/validation-bug/src/parse-port.ts?grader=1787071721692:6\n    throw new Error(\"Port must be a valid port number (1-65535).\");\n          ^\n\nError: Port must be a valid port number (1-65535).\n    at parsePort (file:///private/var/folders/w7/z_5r0yxj7wl6gns_brgt2jv00000gn/T/forge-live-eval-c4lhal/validation-bug/src/parse-port.ts?grader=1787071721692:6:11)\n    at file:///Users/mori/codes/forge/evals/graders/validation-bug.mjs:16:16\n\nNode.js v24.18.0\n",
+          "timedOut": false
+        }
+      },
+      "trace": {
+        "runId": "d7547e89-f74c-4392-b502-ef75018ee462",
+        "startedAt": "2026-08-18T16:47:33.142Z",
+        "finishedAt": "2026-08-18T16:48:41.156Z",
+        "durationMs": 68014,
+        "modelSteps": 6,
+        "toolCalls": 11,
+        "toolsByName": {
+          "list_files": 1,
+          "search": 1,
+          "read_file": 6,
+          "apply_patch": 2,
+          "run_command": 1
+        },
+        "usage": {
+          "inputTokens": 40537,
+          "outputTokens": 8905,
+          "reasoningTokens": 7648,
+          "cachedInputTokens": 37888,
+          "cacheWriteTokens": 0,
+          "totalTokens": 49442
+        },
+        "status": "denied"
+      },
+      "deniedActions": 1,
+      "failedVerificationAttempts": 0,
+      "reachedLimit": false,
+      "traceFile": "traces/d7547e89-f74c-4392-b502-ef75018ee462.jsonl"
+    },
+    {
+      "taskId": "validation-bug",
+      "trial": 3,
+      "runId": "36506ae1-2fc3-4cec-ab87-4bb3097bd9b0",
+      "status": "completed",
+      "exitCode": 0,
+      "passed": true,
+      "grade": {
+        "passed": true,
+        "publicTests": {
+          "exitCode": 0,
+          "stdout": "▶ parsePort\n  ✔ accepts decimal integer ports in range (0.2575ms)\n  ✔ rejects malformed and out-of-range input (0.245917ms)\n✔ parsePort (0.858792ms)\nℹ tests 2\nℹ suites 1\nℹ pass 2\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 63.25725\n",
+          "stderr": "$ node --experimental-strip-types --test test/*.test.ts\n",
+          "timedOut": false
+        },
+        "hiddenTests": {
+          "exitCode": 0,
+          "stdout": "",
+          "stderr": "",
+          "timedOut": false
+        }
+      },
+      "trace": {
+        "runId": "36506ae1-2fc3-4cec-ab87-4bb3097bd9b0",
+        "startedAt": "2026-08-18T16:48:41.722Z",
+        "finishedAt": "2026-08-18T16:49:23.738Z",
+        "durationMs": 42016,
+        "modelSteps": 9,
+        "toolCalls": 11,
+        "toolsByName": {
+          "list_files": 1,
+          "read_file": 6,
+          "run_command": 2,
+          "apply_patch": 2
+        },
+        "usage": {
+          "inputTokens": 44484,
+          "outputTokens": 5017,
+          "reasoningTokens": 3255,
+          "cachedInputTokens": 40448,
+          "cacheWriteTokens": 0,
+          "totalTokens": 49501
+        },
+        "status": "completed"
+      },
+      "deniedActions": 0,
+      "failedVerificationAttempts": 1,
+      "reachedLimit": false,
+      "traceFile": "traces/36506ae1-2fc3-4cec-ab87-4bb3097bd9b0.jsonl"
+    }
+  ]
+}

@@ -7,10 +7,10 @@ It is a learning project and portfolio project focused on the engineering behind
 coding agents: model interaction, tool execution, safety boundaries, execution
 traces, plugins, and reproducible evaluations.
 
-> Status: Milestone 7 release work is in progress. The deterministic evaluation
-> harness, three fixture tasks, external graders, report generator, and MIT
-> license are implemented. A live DeepSeek report and the `v0.1` tag remain
-> intentionally unpublished until the live release gates pass.
+> Status: Milestone 7 complete. Forge v0.1 includes the bounded coding runtime,
+> persistent sessions and traces, three reproducible evaluation tasks, external
+> graders, an opt-in DeepSeek runner, published live evidence, and an MIT
+> license. Trusted plugins are the next milestone.
 
 ## Vision
 
@@ -294,10 +294,19 @@ running or publishing live evidence.
 
 ## Current results
 
-The deterministic evaluation passed 2 test files and 6 tests on 2026-08-19.
-The complete project suite passed 22 test files and 108 tests. No live DeepSeek
-release report has been recorded in this checkout, so Forge does not currently
-claim a live pass rate or a completed v0.1 release.
+The deterministic evaluation passed 2 test files and 8 tests on 2026-08-19.
+The complete project suite passed 22 test files and 110 tests. Nine fresh
+`deepseek-v4-flash` trials with thinking enabled passed 7/9 overall:
+
+| Task | Passed | Pass rate |
+| --- | ---: | ---: |
+| `config-merge` | 3/3 | 100.0% |
+| `retry-cache` | 2/3 | 66.7% |
+| `validation-bug` | 2/3 | 66.7% |
+
+Both failed runs are retained in the [v0.1 report](evals/reports/v0.1/report.md).
+They requested a 120-second command timeout while the evaluation policy allowed
+only the declared 60-second verification command, so Forge denied the action.
 
 ## Limitations
 
@@ -334,9 +343,9 @@ with provenance, hierarchical repository instructions, enforced limits, and
 the `safe` and `workspace-write` permission profiles. Milestone 6 added
 versioned JSONL traces, run inspection, persistent workspace-scoped sessions,
 restart-safe resume by ID or recency, and fresh security state for every resumed
-run. Milestone 7 adds reproducible fixture manifests, external graders, an
-opt-in live runner, trace-derived reports, and release documentation; live
-provider evidence remains required before tagging v0.1.
+run. Milestone 7 added reproducible fixture manifests, external graders, an
+opt-in live runner, trace-derived reports, published live evidence, and the
+first v0.1 release.
 
 ## License
 

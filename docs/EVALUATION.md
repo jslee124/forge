@@ -34,7 +34,7 @@ verification command, corrects the patch, reruns verification, and finishes
 only after it passes. The grader tests also prove that every original fixture
 fails and every reference fix passes both visible and external checks.
 
-The latest local run on 2026-08-19 passed 2 test files and 6 tests. This is
+The release run on 2026-08-19 passed 2 test files and 8 tests. This is
 runtime evidence, not a claim about live model success.
 
 The checked-in terminal recording can be replayed with:
@@ -100,11 +100,23 @@ The default `deepseek-v4-flash` ID was revalidated on 2026-08-19 against the
 The API currently lists `deepseek-v4-flash` and `deepseek-v4-pro`; thinking mode
 is selected explicitly by Forge.
 
-## Current evidence status
+## v0.1 evidence
 
-- Deterministic runtime and grader contracts: passing
-- Live DeepSeek trial report: not yet recorded
-- v0.1 tag: not created until all release gates pass
+The 2026-08-19 release evaluation used `deepseek-v4-flash` with thinking enabled
+at Forge commit `65c0a51`. It recorded nine fresh trials and passed seven:
 
-An absent live report is reported as absent; it is never replaced by reference
-fixes or fabricated model results.
+| Task | Passed | Pass rate |
+| --- | ---: | ---: |
+| `config-merge` | 3/3 | 100.0% |
+| `retry-cache` | 2/3 | 66.7% |
+| `validation-bug` | 2/3 | 66.7% |
+
+The two failed runs are intentionally retained. In both, the patch reached the
+grader, but the model requested `timeoutMs: 120000`; the narrow evaluation
+approval allowed only 60000ms and Forge denied the command. One failed
+`validation-bug` patch also failed the hidden grader.
+
+The [published JSON report](../evals/reports/v0.1/report.json),
+[Markdown summary](../evals/reports/v0.1/report.md), and all nine JSONL traces
+are checked in. Every trace was revalidated for schema, sequence, run ID, and
+terminal-status consistency, and the configured API key was not present.

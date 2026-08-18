@@ -2,10 +2,9 @@
 
 ## Current milestone
 
-**Milestone 7: Evaluation and first release is in progress.** Deterministic
-evaluation infrastructure is complete; live DeepSeek evidence and the `v0.1`
-tag remain release gates. No later milestone should be treated as implemented
-merely because its design is documented.
+**Milestone 7: Evaluation and first release is complete.** The next milestone is
+**Milestone 8: Trusted plugin API (v0.2)**. No later milestone should be treated
+as implemented merely because its design is documented.
 
 ## Working rules
 
@@ -278,13 +277,13 @@ Goal: publish a small, truthful, and reproducible v0.1 portfolio release.
 - [x] Add graders based on fixture-owned tests plus hidden release tests
 - [x] Keep fake-model evaluation in the default test suite
 - [x] Make paid DeepSeek trials explicit and opt-in
-- [ ] Run each release task multiple times with a recorded model ID and settings
-- [ ] Report pass rate, duration, model steps, tool calls, and token usage
+- [x] Run each release task multiple times with a recorded model ID and settings
+- [x] Report pass rate, duration, model steps, tool calls, and token usage
 - [x] Record a short terminal demo
 - [x] Expand the README with setup, usage, results, and limitations
 - [x] Select and add a project license
 - [x] Revalidate the current DeepSeek model ID before tagging
-- [ ] Tag the v0.1 release
+- [x] Tag the v0.1 release
 
 Acceptance criteria:
 
