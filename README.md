@@ -133,9 +133,9 @@ pnpm forge
 
 The interactive prompt preserves completed user/assistant turns in memory for
 the current process. Each prompt is still a separate bounded agent run with a
-fresh patch-approval scope; command approvals are never reused. Available
-commands are `/help`, `/clear`, and `/exit`. Ctrl+C cancels an active task and
-returns to the prompt; press it again to exit.
+fresh workspace-write approval scope; command approvals are never reused.
+Available commands are `/help`, `/clear`, and `/exit`. Ctrl+C cancels an active
+task and returns to the prompt; press it again to exit.
 
 To make the development build available as `forge` globally:
 
@@ -161,14 +161,15 @@ pnpm forge run "Inspect the README and package files, then summarize the project
 ```
 
 `forge run` lets the model propose `list_files`, `read_file`, `search`,
-`apply_patch`, and `run_command` calls. Forge validates each call, records an
-`allow`, `confirm`, or `deny` policy decision, executes approved tools itself,
-and returns structured results to the next model step. The first workspace
-patch shows a diff and requires confirmation; that approval covers later
-workspace patches only in the same run. Every process command is shown and
-confirmed separately. Commands use structured arguments with no shell, a
-60-second maximum timeout, and a 65,536-byte result limit. The run stops after
-at most 12 model steps or 40 tool calls.
+`create_file`, `apply_patch`, and `run_command` calls. Forge validates each
+call, records an `allow`, `confirm`, or `deny` policy decision, executes
+approved tools itself, and returns structured results to the next model step.
+File creation refuses to replace an existing path. The first workspace write
+shows a diff and requires confirmation; that approval covers later workspace
+writes only in the same run. Every process command is shown and confirmed
+separately. Commands use structured arguments with no shell, a 60-second
+maximum timeout, and a 65,536-byte result limit. The run stops after at most 12
+model steps or 40 tool calls.
 
 Forge uses `deepseek-v4-flash` with thinking enabled by default. Both settings
 are explicit and can be changed for one invocation:

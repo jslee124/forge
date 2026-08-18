@@ -15,6 +15,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import {
   applyPatch,
+  createFile,
   executeToolCall,
   listFiles,
   proposeToolCall,
@@ -285,6 +286,65 @@ describe("workspace patches", () => {
   });
 });
 
+describe("file creation", () => {
+  it("creates a new UTF-8 file without replacing existing content", async () => {
+    const { root, context } = await fixture();
+
+    const created = await createFile(
+      { path: "hello.md", content: "hello, world\n" },
+      context,
+    );
+    const duplicate = await createFile(
+      { path: "hello.md", content: "replacement\n" },
+      context,
+    );
+
+    expect(created).toEqual({
+      ok: true,
+      output: { path: "hello.md", bytes: 13 },
+      truncated: false,
+    });
+    expect(duplicate).toMatchObject({
+      ok: false,
+      error: { code: "already_exists" },
+    });
+    await expect(
+      readTextFile(path.join(root, "hello.md"), "utf8"),
+    ).resolves.toBe("hello, world\n");
+  });
+
+  it("denies traversal, symlink-parent escapes, and missing parents", async () => {
+    const { root, outside, context } = await fixture();
+    await symlink(path.dirname(outside), path.join(root, "external-directory"));
+
+    const traversal = await createFile(
+      { path: "../escaped.md", content: "no\n" },
+      context,
+    );
+    const symlinkEscape = await createFile(
+      { path: "external-directory/escaped.md", content: "no\n" },
+      context,
+    );
+    const missingParent = await createFile(
+      { path: "missing/hello.md", content: "no\n" },
+      context,
+    );
+
+    expect(traversal).toMatchObject({
+      ok: false,
+      error: { code: "outside_workspace" },
+    });
+    expect(symlinkEscape).toMatchObject({
+      ok: false,
+      error: { code: "outside_workspace" },
+    });
+    expect(missingParent).toMatchObject({
+      ok: false,
+      error: { code: "not_found" },
+    });
+  });
+});
+
 describe("process commands", () => {
   it("runs without a shell and reports non-zero results with bounded output", async () => {
     const { context } = await fixture();
@@ -409,6 +469,7 @@ describe("tool proposal and execution", () => {
       "list_files",
       "read_file",
       "search",
+      "create_file",
       "apply_patch",
       "run_command",
     ]);

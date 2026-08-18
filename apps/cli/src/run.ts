@@ -17,6 +17,8 @@ import {
 import {
   type ApplyPatchInput,
   builtinTools,
+  type CreateFileInput,
+  previewCreateFile,
   previewPatch,
   resolveWorkspace,
   WorkspaceResolutionError,
@@ -169,6 +171,24 @@ export function createApprovalChannel(
         if (preview.truncated) {
           output.write(
             "Cannot approve patch because its diff exceeds the display limit.\n",
+          );
+          return false;
+        }
+        output.write(`${preview.output.diff}\n`);
+      } else if (action.tool.name === "create_file") {
+        const preview = await previewCreateFile(
+          action.input as CreateFileInput,
+          context,
+        );
+        if (!preview.ok) {
+          output.write(
+            `Cannot preview file creation: ${preview.error.message}\n`,
+          );
+          return false;
+        }
+        if (preview.truncated) {
+          output.write(
+            "Cannot approve file creation because its diff exceeds the display limit.\n",
           );
           return false;
         }

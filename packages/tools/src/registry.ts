@@ -9,6 +9,7 @@ import type {
 } from "@forge/core";
 
 import { applyPatchTool } from "./apply-patch.js";
+import { createFileTool } from "./create-file.js";
 import { listFilesTool } from "./list-files.js";
 import { failure } from "./path.js";
 import { readFileTool } from "./read-file.js";
@@ -19,6 +20,7 @@ export const builtinTools: readonly ForgeTool[] = [
   listFilesTool,
   readFileTool,
   searchTool,
+  createFileTool,
   applyPatchTool,
   runCommandTool,
 ];

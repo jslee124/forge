@@ -19,8 +19,8 @@ must state which boundaries it enforces and which risks remain with the user.
 | Action | Default decision |
 | --- | --- |
 | Read, list, or search inside the workspace | Allow |
-| First patch inside the workspace | Confirm |
-| Later patches covered by the session approval | Allow |
+| First write inside the workspace | Confirm |
+| Later writes covered by the run approval | Allow |
 | Any process command | Confirm |
 | Built-in file operation outside the workspace | Deny in v0.1 |
 | Approval-required action without an approval channel | Deny |

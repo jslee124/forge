@@ -1,6 +1,6 @@
 import type { DeepSeekProviderSettings } from "@ai-sdk/deepseek";
 import { APICallError, type streamText } from "ai";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import {
@@ -140,10 +140,21 @@ describe("AI SDK DeepSeek transport", () => {
     expect(capturedOptions).toMatchObject({
       messages: [{ role: "user", content: "hello" }],
       abortSignal: signal,
+      onError: expect.any(Function),
       providerOptions: {
         deepseek: { thinking: { type: "enabled" } },
       },
     });
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    (
+      capturedOptions as {
+        onError(options: { readonly error: unknown }): void;
+      }
+    ).onError({ error: new Error("raw provider failure") });
+    expect(consoleError).not.toHaveBeenCalled();
+    consoleError.mockRestore();
     const capturedTools = (
       capturedOptions as { tools: Record<string, Record<string, unknown>> }
     ).tools;
@@ -405,6 +416,106 @@ describe("AI SDK DeepSeek transport", () => {
     });
   });
 
+  it("returns exactly one Forge-owned tool result after invalid model input", async () => {
+    const requestBodies: unknown[] = [];
+    let invocation = 0;
+    const fetchMock: NonNullable<DeepSeekProviderSettings["fetch"]> = async (
+      _input,
+      init,
+    ) => {
+      requestBodies.push(JSON.parse(String(init?.body)));
+      invocation += 1;
+      return new Response(
+        invocation === 1
+          ? invalidCreateFileDeepSeekResponse()
+          : secondDeepSeekResponse(),
+        { headers: { "content-type": "text/event-stream" }, status: 200 },
+      );
+    };
+    const transport = new AiSdkDeepSeekTransport({ fetch: fetchMock });
+    const baseRequest = {
+      apiKey: "test-secret",
+      model: "deepseek-v4-flash",
+      thinking: "enabled" as const,
+      prompt: "create hello.md",
+      tools: [
+        {
+          name: "create_file",
+          description: "Create a file",
+          inputSchema: z.object({ path: z.string(), content: z.string() }),
+        },
+      ],
+    };
+    const firstEvents = [];
+    for await (const event of transport.stream(
+      baseRequest,
+      new AbortController().signal,
+    )) {
+      firstEvents.push(event);
+    }
+    const firstFinish = firstEvents.find(({ type }) => type === "finish");
+    if (firstFinish?.type !== "finish" || !firstFinish.continuation) {
+      throw new Error("Expected continuation data for invalid tool input.");
+    }
+
+    for await (const _event of transport.stream(
+      {
+        ...baseRequest,
+        continuation: firstFinish.continuation,
+        toolResults: [
+          {
+            callId: "create-1",
+            toolName: "create_file",
+            result: {
+              ok: false,
+              error: {
+                code: "invalid_input",
+                message: 'Invalid input for tool "create_file".',
+                retryable: false,
+              },
+            },
+          },
+        ],
+      },
+      new AbortController().signal,
+    )) {
+      // Consume the recovery response.
+    }
+
+    expect(firstEvents).toContainEqual({
+      type: "tool.call",
+      call: {
+        id: "create-1",
+        name: "create_file",
+        input: { path: "hello.md" },
+      },
+    });
+    expect(requestBodies[1]).toMatchObject({
+      messages: [
+        { role: "user", content: "create hello.md" },
+        {
+          role: "assistant",
+          tool_calls: [
+            {
+              id: "create-1",
+              function: {
+                name: "create_file",
+                arguments: '{"path":"hello.md"}',
+              },
+            },
+          ],
+        },
+        { role: "tool", tool_call_id: "create-1" },
+      ],
+    });
+    const secondRequest = requestBodies[1] as {
+      readonly messages: readonly { readonly role: string }[];
+    };
+    expect(
+      secondRequest.messages.filter(({ role }) => role === "tool"),
+    ).toHaveLength(1);
+  });
+
   it("maps authentication failures to a safe actionable error", () => {
     const error = new APICallError({
       message: "provider response containing sensitive details",
@@ -529,6 +640,51 @@ function secondDeepSeekResponse(): string {
       created: 2,
       model: "deepseek-v4-flash",
       choices: [{ delta: {}, finish_reason: "stop" }],
+      usage: deepSeekUsage(),
+    },
+  ]);
+}
+
+function invalidCreateFileDeepSeekResponse(): string {
+  return sse([
+    {
+      id: "invalid-response",
+      created: 1,
+      model: "deepseek-v4-flash",
+      choices: [
+        {
+          delta: { role: "assistant", reasoning_content: "create the file" },
+          finish_reason: null,
+        },
+      ],
+    },
+    {
+      id: "invalid-response",
+      created: 1,
+      model: "deepseek-v4-flash",
+      choices: [
+        {
+          delta: {
+            tool_calls: [
+              {
+                index: 0,
+                id: "create-1",
+                function: {
+                  name: "create_file",
+                  arguments: '{"path":"hello.md"}',
+                },
+              },
+            ],
+          },
+          finish_reason: null,
+        },
+      ],
+    },
+    {
+      id: "invalid-response",
+      created: 1,
+      model: "deepseek-v4-flash",
+      choices: [{ delta: {}, finish_reason: "tool_calls" }],
       usage: deepSeekUsage(),
     },
   ]);

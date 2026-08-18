@@ -70,6 +70,9 @@ export class AiSdkDeepSeekTransport implements DeepSeekTransport {
         model: deepSeek(request.model),
         messages,
         abortSignal: signal,
+        // Forge maps stream errors itself. The AI SDK default logs the raw
+        // error (including a stack trace) before Forge can render it safely.
+        onError: () => undefined,
         ...(request.tools && request.tools.length > 0
           ? { tools: toAiSdkTools(request.tools) }
           : {}),
@@ -139,6 +142,13 @@ export class AiSdkDeepSeekTransport implements DeepSeekTransport {
 
       if (finishPart) {
         const responseMessages = await result.responseMessages;
+        // Invalid schema input makes the AI SDK synthesize a tool-error
+        // message even though Forge intentionally owns validation and tool
+        // execution. Keep the assistant tool call, but let the runtime append
+        // the single canonical Forge tool result on the next model step.
+        const forgeContinuationMessages = responseMessages.filter(
+          (message) => message.role !== "tool",
+        );
         yield {
           type: "finish",
           finishReason: finishPart.finishReason,
@@ -146,7 +156,7 @@ export class AiSdkDeepSeekTransport implements DeepSeekTransport {
           ...(providerMetadata ? { providerMetadata } : {}),
           continuation: {
             provider: "deepseek",
-            data: { messages: [...messages, ...responseMessages] },
+            data: { messages: [...messages, ...forgeContinuationMessages] },
           },
         };
       }

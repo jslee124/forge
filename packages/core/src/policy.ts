@@ -22,7 +22,7 @@ export interface ApprovalPolicy {
 }
 
 export class WorkspaceWritePolicy implements ApprovalPolicy {
-  #workspacePatchApproved = false;
+  #workspaceWriteApproved = false;
 
   async evaluate(
     action: ProposedAction,
@@ -35,14 +35,14 @@ export class WorkspaceWritePolicy implements ApprovalPolicy {
           reason: "Read-only workspace tools are allowed.",
         };
       case "write":
-        return this.#workspacePatchApproved
+        return this.#workspaceWriteApproved
           ? {
               kind: "allow",
-              reason: "A workspace patch was approved for this run.",
+              reason: "Workspace writes were approved for this run.",
             }
           : {
               kind: "confirm",
-              reason: "The first workspace patch requires approval.",
+              reason: "The first workspace write requires approval.",
             };
       case "process":
         return {
@@ -54,7 +54,7 @@ export class WorkspaceWritePolicy implements ApprovalPolicy {
 
   recordApproval(action: ProposedAction): void {
     if (action.tool.risk === "write") {
-      this.#workspacePatchApproved = true;
+      this.#workspaceWriteApproved = true;
     }
   }
 }

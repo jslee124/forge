@@ -233,6 +233,7 @@ The initial tools are planned as:
 | `list_files` | List a bounded part of the workspace | Read-only |
 | `read_file` | Read a workspace file with output limits | Read-only |
 | `search` | Search text within the workspace | Read-only |
+| `create_file` | Exclusively create a new UTF-8 workspace file | Write |
 | `apply_patch` | Apply a structured file change | Write |
 | `run_command` | Spawn a program with structured arguments and limits | Variable |
 
@@ -263,8 +264,8 @@ The default policy is:
 | Action | Default decision |
 | --- | --- |
 | Read, list, or search inside the workspace | Allow |
-| First patch inside the workspace | Confirm |
-| Later workspace patches in the approved session scope | Allow |
+| First write inside the workspace | Confirm |
+| Later workspace writes in the approved run scope | Allow |
 | Any process command | Confirm |
 | Built-in file operation outside the workspace | Deny in v0.1 |
 | Approval-required action without an approval channel | Deny |

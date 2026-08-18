@@ -123,6 +123,7 @@ Acceptance criteria:
 Goal: complete the first small repository change and verify it.
 
 - [x] Implement structured file patches and show the diff before approval
+- [x] Create new workspace files without replacing existing paths
 - [x] Confirm the first workspace patch in the default profile
 - [x] Scope that approval to later workspace patches in the current run only
 - [x] Implement `run_command` as `program + args[]` using `spawn` with

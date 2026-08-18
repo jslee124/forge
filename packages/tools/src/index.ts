@@ -7,6 +7,15 @@ export {
   previewPatch,
 } from "./apply-patch.js";
 export {
+  type CreateFileInput,
+  type CreateFileOutput,
+  type CreateFilePreviewOutput,
+  createFile,
+  createFileInputSchema,
+  createFileTool,
+  previewCreateFile,
+} from "./create-file.js";
+export {
   type ListFilesInput,
   type ListFilesOutput,
   listFiles,

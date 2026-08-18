@@ -1,10 +1,10 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { PassThrough } from "node:stream";
 
 import type { ModelAdapter, ModelRequest, ModelStreamEvent } from "@forge/core";
-import { applyPatchTool, resolveWorkspace } from "@forge/tools";
+import { applyPatchTool, createFileTool, resolveWorkspace } from "@forge/tools";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { createTerminalApprovalChannel, runTask } from "./run.js";
@@ -62,6 +62,33 @@ class ReadThenAnswerModel implements ModelAdapter {
     }
 
     yield { type: "text.delta", text: "The repository says Forge." };
+    yield { type: "finish", finishReason: "stop", usage };
+  }
+}
+
+class CreateThenAnswerModel implements ModelAdapter {
+  #step = 0;
+
+  async *stream(_request: ModelRequest): AsyncIterable<ModelStreamEvent> {
+    this.#step += 1;
+    if (this.#step === 1) {
+      yield {
+        type: "tool.call",
+        call: {
+          id: "create-1",
+          name: "create_file",
+          input: { path: "hello.md", content: "hello, world\n" },
+        },
+      };
+      yield {
+        type: "finish",
+        finishReason: "tool-calls",
+        usage,
+        continuation: { provider: "fake", data: { step: 1 } },
+      };
+      return;
+    }
+    yield { type: "text.delta", text: "Created hello.md." };
     yield { type: "finish", finishReason: "stop", usage };
   }
 }
@@ -126,6 +153,40 @@ describe("forge run", () => {
     expect(stderr.read()).not.toContain("at ");
   });
 
+  it("creates a new file after explicit approval", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "forge-run-"));
+    temporaryDirectories.push(root);
+    const stdout = outputBuffer();
+    const stderr = outputBuffer();
+    let approvals = 0;
+
+    const exitCode = await runTask(
+      "Create hello.md",
+      {},
+      {
+        env: { DEEPSEEK_API_KEY: "test-secret" },
+        cwd: root,
+        stdout: stdout.output,
+        stderr: stderr.output,
+        signal: new AbortController().signal,
+        createAdapter: () => new CreateThenAnswerModel(),
+        approvalChannel: {
+          request: async () => {
+            approvals += 1;
+            return true;
+          },
+        },
+      },
+    );
+
+    expect(exitCode).toBe(0);
+    expect(approvals).toBe(1);
+    await expect(readFile(path.join(root, "hello.md"), "utf8")).resolves.toBe(
+      "hello, world\n",
+    );
+    expect(stdout.read()).toContain("Created hello.md.");
+  });
+
   it("shows the exact patch diff before terminal approval", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "forge-run-"));
     temporaryDirectories.push(root);
@@ -171,6 +232,44 @@ describe("forge run", () => {
     expect(rendered).toContain("--- a/answer.ts");
     expect(rendered).toContain("-export const answer = 42;");
     expect(rendered).toContain("+export const answer = 43;");
+    expect(rendered).toContain("Approve? [y/N]");
+  });
+
+  it("shows new file content before terminal approval", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "forge-run-"));
+    temporaryDirectories.push(root);
+    const input = new PassThrough();
+    const output = new PassThrough();
+    let rendered = "";
+    output.on("data", (chunk: Buffer) => {
+      rendered += chunk.toString("utf8");
+    });
+    input.end("y\n");
+    const controller = new AbortController();
+    const toolInput = { path: "hello.md", content: "hello, world\n" };
+
+    const approved = await createTerminalApprovalChannel(input, output).request(
+      {
+        call: {
+          id: "create-1",
+          name: "create_file",
+          input: toolInput,
+        },
+        tool: createFileTool,
+        input: toolInput,
+      },
+      controller.signal,
+      {
+        workspace: await resolveWorkspace(root),
+        signal: controller.signal,
+        limits: { maxOutputBytes: 65_536, maxEntries: 200 },
+      },
+    );
+
+    expect(approved).toBe(true);
+    expect(rendered).toContain("--- /dev/null");
+    expect(rendered).toContain("+++ b/hello.md");
+    expect(rendered).toContain("+hello, world");
     expect(rendered).toContain("Approve? [y/N]");
   });
 });

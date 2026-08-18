@@ -60,7 +60,7 @@ Forge should restrict filesystem access to the selected workspace, limit
 commands and execution time, and require approval for risky operations.
 
 Read-only operations inside the workspace may run automatically. The first
-workspace patch requires approval by default, every process command requires
+workspace write requires approval by default, every process command requires
 approval by default, and built-in file tools deny operations outside the
 workspace in v0.1. In non-interactive operation, an action that requires
 approval is denied unless a matching narrow approval was supplied in advance.
