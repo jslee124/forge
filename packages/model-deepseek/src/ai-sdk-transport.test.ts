@@ -34,6 +34,7 @@ describe("AI SDK DeepSeek transport", () => {
         model: "deepseek-v4-flash",
         thinking: "disabled",
         prompt: "current task",
+        instructions: "Follow repository instructions.",
         conversation: [
           { role: "user", content: "previous task" },
           { role: "assistant", content: "previous answer" },
@@ -46,6 +47,7 @@ describe("AI SDK DeepSeek transport", () => {
 
     expect(capturedOptions).toMatchObject({
       messages: [
+        { role: "system", content: "Follow repository instructions." },
         { role: "user", content: "previous task" },
         { role: "assistant", content: "previous answer" },
         { role: "user", content: "current task" },

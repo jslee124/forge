@@ -16,6 +16,9 @@ describe("Forge CLI", () => {
     expect(program.version()).toBe(FORGE_VERSION);
     expect(program.commands.map((command) => command.name())).toContain("ask");
     expect(program.commands.map((command) => command.name())).toContain("run");
+    expect(program.commands.map((command) => command.name())).toContain(
+      "config",
+    );
   });
 
   it("passes model options and environment to the ask command", async () => {
@@ -120,8 +123,8 @@ describe("Forge CLI", () => {
     await program.parseAsync(["node", "forge"]);
 
     expect(received).toEqual({
-      model: "deepseek-v4-pro",
-      thinking: "disabled",
+      model: undefined,
+      thinking: undefined,
       apiKey: "test-secret",
     });
     expect(exitCode).toBe(0);
@@ -133,5 +136,26 @@ describe("Forge CLI", () => {
     });
 
     expect(output.trim()).toBe(FORGE_VERSION);
+  });
+
+  it("routes config show without starting a model command", async () => {
+    let received: string | undefined;
+    let exitCode: number | undefined;
+    const program = createProgram({
+      env: { FORGE_HOME: "/tmp/forge-test-home" },
+      runConfig: async (mode, env) => {
+        const { FORGE_HOME } = env;
+        received = `${mode}:${FORGE_HOME}`;
+        return 0;
+      },
+      setExitCode: (value) => {
+        exitCode = value;
+      },
+    });
+
+    await program.parseAsync(["node", "forge", "config", "show"]);
+
+    expect(received).toBe("show:/tmp/forge-test-home");
+    expect(exitCode).toBe(0);
   });
 });

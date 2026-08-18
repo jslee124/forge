@@ -23,6 +23,9 @@ importers:
 
   apps/cli:
     dependencies:
+      '@forge/config':
+        specifier: workspace:*
+        version: link:../../packages/config
       '@forge/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -48,6 +51,12 @@ importers:
       ink-testing-library:
         specifier: ^4.0.0
         version: 4.0.0(@types/react@19.2.18)
+
+  packages/config:
+    dependencies:
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
 
   packages/core:
     dependencies:

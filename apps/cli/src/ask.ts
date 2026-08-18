@@ -1,3 +1,4 @@
+import { ForgeConfigError, loadForgeConfig } from "@forge/config";
 import {
   type ModelAdapter,
   ModelConfigurationError,
@@ -20,6 +21,11 @@ export interface WritableOutput {
 export interface AskOptions {
   readonly model?: string;
   readonly thinking?: string;
+  readonly permissionProfile?: string;
+  readonly maxSteps?: number;
+  readonly maxToolCalls?: number;
+  readonly commandTimeoutMs?: number;
+  readonly maxToolOutputBytes?: number;
 }
 
 export interface AskDependencies {
@@ -86,12 +92,30 @@ export async function runAskFromCli(
   const cancellation = createSigintCancellationScope();
 
   try {
-    return await runAsk(prompt, options, {
+    const loaded = await loadForgeConfig({
+      cwd: process.cwd(),
       env,
-      stdout: process.stdout,
-      stderr: process.stderr,
-      signal: cancellation.signal,
+      cli: options,
     });
+    return await runAsk(
+      prompt,
+      {
+        model: loaded.config.model.id,
+        thinking: loaded.config.model.thinking,
+      },
+      {
+        env,
+        stdout: process.stdout,
+        stderr: process.stderr,
+        signal: cancellation.signal,
+      },
+    );
+  } catch (error) {
+    if (error instanceof ForgeConfigError) {
+      process.stderr.write(`Configuration error: ${error.message}\n`);
+      return 2;
+    }
+    throw error;
   } finally {
     cancellation.dispose();
   }

@@ -26,7 +26,7 @@ export const runCommandInputSchema = z.object({
     .number()
     .int()
     .min(1)
-    .max(DEFAULT_COMMAND_TIMEOUT_MS)
+    .max(3_600_000)
     .default(DEFAULT_COMMAND_TIMEOUT_MS),
 });
 
@@ -70,6 +70,10 @@ export async function runCommand(
   if (!resolvedCwd.ok) {
     return resolvedCwd;
   }
+  const timeoutMs = Math.min(
+    input.timeoutMs,
+    context.limits.commandTimeoutMs ?? DEFAULT_COMMAND_TIMEOUT_MS,
+  );
 
   return await new Promise((resolve) => {
     let child: ReturnType<typeof spawn>;
@@ -126,7 +130,7 @@ export async function runCommand(
     const timeout = setTimeout(() => {
       timedOut = true;
       terminate();
-    }, input.timeoutMs);
+    }, timeoutMs);
     timeout.unref();
 
     const cleanup = () => {
@@ -156,7 +160,7 @@ export async function runCommand(
           program: input.program,
           args: input.args,
           cwd: relativeWorkspacePath(context.workspace, resolvedCwd.path),
-          timeoutMs: input.timeoutMs,
+          timeoutMs,
           exitCode,
           signal,
           stdout: stdout.toString("utf8"),

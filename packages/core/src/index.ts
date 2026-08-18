@@ -16,6 +16,7 @@ export {
   type ApprovalDecision,
   type ApprovalDecisionKind,
   type ApprovalPolicy,
+  AutomaticWorkspaceWritePolicy,
   type ProposedAction,
   ReadOnlyPolicy,
   WorkspaceWritePolicy,

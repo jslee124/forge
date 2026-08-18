@@ -196,6 +196,9 @@ function buildMessages(request: DeepSeekTransportRequest): ModelMessage[] {
     messages = [...request.continuation.data.messages];
   } else {
     messages = [
+      ...(request.instructions
+        ? [{ role: "system" as const, content: request.instructions }]
+        : []),
       ...(request.conversation ?? []),
       { role: "user", content: request.prompt },
     ];

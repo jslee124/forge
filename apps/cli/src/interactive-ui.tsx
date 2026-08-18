@@ -27,7 +27,12 @@ import {
   moveEditorCursor,
   slashCommandQuery,
 } from "./interactive-model.js";
-import { createApprovalChannel, type RunDependencies, runTask } from "./run.js";
+import {
+  type CommandApprovalPreview,
+  createApprovalChannel,
+  type RunDependencies,
+  runTask,
+} from "./run.js";
 
 type Phase = "editing" | "running" | "approving";
 type TranscriptKind =
@@ -48,6 +53,7 @@ interface TranscriptEntry {
 
 interface PendingApproval {
   readonly prompt: string;
+  readonly command?: CommandApprovalPreview;
   readonly resolve: (answer: string | null) => void;
 }
 
@@ -66,6 +72,7 @@ interface InteractiveAppProps extends InteractiveUiDependencies {
 }
 
 export const INK_KEYBOARD_MODE = "disabled" as const;
+export const INK_INCREMENTAL_RENDERING = false as const;
 
 export async function runInkInteractiveFromCli(
   options: AskOptions,
@@ -85,7 +92,10 @@ export async function runInkInteractiveFromCli(
       stdout: process.stdout,
       stderr: process.stderr,
       exitOnCtrlC: false,
-      incrementalRendering: true,
+      // Incremental line diffs can retain stale physical rows after the
+      // terminal rewraps content during a resize. Full-frame updates are more
+      // reliable for this bounded interactive UI.
+      incrementalRendering: INK_INCREMENTAL_RENDERING,
       // VS Code and other terminals may echo Ink's capability query as input.
       // Ctrl+J remains the portable multiline fallback when Shift+Enter is not
       // distinguishable without an enhanced keyboard protocol.
@@ -286,6 +296,7 @@ export function InteractiveApp({
     setPhase("running");
     appendEntry("user", editor.value);
     let result: RunResult | undefined;
+    let commandPreview: CommandApprovalPreview | undefined;
 
     const approvalChannel = createApprovalChannel(
       (approvalPrompt, signal) =>
@@ -299,11 +310,21 @@ export function InteractiveApp({
           };
           const onAbort = () => settle(null);
           signal.addEventListener("abort", onAbort, { once: true });
-          setApproval({ prompt: approvalPrompt, resolve: settle });
+          setApproval({
+            prompt: approvalPrompt,
+            ...(commandPreview ? { command: commandPreview } : {}),
+            resolve: settle,
+          });
+          commandPreview = undefined;
           setPhase("approving");
         }),
       stderr,
-      { color: !("NO_COLOR" in process.env) },
+      {
+        color: !("NO_COLOR" in process.env),
+        onCommandPreview: (preview) => {
+          commandPreview = preview;
+        },
+      },
     );
 
     void executeTask(prompt, options, {
@@ -503,6 +524,24 @@ export function InteractiveApp({
           <Text bold color="yellow">
             Approval required
           </Text>
+          {approval.command ? (
+            <Box flexDirection="column" marginY={1}>
+              <Text bold>
+                <Text color="cyan">$ </Text>
+                {approval.command.command}
+              </Text>
+              <Text>
+                <Text dimColor>Working directory</Text>
+                {"  "}
+                {approval.command.cwd}
+              </Text>
+              <Text>
+                <Text dimColor>Timeout</Text>
+                {"            "}
+                {formatDuration(approval.command.timeoutMs)}
+              </Text>
+            </Box>
+          ) : null}
           <Text>{approval.prompt}</Text>
           <Text>
             <Text bold color="green">
@@ -566,6 +605,12 @@ export function InteractiveApp({
       </Text>
     </Box>
   );
+}
+
+function formatDuration(milliseconds: number): string {
+  return milliseconds % 1000 === 0
+    ? `${milliseconds / 1000}s`
+    : `${milliseconds}ms`;
 }
 
 function PromptWithCursor({

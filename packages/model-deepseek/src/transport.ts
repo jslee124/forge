@@ -13,6 +13,7 @@ export interface DeepSeekTransportRequest {
   readonly model: string;
   readonly thinking: DeepSeekThinkingMode;
   readonly prompt: string;
+  readonly instructions?: string;
   readonly conversation?: readonly ModelConversationMessage[];
   readonly tools?: readonly ModelToolDefinition[];
   readonly continuation?: ModelContinuation;

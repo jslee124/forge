@@ -2,9 +2,9 @@
 
 ## Current milestone
 
-**Milestone 4.6: Interactive TUI and context mentions is complete.** The next
-milestone is **Milestone 5: Configuration, instructions, and permission
-profiles**. No later milestone should be treated as implemented merely because
+**Milestone 5: Configuration, instructions, and permission profiles is
+complete.** The next milestone is **Milestone 6: Structured traces and security
+hardening**. No later milestone should be treated as implemented merely because
 its design is documented.
 
 ## Working rules
@@ -210,18 +210,18 @@ Acceptance criteria:
 
 Goal: add customization after the core coding path works.
 
-- [ ] Add `packages/config`
-- [ ] Resolve `FORGE_HOME`, defaulting to `~/.forge/`
-- [ ] Implement the versioned Zod schema documented in `PROJECT_CONTEXT.md`
-- [ ] Load user and project `.forge/config.json` files
-- [ ] Merge documented sources with provenance
-- [ ] Add `forge config show` and `forge config validate`
-- [ ] Load optional user instructions from `~/.forge/AGENTS.md`
-- [ ] Discover project `AGENTS.md` from root to working directory
-- [ ] Prefer `AGENTS.override.md` at each directory level
-- [ ] Apply instruction file and total-size limits
-- [ ] Add `safe` and `workspace-write` profiles; keep `full-access` deferred
-- [ ] Prove project content cannot widen permissions or increase user safety
+- [x] Add `packages/config`
+- [x] Resolve `FORGE_HOME`, defaulting to `~/.forge/`
+- [x] Implement the versioned Zod schema documented in `PROJECT_CONTEXT.md`
+- [x] Load user and project `.forge/config.json` files
+- [x] Merge documented sources with provenance
+- [x] Add `forge config show` and `forge config validate`
+- [x] Load optional user instructions from `~/.forge/AGENTS.md`
+- [x] Discover project `AGENTS.md` from root to working directory
+- [x] Prefer `AGENTS.override.md` at each directory level
+- [x] Apply instruction file and total-size limits
+- [x] Add `safe` and `workspace-write` profiles; keep `full-access` deferred
+- [x] Prove project content cannot widen permissions or increase user safety
   limits
 
 Acceptance criteria:

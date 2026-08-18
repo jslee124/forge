@@ -7,10 +7,10 @@ It is a learning project and portfolio project focused on the engineering behind
 coding agents: model interaction, tool execution, safety boundaries, execution
 traces, plugins, and reproducible evaluations.
 
-> Status: Milestone 4.6 complete. Forge supports bounded coding runs and a
-> multi-line Ink terminal with `/` command discovery, `@` file mentions, and
-> readable diff review. Configuration, repository instructions, and permission
-> profiles are next.
+> Status: Milestone 5 complete. Forge supports bounded coding runs, a multi-line
+> Ink terminal, versioned user/project configuration, hierarchical `AGENTS.md`
+> instructions, and explicit permission profiles. Structured trace persistence
+> and security hardening are next.
 
 ## Vision
 
@@ -184,6 +184,15 @@ Run a repository coding task:
 pnpm forge run "Inspect the README and package files, then summarize the project"
 ```
 
+Forge uses the `safe` permission profile by default: reads are automatic, while
+the first workspace write and every process command require confirmation. To
+allow workspace file writes without per-run write approval, select
+`workspace-write`; process commands still require confirmation:
+
+```bash
+pnpm forge run "Fix the failing tests" --permission-profile workspace-write
+```
+
 `forge run` lets the model propose `list_files`, `read_file`, `search`,
 `create_file`, `apply_patch`, and `run_command` calls. Forge validates each
 call, records an `allow`, `confirm`, or `deny` policy decision, executes
@@ -209,6 +218,23 @@ line flags take precedence. Valid thinking modes are `enabled` and `disabled`.
 Reasoning is labeled separately only when DeepSeek returns reasoning content;
 Forge does not synthesize it. Token usage is written to standard error when the
 provider reports it.
+
+Forge loads user defaults from `$FORGE_HOME/config.json` (or
+`~/.forge/config.json`) and project limits from `<workspace>/.forge/config.json`.
+Project configuration may only make safety limits stricter and cannot select a
+permission profile, model, or trace behavior. Inspect or validate the effective
+configuration without starting a model request:
+
+```bash
+pnpm forge config show
+pnpm forge config validate
+```
+
+Optional user instructions come from `$FORGE_HOME/AGENTS.md`. Project
+instructions are loaded once from the repository root to the current working
+directory, preferring `AGENTS.override.md` over `AGENTS.md` at each level. Each
+instruction retains its source path and remains prompt input only; it cannot
+approve tools or widen permissions.
 
 The API key is read from the process environment for each invocation and is not
 saved by Forge. A missing key exits with code `2`; provider and network failures
@@ -242,9 +268,10 @@ policy gateway, lifecycle events, cancellation, and deterministic limits. The
 Milestone 4 added the safe patch/command vertical slice and deterministic
 failure recovery. Milestone 4.5 added the bare `forge` multi-turn session,
 slash commands, task cancellation, and a global development-link workflow.
-Milestone 4.6 adds the interactive TUI, multi-line editing, command and file
-completion, and readable diff review. Milestone 5 then adds configuration,
-repository instructions, and permission profiles.
+Milestone 4.6 added the interactive TUI, multi-line editing, command and file
+completion, and readable diff review. Milestone 5 added versioned configuration
+with provenance, hierarchical repository instructions, enforced limits, and
+the `safe` and `workspace-write` permission profiles.
 
 ## License
 

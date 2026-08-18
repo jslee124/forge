@@ -17,6 +17,11 @@ Repository instructions may shape how the model approaches a task. They cannot
 weaken the policy kernel, approve an action, select `full-access`, or bypass a
 tool's normal approval and trace pipeline.
 
+Milestone 5 implements the version 1 configuration schema, user/project config
+merge, instruction discovery, provenance reporting, and the `safe` and
+`workspace-write` profiles. Plugin and portable skill discovery remain later
+work.
+
 ## `AGENTS.md`
 
 Forge will follow the established uppercase filename `AGENTS.md`. On
@@ -95,7 +100,7 @@ in the authentication model.
 
 ### Minimal v0.1 configuration schema
 
-The Zod schema in `@forge/config` will be the executable source of truth. This
+The Zod schema in `@forge/config` is the executable source of truth. This
 table defines the initial public fields so the implementation and documentation
 start from the same contract:
 

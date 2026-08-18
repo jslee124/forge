@@ -89,6 +89,7 @@ export interface RunLimits {
 
 export interface RunAgentOptions {
   readonly prompt: string;
+  readonly instructions?: string;
   readonly conversation?: readonly ModelConversationMessage[];
   readonly model: ModelAdapter;
   readonly tools: readonly ForgeTool[];
@@ -154,6 +155,9 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
         options.model,
         {
           prompt: options.prompt,
+          ...(options.instructions
+            ? { instructions: options.instructions }
+            : {}),
           ...(options.conversation
             ? { conversation: options.conversation }
             : {}),

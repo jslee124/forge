@@ -103,6 +103,7 @@ describe("forge run", () => {
     const root = await mkdtemp(path.join(tmpdir(), "forge-run-"));
     temporaryDirectories.push(root);
     await writeFile(path.join(root, "README.md"), "Forge repository\n");
+    await writeFile(path.join(root, "AGENTS.md"), "Keep answers concise.\n");
     const stdout = outputBuffer();
     const stderr = outputBuffer();
     const model = new ReadThenAnswerModel();
@@ -125,6 +126,10 @@ describe("forge run", () => {
     expect(stderr.read()).toContain("[tool] proposed read_file");
     expect(stderr.read()).toContain("[policy] allow read_file");
     expect(stderr.read()).toContain("[tool] completed read_file");
+    expect(model.requests[0]?.instructions).toContain("Keep answers concise.");
+    expect(model.requests[0]?.instructions).toContain(
+      path.join(root, "AGENTS.md"),
+    );
     expect(model.requests[1]?.toolResults?.[0]).toMatchObject({
       callId: "read-1",
       result: {
@@ -222,6 +227,30 @@ describe("forge run", () => {
       "hello, world\n",
     );
     expect(stdout.read()).toContain("Created hello.md.");
+  });
+
+  it("allows workspace writes without approval in workspace-write profile", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "forge-run-"));
+    temporaryDirectories.push(root);
+    const model = new CreateThenAnswerModel();
+
+    const exitCode = await runTask(
+      "Create hello.md",
+      { permissionProfile: "workspace-write" },
+      {
+        env: { DEEPSEEK_API_KEY: "test-secret" },
+        cwd: root,
+        stdout: outputBuffer().output,
+        stderr: outputBuffer().output,
+        signal: new AbortController().signal,
+        createAdapter: () => model,
+      },
+    );
+
+    expect(exitCode).toBe(0);
+    await expect(readFile(path.join(root, "hello.md"), "utf8")).resolves.toBe(
+      "hello, world\n",
+    );
   });
 
   it("shows the exact patch diff before terminal approval", async () => {

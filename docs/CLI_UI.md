@@ -22,6 +22,8 @@ The terminal UI should provide:
 Ink is the renderer for the interactive CLI. Commander remains
 responsible for process-level command parsing. React and Ink must stay inside
 `apps/cli`; `@forge/core` must remain independent of the terminal framework.
+Forge uses full-frame Ink updates so terminal reflow during a resize cannot
+leave stale rows from the previous width.
 
 ## Interaction states
 
@@ -133,6 +135,10 @@ The approval controls are visible next to the diff and describe their scope.
 For example, approving the first workspace write covers later workspace writes
 only in the current run, while process commands continue to require separate
 approval.
+
+Process-command approval uses the same dedicated panel. It renders a
+shell-readable `$ command` line followed by clearly labelled working-directory
+and timeout rows; these details must not appear as detached transcript text.
 
 ## Rendering boundaries
 

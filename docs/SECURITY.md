@@ -2,12 +2,11 @@
 
 ## Status
 
-This document defines Forge's intended security model. Milestone 3 implements
-and tests the selected-workspace boundary for built-in read-only tools and a
-policy gateway that records `allow`, `confirm`, or `deny` before valid tool
-execution. Approval-required actions are denied when no approval channel is
-available. Write tools, process execution, and permission profiles are still
-design targets until their later milestones are complete.
+This document defines Forge's implemented security model through Milestone 5.
+Built-in tools stay inside the selected workspace, every valid tool action
+passes through a policy decision, and approval-required actions are denied when
+no approval channel is available. The `safe` and `workspace-write` permission
+profiles are implemented; `full-access` remains deferred.
 
 ## Principle
 

@@ -1,5 +1,11 @@
 import {
+  ForgeConfigError,
+  loadForgeConfig,
+  loadInstructions,
+} from "@forge/config";
+import {
   type ApprovalChannel,
+  AutomaticWorkspaceWritePolicy,
   type ModelAdapter,
   ModelConfigurationError,
   type ModelConversationMessage,
@@ -51,36 +57,60 @@ export async function runTask(
   dependencies: RunDependencies,
 ): Promise<number> {
   try {
+    const loaded = await loadForgeConfig({
+      cwd: dependencies.cwd,
+      env: dependencies.env,
+      cli: options,
+    });
+    const instructions = await loadInstructions(loaded);
+    for (const warning of instructions.warnings) {
+      dependencies.stderr.write(`Configuration warning: ${warning}\n`);
+    }
     const thinking: DeepSeekThinkingMode = parseThinkingMode(
-      options.thinking ?? "enabled",
+      loaded.config.model.thinking,
     );
     const model = (dependencies.createAdapter ?? createDeepSeekModelAdapter)({
       env: dependencies.env,
-      model: options.model?.trim() || DEFAULT_DEEPSEEK_MODEL,
+      model: loaded.config.model.id || DEFAULT_DEEPSEEK_MODEL,
       thinking,
     } satisfies CreateDeepSeekModelAdapterOptions);
-    const workspace = await resolveWorkspace(dependencies.cwd);
+    const workspace = await resolveWorkspace(
+      loaded.workspaceRoot,
+      loaded.workingDirectory,
+    );
     const render = createRunEventRenderer(
       dependencies.stdout,
       dependencies.stderr,
     );
     const result = await runAgent({
       prompt,
+      ...(instructions.prompt ? { instructions: instructions.prompt } : {}),
       ...(dependencies.conversation
         ? { conversation: dependencies.conversation }
         : {}),
       model,
       tools: builtinTools,
-      policy: new WorkspaceWritePolicy(),
+      policy:
+        loaded.config.permissionProfile === "workspace-write"
+          ? new AutomaticWorkspaceWritePolicy()
+          : new WorkspaceWritePolicy(),
       ...(dependencies.approvalChannel
         ? { approvalChannel: dependencies.approvalChannel }
         : {}),
       toolContext: {
         workspace,
         signal: dependencies.signal,
-        limits: { maxOutputBytes: 65_536, maxEntries: 200 },
+        limits: {
+          maxOutputBytes: loaded.config.limits.maxToolOutputBytes,
+          maxEntries: 200,
+          commandTimeoutMs: loaded.config.limits.commandTimeoutMs,
+        },
       },
       signal: dependencies.signal,
+      limits: {
+        maxModelSteps: loaded.config.limits.maxSteps,
+        maxToolCalls: loaded.config.limits.maxToolCalls,
+      },
       onEvent: async (event) => {
         if (dependencies.renderEventsToOutput !== false) {
           render(event);
@@ -98,6 +128,7 @@ export async function runTask(
       return 130;
     }
     if (
+      error instanceof ForgeConfigError ||
       error instanceof ModelConfigurationError ||
       error instanceof WorkspaceResolutionError
     ) {
@@ -167,10 +198,19 @@ export type ApprovalQuestion = (
   signal: AbortSignal,
 ) => Promise<string | null>;
 
+export interface CommandApprovalPreview {
+  readonly command: string;
+  readonly cwd: string;
+  readonly timeoutMs: number;
+}
+
 export function createApprovalChannel(
   question: ApprovalQuestion,
   output: WritableOutput,
-  options: { readonly color?: boolean } = {},
+  options: {
+    readonly color?: boolean;
+    readonly onCommandPreview?: (preview: CommandApprovalPreview) => void;
+  } = {},
 ): ApprovalChannel {
   return {
     request: async (action, signal, context) => {
@@ -222,11 +262,22 @@ export function createApprovalChannel(
           readonly cwd: string;
           readonly timeoutMs: number;
         };
-        output.write(
-          `Command: ${[command.program, ...command.args.map(quoteArgument)].join(" ")}\n` +
-            `Working directory: ${command.cwd}\n` +
-            `Timeout: ${command.timeoutMs} ms\n`,
-        );
+        const preview = {
+          command: [
+            command.program,
+            ...command.args.map(quoteShellArgument),
+          ].join(" "),
+          cwd: command.cwd,
+          timeoutMs: Math.min(
+            command.timeoutMs,
+            context.limits.commandTimeoutMs ?? command.timeoutMs,
+          ),
+        };
+        if (options.onCommandPreview) {
+          options.onCommandPreview(preview);
+        } else {
+          output.write(formatCommandApprovalPreview(preview));
+        }
       }
 
       const answer = await question("Approve? [y/N] ", signal);
@@ -235,8 +286,22 @@ export function createApprovalChannel(
   };
 }
 
-function quoteArgument(value: string): string {
-  return JSON.stringify(value);
+export function formatCommandApprovalPreview(
+  preview: CommandApprovalPreview,
+): string {
+  return `$ ${preview.command}\n  Working directory  ${preview.cwd}\n  Timeout            ${formatDuration(preview.timeoutMs)}\n`;
+}
+
+function quoteShellArgument(value: string): string {
+  if (/^[\w@%+=:,./-]+$/u.test(value)) return value;
+  if (value === "") return "''";
+  return `'${value.replaceAll("'", `'"'"'`)}'`;
+}
+
+function formatDuration(milliseconds: number): string {
+  return milliseconds % 1000 === 0
+    ? `${milliseconds / 1000}s`
+    : `${milliseconds}ms`;
 }
 
 function createRunEventRenderer(

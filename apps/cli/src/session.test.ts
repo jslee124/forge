@@ -238,7 +238,9 @@ describe("interactive Forge session", () => {
     expect(
       terminal.questions.filter((prompt) => prompt === "Approve? [y/N] "),
     ).toHaveLength(2);
-    expect(stderr.read()).toContain('Command: pnpm "test"');
+    expect(stderr.read()).toContain("$ pnpm test");
+    expect(stderr.read()).toContain("Working directory  .");
+    expect(stderr.read()).toContain("Timeout            60s");
   });
 
   it("exits cleanly on end-of-input", async () => {

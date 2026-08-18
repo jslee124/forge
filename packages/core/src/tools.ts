@@ -10,6 +10,7 @@ export interface WorkspaceContext {
 export interface ToolLimits {
   readonly maxOutputBytes: number;
   readonly maxEntries: number;
+  readonly commandTimeoutMs?: number;
 }
 
 export interface ToolContext {

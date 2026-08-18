@@ -59,6 +59,32 @@ export class WorkspaceWritePolicy implements ApprovalPolicy {
   }
 }
 
+export class AutomaticWorkspaceWritePolicy implements ApprovalPolicy {
+  async evaluate(
+    action: ProposedAction,
+    _signal: AbortSignal,
+  ): Promise<ApprovalDecision> {
+    switch (action.tool.risk) {
+      case "read":
+        return {
+          kind: "allow",
+          reason: "Read-only workspace tools are allowed.",
+        };
+      case "write":
+        return {
+          kind: "allow",
+          reason:
+            "Workspace writes are allowed by the workspace-write profile.",
+        };
+      case "process":
+        return {
+          kind: "confirm",
+          reason: "Every process command requires approval.",
+        };
+    }
+  }
+}
+
 export interface ApprovalChannel {
   request(
     action: ProposedAction,

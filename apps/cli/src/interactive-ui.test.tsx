@@ -6,7 +6,11 @@ import { renderToString } from "ink";
 import { render } from "ink-testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { INK_KEYBOARD_MODE, InteractiveApp } from "./interactive-ui.js";
+import {
+  INK_INCREMENTAL_RENDERING,
+  INK_KEYBOARD_MODE,
+  InteractiveApp,
+} from "./interactive-ui.js";
 
 const temporaryDirectories: string[] = [];
 
@@ -21,6 +25,10 @@ afterEach(async () => {
 describe("Ink interactive terminal", () => {
   it("disables keyboard capability probing that leaks into VS Code input", () => {
     expect(INK_KEYBOARD_MODE).toBe("disabled");
+  });
+
+  it("uses full-frame updates so terminal resize cannot leave stale rows", () => {
+    expect(INK_INCREMENTAL_RENDERING).toBe(false);
   });
 
   it("shows an honest Shift+Enter hint in VS Code terminals", async () => {
@@ -168,7 +176,9 @@ describe("Ink interactive terminal", () => {
     instance.stdin.write("\r");
     await settle();
     expect(instance.lastFrame()).toContain("Approval required");
-    expect(instance.lastFrame()).toContain("pnpm");
+    expect(instance.lastFrame()).toContain("$ pnpm test");
+    expect(instance.lastFrame()).toContain("Working directory  .");
+    expect(instance.lastFrame()).toContain("Timeout            60s");
     instance.stdin.write("y");
     await settle();
 
