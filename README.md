@@ -7,9 +7,9 @@ It is a learning project and portfolio project focused on the engineering behind
 coding agents: model interaction, tool execution, safety boundaries, execution
 traces, plugins, and reproducible evaluations.
 
-> Status: Milestone 3 complete. Forge can run a bounded, read-only, multi-step
-> coding-agent loop with explicit policy decisions. File writes and command
-> execution are next.
+> Status: Milestone 4 complete. Forge can inspect and patch workspace files,
+> run explicitly approved commands, recover from failed verification, and stop
+> under bounded runtime limits. The interactive `forge` session is next.
 
 ## Vision
 
@@ -23,9 +23,9 @@ It will inspect the workspace, use tools to read and modify code, run relevant
 commands, react to failures, and stop only after it has verified the result or
 reached a defined limit.
 
-Or simply type `forge` to start an interactive session where you can ask the
-agent to perform tasks and inspect model-provided reasoning, actions, tool calls,
-and execution decisions.
+The next milestone will let you simply type `forge` to start an interactive
+session where you can ask the agent to perform tasks and inspect
+model-provided reasoning, actions, tool calls, and execution decisions.
 
 ```bash
 forge
@@ -131,17 +131,24 @@ export DEEPSEEK_API_KEY="your-api-key"
 pnpm forge ask "Explain what this repository is for"
 ```
 
-Run a repository task with the read-only agent loop:
+Run a repository coding task:
 
 ```bash
 pnpm forge run "Inspect the README and package files, then summarize the project"
 ```
 
-`forge run` lets the model propose `list_files`, `read_file`, and `search`
-calls. Forge validates each call, records an `allow`, `confirm`, or `deny`
-policy decision, executes approved tools itself, and returns structured results
-to the next model step. The run stops after at most 12 model steps or 40 tool
-calls. It cannot modify files or run processes yet.
+`forge run` lets the model propose `list_files`, `read_file`, `search`,
+`apply_patch`, and `run_command` calls. Forge validates each call, records an
+`allow`, `confirm`, or `deny` policy decision, executes approved tools itself,
+and returns structured results to the next model step. The first workspace
+patch shows a diff and requires confirmation; that approval covers later
+workspace patches only in the same run. Every process command is shown and
+confirmed separately. Commands use structured arguments with no shell, a
+60-second maximum timeout, and a 65,536-byte result limit. The run stops after
+at most 12 model steps or 40 tool calls.
+
+Bare `forge` interactive mode is planned for Milestone 4.5 and is not available
+yet.
 
 Forge uses `deepseek-v4-flash` with thinking enabled by default. Both settings
 are explicit and can be changed for one invocation:

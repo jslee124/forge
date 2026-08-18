@@ -9,7 +9,12 @@ import type {
   ModelStreamEvent,
   ToolContext,
 } from "./index.js";
-import { exitCodeForRunStatus, ReadOnlyPolicy, runAgent } from "./index.js";
+import {
+  exitCodeForRunStatus,
+  ReadOnlyPolicy,
+  runAgent,
+  WorkspaceWritePolicy,
+} from "./index.js";
 
 const usage = {
   inputTokens: 1,
@@ -257,6 +262,117 @@ describe("native agent runtime", () => {
 
     expect(result.status).toBe("completed");
     expect(executions).toEqual(["a.ts"]);
+  });
+
+  it("scopes one patch approval to later patches in the same run only", async () => {
+    const executions: string[] = [];
+    const patchTool: ForgeTool = {
+      name: "apply_patch",
+      description: "Patch a fake file",
+      inputSchema: z.object({ path: z.string() }),
+      risk: "write",
+      execute: async (input) => {
+        executions.push((input as { path: string }).path);
+        return { ok: true, output: {}, truncated: false };
+      },
+    };
+    const patchCall = (id: string, path: string): ModelStreamEvent => ({
+      type: "tool.call",
+      call: { id, name: "apply_patch", input: { path } },
+    });
+    const model = new ScriptedModel([
+      [patchCall("patch-1", "a.ts"), finish("tool-calls", 1)],
+      [patchCall("patch-2", "b.ts"), finish("tool-calls", 2)],
+      [{ type: "text.delta", text: "Patched." }, finish("stop")],
+    ]);
+    let approvals = 0;
+
+    const result = await runAgent({
+      prompt: "Patch twice",
+      model,
+      tools: [patchTool],
+      policy: new WorkspaceWritePolicy(),
+      approvalChannel: {
+        request: async () => {
+          approvals += 1;
+          return true;
+        },
+      },
+      toolContext,
+      signal: toolContext.signal,
+    });
+
+    expect(result.status).toBe("completed");
+    expect(approvals).toBe(1);
+    expect(executions).toEqual(["a.ts", "b.ts"]);
+    expect(
+      result.events
+        .filter(({ type }) => type === "tool.decision")
+        .map((event) =>
+          event.type === "tool.decision" ? event.decision.kind : "",
+        ),
+    ).toEqual(["confirm", "allow"]);
+    expect(
+      await new WorkspaceWritePolicy().evaluate(
+        {
+          call: { id: "new-run", name: "apply_patch", input: {} },
+          tool: patchTool,
+          input: {},
+        },
+        toolContext.signal,
+      ),
+    ).toMatchObject({ kind: "confirm" });
+  });
+
+  it("does not widen patch scope when the approved patch fails", async () => {
+    let executions = 0;
+    const patchTool: ForgeTool = {
+      name: "apply_patch",
+      description: "Patch a fake file",
+      inputSchema: z.object({ path: z.string() }),
+      risk: "write",
+      execute: async () => {
+        executions += 1;
+        return executions === 1
+          ? {
+              ok: false,
+              error: {
+                code: "stale_patch",
+                message: "Changed.",
+                retryable: true,
+              },
+            }
+          : { ok: true, output: {}, truncated: false };
+      },
+    };
+    const call = (id: string): ModelStreamEvent => ({
+      type: "tool.call",
+      call: { id, name: "apply_patch", input: { path: "a.ts" } },
+    });
+    const model = new ScriptedModel([
+      [call("failed"), finish("tool-calls", 1)],
+      [call("retry"), finish("tool-calls", 2)],
+      [{ type: "text.delta", text: "Done." }, finish("stop")],
+    ]);
+    let approvals = 0;
+
+    const result = await runAgent({
+      prompt: "Retry a patch",
+      model,
+      tools: [patchTool],
+      policy: new WorkspaceWritePolicy(),
+      approvalChannel: {
+        request: async () => {
+          approvals += 1;
+          return true;
+        },
+      },
+      toolContext,
+      signal: toolContext.signal,
+    });
+
+    expect(result.status).toBe("completed");
+    expect(approvals).toBe(2);
   });
 
   it("reports failed and cancelled model runs", async () => {

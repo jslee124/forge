@@ -17,6 +17,7 @@ export {
   type ApprovalPolicy,
   type ProposedAction,
   ReadOnlyPolicy,
+  WorkspaceWritePolicy,
 } from "./policy.js";
 export {
   DEFAULT_MAX_MODEL_STEPS,

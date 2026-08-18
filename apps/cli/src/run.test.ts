@@ -1,11 +1,13 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { PassThrough } from "node:stream";
 
 import type { ModelAdapter, ModelRequest, ModelStreamEvent } from "@forge/core";
+import { applyPatchTool, resolveWorkspace } from "@forge/tools";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { runTask } from "./run.js";
+import { createTerminalApprovalChannel, runTask } from "./run.js";
 
 const temporaryDirectories: string[] = [];
 const usage = {
@@ -122,5 +124,53 @@ describe("forge run", () => {
     expect(stdout.read()).toBe("");
     expect(stderr.read()).toContain("Missing DEEPSEEK_API_KEY");
     expect(stderr.read()).not.toContain("at ");
+  });
+
+  it("shows the exact patch diff before terminal approval", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "forge-run-"));
+    temporaryDirectories.push(root);
+    await writeFile(
+      path.join(root, "answer.ts"),
+      "export const answer = 42;\n",
+    );
+    const input = new PassThrough();
+    const output = new PassThrough();
+    let rendered = "";
+    output.on("data", (chunk: Buffer) => {
+      rendered += chunk.toString("utf8");
+    });
+    input.end("y\n");
+    const controller = new AbortController();
+    const action = {
+      call: {
+        id: "patch-1",
+        name: "apply_patch",
+        input: {
+          path: "answer.ts",
+          edits: [{ oldText: "answer = 42", newText: "answer = 43" }],
+        },
+      },
+      tool: applyPatchTool,
+      input: {
+        path: "answer.ts",
+        edits: [{ oldText: "answer = 42", newText: "answer = 43" }],
+      },
+    };
+
+    const approved = await createTerminalApprovalChannel(input, output).request(
+      action,
+      controller.signal,
+      {
+        workspace: await resolveWorkspace(root),
+        signal: controller.signal,
+        limits: { maxOutputBytes: 65_536, maxEntries: 200 },
+      },
+    );
+
+    expect(approved).toBe(true);
+    expect(rendered).toContain("--- a/answer.ts");
+    expect(rendered).toContain("-export const answer = 42;");
+    expect(rendered).toContain("+export const answer = 43;");
+    expect(rendered).toContain("Approve? [y/N]");
   });
 });

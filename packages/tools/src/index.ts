@@ -1,4 +1,12 @@
 export {
+  type ApplyPatchInput,
+  type ApplyPatchOutput,
+  applyPatch,
+  applyPatchInputSchema,
+  applyPatchTool,
+  previewPatch,
+} from "./apply-patch.js";
+export {
   type ListFilesInput,
   type ListFilesOutput,
   listFiles,
@@ -19,6 +27,14 @@ export {
   proposeToolCall,
   toModelToolDefinitions,
 } from "./registry.js";
+export {
+  DEFAULT_COMMAND_TIMEOUT_MS,
+  type RunCommandInput,
+  type RunCommandOutput,
+  runCommand,
+  runCommandInputSchema,
+  runCommandTool,
+} from "./run-command.js";
 export {
   type SearchInput,
   type SearchOutput,

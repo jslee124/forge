@@ -1,6 +1,7 @@
 import {
   mkdir,
   mkdtemp,
+  readFile as readTextFile,
   realpath,
   rm,
   symlink,
@@ -13,11 +14,13 @@ import type { ToolContext } from "@forge/core";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
+  applyPatch,
   executeToolCall,
   listFiles,
   proposeToolCall,
   readFile,
   resolveWorkspace,
+  runCommand,
   search,
   toModelToolDefinitions,
   WorkspaceResolutionError,
@@ -218,6 +221,159 @@ describe("read-only tools", () => {
   });
 });
 
+describe("workspace patches", () => {
+  it("applies exact structured replacements and returns a diff", async () => {
+    const { root, context } = await fixture();
+
+    const result = await applyPatch(
+      {
+        path: "src/index.ts",
+        edits: [{ oldText: "answer = 42", newText: "answer = 43" }],
+      },
+      context,
+    );
+
+    expect(result).toMatchObject({
+      ok: true,
+      output: {
+        path: "src/index.ts",
+        replacements: 1,
+        diff: expect.stringContaining("+export const answer = 43;"),
+      },
+    });
+    await expect(
+      readTextFile(path.join(root, "src/index.ts"), "utf8"),
+    ).resolves.toBe("export const answer = 43;\n");
+  });
+
+  it("rejects stale, ambiguous, traversal, and symlink patch targets", async () => {
+    const { root, outside, context } = await fixture();
+    await writeFile(path.join(root, "duplicates.txt"), "same\nsame\n");
+    await symlink(outside, path.join(root, "external-link"));
+
+    const stale = await applyPatch(
+      { path: "README.md", edits: [{ oldText: "missing", newText: "new" }] },
+      context,
+    );
+    const ambiguous = await applyPatch(
+      { path: "duplicates.txt", edits: [{ oldText: "same", newText: "new" }] },
+      context,
+    );
+    const traversal = await applyPatch(
+      { path: "../outside.txt", edits: [{ oldText: "secret", newText: "x" }] },
+      context,
+    );
+    const symlinkEscape = await applyPatch(
+      { path: "external-link", edits: [{ oldText: "secret", newText: "x" }] },
+      context,
+    );
+
+    expect(stale).toMatchObject({ ok: false, error: { code: "stale_patch" } });
+    expect(ambiguous).toMatchObject({
+      ok: false,
+      error: { code: "stale_patch" },
+    });
+    expect(traversal).toMatchObject({
+      ok: false,
+      error: { code: "outside_workspace" },
+    });
+    expect(symlinkEscape).toMatchObject({
+      ok: false,
+      error: { code: "outside_workspace" },
+    });
+    await expect(readTextFile(outside, "utf8")).resolves.toBe("secret\n");
+  });
+});
+
+describe("process commands", () => {
+  it("runs without a shell and reports non-zero results with bounded output", async () => {
+    const { context } = await fixture();
+    const limitedContext = {
+      ...context,
+      limits: { ...context.limits, maxOutputBytes: 8 },
+    };
+
+    const result = await runCommand(
+      {
+        program: process.execPath,
+        args: [
+          "-e",
+          "process.stdout.write('123456'); process.stderr.write('abcdef'); process.exit(7)",
+        ],
+        cwd: ".",
+        timeoutMs: 60_000,
+      },
+      limitedContext,
+    );
+
+    expect(result).toMatchObject({
+      ok: true,
+      output: { exitCode: 7, timedOut: false, cwd: "." },
+      truncated: true,
+    });
+    if (result.ok) {
+      expect(
+        Buffer.byteLength(result.output.stdout + result.output.stderr),
+      ).toBeLessThanOrEqual(8);
+    }
+  });
+
+  it("terminates timed-out and cancelled child processes", async () => {
+    const { context } = await fixture();
+    const timedOut = await runCommand(
+      {
+        program: process.execPath,
+        args: ["-e", "setInterval(() => {}, 1000)"],
+        cwd: ".",
+        timeoutMs: 20,
+      },
+      context,
+    );
+    const controller = new AbortController();
+    const cancellation = runCommand(
+      {
+        program: process.execPath,
+        args: ["-e", "setInterval(() => {}, 1000)"],
+        cwd: ".",
+        timeoutMs: 60_000,
+      },
+      { ...context, signal: controller.signal },
+    );
+    setTimeout(() => controller.abort("test"), 20);
+
+    expect(timedOut).toMatchObject({ ok: true, output: { timedOut: true } });
+    await expect(cancellation).resolves.toMatchObject({
+      ok: false,
+      error: { code: "cancelled" },
+    });
+  });
+
+  it("denies outside working directories and rejects shell expressions", async () => {
+    const { context } = await fixture();
+    const outside = await runCommand(
+      {
+        program: process.execPath,
+        args: ["--version"],
+        cwd: "..",
+        timeoutMs: 60_000,
+      },
+      context,
+    );
+
+    expect(outside).toMatchObject({
+      ok: false,
+      error: { code: "outside_workspace" },
+    });
+    expect(
+      proposeToolCall({
+        id: "shell",
+        name: "run_command",
+        input: { program: "echo hello | sh", args: [] },
+      }),
+    ).toMatchObject({ ok: false, error: { code: "invalid_input" } });
+  });
+});
+
 describe("tool proposal and execution", () => {
   it("validates a model call before explicitly executing it", async () => {
     const { context } = await fixture();
@@ -253,6 +409,8 @@ describe("tool proposal and execution", () => {
       "list_files",
       "read_file",
       "search",
+      "apply_patch",
+      "run_command",
     ]);
     expect(definitions.every((definition) => !("execute" in definition))).toBe(
       true,

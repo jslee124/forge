@@ -259,6 +259,7 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
           approved = await options.approvalChannel.request(
             proposed.action,
             options.signal,
+            options.toolContext,
           );
         } catch {
           if (options.signal.aborted) {
@@ -273,6 +274,9 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
 
       await emit({ type: "tool.started", step: modelSteps, call });
       const result = await execute(proposed.action, options.toolContext);
+      if (result.ok && decision.kind === "confirm") {
+        options.policy.recordApproval?.(proposed.action);
+      }
       await emit({
         type: result.ok ? "tool.completed" : "tool.failed",
         step: modelSteps,

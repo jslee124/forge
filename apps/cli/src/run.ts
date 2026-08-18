@@ -1,9 +1,10 @@
 import {
+  type ApprovalChannel,
   type ModelAdapter,
   ModelConfigurationError,
-  ReadOnlyPolicy,
   type RunEvent,
   runAgent,
+  WorkspaceWritePolicy,
 } from "@forge/core";
 import {
   type CreateDeepSeekModelAdapterOptions,
@@ -12,7 +13,9 @@ import {
   type DeepSeekThinkingMode,
 } from "@forge/model-deepseek";
 import {
+  type ApplyPatchInput,
   builtinTools,
+  previewPatch,
   resolveWorkspace,
   WorkspaceResolutionError,
 } from "@forge/tools";
@@ -27,6 +30,7 @@ export interface RunDependencies {
   readonly stdout: WritableOutput;
   readonly stderr: WritableOutput;
   readonly signal: AbortSignal;
+  readonly approvalChannel?: ApprovalChannel;
   readonly createAdapter?: (
     options: CreateDeepSeekModelAdapterOptions,
   ) => ModelAdapter;
@@ -55,7 +59,10 @@ export async function runTask(
       prompt,
       model,
       tools: builtinTools,
-      policy: new ReadOnlyPolicy(),
+      policy: new WorkspaceWritePolicy(),
+      ...(dependencies.approvalChannel
+        ? { approvalChannel: dependencies.approvalChannel }
+        : {}),
       toolContext: {
         workspace,
         signal: dependencies.signal,
@@ -96,10 +103,78 @@ export async function runTaskFromCli(
       stdout: process.stdout,
       stderr: process.stderr,
       signal: cancellation.signal,
+      ...(process.stdin.isTTY && process.stderr.isTTY
+        ? {
+            approvalChannel: createTerminalApprovalChannel(
+              process.stdin,
+              process.stderr,
+            ),
+          }
+        : {}),
     });
   } finally {
     cancellation.dispose();
   }
+}
+
+export function createTerminalApprovalChannel(
+  input: NodeJS.ReadableStream,
+  output: NodeJS.WritableStream,
+): ApprovalChannel {
+  return {
+    request: async (action, signal, context) => {
+      if (signal.aborted) {
+        return false;
+      }
+      if (action.tool.name === "apply_patch") {
+        const preview = await previewPatch(
+          action.input as ApplyPatchInput,
+          context,
+        );
+        if (!preview.ok) {
+          output.write(`Cannot preview patch: ${preview.error.message}\n`);
+          return false;
+        }
+        if (preview.truncated) {
+          output.write(
+            "Cannot approve patch because its diff exceeds the display limit.\n",
+          );
+          return false;
+        }
+        output.write(`${preview.output.diff}\n`);
+      } else if (action.tool.name === "run_command") {
+        const command = action.input as {
+          readonly program: string;
+          readonly args: readonly string[];
+          readonly cwd: string;
+          readonly timeoutMs: number;
+        };
+        output.write(
+          `Command: ${[command.program, ...command.args.map(quoteArgument)].join(" ")}\n` +
+            `Working directory: ${command.cwd}\n` +
+            `Timeout: ${command.timeoutMs} ms\n`,
+        );
+      }
+
+      const { createInterface } = await import("node:readline/promises");
+      const readline = createInterface({ input, output });
+      const onAbort = () => readline.close();
+      signal.addEventListener("abort", onAbort, { once: true });
+      try {
+        const answer = await readline.question("Approve? [y/N] ");
+        return /^(?:y|yes)$/iu.test(answer.trim());
+      } catch {
+        return false;
+      } finally {
+        signal.removeEventListener("abort", onAbort);
+        readline.close();
+      }
+    },
+  };
+}
+
+function quoteArgument(value: string): string {
+  return JSON.stringify(value);
 }
 
 function createRunEventRenderer(

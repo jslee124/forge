@@ -2,8 +2,8 @@
 
 ## Current milestone
 
-**Milestone 3: Native agent loop and policy foundation is complete.** The next
-milestone is **Milestone 4: Safe coding vertical slice**. No later milestone
+**Milestone 4: Safe coding vertical slice is complete.** The next milestone is
+**Milestone 4.5: Interactive CLI**. No later milestone
 should be treated as implemented merely because its design is documented.
 
 ## Working rules
@@ -121,19 +121,19 @@ Acceptance criteria:
 
 Goal: complete the first small repository change and verify it.
 
-- [ ] Implement structured file patches and show the diff before approval
-- [ ] Confirm the first workspace patch in the default profile
-- [ ] Scope that approval to later workspace patches in the current run only
-- [ ] Implement `run_command` as `program + args[]` using `spawn` with
+- [x] Implement structured file patches and show the diff before approval
+- [x] Confirm the first workspace patch in the default profile
+- [x] Scope that approval to later workspace patches in the current run only
+- [x] Implement `run_command` as `program + args[]` using `spawn` with
   `shell: false`
-- [ ] Confirm every process command in the default profile
-- [ ] Apply a default command timeout of `60000` milliseconds
-- [ ] Limit command output to `65536` bytes per result
-- [ ] Terminate cancelled and timed-out child processes reliably
-- [ ] Preserve pre-existing workspace changes
-- [ ] Create `fixtures/validation-bug` from the v0.1 specification
-- [ ] Add an end-to-end test for the canonical fixture
-- [ ] Add a scripted recovery test: failing verification, corrective patch,
+- [x] Confirm every process command in the default profile
+- [x] Apply a default command timeout of `60000` milliseconds
+- [x] Limit command output to `65536` bytes per result
+- [x] Terminate cancelled and timed-out child processes reliably
+- [x] Preserve pre-existing workspace changes
+- [x] Create `fixtures/validation-bug` from the v0.1 specification
+- [x] Add an end-to-end test for the canonical fixture
+- [x] Add a scripted recovery test: failing verification, corrective patch,
   passing verification
 
 Acceptance criteria:
@@ -145,6 +145,28 @@ Acceptance criteria:
 - Timed-out commands are terminated and reported accurately.
 - Shell expressions and outside-workspace file operations are denied.
 - Unrelated user changes are not overwritten.
+
+## Milestone 4.5: Interactive CLI
+
+Goal: make the completed coding loop usable as a multi-turn terminal session
+before adding broader configuration machinery.
+
+- [ ] Start an interactive session when `forge` has no subcommand
+- [ ] Preserve conversation context across prompts in the current session
+- [ ] Keep tool approvals and patch scope explicit per task/run
+- [ ] Add `/help`, `/clear`, and `/exit`
+- [ ] Cancel the active task with Ctrl+C without immediately losing the session
+- [ ] Exit cleanly on a second Ctrl+C or end-of-input
+- [ ] Add a supported local/global install or link workflow for the `forge` bin
+- [ ] Test prompt sequencing, cancellation, approvals, and non-TTY behavior
+
+Acceptance criteria:
+
+- Typing `forge` from a configured installation opens a prompt in the current
+  repository.
+- A user can submit more than one task without restarting the process.
+- Patch and command approvals retain the Milestone 4 safety behavior.
+- Exiting or cancelling never leaves a model request or child process running.
 
 ## Milestone 5: Configuration, instructions, and permission profiles
 

@@ -54,7 +54,7 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
 
   program
     .command("run")
-    .description("Run a read-only multi-step coding-agent task")
+    .description("Run a safe multi-step coding-agent task")
     .argument("<prompt>", "repository task for Forge")
     .option(
       "--model <model>",

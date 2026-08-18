@@ -8,15 +8,19 @@ import type {
   ToolResult,
 } from "@forge/core";
 
+import { applyPatchTool } from "./apply-patch.js";
 import { listFilesTool } from "./list-files.js";
 import { failure } from "./path.js";
 import { readFileTool } from "./read-file.js";
+import { runCommandTool } from "./run-command.js";
 import { searchTool } from "./search.js";
 
 export const builtinTools: readonly ForgeTool[] = [
   listFilesTool,
   readFileTool,
   searchTool,
+  applyPatchTool,
+  runCommandTool,
 ];
 
 export function toModelToolDefinitions(

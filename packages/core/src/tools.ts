@@ -1,6 +1,6 @@
 import type { z } from "zod";
 
-export type ToolRisk = "read";
+export type ToolRisk = "process" | "read" | "write";
 
 export interface WorkspaceContext {
   readonly root: string;
@@ -54,6 +54,9 @@ export type ToolErrorCode =
   | "not_found"
   | "outside_workspace"
   | "output_limit"
+  | "process_error"
+  | "stale_patch"
+  | "timed_out"
   | "unknown_tool";
 
 export interface ToolError {
