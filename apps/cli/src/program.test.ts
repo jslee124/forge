@@ -88,6 +88,45 @@ describe("Forge CLI", () => {
     expect(exitCode).toBe(3);
   });
 
+  it("starts the interactive session when no subcommand is provided", async () => {
+    let received:
+      | {
+          readonly model: string | undefined;
+          readonly thinking: string | undefined;
+          readonly apiKey: string | undefined;
+        }
+      | undefined;
+    let exitCode: number | undefined;
+    const program = createProgram({
+      env: {
+        DEEPSEEK_API_KEY: "test-secret",
+        FORGE_MODEL: "deepseek-v4-pro",
+        FORGE_THINKING: "disabled",
+      },
+      runInteractive: async (options, env) => {
+        const { DEEPSEEK_API_KEY } = env;
+        received = {
+          model: options.model,
+          thinking: options.thinking,
+          apiKey: DEEPSEEK_API_KEY,
+        };
+        return 0;
+      },
+      setExitCode: (value) => {
+        exitCode = value;
+      },
+    });
+
+    await program.parseAsync(["node", "forge"]);
+
+    expect(received).toEqual({
+      model: "deepseek-v4-pro",
+      thinking: "disabled",
+      apiKey: "test-secret",
+    });
+    expect(exitCode).toBe(0);
+  });
+
   it("runs the compiled version command", () => {
     const output = execFileSync(process.execPath, [cliPath, "--version"], {
       encoding: "utf8",

@@ -185,7 +185,10 @@ function buildMessages(request: DeepSeekTransportRequest): ModelMessage[] {
     }
     messages = [...request.continuation.data.messages];
   } else {
-    messages = [{ role: "user", content: request.prompt }];
+    messages = [
+      ...(request.conversation ?? []),
+      { role: "user", content: request.prompt },
+    ];
   }
 
   if (request.toolResults && request.toolResults.length > 0) {

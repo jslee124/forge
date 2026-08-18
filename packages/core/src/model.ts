@@ -11,8 +11,14 @@ export interface ModelToolResult {
   readonly result: ToolResult;
 }
 
+export interface ModelConversationMessage {
+  readonly role: "assistant" | "user";
+  readonly content: string;
+}
+
 export interface ModelRequest {
   readonly prompt: string;
+  readonly conversation?: readonly ModelConversationMessage[];
   readonly tools?: readonly ModelToolDefinition[];
   readonly continuation?: ModelContinuation;
   readonly toolResults?: readonly ModelToolResult[];

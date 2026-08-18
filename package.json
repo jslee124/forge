@@ -4,6 +4,10 @@
   "private": true,
   "type": "module",
   "packageManager": "pnpm@11.18.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "engines": {
     "node": ">=24"
   },
@@ -13,10 +17,12 @@
     "clean": "tsc -b --clean",
     "forge": "tsc -b && node apps/cli/dist/index.js",
     "format": "biome format --write .",
+    "link:global": "pnpm build && npm link --workspace @forge/cli",
     "lint": "biome lint .",
     "test": "pnpm build && vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc -b && tsc -p tsconfig.test.json"
+    "typecheck": "tsc -b && tsc -p tsconfig.test.json",
+    "unlink:global": "npm unlink --global @forge/cli"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.8",

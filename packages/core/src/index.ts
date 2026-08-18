@@ -4,6 +4,7 @@ export { ModelConfigurationError, ModelProviderError } from "./errors.js";
 export type {
   ModelAdapter,
   ModelContinuation,
+  ModelConversationMessage,
   ModelFinishReason,
   ModelRequest,
   ModelStreamEvent,

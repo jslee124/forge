@@ -33,6 +33,7 @@ export class DeepSeekModelAdapter implements ModelAdapter {
         model: this.#model,
         thinking: this.#thinking,
         prompt: request.prompt,
+        ...(request.conversation ? { conversation: request.conversation } : {}),
         ...(request.tools ? { tools: request.tools } : {}),
         ...(request.continuation ? { continuation: request.continuation } : {}),
         ...(request.toolResults ? { toolResults: request.toolResults } : {}),

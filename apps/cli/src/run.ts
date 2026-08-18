@@ -2,7 +2,9 @@ import {
   type ApprovalChannel,
   type ModelAdapter,
   ModelConfigurationError,
+  type ModelConversationMessage,
   type RunEvent,
+  type RunResult,
   runAgent,
   WorkspaceWritePolicy,
 } from "@forge/core";
@@ -31,6 +33,8 @@ export interface RunDependencies {
   readonly stderr: WritableOutput;
   readonly signal: AbortSignal;
   readonly approvalChannel?: ApprovalChannel;
+  readonly conversation?: readonly ModelConversationMessage[];
+  readonly onResult?: (result: RunResult) => void;
   readonly createAdapter?: (
     options: CreateDeepSeekModelAdapterOptions,
   ) => ModelAdapter;
@@ -57,6 +61,9 @@ export async function runTask(
     );
     const result = await runAgent({
       prompt,
+      ...(dependencies.conversation
+        ? { conversation: dependencies.conversation }
+        : {}),
       model,
       tools: builtinTools,
       policy: new WorkspaceWritePolicy(),
@@ -71,6 +78,8 @@ export async function runTask(
       signal: dependencies.signal,
       onEvent: render,
     });
+
+    dependencies.onResult?.(result);
 
     return result.exitCode;
   } catch (error) {
@@ -121,6 +130,28 @@ export function createTerminalApprovalChannel(
   input: NodeJS.ReadableStream,
   output: NodeJS.WritableStream,
 ): ApprovalChannel {
+  return createApprovalChannel(async (prompt, signal) => {
+    const { createInterface } = await import("node:readline/promises");
+    const readline = createInterface({ input, output });
+    try {
+      return await readline.question(prompt, { signal });
+    } catch {
+      return null;
+    } finally {
+      readline.close();
+    }
+  }, output);
+}
+
+export type ApprovalQuestion = (
+  prompt: string,
+  signal: AbortSignal,
+) => Promise<string | null>;
+
+export function createApprovalChannel(
+  question: ApprovalQuestion,
+  output: WritableOutput,
+): ApprovalChannel {
   return {
     request: async (action, signal, context) => {
       if (signal.aborted) {
@@ -156,19 +187,8 @@ export function createTerminalApprovalChannel(
         );
       }
 
-      const { createInterface } = await import("node:readline/promises");
-      const readline = createInterface({ input, output });
-      const onAbort = () => readline.close();
-      signal.addEventListener("abort", onAbort, { once: true });
-      try {
-        const answer = await readline.question("Approve? [y/N] ");
-        return /^(?:y|yes)$/iu.test(answer.trim());
-      } catch {
-        return false;
-      } finally {
-        signal.removeEventListener("abort", onAbort);
-        readline.close();
-      }
+      const answer = await question("Approve? [y/N] ", signal);
+      return answer !== null && /^(?:y|yes)$/iu.test(answer.trim());
     },
   };
 }

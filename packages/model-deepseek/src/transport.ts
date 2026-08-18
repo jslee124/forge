@@ -1,5 +1,6 @@
 import type {
   ModelContinuation,
+  ModelConversationMessage,
   ModelStreamEvent,
   ModelToolDefinition,
   ModelToolResult,
@@ -12,6 +13,7 @@ export interface DeepSeekTransportRequest {
   readonly model: string;
   readonly thinking: DeepSeekThinkingMode;
   readonly prompt: string;
+  readonly conversation?: readonly ModelConversationMessage[];
   readonly tools?: readonly ModelToolDefinition[];
   readonly continuation?: ModelContinuation;
   readonly toolResults?: readonly ModelToolResult[];

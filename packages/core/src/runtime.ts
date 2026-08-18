@@ -1,6 +1,7 @@
 import type {
   ModelAdapter,
   ModelContinuation,
+  ModelConversationMessage,
   ModelFinishReason,
   ModelStreamEvent,
   ModelToolResult,
@@ -88,6 +89,7 @@ export interface RunLimits {
 
 export interface RunAgentOptions {
   readonly prompt: string;
+  readonly conversation?: readonly ModelConversationMessage[];
   readonly model: ModelAdapter;
   readonly tools: readonly ForgeTool[];
   readonly policy: ApprovalPolicy;
@@ -152,6 +154,9 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
         options.model,
         {
           prompt: options.prompt,
+          ...(options.conversation
+            ? { conversation: options.conversation }
+            : {}),
           tools,
           ...(continuation ? { continuation } : {}),
           ...(toolResults ? { toolResults } : {}),
@@ -266,6 +271,9 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
             return finish("cancelled", "The run was cancelled.");
           }
           return finish("failed", "The approval channel failed.");
+        }
+        if (options.signal.aborted) {
+          return finish("cancelled", "The run was cancelled.");
         }
         if (!approved) {
           return finish("denied", "The action was not approved.");

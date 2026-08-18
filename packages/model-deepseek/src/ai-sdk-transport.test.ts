@@ -15,6 +15,44 @@ async function* streamParts(parts: readonly unknown[]): AsyncIterable<unknown> {
 }
 
 describe("AI SDK DeepSeek transport", () => {
+  it("places interactive conversation history before the current prompt", async () => {
+    let capturedOptions: unknown;
+    const streamTextStub = ((options: unknown) => {
+      capturedOptions = options;
+      return {
+        stream: streamParts([
+          { type: "finish", finishReason: "stop", totalUsage: usage() },
+        ]),
+        responseMessages: Promise.resolve([]),
+      };
+    }) as unknown as typeof streamText;
+    const transport = new AiSdkDeepSeekTransport(streamTextStub);
+
+    for await (const _event of transport.stream(
+      {
+        apiKey: "test-secret",
+        model: "deepseek-v4-flash",
+        thinking: "disabled",
+        prompt: "current task",
+        conversation: [
+          { role: "user", content: "previous task" },
+          { role: "assistant", content: "previous answer" },
+        ],
+      },
+      new AbortController().signal,
+    )) {
+      // Consume the response.
+    }
+
+    expect(capturedOptions).toMatchObject({
+      messages: [
+        { role: "user", content: "previous task" },
+        { role: "assistant", content: "previous answer" },
+        { role: "user", content: "current task" },
+      ],
+    });
+  });
+
   it("maps reasoning, text, metadata, and usage without a network call", async () => {
     let capturedOptions: unknown;
     const streamTextStub = ((options: unknown) => {

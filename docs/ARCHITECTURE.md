@@ -97,6 +97,7 @@ AI SDK -> Model Provider
 The CLI is responsible for:
 
 - Parsing commands and configuration
+- Managing the in-memory interactive session and slash commands
 - Selecting the workspace
 - Rendering streamed events
 - Asking the user to approve sensitive actions
@@ -104,6 +105,10 @@ The CLI is responsible for:
 - Choosing an appropriate process exit code
 
 The CLI should not contain the agent loop or tool implementation logic.
+Each interactive prompt starts a fresh bounded run and approval-policy instance.
+Only completed user and assistant text is carried into the next prompt; tool
+continuation metadata remains scoped to the run that produced it. Persistent or
+resumable sessions remain a later extension.
 
 ### Agent runtime
 

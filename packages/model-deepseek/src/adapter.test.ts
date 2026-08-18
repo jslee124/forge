@@ -55,7 +55,13 @@ describe("DeepSeek model adapter", () => {
     const events: ModelStreamEvent[] = [];
 
     for await (const event of adapter.stream(
-      { prompt: "hello" },
+      {
+        prompt: "hello",
+        conversation: [
+          { role: "user", content: "previous" },
+          { role: "assistant", content: "previous answer" },
+        ],
+      },
       new AbortController().signal,
     )) {
       events.push(event);
@@ -66,6 +72,10 @@ describe("DeepSeek model adapter", () => {
       model: DEFAULT_DEEPSEEK_MODEL,
       thinking: "enabled",
       prompt: "hello",
+      conversation: [
+        { role: "user", content: "previous" },
+        { role: "assistant", content: "previous answer" },
+      ],
     });
     expect(events.map((event) => event.type)).toEqual([
       "reasoning.delta",

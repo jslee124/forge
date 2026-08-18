@@ -2,9 +2,10 @@
 
 ## Current milestone
 
-**Milestone 4: Safe coding vertical slice is complete.** The next milestone is
-**Milestone 4.5: Interactive CLI**. No later milestone
-should be treated as implemented merely because its design is documented.
+**Milestone 4.5: Interactive CLI is complete.** The next milestone is
+**Milestone 5: Configuration, instructions, and permission profiles**. No later
+milestone should be treated as implemented merely because its design is
+documented.
 
 ## Working rules
 
@@ -151,14 +152,14 @@ Acceptance criteria:
 Goal: make the completed coding loop usable as a multi-turn terminal session
 before adding broader configuration machinery.
 
-- [ ] Start an interactive session when `forge` has no subcommand
-- [ ] Preserve conversation context across prompts in the current session
-- [ ] Keep tool approvals and patch scope explicit per task/run
-- [ ] Add `/help`, `/clear`, and `/exit`
-- [ ] Cancel the active task with Ctrl+C without immediately losing the session
-- [ ] Exit cleanly on a second Ctrl+C or end-of-input
-- [ ] Add a supported local/global install or link workflow for the `forge` bin
-- [ ] Test prompt sequencing, cancellation, approvals, and non-TTY behavior
+- [x] Start an interactive session when `forge` has no subcommand
+- [x] Preserve conversation context across prompts in the current session
+- [x] Keep tool approvals and patch scope explicit per task/run
+- [x] Add `/help`, `/clear`, and `/exit`
+- [x] Cancel the active task with Ctrl+C without immediately losing the session
+- [x] Exit cleanly on a second Ctrl+C or end-of-input
+- [x] Add a supported local/global install or link workflow for the `forge` bin
+- [x] Test prompt sequencing, cancellation, approvals, and non-TTY behavior
 
 Acceptance criteria:
 

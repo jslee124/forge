@@ -7,9 +7,9 @@ It is a learning project and portfolio project focused on the engineering behind
 coding agents: model interaction, tool execution, safety boundaries, execution
 traces, plugins, and reproducible evaluations.
 
-> Status: Milestone 4 complete. Forge can inspect and patch workspace files,
-> run explicitly approved commands, recover from failed verification, and stop
-> under bounded runtime limits. The interactive `forge` session is next.
+> Status: Milestone 4.5 complete. Forge supports bounded coding runs and an
+> in-memory, multi-turn interactive terminal session. Configuration files,
+> repository instructions, and permission profiles are next.
 
 ## Vision
 
@@ -23,9 +23,9 @@ It will inspect the workspace, use tools to read and modify code, run relevant
 commands, react to failures, and stop only after it has verified the result or
 reached a defined limit.
 
-The next milestone will let you simply type `forge` to start an interactive
-session where you can ask the agent to perform tasks and inspect
-model-provided reasoning, actions, tool calls, and execution decisions.
+Type `forge` to start an interactive session where you can ask the agent to
+perform tasks and inspect model-provided reasoning, actions, tool calls, and
+execution decisions.
 
 ```bash
 forge
@@ -124,6 +124,29 @@ pnpm forge --version
 pnpm forge --help
 ```
 
+Start an interactive session from the repository:
+
+```bash
+export DEEPSEEK_API_KEY="your-api-key"
+pnpm forge
+```
+
+The interactive prompt preserves completed user/assistant turns in memory for
+the current process. Each prompt is still a separate bounded agent run with a
+fresh patch-approval scope; command approvals are never reused. Available
+commands are `/help`, `/clear`, and `/exit`. Ctrl+C cancels an active task and
+returns to the prompt; press it again to exit.
+
+To make the development build available as `forge` globally:
+
+```bash
+pnpm link:global
+forge
+```
+
+The link points to this checkout. Run `pnpm build` after code changes, and use
+`pnpm unlink:global` to remove it.
+
 Send one prompt to DeepSeek:
 
 ```bash
@@ -146,9 +169,6 @@ workspace patches only in the same run. Every process command is shown and
 confirmed separately. Commands use structured arguments with no shell, a
 60-second maximum timeout, and a 65,536-byte result limit. The run stops after
 at most 12 model steps or 40 tool calls.
-
-Bare `forge` interactive mode is planned for Milestone 4.5 and is not available
-yet.
 
 Forge uses `deepseek-v4-flash` with thinking enabled by default. Both settings
 are explicit and can be changed for one invocation:
@@ -194,7 +214,11 @@ Milestone 2 added canonical workspace resolution, bounded `list_files`,
 schema translation without execution callbacks. Milestone 3 connected these
 pieces through a Forge-owned multi-step loop, provider continuation records,
 policy gateway, lifecycle events, cancellation, and deterministic limits. The
-next milestone adds the first safe repository-editing vertical slice.
+Milestone 4 added the safe patch/command vertical slice and deterministic
+failure recovery. Milestone 4.5 added the bare `forge` multi-turn session,
+slash commands, task cancellation, and a global development-link workflow.
+Milestone 5 adds configuration, repository instructions, and permission
+profiles.
 
 ## License
 
