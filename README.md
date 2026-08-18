@@ -7,8 +7,8 @@ It is a learning project and portfolio project focused on the engineering behind
 coding agents: model interaction, tool execution, safety boundaries, execution
 traces, plugins, and reproducible evaluations.
 
-> Status: Milestone 0 complete. Milestone 1 is next. Forge is not usable as a
-> coding agent yet.
+> Status: Milestone 1 complete. Forge can stream a one-turn DeepSeek response,
+> but it is not a coding agent yet. Read-only workspace tools are next.
 
 ## Vision
 
@@ -116,12 +116,38 @@ Install dependencies:
 pnpm install
 ```
 
-Run the Milestone 0 CLI:
+Run the CLI scaffold:
 
 ```bash
 pnpm forge --version
 pnpm forge --help
 ```
+
+Send one prompt to DeepSeek:
+
+```bash
+export DEEPSEEK_API_KEY="your-api-key"
+pnpm forge ask "Explain what this repository is for"
+```
+
+Forge uses `deepseek-v4-flash` with thinking enabled by default. Both settings
+are explicit and can be changed for one invocation:
+
+```bash
+pnpm forge ask "Answer briefly" \
+  --model deepseek-v4-flash \
+  --thinking disabled
+```
+
+`FORGE_MODEL` and `FORGE_THINKING` provide environment-level defaults. Command
+line flags take precedence. Valid thinking modes are `enabled` and `disabled`.
+Reasoning is labeled separately only when DeepSeek returns reasoning content;
+Forge does not synthesize it. Token usage is written to standard error when the
+provider reports it.
+
+The API key is read from the process environment for each invocation and is not
+saved by Forge. A missing key exits with code `2`; provider and network failures
+exit with code `1`; Ctrl+C cancels an active request and exits with code `130`.
 
 Run the project checks:
 
@@ -141,8 +167,9 @@ produce a runnable behavior and meet its acceptance criteria before the next one
 begins.
 
 Milestone 0 established the workspace, CLI scaffold, and local quality checks.
-The next milestone is Milestone 1: send a prompt to DeepSeek and stream
-provider-returned text and reasoning in the terminal.
+Milestone 1 added the provider-neutral model contract, DeepSeek adapter,
+one-turn streaming command, error mapping, usage reporting, and cancellation.
+The next milestone adds bounded read-only workspace tools.
 
 ## License
 

@@ -2,8 +2,8 @@
 
 ## Current milestone
 
-**Milestone 0: Project foundation is complete.** The next milestone is
-**Milestone 1: DeepSeek model conversation**. No later milestone should be
+**Milestone 1: DeepSeek model conversation is complete.** The next milestone is
+**Milestone 2: Workspace and read-only tools**. No later milestone should be
 treated as implemented merely because its design is documented.
 
 ## Working rules
@@ -44,18 +44,18 @@ Acceptance criteria:
 Goal: prove the real provider, authentication, and streaming path before
 building an agent.
 
-- [ ] Add `packages/model-deepseek`
-- [ ] Install Vercel AI SDK and `@ai-sdk/deepseek`
-- [ ] Resolve `DEEPSEEK_API_KEY` without persisting it
-- [ ] Use `deepseek-v4-flash` as the default model
-- [ ] Select thinking mode explicitly instead of relying on provider defaults
-- [ ] Implement a one-turn streaming `ModelAdapter`
-- [ ] Add `forge ask <prompt>`
-- [ ] Stream provider-returned text and reasoning as distinct events
-- [ ] Capture token usage and provider metadata when available
-- [ ] Return readable credential, provider, and network errors
-- [ ] Cancel an active request with Ctrl+C
-- [ ] Unit-test the adapter contract with no real API calls
+- [x] Add `packages/model-deepseek`
+- [x] Install Vercel AI SDK and `@ai-sdk/deepseek`
+- [x] Resolve `DEEPSEEK_API_KEY` without persisting it
+- [x] Use `deepseek-v4-flash` as the default model
+- [x] Select thinking mode explicitly instead of relying on provider defaults
+- [x] Implement a one-turn streaming `ModelAdapter`
+- [x] Add `forge ask <prompt>`
+- [x] Stream provider-returned text and reasoning as distinct events
+- [x] Capture token usage and provider metadata when available
+- [x] Return readable credential, provider, and network errors
+- [x] Cancel an active request with Ctrl+C
+- [x] Unit-test the adapter contract with no real API calls
 
 Acceptance criteria:
 

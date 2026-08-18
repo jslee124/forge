@@ -17,6 +17,7 @@
   ],
   "dependencies": {
     "@forge/core": "workspace:*",
+    "@forge/model-deepseek": "workspace:*",
     "commander": "^15.0.0"
   }
 }

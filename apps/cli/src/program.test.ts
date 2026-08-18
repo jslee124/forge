@@ -14,6 +14,50 @@ describe("Forge CLI", () => {
 
     expect(program.name()).toBe("forge");
     expect(program.version()).toBe(FORGE_VERSION);
+    expect(program.commands.map((command) => command.name())).toContain("ask");
+  });
+
+  it("passes model options and environment to the ask command", async () => {
+    let received:
+      | {
+          prompt: string;
+          model: string | undefined;
+          thinking: string | undefined;
+          apiKey: string | undefined;
+        }
+      | undefined;
+    let exitCode: number | undefined;
+    const env = {
+      DEEPSEEK_API_KEY: "test-secret",
+      FORGE_MODEL: "deepseek-v4-pro",
+      FORGE_THINKING: "disabled",
+    };
+    const program = createProgram({
+      env,
+      runAsk: async (prompt, options, receivedEnv) => {
+        const { DEEPSEEK_API_KEY } = receivedEnv;
+        received = {
+          prompt,
+          model: options.model,
+          thinking: options.thinking,
+          apiKey: DEEPSEEK_API_KEY,
+        };
+        return 0;
+      },
+      setExitCode: (value) => {
+        exitCode = value;
+      },
+    });
+
+    await program.parseAsync(["node", "forge", "ask", "hello"]);
+
+    expect(received).toEqual({
+      prompt: "hello",
+      model: "deepseek-v4-pro",
+      thinking: "disabled",
+      apiKey: "test-secret",
+    });
+    expect(exitCode).toBe(0);
   });
 
   it("runs the compiled version command", () => {
