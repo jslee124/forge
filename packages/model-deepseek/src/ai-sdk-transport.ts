@@ -5,6 +5,7 @@ import {
 import {
   ModelProviderError,
   type ModelStreamEvent,
+  type ModelToolDefinition,
   type ModelUsage,
 } from "@forge/core";
 import {
@@ -12,6 +13,8 @@ import {
   type LanguageModelUsage,
   RetryError,
   streamText,
+  type ToolSet,
+  tool,
 } from "ai";
 
 import type {
@@ -40,6 +43,9 @@ export class AiSdkDeepSeekTransport implements DeepSeekTransport {
         model: deepSeek(request.model),
         prompt: request.prompt,
         abortSignal: signal,
+        ...(request.tools && request.tools.length > 0
+          ? { tools: toAiSdkTools(request.tools) }
+          : {}),
         providerOptions: {
           deepseek: {
             thinking: { type: request.thinking },
@@ -55,6 +61,20 @@ export class AiSdkDeepSeekTransport implements DeepSeekTransport {
 
           case "text-delta":
             yield { type: "text.delta", text: part.text };
+            break;
+
+          case "tool-call":
+            yield {
+              type: "tool.call",
+              call: {
+                id: part.toolCallId,
+                name: part.toolName,
+                input: part.input,
+                ...(part.providerMetadata
+                  ? { providerMetadata: part.providerMetadata }
+                  : {}),
+              },
+            };
             break;
 
           case "start-step":
@@ -106,6 +126,20 @@ export class AiSdkDeepSeekTransport implements DeepSeekTransport {
       throw mapDeepSeekError(error);
     }
   }
+}
+
+export function toAiSdkTools(
+  definitions: readonly ModelToolDefinition[],
+): ToolSet {
+  return Object.fromEntries(
+    definitions.map((definition) => [
+      definition.name,
+      tool({
+        description: definition.description,
+        inputSchema: definition.inputSchema,
+      }),
+    ]),
+  );
 }
 
 function normalizeUsage(usage: LanguageModelUsage): ModelUsage {

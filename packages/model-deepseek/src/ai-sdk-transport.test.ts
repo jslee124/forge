@@ -1,5 +1,6 @@
 import { APICallError, type streamText } from "ai";
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 
 import {
   AiSdkDeepSeekTransport,
@@ -25,6 +26,12 @@ describe("AI SDK DeepSeek transport", () => {
           },
           { type: "reasoning-delta", id: "r1", text: "reason" },
           { type: "text-delta", id: "t1", text: "answer" },
+          {
+            type: "tool-call",
+            toolCallId: "call-1",
+            toolName: "read_file",
+            input: { path: "README.md" },
+          },
           {
             type: "finish-step",
             providerMetadata: {
@@ -62,6 +69,13 @@ describe("AI SDK DeepSeek transport", () => {
         model: "deepseek-v4-flash",
         thinking: "enabled",
         prompt: "hello",
+        tools: [
+          {
+            name: "read_file",
+            description: "Read one file",
+            inputSchema: z.object({ path: z.string() }),
+          },
+        ],
       },
       signal,
     )) {
@@ -75,10 +89,24 @@ describe("AI SDK DeepSeek transport", () => {
         deepseek: { thinking: { type: "enabled" } },
       },
     });
+    const capturedTools = (
+      capturedOptions as { tools: Record<string, Record<string, unknown>> }
+    ).tools;
+    const { read_file } = capturedTools;
+    expect(Object.keys(capturedTools)).toEqual(["read_file"]);
+    expect(read_file).not.toHaveProperty("execute");
     expect(events).toEqual([
       { type: "warning", message: "test warning" },
       { type: "reasoning.delta", text: "reason" },
       { type: "text.delta", text: "answer" },
+      {
+        type: "tool.call",
+        call: {
+          id: "call-1",
+          name: "read_file",
+          input: { path: "README.md" },
+        },
+      },
       {
         type: "finish",
         finishReason: "stop",

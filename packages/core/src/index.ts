@@ -8,3 +8,17 @@ export type {
   ModelStreamEvent,
   ModelUsage,
 } from "./model.js";
+export type {
+  ForgeTool,
+  ModelToolDefinition,
+  ToolCall,
+  ToolContext,
+  ToolError,
+  ToolErrorCode,
+  ToolLimits,
+  ToolProposal,
+  ToolProposalResult,
+  ToolResult,
+  ToolRisk,
+  WorkspaceContext,
+} from "./tools.js";

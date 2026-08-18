@@ -2,8 +2,8 @@
 
 ## Current milestone
 
-**Milestone 1: DeepSeek model conversation is complete.** The next milestone is
-**Milestone 2: Workspace and read-only tools**. No later milestone should be
+**Milestone 2: Workspace and read-only tools is complete.** The next milestone
+is **Milestone 3: Native agent loop and policy foundation**. No later milestone should be
 treated as implemented merely because its design is documented.
 
 ## Working rules
@@ -69,17 +69,17 @@ Acceptance criteria:
 
 Goal: safely expose enough repository context for the model to inspect code.
 
-- [ ] Add `packages/tools`
-- [ ] Resolve the canonical workspace root and working directory
-- [ ] Define tool, tool-call, tool-result, and workspace-context types
-- [ ] Implement bounded `list_files`, `read_file`, and `search`
-- [ ] Validate canonical paths and resolved symlinks against the workspace root
-- [ ] Deny built-in file operations outside the workspace
-- [ ] Enforce per-result output limits
-- [ ] Translate Forge tool schemas to AI SDK tool definitions without direct
+- [x] Add `packages/tools`
+- [x] Resolve the canonical workspace root and working directory
+- [x] Define tool, tool-call, tool-result, and workspace-context types
+- [x] Implement bounded `list_files`, `read_file`, and `search`
+- [x] Validate canonical paths and resolved symlinks against the workspace root
+- [x] Deny built-in file operations outside the workspace
+- [x] Enforce per-result output limits
+- [x] Translate Forge tool schemas to AI SDK tool definitions without direct
   `execute` callbacks
-- [ ] Map model tool calls back into validated Forge proposals
-- [ ] Test normal paths, traversal, symlinks, missing files, limits, and
+- [x] Map model tool calls back into validated Forge proposals
+- [x] Test normal paths, traversal, symlinks, missing files, limits, and
   cancellation in temporary workspaces
 
 Acceptance criteria:

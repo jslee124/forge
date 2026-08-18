@@ -31,6 +31,7 @@ export { DeepSeekModelAdapter } from "./adapter.js";
 export {
   AiSdkDeepSeekTransport,
   mapDeepSeekError,
+  toAiSdkTools,
 } from "./ai-sdk-transport.js";
 export {
   DEFAULT_DEEPSEEK_MODEL,

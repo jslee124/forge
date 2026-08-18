@@ -7,8 +7,8 @@ It is a learning project and portfolio project focused on the engineering behind
 coding agents: model interaction, tool execution, safety boundaries, execution
 traces, plugins, and reproducible evaluations.
 
-> Status: Milestone 1 complete. Forge can stream a one-turn DeepSeek response,
-> but it is not a coding agent yet. Read-only workspace tools are next.
+> Status: Milestone 2 complete. Forge has bounded, workspace-confined read-only
+> tools and model tool-call translation, but the multi-step agent loop is next.
 
 ## Vision
 
@@ -169,7 +169,10 @@ begins.
 Milestone 0 established the workspace, CLI scaffold, and local quality checks.
 Milestone 1 added the provider-neutral model contract, DeepSeek adapter,
 one-turn streaming command, error mapping, usage reporting, and cancellation.
-The next milestone adds bounded read-only workspace tools.
+Milestone 2 added canonical workspace resolution, bounded `list_files`,
+`read_file`, and `search` tools, untrusted tool-call validation, and AI SDK
+schema translation without execution callbacks. Milestone 3 will connect these
+pieces through a Forge-owned multi-step agent loop and policy gateway.
 
 ## License
 

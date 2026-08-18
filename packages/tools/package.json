@@ -1,5 +1,5 @@
 {
-  "name": "@forge/model-deepseek",
+  "name": "@forge/tools",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -13,11 +13,7 @@
     "dist"
   ],
   "dependencies": {
-    "@ai-sdk/deepseek": "^3.0.28",
     "@forge/core": "workspace:*",
-    "ai": "^7.0.66"
-  },
-  "devDependencies": {
     "zod": "^4.4.3"
   }
 }

@@ -2,8 +2,10 @@
 
 ## Status
 
-This document defines Forge's intended security model. Until a feature is
-implemented and tested, it is a design target rather than a security guarantee.
+This document defines Forge's intended security model. Milestone 2 implements
+and tests the selected-workspace boundary for the built-in read-only tools.
+Write tools, process execution, permission profiles, and the policy kernel are
+still design targets until their later milestones are complete.
 
 ## Principle
 

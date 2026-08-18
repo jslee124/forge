@@ -3,6 +3,7 @@
   "references": [
     { "path": "./packages/core" },
     { "path": "./packages/model-deepseek" },
+    { "path": "./packages/tools" },
     { "path": "./apps/cli" }
   ]
 }

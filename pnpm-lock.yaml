@@ -33,7 +33,11 @@ importers:
         specifier: ^15.0.0
         version: 15.0.0
 
-  packages/core: {}
+  packages/core:
+    dependencies:
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
 
   packages/model-deepseek:
     dependencies:
@@ -46,6 +50,19 @@ importers:
       ai:
         specifier: ^7.0.66
         version: 7.0.66(zod@4.4.3)
+    devDependencies:
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
+
+  packages/tools:
+    dependencies:
+      '@forge/core':
+        specifier: workspace:*
+        version: link:../core
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
 
 packages:
 

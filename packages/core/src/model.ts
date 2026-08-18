@@ -1,5 +1,8 @@
+import type { ModelToolDefinition, ToolCall } from "./tools.js";
+
 export interface ModelRequest {
   readonly prompt: string;
+  readonly tools?: readonly ModelToolDefinition[];
 }
 
 export interface ModelUsage {
@@ -31,6 +34,10 @@ export type ModelStreamEvent =
   | {
       readonly type: "warning";
       readonly message: string;
+    }
+  | {
+      readonly type: "tool.call";
+      readonly call: ToolCall;
     }
   | {
       readonly type: "finish";
