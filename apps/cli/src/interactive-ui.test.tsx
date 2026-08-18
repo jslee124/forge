@@ -9,8 +9,8 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import {
   INK_INCREMENTAL_RENDERING,
-  INK_KEYBOARD_MODE,
   InteractiveApp,
+  resolveInkKeyboardMode,
 } from "./interactive-ui.js";
 import type { InteractiveSessionPersistence } from "./persistent-session.js";
 
@@ -25,15 +25,19 @@ afterEach(async () => {
 });
 
 describe("Ink interactive terminal", () => {
-  it("disables keyboard capability probing that leaks into VS Code input", () => {
-    expect(INK_KEYBOARD_MODE).toBe("disabled");
+  it("directly enables enhanced keyboard protocols for known terminals", () => {
+    expect(resolveInkKeyboardMode({ TERM_PROGRAM: "vscode" })).toBe("enabled");
+    expect(resolveInkKeyboardMode({ TERM_PROGRAM: "ghostty" })).toBe("enabled");
+    expect(resolveInkKeyboardMode({ TERM_PROGRAM: "unknown" })).toBe(
+      "disabled",
+    );
   });
 
   it("uses full-frame updates so terminal resize cannot leave stale rows", () => {
     expect(INK_INCREMENTAL_RENDERING).toBe(false);
   });
 
-  it("shows an honest Shift+Enter hint in VS Code terminals", async () => {
+  it("shows the available multiline shortcuts in VS Code terminals", async () => {
     const root = await createWorkspace();
     const instance = render(
       <InteractiveApp
@@ -43,8 +47,9 @@ describe("Ink interactive terminal", () => {
       />,
     );
 
-    expect(instance.lastFrame()).toContain("Ctrl+J newline");
-    expect(instance.lastFrame()).toContain("configure Shift+Enter in VS Code");
+    expect(instance.lastFrame()).toContain(
+      "Shift+Enter/Meta+Enter/Ctrl+J newline",
+    );
     instance.unmount();
   });
 
@@ -98,7 +103,7 @@ describe("Ink interactive terminal", () => {
     instance.unmount();
   });
 
-  it("inserts a newline for Shift+Enter and submits only on plain Enter", async () => {
+  it("inserts a newline for Shift+Enter and Meta+Enter", async () => {
     const root = await createWorkspace();
     let receivedPrompt = "";
     const instance = render(
@@ -122,10 +127,15 @@ describe("Ink interactive terminal", () => {
     expect(receivedPrompt).toBe("");
     instance.stdin.write("second");
     await settle();
+    instance.stdin.write("\u001B\r");
+    await settle();
+    expect(receivedPrompt).toBe("");
+    instance.stdin.write("third");
+    await settle();
     instance.stdin.write("\r");
     await settle();
 
-    expect(receivedPrompt).toBe("first\nsecond");
+    expect(receivedPrompt).toBe("first\nsecond\nthird");
     instance.unmount();
   });
 

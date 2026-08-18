@@ -24,6 +24,7 @@ export interface SubmissionKey {
   readonly return: boolean;
   readonly shift: boolean;
   readonly ctrl: boolean;
+  readonly meta: boolean;
 }
 
 const IGNORED_DIRECTORIES = new Set([
@@ -134,7 +135,7 @@ export function classifySubmissionKey(
   key: SubmissionKey,
 ): "newline" | "submit" | undefined {
   if (
-    (key.return && key.shift) ||
+    (key.return && (key.shift || key.meta)) ||
     (key.ctrl && (input === "j" || input === "\n"))
   ) {
     return "newline";

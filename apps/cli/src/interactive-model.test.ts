@@ -40,13 +40,36 @@ describe("interactive editor model", () => {
 
   it("distinguishes submission from newline shortcuts", () => {
     expect(
-      classifySubmissionKey("", { return: true, shift: false, ctrl: false }),
+      classifySubmissionKey("", {
+        return: true,
+        shift: false,
+        ctrl: false,
+        meta: false,
+      }),
     ).toBe("submit");
     expect(
-      classifySubmissionKey("", { return: true, shift: true, ctrl: false }),
+      classifySubmissionKey("", {
+        return: true,
+        shift: true,
+        ctrl: false,
+        meta: false,
+      }),
     ).toBe("newline");
     expect(
-      classifySubmissionKey("j", { return: false, shift: false, ctrl: true }),
+      classifySubmissionKey("j", {
+        return: false,
+        shift: false,
+        ctrl: true,
+        meta: false,
+      }),
+    ).toBe("newline");
+    expect(
+      classifySubmissionKey("", {
+        return: true,
+        shift: false,
+        ctrl: false,
+        meta: true,
+      }),
     ).toBe("newline");
   });
 

@@ -48,15 +48,15 @@ session-exit behavior when Forge is otherwise idle.
 
 - Enter submits a non-empty prompt when no completion or approval menu owns the
   key.
-- Shift+Enter inserts a newline without submitting.
+- Shift+Enter inserts a newline without submitting. Terminal integrations that
+  encode it as Meta+Enter (`ESC+Enter`) are treated the same way.
 - Because some legacy terminals do not distinguish Shift+Enter from Enter,
   Ctrl+J also inserts a newline as a portable fallback. The input footer should
   advertise the shortcut that is available.
-- The VS Code integrated terminal requires a user keybinding that maps
-  Shift+Enter to `workbench.action.terminal.sendSequence` with the text
-  `\u000a`. Forge reports this limitation in its footer instead of claiming the
-  modifier is available. Forge does not automatically edit editor-wide user
-  settings.
+- Forge directly enables the enhanced keyboard protocol in known-compatible
+  terminals such as VS Code and Ghostty, avoiding a startup capability query
+  that some terminals echo as input. Older or unknown terminals continue to
+  use Ctrl+J or Meta+Enter as fallbacks.
 - The editor preserves newlines exactly when constructing the user message.
 - Left/right movement, backspace, delete, Home/End, paste, Unicode text, and
   terminal resize must not corrupt the buffer or display.
@@ -164,7 +164,7 @@ Milestone 4.6 should include deterministic tests for:
 - File candidate filtering, ignored directories, result limits, spaces, and
   prevention of workspace escape
 - Structured file mentions and the exact model message assembled from them
-- Enter submission versus Shift+Enter and Ctrl+J newline insertion
+- Enter submission versus Shift+Enter, Meta+Enter, and Ctrl+J newline insertion
 - Multi-line editing, paste, Unicode, resize, and cancellation
 - State transitions between editing, completion, running, and approval
 - Diff rendering for create and modify operations, multiple hunks, no-color

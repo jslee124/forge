@@ -79,8 +79,24 @@ interface InteractiveAppProps extends InteractiveUiDependencies {
   readonly options: AskOptions;
 }
 
-export const INK_KEYBOARD_MODE = "disabled" as const;
 export const INK_INCREMENTAL_RENDERING = false as const;
+
+export function resolveInkKeyboardMode(
+  env: NodeJS.ProcessEnv,
+): "enabled" | "disabled" {
+  const terminalProgram = (
+    env as { TERM_PROGRAM?: string }
+  ).TERM_PROGRAM?.toLocaleLowerCase();
+  if (
+    terminalProgram === "vscode" ||
+    terminalProgram === "ghostty" ||
+    terminalProgram === "wezterm" ||
+    (env as { TERM?: string }).TERM === "xterm-kitty"
+  ) {
+    return "enabled";
+  }
+  return "disabled";
+}
 
 export async function runInkInteractiveFromCli(
   options: AskOptions,
@@ -121,10 +137,11 @@ export async function runInkInteractiveFromCli(
       // terminal rewraps content during a resize. Full-frame updates are more
       // reliable for this bounded interactive UI.
       incrementalRendering: INK_INCREMENTAL_RENDERING,
-      // VS Code and other terminals may echo Ink's capability query as input.
-      // Ctrl+J remains the portable multiline fallback when Shift+Enter is not
-      // distinguishable without an enhanced keyboard protocol.
-      kittyKeyboard: { mode: INK_KEYBOARD_MODE },
+      // Ink's auto-detection query is sent before raw mode is active. VS Code
+      // can echo that query as literal input, so use direct activation only
+      // for terminals known to support the protocol. Ctrl+J, Meta+Enter, and
+      // the legacy parser remain available for all other terminals.
+      kittyKeyboard: { mode: resolveInkKeyboardMode(dependencies.env) },
     },
   );
   const result = await instance.waitUntilExit();
@@ -139,8 +156,6 @@ export function InteractiveApp({
   sessionPersistence,
 }: InteractiveAppProps): React.JSX.Element {
   const { exit } = useApp();
-  const { TERM_PROGRAM: terminalProgram } = env;
-  const isVsCodeTerminal = terminalProgram === "vscode";
   const [editor, setEditor] = useState<EditorState>(() => createEditorState());
   const [phase, setPhase] = useState<Phase>("editing");
   const initialMessages = sessionPersistence?.messages ?? [];
@@ -741,7 +756,7 @@ export function InteractiveApp({
 
       <Text dimColor>
         {phase === "editing"
-          ? `${filesLoading ? "Indexing files · " : ""}Enter submit · ${isVsCodeTerminal ? "Ctrl+J newline · configure Shift+Enter in VS Code" : "Shift+Enter/Ctrl+J newline"} · Ctrl+C cancel/exit`
+          ? `${filesLoading ? "Indexing files · " : ""}Enter submit · Shift+Enter/Meta+Enter/Ctrl+J newline · Ctrl+C cancel/exit`
           : phase === "running"
             ? "● Running · Ctrl+C cancel"
             : phase === "approving"

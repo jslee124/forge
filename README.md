@@ -144,26 +144,18 @@ provider continuations, and command approvals are never restored.
 Available commands are `/help`, `/clear`, `/resume`, and `/exit`. Ctrl+C cancels
 an active task and returns to the prompt; press it again to exit.
 
-The [interactive CLI UI](docs/CLI_UI.md) supports Shift+Enter or Ctrl+J for a
-newline, live `/` command completion, and bounded fuzzy `@` workspace-file
-selection. A selected path is sent to the model as an explicit reference; the
-model still reads its contents through the normal `read_file` tool. File-write
-approval shows a colored, line-numbered diff with a no-color fallback.
+The [interactive CLI UI](docs/CLI_UI.md) supports Shift+Enter, Meta+Enter
+(`ESC+Enter`), or Ctrl+J for a newline, live `/` command completion, and
+bounded fuzzy `@` workspace-file selection. A selected path is sent to the
+model as an explicit reference; the model still reads its contents through the
+normal `read_file` tool. File-write approval shows a colored, line-numbered
+diff with a no-color fallback.
 
-Some macOS terminals, including the VS Code integrated terminal, send the same
-byte for Enter and Shift+Enter. Forge cannot distinguish those keys at the TTY
-boundary, so Ctrl+J works as the portable newline shortcut. To make Shift+Enter
-send that shortcut in VS Code, open **Preferences: Open Keyboard Shortcuts
-(JSON)** and add:
-
-```json
-{
-  "key": "shift+enter",
-  "command": "workbench.action.terminal.sendSequence",
-  "when": "terminalFocus",
-  "args": { "text": "\u000a" }
-}
-```
+Forge directly enables the enhanced keyboard protocol in known-compatible
+terminals, including VS Code and Ghostty, without sending a startup capability
+query that can be echoed as input. Forge also accepts the common `ESC+Enter`
+encoding used by terminal coding agents. On other terminals, Ctrl+J remains
+the portable newline shortcut.
 
 To make the development build available as `forge` globally:
 
