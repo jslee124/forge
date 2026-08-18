@@ -93,6 +93,8 @@ A narrow, reliable workflow is more valuable than many incomplete features.
 The first useful version will include:
 
 - A TypeScript command-line interface
+- A multi-line interactive terminal UI with slash-command discovery,
+  workspace-file mentions, and readable diff review
 - DeepSeek as the first provider, authenticated with `DEEPSEEK_API_KEY`
 - Streaming model responses through Vercel AI SDK and `@ai-sdk/deepseek`
 - A multi-step agent loop with explicit stop conditions

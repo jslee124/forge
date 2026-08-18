@@ -8,8 +8,9 @@ coding agents: model interaction, tool execution, safety boundaries, execution
 traces, plugins, and reproducible evaluations.
 
 > Status: Milestone 4.5 complete. Forge supports bounded coding runs and an
-> in-memory, multi-turn interactive terminal session. Configuration files,
-> repository instructions, and permission profiles are next.
+> in-memory, multi-turn interactive terminal session. Milestone 4.6 will add a
+> multi-line Ink interface, `/` command discovery, `@` file mentions, and
+> clearer diff review before configuration work begins.
 
 ## Vision
 
@@ -79,6 +80,7 @@ added later as optional adapters and evaluation baselines.
 
 - [Product definition](docs/PRODUCT.md)
 - [Architecture](docs/ARCHITECTURE.md)
+- [Interactive CLI UI](docs/CLI_UI.md)
 - [Authentication model](docs/AUTHENTICATION.md)
 - [Project context and local customization](docs/PROJECT_CONTEXT.md)
 - [Security model](docs/SECURITY.md)
@@ -93,6 +95,7 @@ added later as optional adapters and evaluation baselines.
 - ESM-only TypeScript monorepo
 - TypeScript project references and `tsc -b` for builds
 - Commander for CLI parsing
+- Ink and React for the planned interactive terminal UI
 - Zod for runtime schemas
 - Biome for formatting and linting
 - Vitest for tests
@@ -136,6 +139,11 @@ the current process. Each prompt is still a separate bounded agent run with a
 fresh workspace-write approval scope; command approvals are never reused.
 Available commands are `/help`, `/clear`, and `/exit`. Ctrl+C cancels an active
 task and returns to the prompt; press it again to exit.
+
+The current Milestone 4.5 prompt is intentionally minimal. The planned
+[interactive CLI UI](docs/CLI_UI.md) adds Shift+Enter multi-line input, live `/`
+command completion, `@` workspace-file selection, and a clearer diff approval
+panel. These features are not implemented yet.
 
 To make the development build available as `forge` globally:
 
@@ -218,8 +226,9 @@ policy gateway, lifecycle events, cancellation, and deterministic limits. The
 Milestone 4 added the safe patch/command vertical slice and deterministic
 failure recovery. Milestone 4.5 added the bare `forge` multi-turn session,
 slash commands, task cancellation, and a global development-link workflow.
-Milestone 5 adds configuration, repository instructions, and permission
-profiles.
+Milestone 4.6 adds the interactive TUI, multi-line editing, command and file
+completion, and readable diff review. Milestone 5 then adds configuration,
+repository instructions, and permission profiles.
 
 ## License
 

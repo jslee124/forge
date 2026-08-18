@@ -2,10 +2,10 @@
 
 ## Current milestone
 
-**Milestone 4.5: Interactive CLI is complete.** The next milestone is
-**Milestone 5: Configuration, instructions, and permission profiles**. No later
-milestone should be treated as implemented merely because its design is
-documented.
+**Milestone 4.5: Interactive CLI is complete.** The active milestone is
+**Milestone 4.6: Interactive TUI and context mentions**. Milestone 5 follows it
+with configuration, instructions, and permission profiles. No later milestone
+should be treated as implemented merely because its design is documented.
 
 ## Working rules
 
@@ -169,6 +169,42 @@ Acceptance criteria:
 - A user can submit more than one task without restarting the process.
 - Patch and command approvals retain the Milestone 4 safety behavior.
 - Exiting or cancelling never leaves a model request or child process running.
+
+## Milestone 4.6: Interactive TUI and context mentions
+
+Goal: replace the minimal readline prompt with a discoverable, multi-line
+terminal interface while preserving the Forge-owned runtime and safety model.
+The detailed interaction contract lives in [Interactive CLI UI](CLI_UI.md).
+
+- [ ] Use Ink for the interactive rendering layer inside `apps/cli`
+- [ ] Implement a multi-line prompt editor where Enter submits and Shift+Enter
+  inserts a newline, with Ctrl+J as a portable fallback
+- [ ] Open and filter the command menu when `/` is typed at the start of input
+- [ ] Drive `/help` and completion from one command registry
+- [ ] Open a bounded fuzzy workspace-file picker for the active `@` token
+- [ ] Keep selected file mentions as structured workspace-relative paths
+- [ ] Send mentioned paths to the model without automatically injecting entire
+  file contents
+- [ ] Render clear running, streaming, cancellation, and approval states
+- [ ] Show create/modify/delete diff panels with file headers, line numbers,
+  colored additions/removals, and a usable no-color representation
+- [ ] Preserve safe diff limits and prevent approval of an undisplayed change
+- [ ] Test keyboard input, menus, mentions, state transitions, diff rendering,
+  terminal resize, and non-TTY behavior without paid model calls
+
+Acceptance criteria:
+
+- Typing `/` displays the available commands; keyboard selection executes the
+  chosen command and `/help` shows the same registry.
+- Typing `@` plus part of a filename displays bounded workspace candidates;
+  selecting one sends its canonical workspace-relative path to the model.
+- Enter submits, while Shift+Enter inserts a visible newline without submitting
+  in supported terminals; Ctrl+J provides a documented fallback.
+- A proposed write shows an exact, readable diff with path, operation, hunks,
+  old/new line numbers, additions, and removals before approval.
+- Completion, streaming output, Ctrl+C, and approval prompts do not consume one
+  another's input or weaken Milestone 4 safety behavior.
+- The agent runtime and tools do not import React, Ink, or terminal UI code.
 
 ## Milestone 5: Configuration, instructions, and permission profiles
 

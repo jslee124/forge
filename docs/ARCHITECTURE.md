@@ -18,7 +18,8 @@ code provides contrary evidence.
 | Module format | ESM only | Avoid maintaining dual ESM/CommonJS output |
 | Repository shape | pnpm monorepo | Make runtime boundaries visible without separate repositories |
 | Build | TypeScript project references with `tsc -b` | Enforce package direction without an initial bundler |
-| CLI | Commander | Small, mature command and help parser |
+| CLI parsing | Commander | Small, mature process command and help parser |
+| Interactive UI | Ink + React | Component rendering and keyboard input without moving runtime logic into the UI |
 | Validation | Zod | Share runtime validation between configuration and tool inputs |
 | Formatting and linting | Biome | One fast tool with a small configuration surface |
 | Testing | Vitest | Fast TypeScript tests and straightforward fakes |
@@ -97,14 +98,21 @@ AI SDK -> Model Provider
 The CLI is responsible for:
 
 - Parsing commands and configuration
-- Managing the in-memory interactive session and slash commands
+- Managing the in-memory interactive session, multi-line editor, slash-command
+  completion, and structured `@` file mentions
 - Selecting the workspace
-- Rendering streamed events
+- Rendering streamed events and readable diffs
 - Asking the user to approve sensitive actions
 - Forwarding cancellation through an `AbortSignal`
 - Choosing an appropriate process exit code
 
 The CLI should not contain the agent loop or tool implementation logic.
+Commander owns process-level commands, while Ink owns only the interactive
+terminal presentation. React and Ink remain dependencies of `apps/cli` and must
+not cross into `@forge/core`. File mentions carry workspace-relative paths to
+the model; they do not bypass `read_file`, workspace validation, policy, or
+trace events by injecting file contents automatically.
+
 Each interactive prompt starts a fresh bounded run and approval-policy instance.
 Only completed user and assistant text is carried into the next prompt; tool
 continuation metadata remains scoped to the run that produced it. Persistent or
