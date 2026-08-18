@@ -7,7 +7,7 @@ It is a learning project and portfolio project focused on the engineering behind
 coding agents: model interaction, tool execution, safety boundaries, execution
 traces, plugins, and reproducible evaluations.
 
-> Status: early design and development. Forge is not usable yet.
+> Status: Milestone 0 — project foundation. Forge is not usable yet.
 
 ## Vision
 
@@ -33,7 +33,7 @@ forge
 
 - Build the core agent loop instead of hiding it behind a high-level framework.
 - Use Vercel AI SDK as the model integration layer.
-- Execute filesystem and shell tools within explicit safety boundaries.
+- Execute filesystem tools and child processes within explicit safety boundaries.
 - Show reasoning or thinking content when the model provider returns it.
 - Represent every model and tool action as a structured event.
 - Save complete execution traces for inspection and replay.
@@ -60,7 +60,7 @@ CLI
  |
  v
 Forge Agent Runtime
- |-- Model Adapter ------> Vercel AI SDK ------> Model Provider
+ |-- Model Adapter ------> Vercel AI SDK ------> DeepSeek (first provider)
  |-- Context Loader -----> ~/.forge / AGENTS.md / .agents / project .forge
  |-- Plugin Host --------> Tools / Commands / Controlled Hooks
  |-- Policy Kernel ------> Allow / Confirm / Deny
@@ -81,7 +81,26 @@ added later as optional adapters and evaluation baselines.
 - [Project context and local customization](docs/PROJECT_CONTEXT.md)
 - [Security model](docs/SECURITY.md)
 - [Plugin model](docs/PLUGINS.md)
+- [v0.1 acceptance and evaluation specification](docs/V0.1_SPEC.md)
 - [Roadmap](docs/ROADMAP.md)
+
+## Initial technical baseline
+
+- Node.js 24 LTS
+- pnpm workspaces, pinned through the root `packageManager` field
+- ESM-only TypeScript monorepo
+- TypeScript project references and `tsc -b` for builds
+- Commander for CLI parsing
+- Zod for runtime schemas
+- Biome for formatting and linting
+- Vitest for tests
+- Vercel AI SDK with `@ai-sdk/deepseek`
+- `deepseek-v4-flash` as the initial model, with thinking mode selected
+  explicitly rather than inherited from provider defaults
+
+The root package is private. Publishable package boundaries will only be added
+when a milestone needs them; the monorepo will not begin with empty placeholder
+packages.
 
 ## Development approach
 
@@ -89,9 +108,10 @@ Development is organized into small, testable milestones. Each milestone must
 produce a runnable behavior and meet its acceptance criteria before the next one
 begins.
 
-The first milestone is intentionally small: send a prompt to a model and stream
-the response in the terminal.
+The current milestone is Milestone 0: create the workspace, CLI scaffold, and local
+quality checks. The first model-facing milestone is Milestone 1: send a prompt
+to DeepSeek and stream provider-returned text and reasoning in the terminal.
 
 ## License
 
-No license has been selected yet.
+A license will be selected before the first public release.

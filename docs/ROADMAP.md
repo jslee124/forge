@@ -1,194 +1,220 @@
 # Roadmap
 
+## Current milestone
+
+Forge is at **Milestone 0: Project foundation**. No later milestone should be
+treated as implemented merely because its design is documented.
+
 ## Working rules
 
 - Complete one milestone before expanding the next one.
-- Every milestone must produce a runnable behavior.
+- Every milestone must produce runnable behavior.
 - Acceptance criteria define completion, not the number of files written.
 - Keep the default test suite independent from paid model calls.
+- Add a workspace package only when a milestone needs it.
 - Update this document when implementation teaches us that the plan is wrong.
+- Use [the v0.1 specification](V0.1_SPEC.md) as the release contract.
 
 ## Milestone 0: Project foundation
 
-Goal: create a small, consistent TypeScript project that is easy to run and
-test.
+Goal: create the smallest consistent monorepo that is easy to run and test.
 
-- [ ] Add `package.json` and pin the package manager
-- [ ] Configure strict TypeScript
-- [ ] Configure formatting and linting
+- [ ] Add a private root `package.json` with `packageManager: pnpm@11.18.0`
+- [ ] Require Node.js 24 LTS and add `pnpm-workspace.yaml`
+- [ ] Create `apps/cli` and `packages/core`; do not create empty future packages
+- [ ] Configure ESM-only strict TypeScript with project references
+- [ ] Build with `tsc -b`
+- [ ] Configure Biome for formatting and linting
 - [ ] Configure Vitest
-- [ ] Add a minimal CLI entry point
-- [ ] Resolve `FORGE_HOME`, defaulting to `~/.forge/`
-- [ ] Define and validate a versioned user configuration schema
-- [ ] Load `~/.forge/config.json` without storing secrets in it
-- [ ] Add `forge config show` and `forge config validate`
+- [ ] Add a minimal Commander CLI entry point
 - [ ] Add CI for type checking, tests, and linting
+- [ ] Document install, build, check, test, and CLI commands in the README
 
 Acceptance criteria:
 
-- A new contributor can install dependencies with one documented command.
-- The CLI prints its version and help text.
-- Invalid user configuration produces an actionable error with the source path.
-- `forge config show` reports each effective value and its source.
-- Type checking, tests, and linting run locally with documented commands.
+- `pnpm install` works from a clean checkout on Node.js 24.
+- `pnpm forge --version` and `pnpm forge --help` exit with code `0`.
+- `pnpm build`, `pnpm check`, and `pnpm test` pass locally.
 - The same checks run in CI.
+- `@forge/core` does not import CLI code.
 
-## Milestone 1: Model conversation
+## Milestone 1: DeepSeek model conversation
 
-Goal: prove the model integration and streaming path before building an agent.
+Goal: prove the real provider, authentication, and streaming path before
+building an agent.
 
-- [ ] Read model configuration from environment variables
-- [ ] Support API-key authentication only for the first implementation
-- [ ] Implement a Vercel AI SDK model adapter
+- [ ] Add `packages/model-deepseek`
+- [ ] Install Vercel AI SDK and `@ai-sdk/deepseek`
+- [ ] Resolve `DEEPSEEK_API_KEY` without persisting it
+- [ ] Use `deepseek-v4-flash` as the default model
+- [ ] Select thinking mode explicitly instead of relying on provider defaults
+- [ ] Implement a one-turn streaming `ModelAdapter`
 - [ ] Add `forge ask <prompt>`
-- [ ] Stream text to the terminal
-- [ ] Display provider-supplied reasoning or thinking content when available
-- [ ] Return readable configuration and provider errors
+- [ ] Stream provider-returned text and reasoning as distinct events
+- [ ] Capture token usage and provider metadata when available
+- [ ] Return readable credential, provider, and network errors
 - [ ] Cancel an active request with Ctrl+C
-- [ ] Unit-test configuration without making real API calls
+- [ ] Unit-test the adapter contract with no real API calls
 
 Acceptance criteria:
 
-- `forge ask "hello"` streams a model response.
-- Provider-supplied reasoning is visible and absent reasoning is not fabricated.
-- A missing API key produces a short actionable error without a stack trace.
-- Ctrl+C cancels the request and exits cleanly.
+- With `DEEPSEEK_API_KEY` set, `forge ask "hello"` streams a response.
+- Provider-returned reasoning is labeled separately; Forge never fabricates it.
+- A missing API key exits with code `2` and no stack trace or secret output.
+- Ctrl+C cancels the request and exits with code `130`.
+- Default tests make no paid model calls.
 
-## Milestone 2: Project context and first tool call
+## Milestone 2: Workspace and read-only tools
 
-Goal: let the model understand repository instructions and safely retrieve
-information from the workspace.
+Goal: safely expose enough repository context for the model to inspect code.
 
-- [ ] Resolve the canonical workspace root and run working directory
-- [ ] Load `<workspace-root>/.forge/config.json`
-- [ ] Merge default, user, project, environment, and CLI configuration with
-  source provenance
-- [ ] Prove project configuration cannot widen the user's permission profile or
-  increase user-defined safety limits
-- [ ] Load optional user instructions from `~/.forge/AGENTS.md`
-- [ ] Discover `AGENTS.md` from the workspace root to the working directory
-- [ ] Prefer `AGENTS.override.md` at each directory level
-- [ ] Apply file and total-size limits and record instruction provenance
-- [ ] Define the tool and tool-result types
-- [ ] Define the workspace execution context
-- [ ] Implement `read_file`
-- [ ] Validate paths against the workspace root
-- [ ] Classify outside-workspace paths as approval-required
-- [ ] Limit file output size
-- [ ] Send the tool result back to the model
-- [ ] Test normal paths, traversal attempts, missing files, and cancellation
+- [ ] Add `packages/tools`
+- [ ] Resolve the canonical workspace root and working directory
+- [ ] Define tool, tool-call, tool-result, and workspace-context types
+- [ ] Implement bounded `list_files`, `read_file`, and `search`
+- [ ] Validate canonical paths and resolved symlinks against the workspace root
+- [ ] Deny built-in file operations outside the workspace
+- [ ] Enforce per-result output limits
+- [ ] Translate Forge tool schemas to AI SDK tool definitions without direct
+  `execute` callbacks
+- [ ] Map model tool calls back into validated Forge proposals
+- [ ] Test normal paths, traversal, symlinks, missing files, limits, and
+  cancellation in temporary workspaces
 
 Acceptance criteria:
 
-- Forge can answer a question that requires reading a local file.
-- Root and nested project instructions are merged in deterministic order.
-- Ordinary project settings override user defaults, while security-sensitive
-  user settings cannot be weakened by the project.
-- Repository instructions cannot change the active permission policy.
-- Forge does not read outside the workspace silently; it returns an
-  approval-required result until the approval flow is implemented.
-- Tool failures become structured results the model can react to.
+- Forge can propose and execute a read that answers a question about a local
+  file.
+- Tool failures are structured results rather than uncaught exceptions.
+- Traversal and symlink escapes are denied before file access.
+- No model-generated tool call executes through an AI SDK callback.
 
 ## Milestone 3: Native agent loop and policy foundation
 
-Goal: support multiple model and tool steps with explicit runtime control.
+Goal: support multiple model and tool steps under Forge-owned runtime control.
 
 - [ ] Implement run state and lifecycle
-- [ ] Continue after a tool result
-- [ ] Add model-call and tool-call limits
-- [ ] Add configurable stop conditions
+- [ ] Continue after tool results and recoverable tool failures
+- [ ] Keep the multi-step loop in `@forge/core`
+- [ ] Preserve DeepSeek continuation metadata, including reasoning content,
+  across tool-result turns
+- [ ] Add model-step and tool-call limits with initial defaults of `12` and `40`
 - [ ] Detect cancellation between steps
-- [ ] Route every tool call through a minimal policy gateway
+- [ ] Route every tool call through a policy gateway
 - [ ] Implement `allow`, `confirm`, and `deny` decisions
 - [ ] Deny approval-required actions when no approval channel is available
-- [ ] Add deterministic tests with a fake model adapter
+- [ ] Implement the documented CLI exit-code mapping
+- [ ] Add deterministic runtime tests with a scripted fake model adapter
 
 Acceptance criteria:
 
-- Forge can inspect multiple files before producing a final response.
-- It stops at configured limits instead of looping forever.
-- No tool can execute without a recorded policy decision.
-- Runtime tests cover successful, failed, cancelled, and limit-reached runs.
+- A fake-model run can inspect multiple files before producing a final response.
+- The runtime stops at configured limits instead of looping forever.
+- No tool executes without a recorded policy decision.
+- An adapter integration test with mocked DeepSeek responses completes a
+  thinking-mode tool round trip without dropping required continuation metadata.
+- Runtime tests cover completed, failed, cancelled, denied, and limit-reached
+  runs.
 
-## Milestone 4: Safe coding tools
+## Milestone 4: Safe coding vertical slice
 
-Goal: allow Forge to make a small code change and verify it.
+Goal: complete the first small repository change and verify it.
 
-- [ ] Implement `list_files`
-- [ ] Implement `search`
-- [ ] Implement structured file patches
-- [ ] Confirm the first workspace patch and show its diff
-- [ ] Implement command execution with timeout and output limits
-- [ ] Confirm every shell command before execution
-- [ ] Ask before an exact operation outside the workspace
-- [ ] Resolve symlinks before applying path policy
+- [ ] Implement structured file patches and show the diff before approval
+- [ ] Confirm the first workspace patch in the default profile
+- [ ] Scope that approval to later workspace patches in the current run only
+- [ ] Implement `run_command` as `program + args[]` using `spawn` with
+  `shell: false`
+- [ ] Confirm every process command in the default profile
+- [ ] Apply a default command timeout of `60000` milliseconds
+- [ ] Limit command output to `65536` bytes per result
+- [ ] Terminate cancelled and timed-out child processes reliably
 - [ ] Preserve pre-existing workspace changes
-- [ ] Add integration tests in temporary workspaces
+- [ ] Create `fixtures/validation-bug` from the v0.1 specification
+- [ ] Add an end-to-end test for the canonical fixture
+- [ ] Add a scripted recovery test: failing verification, corrective patch,
+  passing verification
 
 Acceptance criteria:
 
-- Forge can locate relevant code, apply a targeted change, and run a test.
-- A timed-out command is terminated and reported accurately.
-- Workspace reads are automatic and outside-workspace operations require
-  explicit approval.
-- Approval-required operations are denied when no approval channel exists.
+- Forge completes the canonical fixture task from inspection through passing
+  verification.
+- The deterministic recovery scenario proves that a failed verification is
+  returned to the loop and followed by a corrective action.
+- Timed-out commands are terminated and reported accurately.
+- Shell expressions and outside-workspace file operations are denied.
 - Unrelated user changes are not overwritten.
 
-## Milestone 5: Permission profiles and security model
+## Milestone 5: Configuration, instructions, and permission profiles
 
-Goal: make the boundary between autonomous and user-approved actions explicit.
+Goal: add customization after the core coding path works.
 
-- [ ] Assign complete risk metadata to tools and actions
-- [ ] Add scoped session approvals
-- [ ] Add `safe`, `workspace-write`, and `full-access` profiles
-- [ ] Reject clearly destructive commands
-- [ ] Make the policy independently testable
-- [ ] Verify that plugin policy contributions can only make decisions stricter
-- [ ] Keep `docs/SECURITY.md` aligned with actual behavior
+- [ ] Add `packages/config`
+- [ ] Resolve `FORGE_HOME`, defaulting to `~/.forge/`
+- [ ] Implement the versioned Zod schema documented in `PROJECT_CONTEXT.md`
+- [ ] Load user and project `.forge/config.json` files
+- [ ] Merge documented sources with provenance
+- [ ] Add `forge config show` and `forge config validate`
+- [ ] Load optional user instructions from `~/.forge/AGENTS.md`
+- [ ] Discover project `AGENTS.md` from root to working directory
+- [ ] Prefer `AGENTS.override.md` at each directory level
+- [ ] Apply instruction file and total-size limits
+- [ ] Add `safe` and `workspace-write` profiles; keep `full-access` deferred
+- [ ] Prove project content cannot widen permissions or increase user safety
+  limits
 
 Acceptance criteria:
 
-- Read-only operations can proceed automatically.
-- Sensitive operations pause for approval.
-- Denied actions are returned to the agent as structured observations.
-- Safety tests cover external paths, symlinks, missing UI, decision precedence,
-  and representative destructive commands.
-- Documentation distinguishes approval controls from OS-level isolation.
+- Invalid configuration produces an actionable error with its source path.
+- `forge config show` reports each effective value and source.
+- Root and nested instructions merge in deterministic order with provenance.
+- Project configuration and instructions cannot weaken the active policy.
+- Starting in a repository subdirectory resolves the same workspace-level
+  configuration as starting at its root.
 
-## Milestone 6: Structured traces
+## Milestone 6: Structured traces and security hardening
 
-Goal: make every run inspectable without relying on terminal scrollback.
+Goal: make every run inspectable and verify the documented safety boundary.
 
 - [ ] Define versioned run-event schemas
 - [ ] Render terminal output from the event stream
 - [ ] Persist events as JSONL
-- [ ] Represent provider-supplied reasoning as typed events
-- [ ] Redact known secrets
+- [ ] Represent provider-returned reasoning as typed events
+- [ ] Redact configured credentials and known secrets
 - [ ] Add `forge inspect <run-id>`
-- [ ] Record duration and model/tool usage metadata
+- [ ] Record duration, model steps, tool calls, token usage, and terminal status
+- [ ] Test external paths, symlinks, missing approval UI, decision precedence,
+  command timeouts, and representative destructive programs
+- [ ] Keep `docs/SECURITY.md` aligned with implemented behavior
 
 Acceptance criteria:
 
 - A completed run can be reconstructed from its trace.
 - Terminal rendering and persistence consume the same structured events.
 - Trace files contain no configured API keys.
+- Safety documentation distinguishes policy and approval from OS isolation.
 
-## Milestone 7: First end-to-end release
+## Milestone 7: Evaluation and first release
 
-Goal: publish a small but truthful v0.1 portfolio release.
+Goal: publish a small, truthful, and reproducible v0.1 portfolio release.
 
-- [ ] Create at least three fixture repository tasks
-- [ ] Add end-to-end graders based on hidden tests
-- [ ] Run each task multiple times
-- [ ] Report pass rate, latency, tool calls, and token usage
+- [ ] Keep the canonical fixture and add at least two more repository tasks
+- [ ] Add graders based on fixture-owned tests plus hidden release tests
+- [ ] Keep fake-model evaluation in the default test suite
+- [ ] Make paid DeepSeek trials explicit and opt-in
+- [ ] Run each release task multiple times with a recorded model ID and settings
+- [ ] Report pass rate, duration, model steps, tool calls, and token usage
 - [ ] Record a short terminal demo
 - [ ] Expand the README with setup, usage, results, and limitations
+- [ ] Select and add a project license
+- [ ] Revalidate the current DeepSeek model ID before tagging
 - [ ] Tag the v0.1 release
 
 Acceptance criteria:
 
-- Forge completes at least one repository-level task end to end.
-- Reported benchmark numbers are reproducible from documented commands.
+- All mandatory gates in `docs/V0.1_SPEC.md` pass.
+- Forge completes at least one repository-level task end to end with DeepSeek.
+- Reported evaluation numbers are reproducible from documented commands.
 - The README never claims capabilities that the release does not implement.
 
 ## Milestone 8: Trusted plugin API (v0.2)
@@ -215,7 +241,7 @@ Acceptance criteria:
 - Starting Forge in a repository subdirectory resolves the same project plugin
   set as starting at the repository root.
 - Plugin tools pass through the same policy and trace pipeline as built-in tools.
-- A plugin cannot turn a core `deny` into `confirm` or `allow` through Forge APIs.
+- A plugin cannot make a core decision less strict through Forge APIs.
 
 ## Milestone 9: OpenAI authentication expansion (post-v0.2)
 
@@ -223,8 +249,9 @@ Goal: add a secure OpenAI login experience without treating another client's
 private OAuth behavior as a stable contract.
 
 - [ ] Re-check current official OpenAI authentication documentation and terms
-- [ ] Define a provider-independent authentication manager
-- [ ] Keep API-key authentication as a supported fallback
+- [ ] Generalize the v0.1 authentication manager for multiple providers
+- [ ] Keep DeepSeek API-key authentication as a supported path
+- [ ] Add OpenAI API-key authentication
 - [ ] Add Codex-compatible Sign in with ChatGPT only through an appropriate
   public or explicitly authorized integration
 - [ ] Support browser callback and headless login when the supported flow allows
@@ -248,13 +275,16 @@ Acceptance criteria:
 
 These items are intentionally unordered and are not part of v0.1:
 
-- More evaluation tasks and graders
+- Broader evaluation tasks and graders
+- Additional model providers
+- Narrow outside-workspace approvals
+- A clearly warned `full-access` profile
+- Optional shell-language execution
 - LangChain runtime adapter and benchmark comparison
 - LangGraph checkpoint experiment
 - HTTP API and Server-Sent Events
 - Persistent run metadata in SQLite
 - Resumable sessions
 - Dynamic context management
-- Additional model providers
 - MCP integration
 - Stronger process isolation

@@ -60,10 +60,10 @@ Forge should restrict filesystem access to the selected workspace, limit
 commands and execution time, and require approval for risky operations.
 
 Read-only operations inside the workspace may run automatically. The first
-workspace patch requires approval by default, every shell command requires
-approval by default, and an exact operation outside the workspace requires
-explicit approval. In non-interactive operation, an action that requires
-approval is denied unless approval was supplied in advance.
+workspace patch requires approval by default, every process command requires
+approval by default, and built-in file tools deny operations outside the
+workspace in v0.1. In non-interactive operation, an action that requires
+approval is denied unless a matching narrow approval was supplied in advance.
 
 ### Verifiable
 
@@ -93,9 +93,10 @@ A narrow, reliable workflow is more valuable than many incomplete features.
 The first useful version will include:
 
 - A TypeScript command-line interface
-- User-wide configuration through `~/.forge/config.json`
-- Streaming model responses through Vercel AI SDK
+- DeepSeek as the first provider, authenticated with `DEEPSEEK_API_KEY`
+- Streaming model responses through Vercel AI SDK and `@ai-sdk/deepseek`
 - A multi-step agent loop with explicit stop conditions
+- User-wide configuration through `~/.forge/config.json`
 - Hierarchical repository instructions through `AGENTS.md`
 - Inspectable configuration provenance through `forge config show`
 - Tools for listing, reading, searching, patching, and running commands
@@ -105,19 +106,22 @@ The first useful version will include:
 - Visible provider-supplied reasoning when available
 - Structured terminal events and JSONL traces
 - Automated tests for the runtime and tools
+- A canonical fixture task, deterministic recovery scenario, and reproducible
+  release evaluation
 
 ## Success criteria for v0.1
 
-Forge v0.1 is successful when it can complete a small repository task from end
-to end:
+Forge v0.1 is successful when it meets the concrete release gates in
+[v0.1 Acceptance and Evaluation](V0.1_SPEC.md), including a small repository
+task from end to end:
 
 1. Inspect more than one relevant file.
 2. Make a targeted code change.
 3. Run an automated verification command.
-4. React to a failed verification instead of immediately stopping.
+4. Demonstrate recovery from a failed verification in a deterministic runtime
+   scenario.
 5. Stop after success or a configured limit.
-6. Ask before an exact file operation outside the selected workspace and deny it
-   when approval is unavailable.
+6. Deny built-in file operations outside the selected workspace.
 7. Produce a trace consistent with its real actions.
 8. Produce a final summary consistent with the actual file changes and command
    results.
@@ -138,7 +142,7 @@ to end:
 
 After the native runtime is reliable, Forge may add:
 
-- A reproducible evaluation suite with tasks, trials, graders, and reports
+- A broader evaluation suite with more tasks, trials, graders, and reports
 - A trusted TypeScript plugin API with project-trust checks
 - Portable project skills under `.agents/skills/`
 - Forge-specific project configuration and plugins under `.forge/`

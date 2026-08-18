@@ -5,6 +5,70 @@
 This document describes the initial design direction. It is expected to change
 as the first working milestones reveal better boundaries.
 
+## Initial implementation decisions
+
+These choices are fixed for the first implementation so development can begin.
+They may be revisited through a small architecture decision record when working
+code provides contrary evidence.
+
+| Area | Initial decision | Reason |
+| --- | --- | --- |
+| Runtime | Node.js 24 LTS | Use a supported LTS runtime and current platform APIs |
+| Package manager | pnpm 11.18.0 | Fast, strict dependency layout with workspace support |
+| Module format | ESM only | Avoid maintaining dual ESM/CommonJS output |
+| Repository shape | pnpm monorepo | Make runtime boundaries visible without separate repositories |
+| Build | TypeScript project references with `tsc -b` | Enforce package direction without an initial bundler |
+| CLI | Commander | Small, mature command and help parser |
+| Validation | Zod | Share runtime validation between configuration and tool inputs |
+| Formatting and linting | Biome | One fast tool with a small configuration surface |
+| Testing | Vitest | Fast TypeScript tests and straightforward fakes |
+| First provider | DeepSeek through `@ai-sdk/deepseek` | Prove one provider path before generalizing |
+| Initial model | `deepseek-v4-flash` | Current fast DeepSeek model with tool and thinking support |
+| Process execution | Node.js `spawn`, `shell: false` | Keep program and arguments structured and avoid implicit shell parsing |
+
+The root `package.json` is private and pins pnpm through `packageManager`. Every
+workspace package uses `"type": "module"`. Dependency versions are pinned by
+the lockfile rather than copied into design documents, except for the runtime
+and package-manager baseline above.
+
+### Monorepo layout
+
+Packages are created when their milestone begins, not as empty placeholders:
+
+```text
+apps/
+`-- cli/                    # @forge/cli: parsing, rendering, approval UI
+packages/
+|-- core/                   # @forge/core: loop, events, policy contracts
+|-- model-deepseek/         # @forge/model-deepseek: AI SDK translation
+|-- tools/                  # @forge/tools: built-in tool implementations
+`-- config/                 # @forge/config: configuration and context loading
+fixtures/                   # Small repository tasks used by integration tests
+`-- validation-bug/
+evals/                      # Task manifests, graders, trial runner, reports
+```
+
+Milestone 0 creates only `apps/cli` and `packages/core`. Later milestones add
+the provider, tools, configuration, fixtures, and evaluation workspaces. A
+generic `shared` package is intentionally avoided.
+
+### CLI and process conventions
+
+The initial CLI uses these exit codes:
+
+| Code | Meaning |
+| --- | --- |
+| `0` | Run completed and required verification succeeded |
+| `1` | Unrecovered runtime, provider, or tool failure |
+| `2` | Invalid CLI usage or configuration |
+| `3` | Run stopped without success, including a configured limit |
+| `4` | A required action was denied or no approval channel was available |
+| `130` | User cancellation through Ctrl+C |
+
+Tool failures may be returned to the model as observations and therefore do not
+immediately determine the process exit code. Only the terminal run status does.
+Ordinary user errors do not print stack traces unless debug output is enabled.
+
 ## System context
 
 ```text
@@ -62,11 +126,23 @@ trace persistence. This keeps it independently testable.
 
 ### Model adapter
 
-The initial adapter will use Vercel AI SDK for provider interoperability,
-message types, streaming, and tool-call transport.
+The initial adapter uses Vercel AI SDK and `@ai-sdk/deepseek` for streaming and
+tool-call transport. It uses `deepseek-v4-flash` and explicitly enables thinking
+mode so a provider default change cannot silently alter behavior.
 
-Forge will control the multi-step loop. It will not initially delegate the
-entire runtime to a prebuilt agent abstraction.
+The model adapter performs exactly one provider turn and maps the AI SDK full
+stream into Forge model events. Forge controls the multi-step loop and does not
+delegate it to `ToolLoopAgent`, `stopWhen`, or another prebuilt agent
+abstraction. AI SDK tool definitions sent to the model do not receive direct
+`execute` callbacks; Forge validates and executes tool calls only after the
+policy kernel records a decision.
+
+DeepSeek thinking-mode tool calls require the provider-returned reasoning
+content to be preserved in subsequent tool-result turns. The adapter therefore
+returns an opaque continuation record alongside observable Forge events. The
+core may store and return that record to the same adapter, but it must not
+reconstruct it from terminal text or discard provider metadata. An integration
+test will cover this round trip.
 
 When a provider returns reasoning or thinking content, the adapter preserves it
 as a typed response part. The runtime exposes that content to the terminal and
@@ -79,9 +155,10 @@ Authentication is separate from model transport. The model adapter asks an
 authentication manager for request credentials instead of reading environment
 variables or token files directly.
 
-The initial implementation supports API keys. A later experimental adapter may
-support Codex-compatible Sign in with ChatGPT if OpenAI provides or authorizes a
-suitable public integration for third-party clients.
+The initial implementation resolves `DEEPSEEK_API_KEY` from the environment. A
+later experimental adapter may support Codex-compatible Sign in with ChatGPT if
+OpenAI provides or authorizes a suitable public integration for third-party
+clients.
 
 Forge must not copy client credentials from another application, depend on
 undocumented endpoints as a stable contract, or silently read credentials from
@@ -152,7 +229,7 @@ The initial tools are planned as:
 | `read_file` | Read a workspace file with output limits | Read-only |
 | `search` | Search text within the workspace | Read-only |
 | `apply_patch` | Apply a structured file change | Write |
-| `run_command` | Execute an allowed command with limits | Variable |
+| `run_command` | Spawn a program with structured arguments and limits | Variable |
 
 Tools receive an explicit execution context instead of reading global process
 state. The context includes the workspace root, abort signal, limits, and event
@@ -183,17 +260,19 @@ The default policy is:
 | Read, list, or search inside the workspace | Allow |
 | First patch inside the workspace | Confirm |
 | Later workspace patches in the approved session scope | Allow |
-| Any shell command | Confirm |
-| Exact file operation outside the workspace | Confirm |
+| Any process command | Confirm |
+| Built-in file operation outside the workspace | Deny in v0.1 |
 | Approval-required action without an approval channel | Deny |
 
-Outside-workspace approval is scoped to the canonical path and requested
-operation. Broad or permanent approval is not implied. Symlinks must be resolved
-before the policy decision.
+Symlinks must be resolved before the policy decision. A future release may add
+narrow outside-workspace approvals, but v0.1 does not expose that capability.
 
-Starting a shell command in the workspace does not confine it to that workspace.
-Until an OS-level sandbox exists, confirmation, timeout, output limits, and trace
-records are safety controls but not filesystem or network isolation.
+`run_command` accepts a program and argument array and uses Node.js `spawn` with
+`shell: false`; shell expressions such as pipelines and redirection are not a
+v0.1 feature. Starting a process in the workspace still does not confine it to
+that workspace. Until an OS-level sandbox exists, confirmation, timeout, output
+limits, and trace records are safety controls but not filesystem or network
+isolation.
 
 This policy is an application safety boundary, not a replacement for a hardened
 operating-system sandbox.
@@ -241,7 +320,10 @@ boundaries are:
 
 ```ts
 interface ModelAdapter {
-  generate(request: ModelRequest): Promise<ModelResponse>;
+  stream(
+    request: ModelRequest,
+    signal: AbortSignal,
+  ): AsyncIterable<ModelStreamEvent>;
 }
 
 interface AuthenticationManager {
@@ -325,7 +407,6 @@ Real model calls should not be required for the default test suite.
 
 The following choices will be made only when a milestone needs them:
 
-- Monorepo versus a single package
 - SQLite schema and migration library
 - Terminal UI framework
 - HTTP server framework

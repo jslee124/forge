@@ -2,17 +2,28 @@
 
 ## Status
 
-Forge v0.1 will start with API-key authentication. Codex-compatible Sign in with
-ChatGPT is a later compatibility goal and must be revalidated against current
-official OpenAI documentation before implementation or release.
+Forge v0.1 starts with DeepSeek API-key authentication through
+`DEEPSEEK_API_KEY`. Codex-compatible Sign in with ChatGPT is a later
+compatibility goal and must be revalidated against current official OpenAI
+documentation before implementation or release.
 
 ## Supported and planned methods
 
 | Method | Intended use | Status |
 | --- | --- | --- |
-| Provider API key | Local development and automation | Planned for v0.1 |
+| DeepSeek API key | Local development and automation | Planned for v0.1 |
+| Other provider API keys | Future provider adapters | Deferred |
 | Sign in with ChatGPT | OpenAI subscription access | Post-v0.2 research goal |
 | Codex access token | Trusted enterprise automation | Deferred |
+
+DeepSeek's official API uses `https://api.deepseek.com` and the initial adapter
+uses the official AI SDK provider package. The model ID remains configurable
+because provider model names have a different lifecycle from the Forge release.
+
+Official DeepSeek references:
+
+- [DeepSeek API model documentation](https://api-docs.deepseek.com/quick_start/pricing/)
+- [AI SDK DeepSeek provider](https://ai-sdk.dev/providers/ai-sdk-providers/deepseek)
 
 OpenAI officially documents that Codex clients support Sign in with ChatGPT for
 subscription access and API keys for usage-based access. That documentation does
@@ -40,6 +51,12 @@ Vercel AI SDK -----> Model Provider
 The model adapter requests a usable credential. It does not own browser login,
 refresh-token rotation, persistence, or logout.
 
+The v0.1 authentication manager validates that `DEEPSEEK_API_KEY` is present and
+returns it only to the DeepSeek adapter. Missing credentials produce an
+actionable error without printing the key or a stack trace. The key is never
+copied into Forge configuration, prompts, traces, plugin events, or repository
+files.
+
 ## Compatibility requirements
 
 Before implementing subscription login, Forge must confirm:
@@ -62,7 +79,9 @@ Forge must not:
 
 ## Credential storage
 
-The preferred storage order is:
+Forge v0.1 does not persist DeepSeek credentials; it reads
+`DEEPSEEK_API_KEY` from the process environment for each invocation. If a later
+authentication method needs persistence, the preferred storage order is:
 
 1. Operating-system credential store
 2. Explicit file fallback outside the project with owner-only permissions

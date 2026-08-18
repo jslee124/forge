@@ -93,6 +93,31 @@ existing configuration file. API keys and OAuth tokens do not belong in
 `config.json`; Forge uses environment variables or the credential store defined
 in the authentication model.
 
+### Minimal v0.1 configuration schema
+
+The Zod schema in `@forge/config` will be the executable source of truth. This
+table defines the initial public fields so the implementation and documentation
+start from the same contract:
+
+| Field | Default | Scope and merge rule |
+| --- | --- | --- |
+| `schemaVersion` | `1` | Required when a config file exists; unknown versions fail |
+| `model.id` | `deepseek-v4-flash` | User, environment, or explicit CLI only |
+| `model.thinking` | `enabled` | User, environment, or explicit CLI only |
+| `permissionProfile` | `safe` | User configuration or explicit CLI only |
+| `limits.maxSteps` | `12` | Project may only choose a lower value |
+| `limits.maxToolCalls` | `40` | Project may only choose a lower value |
+| `limits.commandTimeoutMs` | `60000` | Project may only choose a lower value |
+| `limits.maxToolOutputBytes` | `65536` | Project may only choose a lower value |
+| `trace.enabled` | `true` | User configuration or explicit CLI only |
+
+Unknown fields are errors rather than silently ignored. `DEEPSEEK_API_KEY` is a
+secret environment variable and is never represented as a configuration field.
+`FORGE_HOME` changes discovery location before configuration is loaded.
+`FORGE_MODEL` and `FORGE_THINKING` are the only v0.1 environment overrides for
+ordinary model settings. There is intentionally no environment variable that
+widens the permission profile.
+
 User configuration is loaded before repository configuration. Forge should
 provide `forge config show` to display the effective value and source of every
 setting, and `forge config validate` to report invalid keys and values without
@@ -169,6 +194,7 @@ hooks, and their source must remain visible in the trace.
 
 ## Deferred decisions
 
-- The final `.forge/config.json` schema
+- Configuration migrations beyond `schemaVersion: 1`
+- Additional environment-variable mappings beyond the v0.1 model settings
 - Skill manifest and compatibility rules beyond `SKILL.md`
 - Whether restricted plugins run in a child process or an OS sandbox

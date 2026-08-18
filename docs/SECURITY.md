@@ -17,33 +17,33 @@ must state which boundaries it enforces and which risks remain with the user.
 | Read, list, or search inside the workspace | Allow |
 | First patch inside the workspace | Confirm |
 | Later patches covered by the session approval | Allow |
-| Any shell command | Confirm |
-| Exact file operation outside the workspace | Confirm |
+| Any process command | Confirm |
+| Built-in file operation outside the workspace | Deny in v0.1 |
 | Approval-required action without an approval channel | Deny |
 
-An outside-workspace approval applies only to the canonical path and operation
-shown to the user. Forge does not silently turn it into permanent access to a
-directory tree.
+Narrow outside-workspace approvals are a possible later feature. They are not
+part of v0.1, so a repository task cannot expand Forge's file-tool boundary by
+asking the user for an exception.
 
 ## Permission profiles
 
 ### `safe`
 
 The default profile. Workspace reads are automatic. Workspace modifications and
-shell commands require confirmation according to the table above.
+process commands require confirmation according to the table above.
 
 ### `workspace-write`
 
 Workspace file tools may modify files automatically after the user selects this
-profile. Shell commands and outside-workspace access remain separately
-controlled.
+profile. Process commands still require confirmation, and outside-workspace
+file access remains denied in v0.1.
 
 ### `full-access`
 
-An explicit advanced mode with clear warnings. Enabling it is a user decision,
-not something a project file or plugin may do silently. An explicit CLI option
-or the user-owned `~/.forge/config.json` may select it; Forge must surface the
-active profile prominently at startup.
+Deferred until after v0.1. A future explicit advanced mode would require clear
+warnings and a user decision; a project file or plugin could never enable it
+silently. Forge will not expose a profile whose name implies isolation it does
+not provide.
 
 ## Configuration boundary
 
@@ -66,29 +66,35 @@ filesystem permissions on platforms where that check is meaningful.
 
 Built-in file tools resolve canonical paths and symlinks before applying policy.
 Paths inside the selected workspace can follow the active permission profile.
-Paths outside it require explicit approval.
+Paths outside it are denied in v0.1.
 
 The policy applies to Forge file tools. It does not automatically constrain a
-shell process that has already been approved.
+child process that has already been approved.
 
-## Shell boundary
+## Process boundary
 
-Every shell command requires confirmation in the default profile. The approval
-prompt must show at least:
+The v0.1 `run_command` tool accepts a program and an argument array and starts it
+with Node.js `spawn` using `shell: false`. Shell syntax such as pipelines,
+redirection, command substitution, and compound commands is not accepted.
 
-- The exact command
+Every process command requires confirmation in the default profile. The
+approval prompt must show at least:
+
+- The exact program and individually quoted arguments
 - The working directory
 - The timeout
 - The requested environment changes, when relevant
 
 Starting a process with its working directory inside the workspace does not stop
 it from reading or writing elsewhere. Without an operating-system sandbox,
-Forge cannot claim filesystem or network isolation for an approved shell
-command.
+Forge cannot claim filesystem or network isolation for an approved child
+process. `shell: false` stops Forge itself from parsing shell expressions; it
+does not prevent an approved program, such as a package manager, from starting
+other processes or interpreting its own scripts.
 
 ## Network boundary
 
-The initial runtime does not enforce network isolation. An approved shell
+The initial runtime does not enforce network isolation. An approved process
 command or trusted plugin may access the network with the permissions of the
 Forge process. The UI and documentation must not imply otherwise.
 
@@ -97,6 +103,10 @@ Forge process. The UI and documentation must not imply otherwise.
 If an operation requires approval and no approval channel is available, Forge
 denies the operation unless the user supplied a narrow approval before the run.
 Non-interactive mode must never interpret silence as approval.
+
+The evaluation harness may provide an approval channel that approves only the
+exact program, arguments, working directory, and timeout declared by a fixture.
+It is test infrastructure, not a general bypass.
 
 ## Plugin trust
 
@@ -158,3 +168,5 @@ Forge must not silently import or modify another application's credential file.
 - Reliable prevention of prompt injection
 - Protection after the user explicitly approves a harmful command
 - Treating another application's private OAuth integration as a stable public API
+- Built-in file access outside the selected workspace
+- Shell-language execution and compound shell commands
