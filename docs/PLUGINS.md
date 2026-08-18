@@ -61,6 +61,17 @@ Plugins explicitly installed or loaded by the user are treated as trusted local
 code. Forge should display their source and requested capabilities during
 installation when practical.
 
+The planned user location is:
+
+```text
+~/.forge/plugins/<plugin-name>/
+```
+
+The presence of a directory alone does not prove intentional installation.
+Forge loads only plugins recorded as installed or enabled in user-controlled
+configuration, and reports the source of every loaded plugin. `FORGE_HOME` may
+relocate this directory together with the rest of the user-level Forge home.
+
 ### Project plugins
 
 Project-local plugins must not load until the user trusts the project. A trust

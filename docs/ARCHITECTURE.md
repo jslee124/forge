@@ -89,19 +89,28 @@ undocumented endpoints as a stable contract, or silently read credentials from
 
 ### Project context loader
 
-The project context loader resolves the canonical workspace and working
-directory before the first model call. It loads `AGENTS.md` instructions from
-the repository root toward the working directory, preferring
-`AGENTS.override.md` at each level, and preserves path provenance in the run
-trace.
+The project context loader first resolves `FORGE_HOME`, defaulting to the
+operating system user's `~/.forge/`. It validates user configuration and then
+resolves the canonical workspace and working directory. Ordinary configuration
+merges from defaults, user configuration, project configuration, environment
+variables, and explicit CLI flags, preserving provenance for every value. The
+configuration schema marks user-only and strictness-only keys so project values
+cannot pass through the ordinary override algorithm.
+
+The loader reads optional user instructions from `~/.forge/AGENTS.md`, then
+loads project `AGENTS.md` instructions from the repository root toward the
+working directory, preferring `AGENTS.override.md` at each level. It preserves
+all instruction paths in the run trace.
 
 It also discovers portable `.agents/` resources and Forge-specific `.forge/`
 configuration. Discovery does not execute a resource. Project-local executable
 plugins under `.forge/plugins/` are handed to the plugin host only after the
 workspace has been explicitly trusted.
 
-Project context can influence prompts and make policy stricter, but it cannot
-grant permissions or weaken the policy kernel. See [Project Context and Local
+User configuration may choose a supported permission profile. Project context
+can influence prompts and make policy stricter, but it cannot grant permissions
+or weaken the policy kernel. Secrets are resolved by the authentication manager
+and never from project configuration. See [Project Context and Local
 Customization](PROJECT_CONTEXT.md).
 
 ### Plugin host

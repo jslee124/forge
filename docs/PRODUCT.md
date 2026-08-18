@@ -32,8 +32,8 @@ forge run "Add input validation and update the tests"
 The expected user journey is:
 
 1. Forge validates its configuration and workspace.
-2. Forge loads applicable `AGENTS.md` project instructions and records their
-   source paths.
+2. Forge merges user settings from `~/.forge/` with applicable project settings
+   and instructions, recording their source paths.
 3. Forge asks the model to choose the next action.
 4. The model uses tools to inspect relevant files.
 5. Forge checks each proposed action against its safety policy.
@@ -93,9 +93,11 @@ A narrow, reliable workflow is more valuable than many incomplete features.
 The first useful version will include:
 
 - A TypeScript command-line interface
+- User-wide configuration through `~/.forge/config.json`
 - Streaming model responses through Vercel AI SDK
 - A multi-step agent loop with explicit stop conditions
 - Hierarchical repository instructions through `AGENTS.md`
+- Inspectable configuration provenance through `forge config show`
 - Tools for listing, reading, searching, patching, and running commands
 - Workspace path validation
 - Command timeout and cancellation

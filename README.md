@@ -39,6 +39,7 @@ forge
 - Save complete execution traces for inspection and replay.
 - Evaluate behavior with reproducible coding tasks and automated graders.
 - Keep the core runtime independent from any single model provider.
+- Load user-wide settings and instructions from `~/.forge/`.
 - Load repository guidance from the standard `AGENTS.md` hierarchy.
 - Let trusted plugins extend Forge without weakening mandatory safeguards.
 
@@ -60,7 +61,7 @@ CLI
  v
 Forge Agent Runtime
  |-- Model Adapter ------> Vercel AI SDK ------> Model Provider
- |-- Context Loader -----> AGENTS.md / .agents / .forge
+ |-- Context Loader -----> ~/.forge / AGENTS.md / .agents / project .forge
  |-- Plugin Host --------> Tools / Commands / Controlled Hooks
  |-- Policy Kernel ------> Allow / Confirm / Deny
  |-- Tool Executor ------> Filesystem / Search / Patch / Shell

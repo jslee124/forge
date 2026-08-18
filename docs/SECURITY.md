@@ -41,7 +41,26 @@ controlled.
 ### `full-access`
 
 An explicit advanced mode with clear warnings. Enabling it is a user decision,
-not something a project file or plugin may do silently.
+not something a project file or plugin may do silently. An explicit CLI option
+or the user-owned `~/.forge/config.json` may select it; Forge must surface the
+active profile prominently at startup.
+
+## Configuration boundary
+
+Forge treats `~/.forge/config.json` as user-controlled configuration. Project
+`.forge/config.json` may override ordinary project behavior but cannot set a
+less restrictive permission profile, mark the project trusted, suppress a
+mandatory approval, increase a user-defined safety limit, or enable a plugin
+from an untrusted project.
+
+API keys, OAuth credentials, and other secrets are invalid in both user and
+project configuration. User configuration may reference a provider or
+credential name, while the secret value comes from an environment variable or
+the operating-system credential store.
+
+Forge must validate configuration before loading plugins or starting a run. It
+should warn when user configuration or user-plugin directories have unsafe
+filesystem permissions on platforms where that check is meaningful.
 
 ## Filesystem boundary
 
@@ -91,9 +110,9 @@ plugins require an explicit project-trust decision before loading. Strong plugin
 isolation requires a separate process or operating-system sandbox.
 
 Project trust is keyed by the canonical workspace path and stored outside the
-repository. A repository-controlled `.forge/` file cannot mark the project
-trusted. Forge must not execute code from `.forge/plugins/` during discovery or
-before the user makes that trust decision.
+repository under the user-level Forge home. A repository-controlled `.forge/`
+file cannot mark the project trusted. Forge must not execute code from
+`.forge/plugins/` during discovery or before the user makes that trust decision.
 
 ## Repository-provided instructions
 

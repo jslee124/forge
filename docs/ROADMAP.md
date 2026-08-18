@@ -18,12 +18,18 @@ test.
 - [ ] Configure formatting and linting
 - [ ] Configure Vitest
 - [ ] Add a minimal CLI entry point
+- [ ] Resolve `FORGE_HOME`, defaulting to `~/.forge/`
+- [ ] Define and validate a versioned user configuration schema
+- [ ] Load `~/.forge/config.json` without storing secrets in it
+- [ ] Add `forge config show` and `forge config validate`
 - [ ] Add CI for type checking, tests, and linting
 
 Acceptance criteria:
 
 - A new contributor can install dependencies with one documented command.
 - The CLI prints its version and help text.
+- Invalid user configuration produces an actionable error with the source path.
+- `forge config show` reports each effective value and its source.
 - Type checking, tests, and linting run locally with documented commands.
 - The same checks run in CI.
 
@@ -54,6 +60,12 @@ Goal: let the model understand repository instructions and safely retrieve
 information from the workspace.
 
 - [ ] Resolve the canonical workspace root and run working directory
+- [ ] Load `<workspace-root>/.forge/config.json`
+- [ ] Merge default, user, project, environment, and CLI configuration with
+  source provenance
+- [ ] Prove project configuration cannot widen the user's permission profile or
+  increase user-defined safety limits
+- [ ] Load optional user instructions from `~/.forge/AGENTS.md`
 - [ ] Discover `AGENTS.md` from the workspace root to the working directory
 - [ ] Prefer `AGENTS.override.md` at each directory level
 - [ ] Apply file and total-size limits and record instruction provenance
@@ -70,6 +82,8 @@ Acceptance criteria:
 
 - Forge can answer a question that requires reading a local file.
 - Root and nested project instructions are merged in deterministic order.
+- Ordinary project settings override user defaults, while security-sensitive
+  user settings cannot be weakened by the project.
 - Repository instructions cannot change the active permission policy.
 - Forge does not read outside the workspace silently; it returns an
   approval-required result until the approval flow is implemented.
@@ -182,8 +196,8 @@ Acceptance criteria:
 Goal: let users customize Forge without making plugins necessary for basic use.
 
 - [ ] Define a versioned plugin manifest and API
+- [ ] Discover enabled user plugins from `~/.forge/plugins/`
 - [ ] Discover portable project skills from `.agents/skills/`
-- [ ] Load Forge project configuration from `<workspace-root>/.forge/`
 - [ ] Discover project plugins only from `.forge/plugins/`
 - [ ] Register custom tools and commands
 - [ ] Expose immutable run events to observer plugins

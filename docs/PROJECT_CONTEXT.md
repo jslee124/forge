@@ -10,7 +10,8 @@ It uses three deliberately separate conventions:
 | --- | --- | --- |
 | `AGENTS.md` | Portable, human-readable project instructions | No |
 | `.agents/` | Agent-agnostic reusable resources such as skills | No |
-| `.forge/` | Forge-specific configuration and project plugins | Plugins are code |
+| `~/.forge/` | User-wide Forge settings, instructions, state, and plugins | Plugins are code |
+| `<workspace-root>/.forge/` | Forge-specific project settings and plugins | Plugins are code |
 
 Repository instructions may shape how the model approaches a task. They cannot
 weaken the policy kernel, approve an action, select `full-access`, or bypass a
@@ -61,10 +62,46 @@ Support for `.agents/skills/` is planned after the v0.1 runtime is reliable. New
 portable subdirectories should only be added when there is a clear cross-agent
 convention instead of placing Forge-specific data here.
 
-## `.forge/`
+## User-level `~/.forge/`
 
-`.forge/` is reserved for Forge-specific project customization. The possible
-layout is:
+Forge uses `~/.forge/` as its default user home. `~` is resolved through the
+operating system rather than relative to the current working directory. A
+`FORGE_HOME` environment variable may override the location for portable
+installations, testing, or managed environments.
+
+The planned user layout is:
+
+```text
+~/.forge/
+|-- config.json
+|-- AGENTS.md
+|-- plugins/
+|-- state/
+`-- runs/
+```
+
+- `config.json` contains user-wide defaults such as provider, model, limits,
+  terminal presentation, trace behavior, and the default permission profile.
+- `AGENTS.md` contains optional user-wide instructions loaded before project
+  instructions.
+- `plugins/` contains explicitly installed or enabled user plugins.
+- `state/` contains non-secret Forge state such as project-trust decisions.
+- `runs/` contains local traces when trace persistence is enabled.
+
+Forge may create missing runtime subdirectories, but it must not overwrite an
+existing configuration file. API keys and OAuth tokens do not belong in
+`config.json`; Forge uses environment variables or the credential store defined
+in the authentication model.
+
+User configuration is loaded before repository configuration. Forge should
+provide `forge config show` to display the effective value and source of every
+setting, and `forge config validate` to report invalid keys and values without
+starting an Agent run.
+
+## Project-level `.forge/`
+
+The selected workspace root's `.forge/` is reserved for Forge-specific project
+customization. The planned layout is:
 
 ```text
 .forge/
@@ -81,9 +118,12 @@ The phrase "project-local" means the selected workspace root's canonical
 nested directories for additional `.forge/plugins/` trees. This keeps plugin
 discovery stable when Forge starts from a repository subdirectory.
 
-Repository configuration may choose formatting and project behavior, but it
-cannot relax the user's permission profile or core safety policy. Unknown keys
-and unsupported schema versions must produce actionable diagnostics.
+Repository configuration may choose model-independent project behavior,
+formatting, stricter execution limits, and plugin declarations, but it cannot
+relax the user's permission profile or core safety policy. Security-sensitive
+keys such as the default permission profile and project trust are user-only.
+Unknown keys and unsupported schema versions must produce actionable
+diagnostics.
 
 Project plugins are trusted executable code. Forge must discover and summarize
 them before loading, then require an explicit trust decision for the canonical
@@ -96,23 +136,39 @@ lifecycle scripts during discovery.
 
 ## Precedence
 
-Security and behavioral precedence are intentionally different:
+For ordinary settings, later sources override earlier sources:
+
+```text
+built-in defaults < ~/.forge/config.json < project .forge/config.json
+                  < environment variables < explicit CLI flags
+```
+
+Every configuration value keeps its source metadata so `forge config show` and
+run traces can explain the effective result. Configuration discovery and merge
+happen once at startup; Forge does not silently change settings during a run.
+The schema classifies keys by scope: user-only security settings reject project
+values, while safety limits use the stricter value instead of ordinary
+last-writer-wins merging.
+
+Security and instruction precedence are intentionally different:
 
 ```text
 Security decisions: deny > confirm > allow (strictest contribution wins)
-Instructions: user request > selected skill > nearest AGENTS.md > root AGENTS.md
+Instructions: user request > selected skill > nearest project AGENTS.md
+              > project-root AGENTS.md > ~/.forge/AGENTS.md
 ```
 
-Core policy, user policy, project configuration, and plugin policy may all make
-an action stricter; project content and plugins can never make a mandatory
+Core policy defines a mandatory safety floor. Explicit CLI choices and user
+configuration may select a supported permission profile, while project content
+and plugins may only make an action stricter. They can never make a mandatory
 decision less strict. The instruction ordering applies only when instructions
 do not conflict with the security boundary or higher-level runtime constraints.
+User-level `~/.forge/AGENTS.md` is loaded before the project hierarchy.
 Forge-specific plugins may contribute prompt instructions only through typed
 hooks, and their source must remain visible in the trace.
 
 ## Deferred decisions
 
 - The final `.forge/config.json` schema
-- Global user-level instruction and plugin locations
 - Skill manifest and compatibility rules beyond `SKILL.md`
 - Whether restricted plugins run in a child process or an OS sandbox
