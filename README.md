@@ -7,7 +7,8 @@ It is a learning project and portfolio project focused on the engineering behind
 coding agents: model interaction, tool execution, safety boundaries, execution
 traces, plugins, and reproducible evaluations.
 
-> Status: Milestone 0 — project foundation. Forge is not usable yet.
+> Status: Milestone 0 complete. Milestone 1 is next. Forge is not usable as a
+> coding agent yet.
 
 ## Vision
 
@@ -102,15 +103,46 @@ The root package is private. Publishable package boundaries will only be added
 when a milestone needs them; the monorepo will not begin with empty placeholder
 packages.
 
+## Development
+
+Prerequisites:
+
+- Node.js 24 LTS
+- pnpm 11.18.0
+
+Install dependencies:
+
+```bash
+pnpm install
+```
+
+Run the Milestone 0 CLI:
+
+```bash
+pnpm forge --version
+pnpm forge --help
+```
+
+Run the project checks:
+
+```bash
+pnpm build
+pnpm check
+pnpm test
+```
+
+`pnpm check` runs Biome and strict TypeScript checks. `pnpm test` builds the
+workspace and runs Vitest. The same commands run in GitHub Actions.
+
 ## Development approach
 
 Development is organized into small, testable milestones. Each milestone must
 produce a runnable behavior and meet its acceptance criteria before the next one
 begins.
 
-The current milestone is Milestone 0: create the workspace, CLI scaffold, and local
-quality checks. The first model-facing milestone is Milestone 1: send a prompt
-to DeepSeek and stream provider-returned text and reasoning in the terminal.
+Milestone 0 established the workspace, CLI scaffold, and local quality checks.
+The next milestone is Milestone 1: send a prompt to DeepSeek and stream
+provider-returned text and reasoning in the terminal.
 
 ## License
 

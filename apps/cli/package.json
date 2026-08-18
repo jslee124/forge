@@ -1,0 +1,22 @@
+{
+  "name": "@forge/cli",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "forge": "./dist/index.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/program.d.ts",
+      "import": "./dist/program.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@forge/core": "workspace:*",
+    "commander": "^15.0.0"
+  }
+}

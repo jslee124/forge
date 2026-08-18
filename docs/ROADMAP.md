@@ -2,7 +2,8 @@
 
 ## Current milestone
 
-Forge is at **Milestone 0: Project foundation**. No later milestone should be
+**Milestone 0: Project foundation is complete.** The next milestone is
+**Milestone 1: DeepSeek model conversation**. No later milestone should be
 treated as implemented merely because its design is documented.
 
 ## Working rules
@@ -19,16 +20,16 @@ treated as implemented merely because its design is documented.
 
 Goal: create the smallest consistent monorepo that is easy to run and test.
 
-- [ ] Add a private root `package.json` with `packageManager: pnpm@11.18.0`
-- [ ] Require Node.js 24 LTS and add `pnpm-workspace.yaml`
-- [ ] Create `apps/cli` and `packages/core`; do not create empty future packages
-- [ ] Configure ESM-only strict TypeScript with project references
-- [ ] Build with `tsc -b`
-- [ ] Configure Biome for formatting and linting
-- [ ] Configure Vitest
-- [ ] Add a minimal Commander CLI entry point
-- [ ] Add CI for type checking, tests, and linting
-- [ ] Document install, build, check, test, and CLI commands in the README
+- [x] Add a private root `package.json` with `packageManager: pnpm@11.18.0`
+- [x] Require Node.js 24 LTS and add `pnpm-workspace.yaml`
+- [x] Create `apps/cli` and `packages/core`; do not create empty future packages
+- [x] Configure ESM-only strict TypeScript with project references
+- [x] Build with `tsc -b`
+- [x] Configure Biome for formatting and linting
+- [x] Configure Vitest
+- [x] Add a minimal Commander CLI entry point
+- [x] Add CI for type checking, tests, and linting
+- [x] Document install, build, check, test, and CLI commands in the README
 
 Acceptance criteria:
 
