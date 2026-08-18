@@ -7,8 +7,9 @@ It is a learning project and portfolio project focused on the engineering behind
 coding agents: model interaction, tool execution, safety boundaries, execution
 traces, plugins, and reproducible evaluations.
 
-> Status: Milestone 2 complete. Forge has bounded, workspace-confined read-only
-> tools and model tool-call translation, but the multi-step agent loop is next.
+> Status: Milestone 3 complete. Forge can run a bounded, read-only, multi-step
+> coding-agent loop with explicit policy decisions. File writes and command
+> execution are next.
 
 ## Vision
 
@@ -130,6 +131,18 @@ export DEEPSEEK_API_KEY="your-api-key"
 pnpm forge ask "Explain what this repository is for"
 ```
 
+Run a repository task with the read-only agent loop:
+
+```bash
+pnpm forge run "Inspect the README and package files, then summarize the project"
+```
+
+`forge run` lets the model propose `list_files`, `read_file`, and `search`
+calls. Forge validates each call, records an `allow`, `confirm`, or `deny`
+policy decision, executes approved tools itself, and returns structured results
+to the next model step. The run stops after at most 12 model steps or 40 tool
+calls. It cannot modify files or run processes yet.
+
 Forge uses `deepseek-v4-flash` with thinking enabled by default. Both settings
 are explicit and can be changed for one invocation:
 
@@ -171,8 +184,10 @@ Milestone 1 added the provider-neutral model contract, DeepSeek adapter,
 one-turn streaming command, error mapping, usage reporting, and cancellation.
 Milestone 2 added canonical workspace resolution, bounded `list_files`,
 `read_file`, and `search` tools, untrusted tool-call validation, and AI SDK
-schema translation without execution callbacks. Milestone 3 will connect these
-pieces through a Forge-owned multi-step agent loop and policy gateway.
+schema translation without execution callbacks. Milestone 3 connected these
+pieces through a Forge-owned multi-step loop, provider continuation records,
+policy gateway, lifecycle events, cancellation, and deterministic limits. The
+next milestone adds the first safe repository-editing vertical slice.
 
 ## License
 

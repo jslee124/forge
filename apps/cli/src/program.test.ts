@@ -15,6 +15,7 @@ describe("Forge CLI", () => {
     expect(program.name()).toBe("forge");
     expect(program.version()).toBe(FORGE_VERSION);
     expect(program.commands.map((command) => command.name())).toContain("ask");
+    expect(program.commands.map((command) => command.name())).toContain("run");
   });
 
   it("passes model options and environment to the ask command", async () => {
@@ -58,6 +59,33 @@ describe("Forge CLI", () => {
       apiKey: "test-secret",
     });
     expect(exitCode).toBe(0);
+  });
+
+  it("routes the run command through the native runtime entry point", async () => {
+    let receivedPrompt: string | undefined;
+    let exitCode: number | undefined;
+    const program = createProgram({
+      env: { DEEPSEEK_API_KEY: "test-secret" },
+      runTask: async (prompt, options) => {
+        receivedPrompt = `${prompt}:${options.thinking}`;
+        return 3;
+      },
+      setExitCode: (value) => {
+        exitCode = value;
+      },
+    });
+
+    await program.parseAsync([
+      "node",
+      "forge",
+      "run",
+      "inspect repository",
+      "--thinking",
+      "disabled",
+    ]);
+
+    expect(receivedPrompt).toBe("inspect repository:disabled");
+    expect(exitCode).toBe(3);
   });
 
   it("runs the compiled version command", () => {

@@ -1,8 +1,21 @@
-import type { ModelToolDefinition, ToolCall } from "./tools.js";
+import type { ModelToolDefinition, ToolCall, ToolResult } from "./tools.js";
+
+export interface ModelContinuation {
+  readonly provider: string;
+  readonly data: unknown;
+}
+
+export interface ModelToolResult {
+  readonly callId: string;
+  readonly toolName: string;
+  readonly result: ToolResult;
+}
 
 export interface ModelRequest {
   readonly prompt: string;
   readonly tools?: readonly ModelToolDefinition[];
+  readonly continuation?: ModelContinuation;
+  readonly toolResults?: readonly ModelToolResult[];
 }
 
 export interface ModelUsage {
@@ -44,6 +57,7 @@ export type ModelStreamEvent =
       readonly finishReason: ModelFinishReason;
       readonly usage: ModelUsage;
       readonly providerMetadata?: Readonly<Record<string, unknown>>;
+      readonly continuation?: ModelContinuation;
     }
   | {
       readonly type: "abort";

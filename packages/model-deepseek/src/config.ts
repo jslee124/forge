@@ -13,7 +13,7 @@ export function resolveDeepSeekApiKey(env: DeepSeekEnvironment): string {
 
   if (!apiKey) {
     throw new ModelConfigurationError(
-      "Missing DEEPSEEK_API_KEY. Export a DeepSeek API key before running `forge ask`.",
+      "Missing DEEPSEEK_API_KEY. Export a DeepSeek API key before running a model command.",
     );
   }
 

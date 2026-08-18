@@ -1,3 +1,4 @@
+import type { DeepSeekProviderSettings } from "@ai-sdk/deepseek";
 import { APICallError, type streamText } from "ai";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
@@ -18,6 +19,21 @@ describe("AI SDK DeepSeek transport", () => {
     let capturedOptions: unknown;
     const streamTextStub = ((options: unknown) => {
       capturedOptions = options;
+      const responseMessages = [
+        {
+          role: "assistant",
+          content: [
+            { type: "reasoning", text: "reason" },
+            { type: "text", text: "answer" },
+            {
+              type: "tool-call",
+              toolCallId: "call-1",
+              toolName: "read_file",
+              input: { path: "README.md" },
+            },
+          ],
+        },
+      ];
       return {
         stream: streamParts([
           {
@@ -57,6 +73,7 @@ describe("AI SDK DeepSeek transport", () => {
             },
           },
         ]),
+        responseMessages: Promise.resolve(responseMessages),
       };
     }) as unknown as typeof streamText;
     const transport = new AiSdkDeepSeekTransport(streamTextStub);
@@ -83,7 +100,7 @@ describe("AI SDK DeepSeek transport", () => {
     }
 
     expect(capturedOptions).toMatchObject({
-      prompt: "hello",
+      messages: [{ role: "user", content: "hello" }],
       abortSignal: signal,
       providerOptions: {
         deepseek: { thinking: { type: "enabled" } },
@@ -121,8 +138,233 @@ describe("AI SDK DeepSeek transport", () => {
         providerMetadata: {
           deepseek: { promptCacheHitTokens: 7 },
         },
+        continuation: {
+          provider: "deepseek",
+          data: {
+            messages: [
+              { role: "user", content: "hello" },
+              {
+                role: "assistant",
+                content: [
+                  { type: "reasoning", text: "reason" },
+                  { type: "text", text: "answer" },
+                  {
+                    type: "tool-call",
+                    toolCallId: "call-1",
+                    toolName: "read_file",
+                    input: { path: "README.md" },
+                  },
+                ],
+              },
+            ],
+          },
+        },
       },
     ]);
+  });
+
+  it("preserves reasoning across a mocked thinking-mode tool round trip", async () => {
+    const capturedOptions: unknown[] = [];
+    let invocation = 0;
+    const streamTextStub = ((options: unknown) => {
+      capturedOptions.push(options);
+      invocation += 1;
+      if (invocation === 1) {
+        return {
+          stream: streamParts([
+            { type: "reasoning-delta", id: "r1", text: "inspect first" },
+            {
+              type: "tool-call",
+              toolCallId: "call-1",
+              toolName: "read_file",
+              input: { path: "README.md" },
+            },
+            { type: "finish", finishReason: "tool-calls", totalUsage: usage() },
+          ]),
+          responseMessages: Promise.resolve([
+            {
+              role: "assistant",
+              content: [
+                { type: "reasoning", text: "inspect first" },
+                {
+                  type: "tool-call",
+                  toolCallId: "call-1",
+                  toolName: "read_file",
+                  input: { path: "README.md" },
+                },
+              ],
+            },
+          ]),
+        };
+      }
+
+      return {
+        stream: streamParts([
+          { type: "text-delta", id: "t1", text: "done" },
+          { type: "finish", finishReason: "stop", totalUsage: usage() },
+        ]),
+        responseMessages: Promise.resolve([
+          {
+            role: "assistant",
+            content: [{ type: "text", text: "done" }],
+          },
+        ]),
+      };
+    }) as unknown as typeof streamText;
+    const transport = new AiSdkDeepSeekTransport(streamTextStub);
+    const request = {
+      apiKey: "test-secret",
+      model: "deepseek-v4-flash",
+      thinking: "enabled" as const,
+      prompt: "inspect",
+      tools: [
+        {
+          name: "read_file",
+          description: "Read one file",
+          inputSchema: z.object({ path: z.string() }),
+        },
+      ],
+    };
+    const firstEvents = [];
+    for await (const event of transport.stream(
+      request,
+      new AbortController().signal,
+    )) {
+      firstEvents.push(event);
+    }
+    const firstFinish = firstEvents.find(({ type }) => type === "finish");
+    expect(firstFinish?.type).toBe("finish");
+    if (firstFinish?.type !== "finish" || !firstFinish.continuation) {
+      throw new Error("Expected continuation data.");
+    }
+
+    for await (const _event of transport.stream(
+      {
+        ...request,
+        continuation: firstFinish.continuation,
+        toolResults: [
+          {
+            callId: "call-1",
+            toolName: "read_file",
+            result: {
+              ok: true,
+              output: { content: "Forge" },
+              truncated: false,
+            },
+          },
+        ],
+      },
+      new AbortController().signal,
+    )) {
+      // Consume the second provider turn.
+    }
+
+    expect(capturedOptions[1]).toMatchObject({
+      messages: [
+        { role: "user", content: "inspect" },
+        {
+          role: "assistant",
+          content: [
+            { type: "reasoning", text: "inspect first" },
+            { type: "tool-call", toolCallId: "call-1" },
+          ],
+        },
+        {
+          role: "tool",
+          content: [
+            {
+              type: "tool-result",
+              toolCallId: "call-1",
+              toolName: "read_file",
+            },
+          ],
+        },
+      ],
+    });
+  });
+
+  it("preserves raw DeepSeek reasoning through the real AI SDK translation", async () => {
+    const requestBodies: unknown[] = [];
+    let invocation = 0;
+    const fetchMock: NonNullable<DeepSeekProviderSettings["fetch"]> = async (
+      _input,
+      init,
+    ) => {
+      requestBodies.push(JSON.parse(String(init?.body)));
+      invocation += 1;
+      return new Response(
+        invocation === 1 ? firstDeepSeekResponse() : secondDeepSeekResponse(),
+        { headers: { "content-type": "text/event-stream" }, status: 200 },
+      );
+    };
+    const transport = new AiSdkDeepSeekTransport({ fetch: fetchMock });
+    const baseRequest = {
+      apiKey: "test-secret",
+      model: "deepseek-v4-flash",
+      thinking: "enabled" as const,
+      prompt: "inspect",
+      tools: [
+        {
+          name: "read_file",
+          description: "Read one file",
+          inputSchema: z.object({ path: z.string() }),
+        },
+      ],
+    };
+    const firstEvents = [];
+    for await (const event of transport.stream(
+      baseRequest,
+      new AbortController().signal,
+    )) {
+      firstEvents.push(event);
+    }
+    const firstFinish = firstEvents.find(({ type }) => type === "finish");
+    if (firstFinish?.type !== "finish" || !firstFinish.continuation) {
+      throw new Error("Expected DeepSeek continuation data.");
+    }
+
+    for await (const _event of transport.stream(
+      {
+        ...baseRequest,
+        continuation: firstFinish.continuation,
+        toolResults: [
+          {
+            callId: "call-1",
+            toolName: "read_file",
+            result: {
+              ok: true,
+              output: { content: "Forge" },
+              truncated: false,
+            },
+          },
+        ],
+      },
+      new AbortController().signal,
+    )) {
+      // Consume the second provider turn.
+    }
+
+    expect(requestBodies[1]).toMatchObject({
+      model: "deepseek-v4-flash",
+      thinking: { type: "enabled" },
+      messages: [
+        { role: "user", content: "inspect" },
+        {
+          role: "assistant",
+          reasoning_content: "inspect first",
+          tool_calls: [
+            {
+              id: "call-1",
+              function: {
+                name: "read_file",
+                arguments: '{"path":"README.md"}',
+              },
+            },
+          ],
+        },
+        { role: "tool", tool_call_id: "call-1" },
+      ],
+    });
   });
 
   it("maps authentication failures to a safe actionable error", () => {
@@ -171,3 +413,100 @@ describe("AI SDK DeepSeek transport", () => {
     expect(events).toEqual([{ type: "abort", reason: "SIGINT" }]);
   });
 });
+
+function usage() {
+  return {
+    inputTokens: 1,
+    inputTokenDetails: {
+      noCacheTokens: 1,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+    },
+    outputTokens: 1,
+    outputTokenDetails: { textTokens: 1, reasoningTokens: 0 },
+    totalTokens: 2,
+  };
+}
+
+function firstDeepSeekResponse(): string {
+  return sse([
+    {
+      id: "response-1",
+      created: 1,
+      model: "deepseek-v4-flash",
+      choices: [
+        {
+          delta: { role: "assistant", reasoning_content: "inspect first" },
+          finish_reason: null,
+        },
+      ],
+    },
+    {
+      id: "response-1",
+      created: 1,
+      model: "deepseek-v4-flash",
+      choices: [
+        {
+          delta: {
+            tool_calls: [
+              {
+                index: 0,
+                id: "call-1",
+                function: {
+                  name: "read_file",
+                  arguments: '{"path":"README.md"}',
+                },
+              },
+            ],
+          },
+          finish_reason: null,
+        },
+      ],
+    },
+    {
+      id: "response-1",
+      created: 1,
+      model: "deepseek-v4-flash",
+      choices: [{ delta: {}, finish_reason: "tool_calls" }],
+      usage: deepSeekUsage(),
+    },
+  ]);
+}
+
+function secondDeepSeekResponse(): string {
+  return sse([
+    {
+      id: "response-2",
+      created: 2,
+      model: "deepseek-v4-flash",
+      choices: [
+        {
+          delta: { role: "assistant", content: "done" },
+          finish_reason: null,
+        },
+      ],
+    },
+    {
+      id: "response-2",
+      created: 2,
+      model: "deepseek-v4-flash",
+      choices: [{ delta: {}, finish_reason: "stop" }],
+      usage: deepSeekUsage(),
+    },
+  ]);
+}
+
+function deepSeekUsage() {
+  return {
+    prompt_tokens: 4,
+    completion_tokens: 3,
+    total_tokens: 7,
+    prompt_cache_hit_tokens: 0,
+    prompt_cache_miss_tokens: 4,
+    completion_tokens_details: { reasoning_tokens: 2 },
+  };
+}
+
+function sse(values: readonly unknown[]): string {
+  return `${values.map((value) => `data: ${JSON.stringify(value)}\n\n`).join("")}data: [DONE]\n\n`;
+}

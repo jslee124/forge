@@ -1,4 +1,9 @@
-import type { ModelStreamEvent, ModelToolDefinition } from "@forge/core";
+import type {
+  ModelContinuation,
+  ModelStreamEvent,
+  ModelToolDefinition,
+  ModelToolResult,
+} from "@forge/core";
 
 import type { DeepSeekThinkingMode } from "./config.js";
 
@@ -8,6 +13,8 @@ export interface DeepSeekTransportRequest {
   readonly thinking: DeepSeekThinkingMode;
   readonly prompt: string;
   readonly tools?: readonly ModelToolDefinition[];
+  readonly continuation?: ModelContinuation;
+  readonly toolResults?: readonly ModelToolResult[];
 }
 
 export interface DeepSeekTransport {

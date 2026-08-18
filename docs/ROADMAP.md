@@ -2,9 +2,9 @@
 
 ## Current milestone
 
-**Milestone 2: Workspace and read-only tools is complete.** The next milestone
-is **Milestone 3: Native agent loop and policy foundation**. No later milestone should be
-treated as implemented merely because its design is documented.
+**Milestone 3: Native agent loop and policy foundation is complete.** The next
+milestone is **Milestone 4: Safe coding vertical slice**. No later milestone
+should be treated as implemented merely because its design is documented.
 
 ## Working rules
 
@@ -94,18 +94,18 @@ Acceptance criteria:
 
 Goal: support multiple model and tool steps under Forge-owned runtime control.
 
-- [ ] Implement run state and lifecycle
-- [ ] Continue after tool results and recoverable tool failures
-- [ ] Keep the multi-step loop in `@forge/core`
-- [ ] Preserve DeepSeek continuation metadata, including reasoning content,
+- [x] Implement run state and lifecycle
+- [x] Continue after tool results and recoverable tool failures
+- [x] Keep the multi-step loop in `@forge/core`
+- [x] Preserve DeepSeek continuation metadata, including reasoning content,
   across tool-result turns
-- [ ] Add model-step and tool-call limits with initial defaults of `12` and `40`
-- [ ] Detect cancellation between steps
-- [ ] Route every tool call through a policy gateway
-- [ ] Implement `allow`, `confirm`, and `deny` decisions
-- [ ] Deny approval-required actions when no approval channel is available
-- [ ] Implement the documented CLI exit-code mapping
-- [ ] Add deterministic runtime tests with a scripted fake model adapter
+- [x] Add model-step and tool-call limits with initial defaults of `12` and `40`
+- [x] Detect cancellation between steps
+- [x] Route every tool call through a policy gateway
+- [x] Implement `allow`, `confirm`, and `deny` decisions
+- [x] Deny approval-required actions when no approval channel is available
+- [x] Implement the documented CLI exit-code mapping
+- [x] Add deterministic runtime tests with a scripted fake model adapter
 
 Acceptance criteria:
 

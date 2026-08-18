@@ -3,10 +3,16 @@ import { DEFAULT_DEEPSEEK_MODEL } from "@forge/model-deepseek";
 import { Command } from "commander";
 
 import { type AskOptions, runAskFromCli } from "./ask.js";
+import { runTaskFromCli } from "./run.js";
 
 export interface ProgramDependencies {
   readonly env?: NodeJS.ProcessEnv;
   readonly runAsk?: (
+    prompt: string,
+    options: AskOptions,
+    env: NodeJS.ProcessEnv,
+  ) => Promise<number>;
+  readonly runTask?: (
     prompt: string,
     options: AskOptions,
     env: NodeJS.ProcessEnv,
@@ -18,6 +24,7 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
   const env = dependencies.env ?? process.env;
   const { FORGE_MODEL, FORGE_THINKING } = env;
   const ask = dependencies.runAsk ?? runAskFromCli;
+  const run = dependencies.runTask ?? runTaskFromCli;
   const setExitCode =
     dependencies.setExitCode ??
     ((exitCode: number) => (process.exitCode = exitCode));
@@ -43,6 +50,24 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
     )
     .action(async (prompt: string, options: AskOptions) => {
       setExitCode(await ask(prompt, options, env));
+    });
+
+  program
+    .command("run")
+    .description("Run a read-only multi-step coding-agent task")
+    .argument("<prompt>", "repository task for Forge")
+    .option(
+      "--model <model>",
+      "DeepSeek model ID",
+      FORGE_MODEL ?? DEFAULT_DEEPSEEK_MODEL,
+    )
+    .option(
+      "--thinking <mode>",
+      "thinking mode: enabled or disabled",
+      FORGE_THINKING ?? "enabled",
+    )
+    .action(async (prompt: string, options: AskOptions) => {
+      setExitCode(await run(prompt, options, env));
     });
 
   return program;

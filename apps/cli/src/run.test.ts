@@ -1,0 +1,126 @@
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+
+import type { ModelAdapter, ModelRequest, ModelStreamEvent } from "@forge/core";
+import { afterEach, describe, expect, it } from "vitest";
+
+import { runTask } from "./run.js";
+
+const temporaryDirectories: string[] = [];
+const usage = {
+  inputTokens: 1,
+  outputTokens: 1,
+  reasoningTokens: 0,
+  cachedInputTokens: 0,
+  cacheWriteTokens: 0,
+  totalTokens: 2,
+};
+
+afterEach(async () => {
+  await Promise.all(
+    temporaryDirectories
+      .splice(0)
+      .map((directory) => rm(directory, { recursive: true, force: true })),
+  );
+});
+
+function outputBuffer(): {
+  readonly output: { write(chunk: string): void };
+  read(): string;
+} {
+  let value = "";
+  return {
+    output: { write: (chunk) => (value += chunk) },
+    read: () => value,
+  };
+}
+
+class ReadThenAnswerModel implements ModelAdapter {
+  readonly requests: ModelRequest[] = [];
+
+  async *stream(request: ModelRequest): AsyncIterable<ModelStreamEvent> {
+    this.requests.push(request);
+    if (this.requests.length === 1) {
+      yield {
+        type: "tool.call",
+        call: {
+          id: "read-1",
+          name: "read_file",
+          input: { path: "README.md" },
+        },
+      };
+      yield {
+        type: "finish",
+        finishReason: "tool-calls",
+        usage,
+        continuation: { provider: "fake", data: { step: 1 } },
+      };
+      return;
+    }
+
+    yield { type: "text.delta", text: "The repository says Forge." };
+    yield { type: "finish", finishReason: "stop", usage };
+  }
+}
+
+describe("forge run", () => {
+  it("executes an allowed workspace read and continues to an answer", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "forge-run-"));
+    temporaryDirectories.push(root);
+    await writeFile(path.join(root, "README.md"), "Forge repository\n");
+    const stdout = outputBuffer();
+    const stderr = outputBuffer();
+    const model = new ReadThenAnswerModel();
+
+    const exitCode = await runTask(
+      "What does README say?",
+      {},
+      {
+        env: { DEEPSEEK_API_KEY: "test-secret" },
+        cwd: root,
+        stdout: stdout.output,
+        stderr: stderr.output,
+        signal: new AbortController().signal,
+        createAdapter: () => model,
+      },
+    );
+
+    expect(exitCode).toBe(0);
+    expect(stdout.read()).toBe("[answer]\nThe repository says Forge.\n");
+    expect(stderr.read()).toContain("[tool] proposed read_file");
+    expect(stderr.read()).toContain("[policy] allow read_file");
+    expect(stderr.read()).toContain("[tool] completed read_file");
+    expect(model.requests[1]?.toolResults?.[0]).toMatchObject({
+      callId: "read-1",
+      result: {
+        ok: true,
+        output: { content: "Forge repository\n" },
+      },
+    });
+  });
+
+  it("returns configuration exit code 2 when the API key is missing", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "forge-run-"));
+    temporaryDirectories.push(root);
+    const stdout = outputBuffer();
+    const stderr = outputBuffer();
+
+    const exitCode = await runTask(
+      "Inspect this repository",
+      {},
+      {
+        env: {},
+        cwd: root,
+        stdout: stdout.output,
+        stderr: stderr.output,
+        signal: new AbortController().signal,
+      },
+    );
+
+    expect(exitCode).toBe(2);
+    expect(stdout.read()).toBe("");
+    expect(stderr.read()).toContain("Missing DEEPSEEK_API_KEY");
+    expect(stderr.read()).not.toContain("at ");
+  });
+});

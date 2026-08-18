@@ -1,8 +1,10 @@
 import {
   createDeepSeek,
   type DeepSeekLanguageModelChatOptions,
+  type DeepSeekProviderSettings,
 } from "@ai-sdk/deepseek";
 import {
+  type ModelFinishReason,
   ModelProviderError,
   type ModelStreamEvent,
   type ModelToolDefinition,
@@ -11,6 +13,7 @@ import {
 import {
   APICallError,
   type LanguageModelUsage,
+  type ModelMessage,
   RetryError,
   streamText,
   type ToolSet,
@@ -26,22 +29,46 @@ type StreamTextFunction = typeof streamText;
 
 export class AiSdkDeepSeekTransport implements DeepSeekTransport {
   readonly #streamText: StreamTextFunction;
+  readonly #fetch: DeepSeekProviderSettings["fetch"];
 
-  constructor(streamTextFunction: StreamTextFunction = streamText) {
-    this.#streamText = streamTextFunction;
+  constructor(
+    options:
+      | StreamTextFunction
+      | {
+          readonly streamTextFunction?: StreamTextFunction;
+          readonly fetch?: DeepSeekProviderSettings["fetch"];
+        } = {},
+  ) {
+    if (typeof options === "function") {
+      this.#streamText = options;
+      this.#fetch = undefined;
+    } else {
+      this.#streamText = options.streamTextFunction ?? streamText;
+      this.#fetch = options.fetch;
+    }
   }
 
   async *stream(
     request: DeepSeekTransportRequest,
     signal: AbortSignal,
   ): AsyncIterable<ModelStreamEvent> {
-    const deepSeek = createDeepSeek({ apiKey: request.apiKey });
+    const deepSeek = createDeepSeek({
+      apiKey: request.apiKey,
+      ...(this.#fetch ? { fetch: this.#fetch } : {}),
+    });
     let providerMetadata: Readonly<Record<string, unknown>> | undefined;
+    let finishPart:
+      | {
+          readonly finishReason: ModelFinishReason;
+          readonly totalUsage: LanguageModelUsage;
+        }
+      | undefined;
 
     try {
+      const messages = buildMessages(request);
       const result = this.#streamText({
         model: deepSeek(request.model),
-        prompt: request.prompt,
+        messages,
         abortSignal: signal,
         ...(request.tools && request.tools.length > 0
           ? { tools: toAiSdkTools(request.tools) }
@@ -88,13 +115,10 @@ export class AiSdkDeepSeekTransport implements DeepSeekTransport {
             break;
 
           case "finish": {
-            const finishEvent: ModelStreamEvent = {
-              type: "finish",
+            finishPart = {
               finishReason: part.finishReason,
-              usage: normalizeUsage(part.totalUsage),
-              ...(providerMetadata ? { providerMetadata } : {}),
+              totalUsage: part.totalUsage,
             };
-            yield finishEvent;
             break;
           }
 
@@ -112,6 +136,20 @@ export class AiSdkDeepSeekTransport implements DeepSeekTransport {
             break;
         }
       }
+
+      if (finishPart) {
+        const responseMessages = await result.responseMessages;
+        yield {
+          type: "finish",
+          finishReason: finishPart.finishReason,
+          usage: normalizeUsage(finishPart.totalUsage),
+          ...(providerMetadata ? { providerMetadata } : {}),
+          continuation: {
+            provider: "deepseek",
+            data: { messages: [...messages, ...responseMessages] },
+          },
+        };
+      }
     } catch (error) {
       if (signal.aborted || isAbortError(error)) {
         yield {
@@ -126,6 +164,57 @@ export class AiSdkDeepSeekTransport implements DeepSeekTransport {
       throw mapDeepSeekError(error);
     }
   }
+}
+
+interface DeepSeekContinuationData {
+  readonly messages: readonly ModelMessage[];
+}
+
+function buildMessages(request: DeepSeekTransportRequest): ModelMessage[] {
+  let messages: ModelMessage[];
+
+  if (request.continuation) {
+    if (
+      request.continuation.provider !== "deepseek" ||
+      !isDeepSeekContinuationData(request.continuation.data)
+    ) {
+      throw new ModelProviderError(
+        "DeepSeek received incompatible continuation data.",
+        { provider: "deepseek", retryable: false },
+      );
+    }
+    messages = [...request.continuation.data.messages];
+  } else {
+    messages = [{ role: "user", content: request.prompt }];
+  }
+
+  if (request.toolResults && request.toolResults.length > 0) {
+    messages.push({
+      role: "tool",
+      content: request.toolResults.map((toolResult) => ({
+        type: "tool-result" as const,
+        toolCallId: toolResult.callId,
+        toolName: toolResult.toolName,
+        output: {
+          type: "text" as const,
+          value: JSON.stringify(toolResult.result),
+        },
+      })),
+    });
+  }
+
+  return messages;
+}
+
+function isDeepSeekContinuationData(
+  value: unknown,
+): value is DeepSeekContinuationData {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "messages" in value &&
+    Array.isArray(value.messages)
+  );
 }
 
 export function toAiSdkTools(

@@ -29,6 +29,9 @@ importers:
       '@forge/model-deepseek':
         specifier: workspace:*
         version: link:../../packages/model-deepseek
+      '@forge/tools':
+        specifier: workspace:*
+        version: link:../../packages/tools
       commander:
         specifier: ^15.0.0
         version: 15.0.0
