@@ -149,6 +149,19 @@ Reasoning content may contain repository data or other sensitive information.
 Trace persistence and export must use the same redaction policy as model and
 tool events.
 
+## Persistent sessions
+
+Resuming a session restores completed conversation messages, not executable
+authority. Forge creates a new policy instance for every resumed run and never
+restores prior approvals, pending tool calls, child processes, or provider
+continuation metadata. Current user configuration and project instructions are
+loaded again before the next prompt.
+
+Session snapshots and traces are stored outside the repository under
+`FORGE_HOME`. They may contain repository text, diffs, commands, and model
+output, so they are local sensitive data even after configured credentials are
+redacted.
+
 ## Credential handling
 
 API keys, access tokens, refresh tokens, authorization codes, and PKCE verifiers

@@ -9,8 +9,8 @@ traces, plugins, and reproducible evaluations.
 
 > Status: Milestone 5 complete. Forge supports bounded coding runs, a multi-line
 > Ink terminal, versioned user/project configuration, hierarchical `AGENTS.md`
-> instructions, and explicit permission profiles. Structured trace persistence
-> and security hardening are next.
+> instructions, and explicit permission profiles. Structured trace persistence,
+> resumable sessions, and security hardening are next.
 
 ## Vision
 
@@ -84,6 +84,7 @@ added later as optional adapters and evaluation baselines.
 - [Authentication model](docs/AUTHENTICATION.md)
 - [Project context and local customization](docs/PROJECT_CONTEXT.md)
 - [Security model](docs/SECURITY.md)
+- [Persistent sessions and run traces](docs/SESSIONS.md)
 - [Plugin model](docs/PLUGINS.md)
 - [v0.1 acceptance and evaluation specification](docs/V0.1_SPEC.md)
 - [Roadmap](docs/ROADMAP.md)
@@ -135,8 +136,10 @@ pnpm forge
 ```
 
 The interactive prompt preserves completed user/assistant turns in memory for
-the current process. Each prompt is still a separate bounded agent run with a
-fresh workspace-write approval scope; command approvals are never reused.
+the current process. Milestone 6 will persist those completed turns so
+`forge resume` and `/resume` can continue them after restart. Each prompt is
+still a separate bounded agent run with a fresh workspace-write approval scope;
+command approvals are never reused.
 Available commands are `/help`, `/clear`, and `/exit`. Ctrl+C cancels an active
 task and returns to the prompt; press it again to exit.
 

@@ -82,6 +82,7 @@ The planned user layout is:
 |-- AGENTS.md
 |-- plugins/
 |-- state/
+|-- sessions/
 `-- runs/
 ```
 
@@ -91,6 +92,7 @@ The planned user layout is:
   instructions.
 - `plugins/` contains explicitly installed or enabled user plugins.
 - `state/` contains non-secret Forge state such as project-trust decisions.
+- `sessions/` contains versioned completed conversation snapshots.
 - `runs/` contains local traces when trace persistence is enabled.
 
 Forge may create missing runtime subdirectories, but it must not overwrite an

@@ -107,6 +107,7 @@ The first useful version will include:
 - Approval decisions for sensitive actions
 - Visible provider-supplied reasoning when available
 - Structured terminal events and JSONL traces
+- Persistent local sessions that can be resumed after restarting Forge
 - Automated tests for the runtime and tools
 - A canonical fixture task, deterministic recovery scenario, and reproducible
   release evaluation
@@ -152,6 +153,6 @@ After the native runtime is reliable, Forge may add:
   integration, Codex-compatible Sign in with ChatGPT
 - A LangChain or LangGraph runtime adapter evaluated on the same tasks
 - An HTTP API with Server-Sent Events, cancellation, and human approval
-- SQLite-backed run metadata and resumable sessions
+- SQLite-backed indexing, session branching, and cross-machine synchronization
 
 These are future extensions, not requirements for beginning implementation.

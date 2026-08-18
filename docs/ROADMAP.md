@@ -3,9 +3,9 @@
 ## Current milestone
 
 **Milestone 5: Configuration, instructions, and permission profiles is
-complete.** The next milestone is **Milestone 6: Structured traces and security
-hardening**. No later milestone should be treated as implemented merely because
-its design is documented.
+complete.** The next milestone is **Milestone 6: Structured traces, persistent
+sessions, and resume**. No later milestone should be treated as implemented
+merely because its design is documented.
 
 ## Working rules
 
@@ -233,16 +233,26 @@ Acceptance criteria:
 - Starting in a repository subdirectory resolves the same workspace-level
   configuration as starting at its root.
 
-## Milestone 6: Structured traces and security hardening
+## Milestone 6: Structured traces, persistent sessions, and resume
 
-Goal: make every run inspectable and verify the documented safety boundary.
+Goal: make every run inspectable, continue completed conversations after a
+restart, and verify that persistence cannot weaken the safety boundary. The
+detailed persistence contract lives in [Persistent Sessions and Run
+Traces](SESSIONS.md).
 
 - [ ] Define versioned run-event schemas
 - [ ] Render terminal output from the event stream
 - [ ] Persist events as JSONL
+- [ ] Add versioned session snapshots under `FORGE_HOME`
+- [ ] Assign separate session IDs and run IDs
+- [ ] Persist only completed user/assistant conversation turns
 - [ ] Represent provider-returned reasoning as typed events
 - [ ] Redact configured credentials and known secrets
 - [ ] Add `forge inspect <run-id>`
+- [ ] Add `forge resume <session-id>` and `forge resume --last`
+- [ ] Add an interactive `/resume` session picker scoped to the workspace
+- [ ] Reload current configuration and instructions when a session resumes
+- [ ] Never restore approvals, provider continuations, or incomplete tool calls
 - [ ] Record duration, model steps, tool calls, token usage, and terminal status
 - [ ] Test external paths, symlinks, missing approval UI, decision precedence,
   command timeouts, and representative destructive programs
@@ -252,6 +262,11 @@ Acceptance criteria:
 
 - A completed run can be reconstructed from its trace.
 - Terminal rendering and persistence consume the same structured events.
+- After restarting Forge, a saved session can be selected and continued with
+  its completed conversation history intact.
+- Resuming creates a new run and requires fresh approvals under the current
+  effective configuration.
+- Sessions from another canonical workspace are not resumed implicitly.
 - Trace files contain no configured API keys.
 - Safety documentation distinguishes policy and approval from OS isolation.
 
@@ -344,8 +359,8 @@ These items are intentionally unordered and are not part of v0.1:
 - LangChain runtime adapter and benchmark comparison
 - LangGraph checkpoint experiment
 - HTTP API and Server-Sent Events
-- Persistent run metadata in SQLite
-- Resumable sessions
+- SQLite-backed session and run indexing
+- Session branching and cross-machine synchronization
 - Dynamic context management
 - MCP integration
 - Stronger process isolation

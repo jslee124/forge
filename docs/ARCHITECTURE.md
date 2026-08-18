@@ -114,9 +114,10 @@ the model; they do not bypass `read_file`, workspace validation, policy, or
 trace events by injecting file contents automatically.
 
 Each interactive prompt starts a fresh bounded run and approval-policy instance.
-Only completed user and assistant text is carried into the next prompt; tool
-continuation metadata remains scoped to the run that produced it. Persistent or
-resumable sessions remain a later extension.
+Only completed user and assistant text is carried into the next prompt. That
+conversation may be persisted as a session and restored after restart, while
+tool continuation metadata and approvals remain scoped to the run that produced
+them. See [Persistent Sessions and Run Traces](SESSIONS.md).
 
 ### Agent runtime
 
@@ -327,6 +328,23 @@ systems.
 
 Trace files must not store API keys or other known secrets.
 
+### Sessions and runs
+
+A session is a persistent user conversation. A run is one bounded invocation of
+the agent loop for one prompt. One session can therefore contain multiple runs,
+and each run has its own event trace, limits, policy instance, and terminal
+status.
+
+The session store belongs at the application boundary rather than inside the
+model adapter or tool packages. It saves completed user/assistant turns and
+ordered run IDs. It does not serialize provider continuation objects, pending
+approvals, an active child process, or an in-progress tool call.
+
+On resume, the CLI validates the saved canonical workspace, reloads current
+configuration and instructions, restores completed conversation messages, and
+starts a new run. This makes recovery deterministic without treating stale
+permission state as authority.
+
 ## Core interfaces
 
 The exact TypeScript types will be decided during implementation. The intended
@@ -359,6 +377,13 @@ interface ApprovalPolicy {
 
 interface TraceWriter {
   append(event: RunEvent): Promise<void>;
+}
+
+interface SessionStore {
+  create(workspace: WorkspaceContext): Promise<SessionSnapshot>;
+  load(sessionId: string): Promise<SessionSnapshot>;
+  list(workspaceRoot: string): Promise<readonly SessionSummary[]>;
+  save(snapshot: SessionSnapshot): Promise<void>;
 }
 ```
 
