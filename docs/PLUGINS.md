@@ -1,130 +1,170 @@
-# Plugin Model
+# Trusted Plugin API
 
-## Goal
+Forge v0.2 works without plugins. Plugins are optional in-process JavaScript
+modules for custom tools, commands, prompt instructions, event observers, and
+policy restrictions.
 
-Forge should work out of the box with no plugins installed while allowing users
-to add focused capabilities without modifying the core runtime.
+## Security boundary
 
-The first external plugin API is planned for v0.2. The v0.1 architecture keeps
-the extension boundary explicit so that it does not need to be retrofitted into
-the agent loop later.
+Loading a plugin executes local code with the full privileges of the Forge
+process. A plugin can import Node.js modules, read arbitrary files, start
+processes, and use the network. Manifest capabilities document intent and gate
+Forge API registration methods, but they are not an OS sandbox.
 
-## Initial extension points
+User plugins load only when their names appear in user configuration. Project
+plugins are never imported until the canonical workspace is explicitly trusted.
+Trust is stored in `FORGE_HOME/plugin-trust.json`, outside the repository.
 
-Trusted plugins may eventually:
+```bash
+forge plugins list
+forge plugins trust
+# For an explicit non-interactive decision:
+forge plugins trust --yes
+forge plugins untrust
+```
 
-- Register custom tools
-- Register user commands
-- Contribute prompt instructions
-- Observe immutable run events
-- Participate in selected lifecycle hooks
-- Add policy contributions that make a decision stricter
+Discovery reads `plugin.json` only. It does not import an entry, install
+dependencies, or run package-manager lifecycle scripts. Starting from a
+repository subdirectory resolves the same canonical workspace plugin directory
+and trust record as starting at its root.
 
-The first version will not support arbitrary terminal UI replacement, hot
-reload, automatic package installation, or overriding mandatory security
-components.
+## Locations and enablement
 
-## Policy precedence
+User plugins live under:
 
-Policy decisions form a strict ordering:
+```text
+FORGE_HOME/plugins/<plugin-name>/
+```
+
+Enable them only in the user-level `FORGE_HOME/config.json`:
+
+```json
+{
+  "schemaVersion": 1,
+  "plugins": {
+    "enabled": ["custom-tool"]
+  }
+}
+```
+
+Project configuration cannot set `plugins.enabled`. Project plugins live only
+under `<workspace-root>/.forge/plugins/<plugin-name>/` and all discovered
+project plugins become loadable only after the workspace trust decision. Forge
+does not scan nested or ancestor plugin directories.
+
+## Manifest version 1
+
+Every plugin directory contains a strict `plugin.json`:
+
+```json
+{
+  "schemaVersion": 1,
+  "apiVersion": "1",
+  "name": "custom-tool",
+  "version": "1.0.0",
+  "entry": "./index.mjs",
+  "capabilities": ["tools:register", "commands:register"]
+}
+```
+
+- The directory name must equal `name`.
+- `entry` must resolve inside the plugin directory and be `.js`, `.mjs`, or
+  `.cjs`.
+- Forge rejects unsupported API versions before importing plugin code.
+- Supported capabilities are `tools:register`, `commands:register`,
+  `events:observe`, `prompt:contribute`, and `policy:restrict`.
+- A plugin cannot use a registration API it did not declare.
+
+The entry exports either `default` or a named `activate` function. Forge passes
+an immutable API object and Zod as `api.z`, so a simple plugin needs no package
+installation:
+
+```js
+export default function activate(api) {
+  api.registerTool({
+    name: "count_text",
+    description: "Count characters in supplied text.",
+    risk: "read",
+    inputSchema: api.z.object({ text: api.z.string() }).strict(),
+    execute: async ({ text }) => ({
+      ok: true,
+      output: { characters: text.length },
+      truncated: false
+    })
+  });
+}
+```
+
+See [`examples/plugins/custom-tool`](../examples/plugins/custom-tool) for a
+custom tool plus command and
+[`examples/plugins/stricter-policy`](../examples/plugins/stricter-policy) for a
+policy hook.
+
+## Extension points
+
+### Tools
+
+`api.registerTool(tool)` uses the same `ForgeTool` contract as built-ins.
+Names must be unique. Model calls to plugin tools pass through the normal input
+validation, core policy, approval, execution, run-event, and trace pipeline.
+Declaring a risk affects Forge policy, but does not constrain what trusted code
+can do directly.
+
+### Commands
+
+`api.registerCommand(command)` adds a trusted local command. Run it with:
+
+```bash
+forge plugins run <command-name> [args...]
+```
+
+Command output is explicit through `write` and `writeError`. Plugin commands
+are direct trusted-code entry points; they are not model tool calls and do not
+pass through tool approval.
+
+### Prompt contributions
+
+`api.contributePrompt(hook)` receives an immutable snapshot containing the user
+prompt, canonical workspace root, and working directory. A returned string is
+bounded to 32 KiB, labelled with its manifest path, and added to the effective
+instruction context and run trace provenance.
+
+### Run-event observers
+
+`api.observeRunEvents(observer)` receives a deeply frozen structured clone of
+each run event. Observers cannot mutate runtime history. Observer failures are
+reported as plugin warnings and do not replace the trace or run result.
+
+### Policy restrictions
+
+`api.restrictPolicy(hook)` receives a frozen action snapshot and may return only
+`confirm`, `deny`, or no contribution. Forge computes the strictest result:
 
 ```text
 deny > confirm > allow
 ```
 
-The effective decision is the strictest decision produced by core policy, user
-configuration, and plugin policy contributions. A plugin can request additional
-confirmation or deny an action. It cannot turn a core `deny` into `confirm` or
-`allow`.
+Core policy is evaluated first. A core denial returns immediately, and plugin
+APIs expose no way to replace the policy kernel, approve an action, or turn a
+core confirmation into an allow.
 
-All built-in and plugin tools use the same policy, execution, event, and trace
-pipeline.
+## Portable project skills
 
-## Events versus hooks
-
-### Run events
-
-Run events are immutable observations. Plugins may subscribe to them for logs,
-metrics, notifications, and integrations, but cannot change completed history.
-
-### Lifecycle hooks
-
-Lifecycle hooks are explicit customization points with narrow typed return
-values. Forge will define which fields a hook may contribute or restrict rather
-than exposing mutable runtime state.
-
-## Trust model
-
-### User plugins
-
-Plugins explicitly installed or loaded by the user are treated as trusted local
-code. Forge should display their source and requested capabilities during
-installation when practical.
-
-The planned user location is:
+Forge discovers Markdown skills only at:
 
 ```text
-~/.forge/plugins/<plugin-name>/
+<workspace-root>/.agents/skills/<skill-name>/SKILL.md
 ```
 
-The presence of a directory alone does not prove intentional installation.
-Forge loads only plugins recorded as installed or enabled in user-controlled
-configuration, and reports the source of every loaded plugin. `FORGE_HOME` may
-relocate this directory together with the rest of the user-level Forge home.
+Discovery never executes a skill. A skill is selected for a run only when the
+prompt explicitly contains `$skill-name`. Selected content is limited to 32 KiB
+and its path is recorded in the run context. Any scripts or actions described by
+a skill still require normal model tool calls, policy decisions, approvals, and
+trace events.
 
-### Project plugins
+## Deliberate limitations
 
-Project-local plugins must not load until the user trusts the project. A trust
-decision must use the canonical project path and must not be inferred from the
-fact that the user opened the directory.
-
-The planned project location is:
-
-```text
-<workspace-root>/.forge/plugins/<plugin-name>/
-```
-
-Forge resolves `<workspace-root>` once and does not recursively discover nested
-or ancestor `.forge/plugins/` directories. It displays the manifest path and
-declared capabilities before asking for trust. Trust state is stored outside the
-repository, and an untrusted project plugin is skipped in non-interactive mode.
-
-Discovery must not automatically install dependencies or run package-manager
-lifecycle scripts. See [Project Context and Local
-Customization](PROJECT_CONTEXT.md).
-
-### In-process limitation
-
-An in-process TypeScript plugin can import Node.js modules and execute arbitrary
-local code. A manifest capability list improves review and user understanding,
-but it is not an enforceable sandbox by itself.
-
-Restricted third-party plugins require a future isolated process or OS-level
-sandbox with a narrow RPC protocol.
-
-## Illustrative manifest
-
-The final schema is deferred. A future plugin might declare:
-
-```json
-{
-  "name": "forge-github",
-  "version": "0.1.0",
-  "apiVersion": "1",
-  "entry": "./src/index.ts",
-  "permissions": [
-    "tools:register",
-    "workspace:read",
-    "network:api.github.com"
-  ]
-}
-```
-
-For an in-process plugin, these permissions describe intent and support user
-review. They do not replace the trust warning.
-
-## Compatibility
-
-The plugin API should be versioned separately from the Forge application. Forge
-must reject an incompatible plugin with an actionable error instead of loading
-it partially.
+v0.2 has no plugin installer, dependency installation, hot reload, UI
+replacement, isolated plugin process, or enforceable network/filesystem
+capabilities. Use only code you trust and review manifests and entries before
+enabling or trusting them.

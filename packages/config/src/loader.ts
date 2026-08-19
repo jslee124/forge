@@ -21,7 +21,8 @@ export type ConfigKey =
   | "limits.maxToolCalls"
   | "limits.commandTimeoutMs"
   | "limits.maxToolOutputBytes"
-  | "trace.enabled";
+  | "trace.enabled"
+  | "plugins.enabled";
 
 export interface ConfigSource {
   readonly kind: "default" | "user" | "project" | "environment" | "cli";
@@ -132,6 +133,7 @@ const CONFIG_KEYS: readonly ConfigKey[] = [
   "limits.commandTimeoutMs",
   "limits.maxToolOutputBytes",
   "trace.enabled",
+  "plugins.enabled",
 ];
 
 function cloneDefaults(): EffectiveForgeConfig {
@@ -140,6 +142,7 @@ function cloneDefaults(): EffectiveForgeConfig {
     model: { ...DEFAULT_FORGE_CONFIG.model },
     limits: { ...DEFAULT_FORGE_CONFIG.limits },
     trace: { ...DEFAULT_FORGE_CONFIG.trace },
+    plugins: { enabled: [...DEFAULT_FORGE_CONFIG.plugins.enabled] },
   };
 }
 
@@ -217,6 +220,7 @@ function rejectProjectOnlyFields(
     config.model === undefined ? undefined : "model",
     config.permissionProfile === undefined ? undefined : "permissionProfile",
     config.trace === undefined ? undefined : "trace",
+    config.plugins === undefined ? undefined : "plugins",
   ].filter((value): value is string => value !== undefined);
   if (forbidden.length > 0) {
     throw new ForgeConfigError(
@@ -246,6 +250,7 @@ function mergeOrdinary(
         next.limits?.maxToolOutputBytes ?? base.limits.maxToolOutputBytes,
     },
     trace: { enabled: next.trace?.enabled ?? base.trace.enabled },
+    plugins: { enabled: next.plugins?.enabled ?? base.plugins.enabled },
   };
 }
 
@@ -351,6 +356,8 @@ function recordFileProvenance(
     if (config.limits?.[field] !== undefined) provenance[key] = source;
   }
   if (config.trace?.enabled !== undefined) provenance["trace.enabled"] = source;
+  if (config.plugins?.enabled !== undefined)
+    provenance["plugins.enabled"] = source;
 }
 
 const LIMIT_KEYS = [

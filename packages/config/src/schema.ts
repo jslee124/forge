@@ -20,6 +20,14 @@ const limitsSchema = z
   .strict();
 
 const traceSchema = z.object({ enabled: z.boolean().optional() }).strict();
+const pluginsSchema = z
+  .object({
+    enabled: z
+      .array(z.string().regex(/^[a-z][a-z0-9-]{0,63}$/u))
+      .max(64)
+      .optional(),
+  })
+  .strict();
 
 export const forgeConfigFileSchema = z
   .object({
@@ -28,6 +36,7 @@ export const forgeConfigFileSchema = z
     permissionProfile: permissionProfileSchema.optional(),
     limits: limitsSchema.optional(),
     trace: traceSchema.optional(),
+    plugins: pluginsSchema.optional(),
   })
   .strict();
 
@@ -47,6 +56,7 @@ export interface EffectiveForgeConfig {
     readonly maxToolOutputBytes: number;
   };
   readonly trace: { readonly enabled: boolean };
+  readonly plugins: { readonly enabled: readonly string[] };
 }
 
 export const DEFAULT_FORGE_CONFIG: EffectiveForgeConfig = {
@@ -60,4 +70,5 @@ export const DEFAULT_FORGE_CONFIG: EffectiveForgeConfig = {
     maxToolOutputBytes: 65_536,
   },
   trace: { enabled: true },
+  plugins: { enabled: [] },
 };

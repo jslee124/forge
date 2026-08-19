@@ -1,6 +1,6 @@
 {
   "name": "@forge/cli",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "bin": {
@@ -24,6 +24,7 @@
     "@forge/core": "workspace:*",
     "@forge/model-deepseek": "workspace:*",
     "@forge/persistence": "workspace:*",
+    "@forge/plugin-api": "workspace:*",
     "@forge/tools": "workspace:*",
     "commander": "^15.0.0",
     "ink": "^7.1.1",

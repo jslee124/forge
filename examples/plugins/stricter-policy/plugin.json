@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "apiVersion": "1",
+  "name": "stricter-policy",
+  "version": "1.0.0",
+  "entry": "./index.mjs",
+  "capabilities": ["policy:restrict"]
+}

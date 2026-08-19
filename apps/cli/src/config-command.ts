@@ -17,6 +17,7 @@ const DISPLAY_KEYS: readonly ConfigKey[] = [
   "limits.commandTimeoutMs",
   "limits.maxToolOutputBytes",
   "trace.enabled",
+  "plugins.enabled",
 ];
 
 export async function runConfigCommand(
@@ -83,5 +84,6 @@ function flatten(loaded: LoadedForgeConfig): Record<ConfigKey, unknown> {
     "limits.commandTimeoutMs": config.limits.commandTimeoutMs,
     "limits.maxToolOutputBytes": config.limits.maxToolOutputBytes,
     "trace.enabled": config.trace.enabled,
+    "plugins.enabled": config.plugins.enabled,
   };
 }

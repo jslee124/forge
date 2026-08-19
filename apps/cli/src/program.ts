@@ -5,6 +5,7 @@ import { Command } from "commander";
 import { type AskOptions, runAskFromCli } from "./ask.js";
 import { runConfigCommand } from "./config-command.js";
 import { runInspectFromCli } from "./inspect.js";
+import { runPluginsCommand } from "./plugins-command.js";
 import { type ResumeOptions, runResumeFromCli } from "./resume.js";
 import { runTaskFromCli } from "./run.js";
 import { runInteractiveFromCli } from "./session.js";
@@ -39,6 +40,15 @@ export interface ProgramDependencies {
     options: ResumeOptions,
     env: NodeJS.ProcessEnv,
   ) => Promise<number>;
+  readonly runPlugins?: (
+    mode: "list" | "trust" | "untrust" | "run",
+    options: {
+      readonly yes?: boolean;
+      readonly name?: string;
+      readonly args?: readonly string[];
+    },
+    env: NodeJS.ProcessEnv,
+  ) => Promise<number>;
 }
 
 export function createProgram(dependencies: ProgramDependencies = {}): Command {
@@ -61,6 +71,29 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
       }));
   const inspect = dependencies.runInspect ?? runInspectFromCli;
   const resume = dependencies.runResume ?? runResumeFromCli;
+  const plugins =
+    dependencies.runPlugins ??
+    ((mode, options, pluginEnv) =>
+      runPluginsCommand(mode, options, {
+        cwd: process.cwd(),
+        env: pluginEnv,
+        stdout: process.stdout,
+        stderr: process.stderr,
+        isTTY: process.stdin.isTTY === true,
+        confirm: async (prompt) => {
+          const { createInterface } = await import("node:readline/promises");
+          const readline = createInterface({
+            input: process.stdin,
+            output: process.stderr,
+          });
+          try {
+            const answer = await readline.question(prompt);
+            return /^(?:y|yes)$/iu.test(answer.trim());
+          } finally {
+            readline.close();
+          }
+        },
+      }));
   const program = new Command()
     .name("forge")
     .description("A safe, observable, and evaluable coding agent")
@@ -159,6 +192,33 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
     .action(async (sessionId: string | undefined, options: ResumeOptions) => {
       setExitCode(await resume(sessionId, options, env));
     });
+
+  const pluginsCommand = program
+    .command("plugins")
+    .description("Inspect, trust, and run trusted plugins");
+  pluginsCommand
+    .command("list")
+    .description("List discovered plugins and portable skills")
+    .action(async () => setExitCode(await plugins("list", {}, env)));
+  pluginsCommand
+    .command("trust")
+    .description("Trust project-local plugins for this canonical workspace")
+    .option("--yes", "record an explicit non-interactive trust decision")
+    .action(async (options: { readonly yes?: boolean }) =>
+      setExitCode(await plugins("trust", options, env)),
+    );
+  pluginsCommand
+    .command("untrust")
+    .description("Remove project-plugin trust for this workspace")
+    .action(async () => setExitCode(await plugins("untrust", {}, env)));
+  pluginsCommand
+    .command("run")
+    .description("Run a command registered by a trusted plugin")
+    .argument("<name>", "registered plugin command")
+    .argument("[args...]", "arguments passed to the plugin command")
+    .action(async (name: string, args: readonly string[]) =>
+      setExitCode(await plugins("run", { name, args }, env)),
+    );
 
   return program;
 }

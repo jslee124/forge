@@ -212,8 +212,8 @@ Customization](PROJECT_CONTEXT.md).
 
 ### Plugin host
 
-The plugin host is an extension boundary, not the security authority. It may
-eventually let trusted plugins:
+The plugin host is an extension boundary, not the security authority. Trusted
+plugins may:
 
 - Register custom tools
 - Register user commands
@@ -225,7 +225,7 @@ eventually let trusted plugins:
 All custom tool calls still pass through the policy kernel and tool executor.
 Plugins cannot convert a core `deny` into `allow` or bypass an approval request.
 
-An in-process TypeScript plugin is trusted local code and can use Node.js APIs
+An in-process JavaScript plugin is trusted local code and can use Node.js APIs
 directly. API-level capability declarations do not create real isolation. Strong
 plugin isolation requires a separate process or operating-system sandbox and is
 deferred.

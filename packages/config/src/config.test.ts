@@ -90,6 +90,36 @@ describe("Forge configuration", () => {
     });
   });
 
+  it("loads enabled plugins only from user configuration", async () => {
+    const { root, nested, forgeHome } = await fixture();
+    await writeFile(
+      path.join(forgeHome, "config.json"),
+      JSON.stringify({
+        schemaVersion: 1,
+        plugins: { enabled: ["custom-tool"] },
+      }),
+    );
+
+    const loaded = await loadForgeConfig({
+      cwd: nested,
+      env: { FORGE_HOME: forgeHome },
+    });
+
+    expect(loaded.config.plugins.enabled).toEqual(["custom-tool"]);
+    expect(loaded.provenance["plugins.enabled"].kind).toBe("user");
+
+    await writeFile(
+      path.join(root, ".forge", "config.json"),
+      JSON.stringify({
+        schemaVersion: 1,
+        plugins: { enabled: ["project-plugin"] },
+      }),
+    );
+    await expect(
+      loadForgeConfig({ cwd: nested, env: { FORGE_HOME: forgeHome } }),
+    ).rejects.toThrow(/plugins may only be set by the user/u);
+  });
+
   it("loads user and root-to-leaf instructions with override preference", async () => {
     const { root, nested, forgeHome } = await fixture();
     await Promise.all([

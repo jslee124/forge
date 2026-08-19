@@ -7,10 +7,10 @@ It is a learning project and portfolio project focused on the engineering behind
 coding agents: model interaction, tool execution, safety boundaries, execution
 traces, plugins, and reproducible evaluations.
 
-> Status: Milestone 7 complete. Forge v0.1 includes the bounded coding runtime,
+> Status: Milestone 8 complete. Forge v0.2 includes the bounded coding runtime,
 > persistent sessions and traces, three reproducible evaluation tasks, external
 > graders, an opt-in DeepSeek runner, published live evidence, and an MIT
-> license. Trusted plugins are the next milestone.
+> license. Trusted plugins and portable project skills are available in v0.2.
 
 ## Vision
 
@@ -309,8 +309,10 @@ only the declared 60-second verification command, so Forge denied the action.
   sandbox and approved commands run with the user's process privileges.
 - Resume restores completed conversation text, not active tool calls or old
   approvals.
-- Plugins, `.agents/skills`, multi-agent orchestration, RAG, IDE integration,
-  and cross-machine session synchronization are not implemented.
+- Plugins are trusted in-process code, not isolated extensions; Forge does not
+  install plugin dependencies or enforce manifest capabilities at the OS level.
+- Multi-agent orchestration, RAG, IDE integration, and cross-machine session
+  synchronization are not implemented.
 
 ## Development approach
 
@@ -337,7 +339,10 @@ versioned JSONL traces, run inspection, persistent workspace-scoped sessions,
 restart-safe resume by ID or recency, and fresh security state for every resumed
 run. Milestone 7 added reproducible fixture manifests, external graders, an
 opt-in live runner, trace-derived reports, published live evidence, and the
-first v0.1 release.
+first v0.1 release. Milestone 8 added the versioned trusted-plugin API, explicit
+project trust, custom tools and commands, immutable observers, prompt and
+strictness-only policy hooks, and explicitly selected portable project skills.
+See [Trusted Plugin API](docs/PLUGINS.md).
 
 ## License
 

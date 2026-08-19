@@ -2,8 +2,8 @@
 
 ## Current milestone
 
-**Milestone 7: Evaluation and first release is complete.** The next milestone is
-**Milestone 8: Trusted plugin API (v0.2)**. No later milestone should be treated
+**Milestone 8: Trusted plugin API (v0.2) is complete.** The next milestone is
+**Milestone 9: OpenAI authentication expansion**. No later milestone should be treated
 as implemented merely because its design is documented.
 
 ## Working rules
@@ -296,17 +296,17 @@ Acceptance criteria:
 
 Goal: let users customize Forge without making plugins necessary for basic use.
 
-- [ ] Define a versioned plugin manifest and API
-- [ ] Discover enabled user plugins from `~/.forge/plugins/`
-- [ ] Discover portable project skills from `.agents/skills/`
-- [ ] Discover project plugins only from `.forge/plugins/`
-- [ ] Register custom tools and commands
-- [ ] Expose immutable run events to observer plugins
-- [ ] Add controlled prompt and policy contribution hooks
-- [ ] Require trust before loading project-local plugins
-- [ ] Prevent plugins from overriding the policy kernel
-- [ ] Add one custom-tool example and one stricter-policy example
-- [ ] Document that in-process plugins have full local code privileges
+- [x] Define a versioned plugin manifest and API
+- [x] Discover enabled user plugins from `~/.forge/plugins/`
+- [x] Discover portable project skills from `.agents/skills/`
+- [x] Discover project plugins only from `.forge/plugins/`
+- [x] Register custom tools and commands
+- [x] Expose immutable run events to observer plugins
+- [x] Add controlled prompt and policy contribution hooks
+- [x] Require trust before loading project-local plugins
+- [x] Prevent plugins from overriding the policy kernel
+- [x] Add one custom-tool example and one stricter-policy example
+- [x] Document that in-process plugins have full local code privileges
 
 Acceptance criteria:
 

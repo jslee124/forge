@@ -115,7 +115,7 @@ It is test infrastructure, not a general bypass.
 
 ## Plugin trust
 
-In-process TypeScript plugins are trusted local code. They can call Node.js APIs
+In-process JavaScript plugins are trusted local code. They can call Node.js APIs
 directly and therefore may read files, start processes, or use the network
 outside Forge's tool API.
 

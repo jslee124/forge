@@ -2,8 +2,10 @@ import { randomUUID } from "node:crypto";
 
 import {
   ForgeConfigError,
+  formatInstructionPrompt,
   loadForgeConfig,
   loadInstructions,
+  MAX_TOTAL_INSTRUCTION_BYTES,
 } from "@forge/config";
 import {
   type ApprovalChannel,
@@ -26,7 +28,14 @@ import {
   configuredSecrets,
   JsonlTraceWriter,
   PersistenceError,
+  redactValue,
 } from "@forge/persistence";
+import {
+  discoverPortableSkills,
+  loadPluginHost,
+  PluginError,
+  selectPortableSkills,
+} from "@forge/plugin-api";
 import {
   type ApplyPatchInput,
   builtinTools,
@@ -84,12 +93,51 @@ export async function runTask(
     const thinking: DeepSeekThinkingMode = parseThinkingMode(
       loaded.config.model.thinking,
     );
+    const portableSkills = await discoverPortableSkills(loaded.workspaceRoot);
+    const selectedSkills = selectPortableSkills(prompt, portableSkills);
+    const pluginHost = await loadPluginHost({
+      forgeHome: loaded.forgeHome,
+      workspaceRoot: loaded.workspaceRoot,
+      enabledUserPlugins: loaded.config.plugins.enabled,
+      reservedToolNames: builtinTools.map(({ name }) => name),
+    });
+    for (const warning of pluginHost.warnings) {
+      dependencies.stderr.write(`Plugin warning: ${warning}\n`);
+    }
+    const pluginPrompt = await pluginHost.promptContributions({
+      prompt,
+      workspaceRoot: loaded.workspaceRoot,
+      workingDirectory: loaded.workingDirectory,
+    });
+    const selectedSkillPrompt = formatInstructionPrompt(
+      selectedSkills.map((skill) => ({
+        path: skill.path,
+        scope: "project" as const,
+        content: skill.content,
+        truncated: false,
+      })),
+    );
+    const effectiveInstructions = [
+      instructions.prompt,
+      selectedSkillPrompt,
+      pluginPrompt.prompt,
+    ]
+      .filter((value) => value !== "")
+      .join("\n\n");
+    if (
+      Buffer.byteLength(effectiveInstructions) > MAX_TOTAL_INSTRUCTION_BYTES
+    ) {
+      throw new PluginError(
+        `Effective instructions exceed ${MAX_TOTAL_INSTRUCTION_BYTES} bytes after selected skills and plugin contributions.`,
+      );
+    }
     const runId = dependencies.runId ?? randomUUID();
     const metadata: RunMetadata = {
       runId,
       ...(dependencies.sessionId ? { sessionId: dependencies.sessionId } : {}),
       tracePersisted: loaded.config.trace.enabled,
     };
+    const secrets = configuredSecrets(dependencies.env);
     const trace = loaded.config.trace.enabled
       ? new JsonlTraceWriter({
           forgeHome: loaded.forgeHome,
@@ -97,7 +145,7 @@ export async function runTask(
           ...(dependencies.sessionId
             ? { sessionId: dependencies.sessionId }
             : {}),
-          secrets: configuredSecrets(dependencies.env),
+          secrets,
         })
       : undefined;
     const model = (dependencies.createAdapter ?? createDeepSeekModelAdapter)({
@@ -120,18 +168,23 @@ export async function runTask(
         workingDirectory: loaded.workingDirectory,
         modelId: loaded.config.model.id,
         permissionProfile: loaded.config.permissionProfile,
-        instructionPaths: instructions.files.map(({ path }) => path),
+        instructionPaths: [
+          ...instructions.files.map(({ path }) => path),
+          ...selectedSkills.map(({ path }) => path),
+          ...pluginPrompt.sourcePaths,
+        ],
       },
-      ...(instructions.prompt ? { instructions: instructions.prompt } : {}),
+      ...(effectiveInstructions ? { instructions: effectiveInstructions } : {}),
       ...(dependencies.conversation
         ? { conversation: dependencies.conversation }
         : {}),
       model,
-      tools: builtinTools,
-      policy:
+      tools: [...builtinTools, ...pluginHost.tools],
+      policy: pluginHost.extendPolicy(
         loaded.config.permissionProfile === "workspace-write"
           ? new AutomaticWorkspaceWritePolicy()
           : new WorkspaceWritePolicy(),
+      ),
       ...(dependencies.approvalChannel
         ? { approvalChannel: dependencies.approvalChannel }
         : {}),
@@ -154,6 +207,10 @@ export async function runTask(
           render(event);
         }
         await trace?.append(event);
+        const observerEvent = redactValue(event, secrets) as RunEvent;
+        for (const warning of await pluginHost.observe(observerEvent)) {
+          dependencies.stderr.write(`Plugin warning: ${warning}\n`);
+        }
         await dependencies.onEvent?.(event);
       },
     });
@@ -168,6 +225,7 @@ export async function runTask(
     }
     if (
       error instanceof ForgeConfigError ||
+      error instanceof PluginError ||
       error instanceof ModelConfigurationError ||
       error instanceof WorkspaceResolutionError
     ) {

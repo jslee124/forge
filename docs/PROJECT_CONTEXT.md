@@ -21,7 +21,7 @@ Milestone 5 implements the version 1 configuration schema, user/project config
 merge, instruction discovery, provenance reporting, and the `safe` and
 `workspace-write` profiles. Milestone 6 persists versioned sessions and run
 traces under `FORGE_HOME` while reloading that context for every resumed run.
-Plugin and portable skill discovery remain later work.
+Milestone 8 adds explicitly selected portable skills and trusted plugins.
 
 ## `AGENTS.md`
 
@@ -64,9 +64,10 @@ that action still uses the normal policy and approval flow. Forge should show
 the source path when a project skill is selected and include the selection in
 the trace.
 
-Support for `.agents/skills/` is planned after the v0.1 runtime is reliable. New
-portable subdirectories should only be added when there is a clear cross-agent
-convention instead of placing Forge-specific data here.
+Forge v0.2 selects a skill only when the user prompt contains `$skill-name`.
+Selected `SKILL.md` content is bounded and its source path is recorded in the
+run context. New portable subdirectories should only be added when there is a
+clear cross-agent convention instead of placing Forge-specific data here.
 
 ## User-level `~/.forge/`
 
@@ -81,6 +82,7 @@ The user layout is:
 ~/.forge/
 |-- config.json
 |-- AGENTS.md
+|-- plugin-trust.json
 |-- plugins/
 |-- state/
 |-- sessions/
@@ -118,6 +120,7 @@ start from the same contract:
 | `limits.commandTimeoutMs` | `60000` | Project may only choose a lower value |
 | `limits.maxToolOutputBytes` | `65536` | Project may only choose a lower value |
 | `trace.enabled` | `true` | User configuration or explicit CLI only |
+| `plugins.enabled` | `[]` | User configuration only; names enabled user plugins |
 
 Unknown fields are errors rather than silently ignored. `DEEPSEEK_API_KEY` is a
 secret environment variable and is never represented as a configuration field.
@@ -134,16 +137,15 @@ starting an Agent run.
 ## Project-level `.forge/`
 
 The selected workspace root's `.forge/` is reserved for Forge-specific project
-customization. The planned layout is:
+customization. The v0.2 layout is:
 
 ```text
 .forge/
 |-- config.json
 `-- plugins/
     `-- <plugin-name>/
-        |-- forge.plugin.json
-        `-- src/
-            `-- index.ts
+        |-- plugin.json
+        `-- index.mjs
 ```
 
 The phrase "project-local" means the selected workspace root's canonical
@@ -152,9 +154,10 @@ nested directories for additional `.forge/plugins/` trees. This keeps plugin
 discovery stable when Forge starts from a repository subdirectory.
 
 Repository configuration may choose model-independent project behavior,
-formatting, stricter execution limits, and plugin declarations, but it cannot
+formatting, and stricter execution limits, but it cannot
 relax the user's permission profile or core safety policy. Security-sensitive
-keys such as the default permission profile and project trust are user-only.
+keys such as the default permission profile, plugin enablement, and project
+trust are user-only.
 Unknown keys and unsupported schema versions must produce actionable
 diagnostics.
 
@@ -162,7 +165,8 @@ Project plugins are trusted executable code. Forge must discover and summarize
 them before loading, then require an explicit trust decision for the canonical
 workspace path. Trust state is stored outside the repository so repository code
 cannot mark itself trusted. In non-interactive mode, untrusted project plugins
-are skipped unless the user supplied a narrow trust decision in advance.
+are skipped. An explicit `forge plugins trust --yes` records trust outside the
+project before later runs.
 
 Forge will not automatically install plugin dependencies or run package-manager
 lifecycle scripts during discovery.
@@ -204,5 +208,5 @@ hooks, and their source must remain visible in the trace.
 
 - Configuration migrations beyond `schemaVersion: 1`
 - Additional environment-variable mappings beyond the v0.1 model settings
-- Skill manifest and compatibility rules beyond `SKILL.md`
+- Skill manifest and compatibility rules beyond the v0.2 `SKILL.md` convention
 - Whether restricted plugins run in a child process or an OS sandbox

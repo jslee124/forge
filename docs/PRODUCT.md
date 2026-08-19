@@ -146,9 +146,6 @@ task from end to end:
 After the native runtime is reliable, Forge may add:
 
 - A broader evaluation suite with more tasks, trials, graders, and reports
-- A trusted TypeScript plugin API with project-trust checks
-- Portable project skills under `.agents/skills/`
-- Forge-specific project configuration and plugins under `.forge/`
 - OpenAI API-key authentication and, when supported by an appropriate public
   integration, Codex-compatible Sign in with ChatGPT
 - A LangChain or LangGraph runtime adapter evaluated on the same tasks
