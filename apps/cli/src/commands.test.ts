@@ -11,6 +11,7 @@ describe("slash command registry", () => {
     expect(filterSlashCommands("/c").map(({ name }) => name)).toEqual([
       "/clear",
     ]);
+    expect(filterSlashCommands("/n").map(({ name }) => name)).toEqual(["/new"]);
     for (const command of SLASH_COMMANDS) {
       expect(formatSlashCommandHelp()).toContain(command.name);
       expect(formatSlashCommandHelp()).toContain(command.description);

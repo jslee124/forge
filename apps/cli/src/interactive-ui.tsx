@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { type ApiKeyProvider, AuthenticationManager } from "@forge/auth";
 import {
   loadForgeConfig,
@@ -506,7 +507,16 @@ export function InteractiveApp({
         conversation.current = [];
         sessionPersistence?.clear();
         setTranscript([]);
+        nextTranscriptId.current = 0;
         setEditor(createEditorState());
+        return;
+      case "/new":
+        conversation.current = [];
+        sessionPersistence?.clear();
+        setTranscript([]);
+        nextTranscriptId.current = 0;
+        setEditor(createEditorState());
+        appendEntry("system", "Started a new session.");
         return;
       case "/resume":
         setEditor(createEditorState());
@@ -656,19 +666,45 @@ export function InteractiveApp({
     );
 
     void (async () => {
+      const sessionId = await sessionPersistence?.prepareRun();
       if (activeOptions.engine === "codex") {
+        let finalText = "";
         codexExitCode = await executeCodexTask(prompt, activeOptions, {
           env,
           cwd,
           stdout,
           stderr,
-          onOutput: handleCodexOutput,
+          onOutput: (event) => {
+            handleCodexOutput(event);
+            if (event.type === "answer") finalText += event.text;
+          },
+          conversation: [...conversation.current],
           signal: controller.signal,
           isTTY: true,
         });
+        result = {
+          status:
+            codexExitCode === 0
+              ? "completed"
+              : codexExitCode === 130
+                ? "cancelled"
+                : "failed",
+          exitCode: codexExitCode,
+          finalText,
+          modelSteps: 1,
+          toolCalls: 0,
+          events: [],
+        };
+        metadata = {
+          runId: randomUUID(),
+          ...(sessionId ? { sessionId } : {}),
+          tracePersisted: false,
+        };
+        if (sessionPersistence) {
+          await sessionPersistence.recordRun(prompt, result, metadata);
+        }
         return;
       }
-      const sessionId = await sessionPersistence?.prepareRun();
       await executeTask(prompt, activeOptions, {
         env,
         cwd,

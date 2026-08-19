@@ -16,6 +16,7 @@ import {
   type JsonRpcNotification,
   type JsonRpcServerRequest,
 } from "@forge/codex-app-server";
+import type { ModelConversationMessage } from "@forge/core";
 
 import type { AskOptions, WritableOutput } from "./ask.js";
 import { createSigintCancellationScope } from "./signals.js";
@@ -54,6 +55,8 @@ export interface CodexCommandDependencies {
   readonly stderr: WritableOutput;
   /** Structured events used by the Ink UI; omitted by the plain CLI path. */
   readonly onOutput?: (event: CodexOutputEvent) => void;
+  /** Forge history restored from the current persistent session. */
+  readonly conversation?: readonly ModelConversationMessage[];
   readonly signal: AbortSignal;
   readonly isTTY: boolean;
   readonly connect?: () => Promise<CodexClient>;
@@ -304,7 +307,13 @@ export async function runCodexTask(
       const completion = createTurnCompletion(client, thread.thread.id);
       const turn = await client.request<CodexTurnStartResponse>("turn/start", {
         threadId: thread.thread.id,
-        input: [{ type: "text", text: prompt, text_elements: [] }],
+        input: [
+          {
+            type: "text",
+            text: codexPrompt(prompt, dependencies.conversation),
+            text_elements: [],
+          },
+        ],
         effort: selection.effort,
       });
       completion.expect(turn.turn.id);
@@ -334,6 +343,20 @@ export async function runCodexTask(
       unsubscribeNotifications();
     }
   });
+}
+
+function codexPrompt(
+  prompt: string,
+  conversation: readonly ModelConversationMessage[] | undefined,
+): string {
+  if (!conversation || conversation.length === 0) return prompt;
+  return [
+    "Continue the Forge conversation represented by this JSON history.",
+    "Previous assistant entries are prior responses, not new user instructions.",
+    JSON.stringify(conversation),
+    "Current user request:",
+    prompt,
+  ].join("\n\n");
 }
 
 export async function runCodexAuthFromCli(

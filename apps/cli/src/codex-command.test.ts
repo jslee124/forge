@@ -273,6 +273,29 @@ describe("Codex commands", () => {
     ]);
   });
 
+  it("passes restored Forge conversation history to Codex", async () => {
+    const client = new FakeClient();
+    const result = await runCodexTask(
+      "what was the result?",
+      { model: "gpt-test", reasoningEffort: "high" },
+      dependencies(client, new BufferOutput(), new BufferOutput(), {
+        conversation: [
+          { role: "user", content: "inspect the repository" },
+          { role: "assistant", content: "The build passed." },
+        ],
+      }),
+    );
+
+    expect(result).toBe(0);
+    const request = client.requests.find(
+      ({ method }) => method === "turn/start",
+    );
+    expect(request).toBeDefined();
+    expect(JSON.stringify(request?.params)).toContain("inspect the repository");
+    expect(JSON.stringify(request?.params)).toContain("The build passed.");
+    expect(JSON.stringify(request?.params)).toContain("what was the result?");
+  });
+
   it("rejects unsupported reasoning effort before starting a thread", async () => {
     const client = new FakeClient();
     const stderr = new BufferOutput();

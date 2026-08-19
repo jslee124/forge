@@ -1,10 +1,18 @@
 export interface SlashCommand {
-  readonly name: "/help" | "/clear" | "/login" | "/model" | "/resume" | "/exit";
+  readonly name:
+    | "/help"
+    | "/new"
+    | "/clear"
+    | "/login"
+    | "/model"
+    | "/resume"
+    | "/exit";
   readonly description: string;
 }
 
 export const SLASH_COMMANDS: readonly SlashCommand[] = [
   { name: "/help", description: "Show available commands" },
+  { name: "/new", description: "Start a new session" },
   { name: "/clear", description: "Clear conversation context" },
   { name: "/login", description: "Configure a model provider" },
   { name: "/model", description: "Choose model and reasoning effort" },

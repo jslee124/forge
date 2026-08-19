@@ -335,6 +335,84 @@ describe("Ink interactive terminal", () => {
     instance.unmount();
   });
 
+  it("records completed Codex turns in the persistent session", async () => {
+    const root = await createWorkspace();
+    const sessionId = "5ca1ab1e-87c6-4a23-bf61-e346bbaf95ed";
+    const recorded: Array<{ prompt: string; result: RunResult }> = [];
+    const sessionPersistence: InteractiveSessionPersistence = {
+      messages: [],
+      sessionId: undefined,
+      prepareRun: async () => sessionId,
+      recordRun: async (prompt, result) => {
+        recorded.push({ prompt, result });
+      },
+      clear: () => undefined,
+      list: async () => [],
+      resume: async () => [],
+    };
+    const instance = render(
+      <InteractiveApp
+        options={{ engine: "codex" }}
+        env={{}}
+        cwd={root}
+        sessionPersistence={sessionPersistence}
+        executeCodexTask={async (_prompt, _options, dependencies) => {
+          dependencies.onOutput?.({ type: "answer", text: "Saved answer" });
+          return 0;
+        }}
+      />,
+    );
+
+    await settle();
+    instance.stdin.write("remember this");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+
+    expect(recorded).toHaveLength(1);
+    expect(recorded[0]).toMatchObject({
+      prompt: "remember this",
+      result: { status: "completed", finalText: "Saved answer" },
+    });
+    instance.unmount();
+  });
+
+  it("starts a fresh persistent session with /new", async () => {
+    const root = await createWorkspace();
+    let clearCount = 0;
+    const sessionPersistence: InteractiveSessionPersistence = {
+      messages: [{ role: "user", content: "old conversation" }],
+      sessionId: "5ca1ab1e-87c6-4a23-bf61-e346bbaf95ed",
+      prepareRun: async () => "ed3ea721-c869-4912-a3c1-5f4c281ef99d",
+      recordRun: async () => undefined,
+      clear: () => {
+        clearCount += 1;
+      },
+      list: async () => [],
+      resume: async () => [],
+    };
+    const instance = render(
+      <InteractiveApp
+        options={{}}
+        env={{}}
+        cwd={root}
+        sessionPersistence={sessionPersistence}
+      />,
+    );
+
+    await settle();
+    expect(instance.lastFrame()).toContain("old conversation");
+    instance.stdin.write("/new");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+
+    expect(clearCount).toBe(1);
+    expect(instance.lastFrame()).not.toContain("old conversation");
+    expect(instance.lastFrame()).toContain("Started a new session.");
+    instance.unmount();
+  });
+
   it("fuzzy-filters subscription models before selection", async () => {
     const root = await createWorkspace();
     let persisted: unknown;
