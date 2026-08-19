@@ -2,9 +2,9 @@
 
 ## Current milestone
 
-**Milestone 8: Trusted plugin API (v0.2) is complete.** The next milestone is
-**Milestone 9: OpenAI authentication expansion**. No later milestone should be treated
-as implemented merely because its design is documented.
+**Milestone 9: OpenAI authentication expansion is complete.** The next
+milestone is **Milestone 10: Budgeted context management**. No later milestone
+should be treated as implemented merely because its design is documented.
 
 ## Working rules
 
@@ -350,6 +350,102 @@ Acceptance criteria:
 - Documentation does not imply official third-party support beyond what OpenAI
   currently documents.
 
+## Milestone 10: Budgeted context management
+
+Goal: keep long-running sessions useful and predictable without hiding dropped
+context, weakening instruction precedence, or introducing retrieval
+infrastructure before it has measurable value. The detailed design and rollout
+plan lives in [Context Management Improvement Plan](CONTEXT_MANAGEMENT.md).
+
+### 10.1 Budget accounting and observability
+
+- [ ] Define provider/model context capabilities separately from runtime limits
+- [ ] Add a provider-neutral token estimator with documented conservative
+  fallback behavior
+- [ ] Reserve explicit budgets for output, current instructions, tool schemas,
+  the current request, conversation history, and in-run tool continuation
+- [ ] Emit versioned context-budget events without storing hidden credentials
+- [ ] Extend `forge inspect` with estimated, provider-reported, retained, and
+  omitted context metrics
+- [ ] Warn before a request is likely to exceed the active model's context
+  window
+
+Acceptance criteria:
+
+- Every native Forge model request has an inspectable preflight budget report.
+- Estimation error can be compared with provider-reported input-token usage.
+- A request that cannot fit its mandatory context fails before a paid provider
+  call with an actionable explanation.
+- Default tests use deterministic estimators and make no paid model calls.
+
+### 10.2 Safe conversation compaction
+
+- [ ] Introduce a versioned context checkpoint separate from the canonical
+  session transcript
+- [ ] Always retain current instructions, the current request, and a configured
+  recent-turn window
+- [ ] Compact only a completed prefix of user/assistant turns
+- [ ] Preserve the full original transcript until a separately designed
+  retention policy exists
+- [ ] Treat generated summaries as untrusted conversation memory, never as
+  instructions, approvals, verification evidence, or permission state
+- [ ] Persist summary provenance, source range, source hash, model ID, token
+  counts, and generation time
+- [ ] Fall back predictably when summary generation fails or produces invalid
+  output
+- [ ] Add an explicit `/context` status view and a manual `/compact` action
+  before enabling automatic compaction by default
+
+Acceptance criteria:
+
+- A resumed session produces the same active context checkpoint as the session
+  had before restart.
+- No compaction path can restore an old approval or override freshly loaded
+  project instructions.
+- Users can identify exactly which turns were summarized and which remain
+  verbatim.
+- Failed, cancelled, or invalid compaction never corrupts the saved transcript.
+
+### 10.3 In-run pressure handling
+
+- [ ] Re-check the context budget before every model step
+- [ ] Account for provider continuation data, assistant tool calls, and tool
+  results without interpreting opaque provider metadata in `@forge/core`
+- [ ] Prefer bounded tool-result representations and targeted re-reads over
+  retaining duplicate large outputs
+- [ ] Stop with `limit_reached` and a specific context-budget reason when the
+  active run cannot be reduced safely
+- [ ] Evaluate provider-specific continuation compaction only behind adapter
+  capabilities and feature flags
+
+Acceptance criteria:
+
+- Long tool loops cannot cross a known context limit silently.
+- Core remains provider-neutral; adapters own provider message and continuation
+  translation.
+- Forge never drops a pending tool call or tool result required by the provider
+  protocol.
+
+### 10.4 Evaluation and default rollout
+
+- [ ] Add deterministic long-session fixtures for recall, instruction changes,
+  tool-result pressure, resume, and hostile historical text
+- [ ] Measure task success, input tokens, estimation error, latency, compaction
+  count, retained-turn count, and summary regeneration rate
+- [ ] Compare `off`, `warn`, and `compact` modes on the same tasks
+- [ ] Define release thresholds before making automatic compaction the default
+- [ ] Keep semantic or vector retrieval deferred until evaluation demonstrates
+  that budgeted history plus existing lexical tools is insufficient
+
+Acceptance criteria:
+
+- The checked-in evaluation suite demonstrates lower context usage without a
+  material regression in task completion or safety behavior.
+- Automatic compaction remains opt-in until its quality and failure thresholds
+  are met.
+- Documentation distinguishes conversation compaction from repository
+  retrieval and persistent semantic memory.
+
 ## Later extensions
 
 These items are intentionally unordered and are not part of v0.1:
@@ -364,6 +460,6 @@ These items are intentionally unordered and are not part of v0.1:
 - HTTP API and Server-Sent Events
 - SQLite-backed session and run indexing
 - Session branching and cross-machine synchronization
-- Dynamic context management
+- Optional semantic or vector retrieval justified by context evaluations
 - MCP integration
 - Stronger process isolation

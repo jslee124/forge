@@ -112,5 +112,6 @@ Session resume does not weaken the existing security model:
 - Branching or forking a session
 - Cross-machine synchronization
 - SQLite indexing
-- Automatic compaction of long conversation histories
+- Automatic compaction of long conversation histories (planned in
+  [Milestone 10](ROADMAP.md#milestone-10-budgeted-context-management))
 - Trace encryption
