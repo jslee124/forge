@@ -18,12 +18,7 @@ import {
   runAgent,
   WorkspaceWritePolicy,
 } from "@forge/core";
-import {
-  type CreateDeepSeekModelAdapterOptions,
-  createDeepSeekModelAdapter,
-  DEFAULT_DEEPSEEK_MODEL,
-  type DeepSeekThinkingMode,
-} from "@forge/model-deepseek";
+import type { DeepSeekThinkingMode } from "@forge/model-deepseek";
 import {
   configuredSecrets,
   JsonlTraceWriter,
@@ -49,6 +44,10 @@ import {
 import type { AskOptions, WritableOutput } from "./ask.js";
 import { parseThinkingMode } from "./ask.js";
 import { formatDiffPanel } from "./diff.js";
+import {
+  type CreateForgeModelAdapterOptions,
+  createForgeModelAdapter,
+} from "./model-adapter.js";
 import { createSigintCancellationScope } from "./signals.js";
 
 export interface RunDependencies {
@@ -65,7 +64,7 @@ export interface RunDependencies {
   readonly onEvent?: (event: RunEvent) => void | Promise<void>;
   readonly renderEventsToOutput?: boolean;
   readonly createAdapter?: (
-    options: CreateDeepSeekModelAdapterOptions,
+    options: CreateForgeModelAdapterOptions,
   ) => ModelAdapter;
 }
 
@@ -148,11 +147,13 @@ export async function runTask(
           secrets,
         })
       : undefined;
-    const model = (dependencies.createAdapter ?? createDeepSeekModelAdapter)({
+    const model = (dependencies.createAdapter ?? createForgeModelAdapter)({
       env: dependencies.env,
-      model: loaded.config.model.id || DEFAULT_DEEPSEEK_MODEL,
+      provider: loaded.config.model.provider,
+      model: loaded.config.model.id,
       thinking,
-    } satisfies CreateDeepSeekModelAdapterOptions);
+      reasoningEffort: loaded.config.model.reasoningEffort,
+    } satisfies CreateForgeModelAdapterOptions);
     const workspace = await resolveWorkspace(
       loaded.workspaceRoot,
       loaded.workingDirectory,

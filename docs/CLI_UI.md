@@ -70,7 +70,10 @@ commands. Additional characters filter the list by command name.
 
 Each command is defined once with its name, description, and handler. The same
 registry drives completion and `/help`, preventing the two surfaces from
-drifting. The registry contains `/help`, `/clear`, `/resume`, and `/exit`.
+drifting. The registry contains `/help`, `/clear`, `/model`, `/resume`, and
+`/exit`. `/model` opens a keyboard picker, discovers current ChatGPT/Codex
+models and reasoning efforts, includes configured API providers, and atomically
+saves the chosen engine/provider/model settings to user configuration.
 
 - Up/Down changes the highlighted command.
 - Enter executes the highlighted command.

@@ -6,12 +6,13 @@ import {
   type ModelUsage,
 } from "@forge/core";
 import {
-  type CreateDeepSeekModelAdapterOptions,
-  createDeepSeekModelAdapter,
   DEFAULT_DEEPSEEK_MODEL,
   type DeepSeekThinkingMode,
 } from "@forge/model-deepseek";
-
+import {
+  type CreateForgeModelAdapterOptions,
+  createForgeModelAdapter,
+} from "./model-adapter.js";
 import { createSigintCancellationScope } from "./signals.js";
 
 export interface WritableOutput {
@@ -19,7 +20,10 @@ export interface WritableOutput {
 }
 
 export interface AskOptions {
+  readonly engine?: string;
+  readonly provider?: string;
   readonly model?: string;
+  readonly reasoningEffort?: string;
   readonly thinking?: string;
   readonly permissionProfile?: string;
   readonly maxSteps?: number;
@@ -34,7 +38,7 @@ export interface AskDependencies {
   readonly stderr: WritableOutput;
   readonly signal: AbortSignal;
   readonly createAdapter?: (
-    options: CreateDeepSeekModelAdapterOptions,
+    options: CreateForgeModelAdapterOptions,
   ) => ModelAdapter;
 }
 
@@ -47,11 +51,15 @@ export async function runAsk(
     const thinking = parseThinkingMode(options.thinking ?? "enabled");
     const model = options.model?.trim() || DEFAULT_DEEPSEEK_MODEL;
     const adapterFactory =
-      dependencies.createAdapter ?? createDeepSeekModelAdapter;
+      dependencies.createAdapter ?? createForgeModelAdapter;
     const adapter = adapterFactory({
       env: dependencies.env,
+      provider: options.provider === "openai" ? "openai" : "deepseek",
       model,
       thinking,
+      reasoningEffort: parseReasoningEffort(
+        options.reasoningEffort ?? "medium",
+      ),
     });
 
     return await consumeModelStream(
@@ -101,6 +109,8 @@ export async function runAskFromCli(
       prompt,
       {
         model: loaded.config.model.id,
+        provider: loaded.config.model.provider,
+        reasoningEffort: loaded.config.model.reasoningEffort,
         thinking: loaded.config.model.thinking,
       },
       {
@@ -218,4 +228,22 @@ export function parseThinkingMode(value: string): DeepSeekThinkingMode {
   throw new ModelConfigurationError(
     `Invalid thinking mode "${value}". Use "enabled" or "disabled".`,
   );
+}
+
+function parseReasoningEffort(
+  value: string,
+): CreateForgeModelAdapterOptions["reasoningEffort"] {
+  if (
+    value === "none" ||
+    value === "minimal" ||
+    value === "low" ||
+    value === "medium" ||
+    value === "high" ||
+    value === "xhigh" ||
+    value === "max" ||
+    value === "ultra"
+  ) {
+    return value;
+  }
+  throw new ModelConfigurationError(`Invalid reasoning effort "${value}".`);
 }

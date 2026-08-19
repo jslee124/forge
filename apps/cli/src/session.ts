@@ -3,11 +3,10 @@ import type {
   ModelConversationMessage,
   RunResult,
 } from "@forge/core";
-import type { CreateDeepSeekModelAdapterOptions } from "@forge/model-deepseek";
-
 import type { AskOptions, WritableOutput } from "./ask.js";
 import { formatSlashCommandHelp } from "./commands.js";
 import { runInkInteractiveFromCli } from "./interactive-ui.js";
+import type { CreateForgeModelAdapterOptions } from "./model-adapter.js";
 import { createApprovalChannel, type RunDependencies, runTask } from "./run.js";
 
 export interface InteractiveTerminal {
@@ -25,7 +24,7 @@ export interface InteractiveDependencies {
   readonly stdout: WritableOutput;
   readonly stderr: WritableOutput;
   readonly createAdapter?: (
-    options: CreateDeepSeekModelAdapterOptions,
+    options: CreateForgeModelAdapterOptions,
   ) => ModelAdapter;
   readonly executeTask?: (
     prompt: string,

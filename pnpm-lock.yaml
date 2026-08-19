@@ -23,6 +23,12 @@ importers:
 
   apps/cli:
     dependencies:
+      '@forge/auth':
+        specifier: workspace:*
+        version: link:../../packages/auth
+      '@forge/codex-app-server':
+        specifier: workspace:*
+        version: link:../../packages/codex-app-server
       '@forge/config':
         specifier: workspace:*
         version: link:../../packages/config
@@ -32,6 +38,9 @@ importers:
       '@forge/model-deepseek':
         specifier: workspace:*
         version: link:../../packages/model-deepseek
+      '@forge/model-openai':
+        specifier: workspace:*
+        version: link:../../packages/model-openai
       '@forge/persistence':
         specifier: workspace:*
         version: link:../../packages/persistence
@@ -76,6 +85,14 @@ importers:
         specifier: ^4.4.3
         version: 4.4.3
 
+  packages/auth:
+    dependencies:
+      '@forge/core':
+        specifier: workspace:*
+        version: link:../core
+
+  packages/codex-app-server: {}
+
   packages/config:
     dependencies:
       zod:
@@ -93,6 +110,9 @@ importers:
       '@ai-sdk/deepseek':
         specifier: ^3.0.28
         version: 3.0.28(zod@4.4.3)
+      '@forge/auth':
+        specifier: workspace:*
+        version: link:../auth
       '@forge/core':
         specifier: workspace:*
         version: link:../core
@@ -103,6 +123,21 @@ importers:
       zod:
         specifier: ^4.4.3
         version: 4.4.3
+
+  packages/model-openai:
+    dependencies:
+      '@ai-sdk/openai':
+        specifier: ^4.0.43
+        version: 4.0.43(zod@4.4.3)
+      '@forge/auth':
+        specifier: workspace:*
+        version: link:../auth
+      '@forge/core':
+        specifier: workspace:*
+        version: link:../core
+      ai:
+        specifier: ^7.0.66
+        version: 7.0.66(zod@4.4.3)
 
   packages/persistence:
     dependencies:
@@ -141,6 +176,12 @@ packages:
 
   '@ai-sdk/gateway@4.0.52':
     resolution: {integrity: sha512-SXUM8jzzuTUJRq+EOgPd5to6DSx0EKslVn+IVZHbUEX6k/3vCPNrvjckbK26HnNxHU/STxm+zTSJteqrO+7Z0w==}
+    engines: {node: '>=22'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4.1.8
+
+  '@ai-sdk/openai@4.0.43':
+    resolution: {integrity: sha512-O5t21AmcBwsEg/l8ro91CHzdBjEkxtJRFh6DH9KDjRrWDeTMuqJt7XkaFHIqL8H0nvjFv8H7kck+JwirUWPS2g==}
     engines: {node: '>=22'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -971,6 +1012,12 @@ snapshots:
       '@ai-sdk/provider': 4.0.7
       '@ai-sdk/provider-utils': 5.0.27(zod@4.4.3)
       '@vercel/oidc': 3.2.0
+      zod: 4.4.3
+
+  '@ai-sdk/openai@4.0.43(zod@4.4.3)':
+    dependencies:
+      '@ai-sdk/provider': 4.0.7
+      '@ai-sdk/provider-utils': 5.0.27(zod@4.4.3)
       zod: 4.4.3
 
   '@ai-sdk/provider-utils@5.0.27(zod@4.4.3)':

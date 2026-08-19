@@ -323,18 +323,20 @@ Acceptance criteria:
 Goal: add a secure OpenAI login experience without treating another client's
 private OAuth behavior as a stable contract.
 
-- [ ] Re-check current official OpenAI authentication documentation and terms
-- [ ] Generalize the v0.1 authentication manager for multiple providers
-- [ ] Keep DeepSeek API-key authentication as a supported path
-- [ ] Add OpenAI API-key authentication
-- [ ] Add Codex-compatible Sign in with ChatGPT only through an appropriate
+- [x] Re-check current official OpenAI authentication documentation and terms
+- [x] Generalize the v0.1 authentication manager for multiple providers
+- [x] Keep DeepSeek API-key authentication as a supported path
+- [x] Add OpenAI API-key authentication
+- [x] Add Codex-compatible Sign in with ChatGPT only through an appropriate
   public or explicitly authorized integration
-- [ ] Support browser callback and headless login when the supported flow allows
-- [ ] Store credentials in the OS credential store by default
-- [ ] Implement single-flight token refresh and expiry handling
-- [ ] Add `forge auth status` and `forge auth logout`
-- [ ] Redact credentials from logs, traces, errors, and plugin events
-- [ ] Test login, refresh, cancellation, expiry, corruption, and logout with fake
+- [x] Support browser callback and headless login when the supported flow allows
+- [x] Delegate credential storage and refresh to the official Codex App Server
+- [x] Add `forge auth status` and `forge auth logout`
+- [x] Discover available Codex models and reasoning efforts through `model/list`
+- [x] Add explicit `forge codex` and `forge run --engine codex` execution paths
+- [x] Add an interactive `/model` picker and persisted user selection
+- [x] Redact credentials from logs, traces, errors, and plugin events
+- [x] Test login, refresh, cancellation, expiry, corruption, and logout with fake
   authorization responses
 
 Acceptance criteria:

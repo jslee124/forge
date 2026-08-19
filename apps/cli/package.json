@@ -20,9 +20,12 @@
     "dist"
   ],
   "dependencies": {
+    "@forge/auth": "workspace:*",
+    "@forge/codex-app-server": "workspace:*",
     "@forge/config": "workspace:*",
     "@forge/core": "workspace:*",
     "@forge/model-deepseek": "workspace:*",
+    "@forge/model-openai": "workspace:*",
     "@forge/persistence": "workspace:*",
     "@forge/plugin-api": "workspace:*",
     "@forge/tools": "workspace:*",

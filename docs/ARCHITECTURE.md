@@ -41,7 +41,10 @@ apps/
 `-- cli/                    # @forge/cli: parsing, rendering, approval UI
 packages/
 |-- core/                   # @forge/core: loop, events, policy contracts
+|-- codex-app-server/       # Official Codex JSON-RPC transport and auth boundary
 |-- model-deepseek/         # @forge/model-deepseek: AI SDK translation
+|-- model-openai/           # @forge/model-openai: Responses API translation
+|-- auth/                   # provider-neutral API-key resolution
 |-- tools/                  # @forge/tools: built-in tool implementations
 `-- config/                 # @forge/config: configuration and context loading
 fixtures/                   # Small repository tasks used by integration tests
@@ -175,10 +178,17 @@ Authentication is separate from model transport. The model adapter asks an
 authentication manager for request credentials instead of reading environment
 variables or token files directly.
 
-The initial implementation resolves `DEEPSEEK_API_KEY` from the environment. A
-later experimental adapter may support Codex-compatible Sign in with ChatGPT if
-OpenAI provides or authorizes a suitable public integration for third-party
-clients.
+The native Forge Engine resolves `DEEPSEEK_API_KEY` or `OPENAI_API_KEY` through
+one provider-neutral manager and uses provider-specific AI SDK adapters. The
+separate Codex Engine starts the official Codex App Server over stdio JSON-RPC.
+Forge initiates managed ChatGPT browser or device-code login, but Codex owns the
+OAuth client identity, callback, tokens, persistence, refresh, and logout.
+
+Codex App Server is a complete agent runtime rather than a raw model endpoint.
+It therefore remains a separate engine instead of implementing Forge's
+`ModelAdapter`. Forge dynamically reads `model/list`, validates the selected
+reasoning effort, and streams Codex turn events, while Codex owns its tools,
+sandbox, approvals, and conversation state.
 
 Forge must not copy client credentials from another application, depend on
 undocumented endpoints as a stable contract, or silently read credentials from

@@ -5,7 +5,21 @@ export type PermissionProfile = z.infer<typeof permissionProfileSchema>;
 
 const modelSchema = z
   .object({
+    engine: z.enum(["forge", "codex"]).optional(),
+    provider: z.enum(["deepseek", "openai"]).optional(),
     id: z.string().trim().min(1).optional(),
+    reasoningEffort: z
+      .enum([
+        "none",
+        "minimal",
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max",
+        "ultra",
+      ])
+      .optional(),
     thinking: z.enum(["enabled", "disabled"]).optional(),
   })
   .strict();
@@ -45,7 +59,18 @@ export type ForgeConfigFile = z.infer<typeof forgeConfigFileSchema>;
 export interface EffectiveForgeConfig {
   readonly schemaVersion: 1;
   readonly model: {
+    readonly engine: "forge" | "codex";
+    readonly provider: "deepseek" | "openai";
     readonly id: string;
+    readonly reasoningEffort:
+      | "none"
+      | "minimal"
+      | "low"
+      | "medium"
+      | "high"
+      | "xhigh"
+      | "max"
+      | "ultra";
     readonly thinking: "enabled" | "disabled";
   };
   readonly permissionProfile: PermissionProfile;
@@ -61,7 +86,13 @@ export interface EffectiveForgeConfig {
 
 export const DEFAULT_FORGE_CONFIG: EffectiveForgeConfig = {
   schemaVersion: 1,
-  model: { id: "deepseek-v4-flash", thinking: "enabled" },
+  model: {
+    engine: "forge",
+    provider: "deepseek",
+    id: "deepseek-v4-flash",
+    reasoningEffort: "medium",
+    thinking: "enabled",
+  },
   permissionProfile: "safe",
   limits: {
     maxSteps: 12,

@@ -1,10 +1,21 @@
-import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  realpath,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { loadForgeConfig, loadInstructions } from "./index.js";
+import {
+  loadForgeConfig,
+  loadInstructions,
+  saveUserModelSelection,
+} from "./index.js";
 
 const temporaryDirectories: string[] = [];
 
@@ -35,6 +46,37 @@ async function fixture(): Promise<{
 }
 
 describe("Forge configuration", () => {
+  it("atomically persists only ordinary model selection", async () => {
+    const { nested, forgeHome } = await fixture();
+    await writeFile(
+      path.join(forgeHome, "config.json"),
+      `${JSON.stringify({ schemaVersion: 1, trace: { enabled: false } })}\n`,
+    );
+    const configPath = await saveUserModelSelection({
+      cwd: nested,
+      env: { FORGE_HOME: forgeHome, OPENAI_API_KEY: "must-not-be-written" },
+      selection: {
+        engine: "forge",
+        provider: "openai",
+        id: "gpt-5.4-mini",
+        reasoningEffort: "low",
+      },
+    });
+
+    const raw = await readFile(configPath, "utf8");
+    expect(JSON.parse(raw)).toEqual({
+      schemaVersion: 1,
+      trace: { enabled: false },
+      model: {
+        engine: "forge",
+        provider: "openai",
+        id: "gpt-5.4-mini",
+        reasoningEffort: "low",
+      },
+    });
+    expect(raw).not.toContain("must-not-be-written");
+  });
+
   it("merges sources with provenance while project limits only become stricter", async () => {
     const { root, nested, forgeHome } = await fixture();
     await writeFile(
@@ -69,6 +111,20 @@ describe("Forge configuration", () => {
     expect(loaded.provenance["limits.maxSteps"].kind).toBe("user");
     expect(loaded.provenance["limits.maxToolCalls"].kind).toBe("project");
     expect(loaded.provenance["model.id"].kind).toBe("cli");
+  });
+
+  it("selects a provider-appropriate default model", async () => {
+    const { nested, forgeHome } = await fixture();
+    const loaded = await loadForgeConfig({
+      cwd: nested,
+      env: { FORGE_HOME: forgeHome },
+      cli: { provider: "openai" },
+    });
+    expect(loaded.config.model).toMatchObject({
+      provider: "openai",
+      id: "gpt-5.4-mini",
+      reasoningEffort: "medium",
+    });
   });
 
   it("rejects project attempts to select a permission profile", async () => {

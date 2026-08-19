@@ -7,10 +7,12 @@ It is a learning project and portfolio project focused on the engineering behind
 coding agents: model interaction, tool execution, safety boundaries, execution
 traces, plugins, and reproducible evaluations.
 
-> Status: Milestone 8 complete. Forge v0.2 includes the bounded coding runtime,
+> Status: Milestones 8 and 9 are complete. Forge v0.2 includes the bounded coding runtime,
 > persistent sessions and traces, three reproducible evaluation tasks, external
 > graders, an opt-in DeepSeek runner, published live evidence, and an MIT
 > license. Trusted plugins and portable project skills are available in v0.2.
+> Forge can also use ChatGPT subscription access through the official Codex App
+> Server without copying or parsing another application's credential file.
 
 ## Vision
 
@@ -61,9 +63,13 @@ forge
 ```text
 CLI
  |
- v
+ |-- Forge Engine
+ |    `-- Model Adapter --> Vercel AI SDK --> DeepSeek / OpenAI API
+ |
+ `-- Codex Engine -------> Official Codex App Server --> ChatGPT subscription
+
 Forge Agent Runtime
- |-- Model Adapter ------> Vercel AI SDK ------> DeepSeek (first provider)
+ |-- Model Adapter ------> Vercel AI SDK ------> DeepSeek / OpenAI API
  |-- Context Loader -----> ~/.forge / AGENTS.md / .agents / project .forge
  |-- Plugin Host --------> Tools / Commands / Controlled Hooks
  |-- Policy Kernel ------> Allow / Confirm / Deny
@@ -101,7 +107,7 @@ added later as optional adapters and evaluation baselines.
 - Zod for runtime schemas
 - Biome for formatting and linting
 - Vitest for tests
-- Vercel AI SDK with `@ai-sdk/deepseek`
+- Vercel AI SDK with `@ai-sdk/deepseek` and `@ai-sdk/openai`
 - `deepseek-v4-flash` as the initial model, with thinking mode selected
   explicitly rather than inherited from provider defaults
 
@@ -115,6 +121,7 @@ Prerequisites:
 
 - Node.js 24 LTS
 - pnpm 11.18.0
+- Codex CLI for ChatGPT subscription access
 
 Install dependencies:
 
@@ -141,7 +148,9 @@ The interactive prompt persists completed user/assistant turns under
 `forge resume --last`, or the interactive `/resume` picker. Each prompt remains
 a separate bounded run with fresh policy and approval state; pending tool calls,
 provider continuations, and command approvals are never restored.
-Available commands are `/help`, `/clear`, `/resume`, and `/exit`. Ctrl+C cancels
+Available commands are `/help`, `/clear`, `/model`, `/resume`, and `/exit`.
+`/model` discovers ChatGPT subscription models and also shows API models; it
+persists ordinary engine/provider/model settings, never credentials. Ctrl+C cancels
 an active task and returns to the prompt; press it again to exit.
 
 The [interactive CLI UI](docs/CLI_UI.md) supports Shift+Enter, Meta+Enter
@@ -173,6 +182,50 @@ Send one prompt to DeepSeek:
 export DEEPSEEK_API_KEY="your-api-key"
 pnpm forge ask "Explain what this repository is for"
 ```
+
+Optional OpenAI API-key access uses Forge's native runtime and is billed
+separately from ChatGPT subscriptions:
+
+```bash
+export OPENAI_API_KEY="your-api-key"
+pnpm forge run "Inspect this repository" \
+  --provider openai \
+  --model gpt-5.4-mini \
+  --reasoning-effort low
+```
+
+If you only have a ChatGPT subscription, skip this API-key setup and use the
+Codex commands below. Forge's default tests use mocked transports and never make
+paid OpenAI API requests.
+
+Use a ChatGPT subscription through the official Codex App Server:
+
+```bash
+pnpm forge auth login openai
+pnpm forge auth status openai
+pnpm forge models list --provider openai
+pnpm forge codex "Inspect this repository and summarize it" \
+  --model gpt-5.6-luna \
+  --reasoning-effort medium
+```
+
+Use `--method device-code` for a headless login. `forge models list` discovers
+the currently available models and their supported reasoning efforts from the
+running Codex version; Forge does not hard-code that catalog. The same Codex
+path is available through `forge run --engine codex`.
+
+The Codex Engine is intentionally separate from Forge's native agent runtime.
+It uses Codex's conversation, tool, sandbox, approval, and authentication
+implementation. Its default `safe` profile maps to Codex read-only mode. Pass
+`--permission-profile workspace-write` explicitly to permit Codex workspace
+writes and interactive approval requests. Codex Engine events are streamed to
+the terminal but are not yet stored in Forge's native JSONL run schema.
+
+Forge starts the `codex` executable found on `PATH`; set `FORGE_CODEX_PATH` to
+an explicit executable path when needed. Codex owns credential persistence and
+refresh. Forge never reads `~/.codex/auth.json` or receives the access and
+refresh tokens. Because the account is shared with Codex, `forge auth logout
+openai` also signs that Codex account out for other local Codex clients.
 
 Run a repository coding task:
 
@@ -302,7 +355,8 @@ only the declared 60-second verification command, so Forge denied the action.
 
 ## Limitations
 
-- Only DeepSeek is implemented as a real provider.
+- The native Forge runtime supports DeepSeek and OpenAI API providers; the
+  separate Codex Engine supports ChatGPT subscription access.
 - Model behavior is nondeterministic; runtime tests do not prove live task
   success.
 - Built-in file tools enforce a workspace boundary, but Forge is not an OS

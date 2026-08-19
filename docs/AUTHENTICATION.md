@@ -2,18 +2,19 @@
 
 ## Status
 
-Forge v0.1 starts with DeepSeek API-key authentication through
-`DEEPSEEK_API_KEY`. Codex-compatible Sign in with ChatGPT is a later
-compatibility goal and must be revalidated against current official OpenAI
-documentation before implementation or release.
+Forge supports DeepSeek and OpenAI API-key authentication through
+`DEEPSEEK_API_KEY` and `OPENAI_API_KEY`, plus ChatGPT subscription
+authentication through the official Codex App Server.
+Forge presents the login command and browser/device-code instructions, while
+Codex owns OAuth, credential persistence, refresh, and revocation.
 
 ## Supported and planned methods
 
 | Method | Intended use | Status |
 | --- | --- | --- |
-| DeepSeek API key | Local development and automation | Planned for v0.1 |
-| Other provider API keys | Future provider adapters | Deferred |
-| Sign in with ChatGPT | OpenAI subscription access | Post-v0.2 research goal |
+| DeepSeek API key | Local development and automation | Implemented |
+| OpenAI API key | Optional usage-based OpenAI API access | Implemented |
+| Sign in with ChatGPT | OpenAI subscription access through Codex App Server | Implemented |
 | Codex access token | Trusted enterprise automation | Deferred |
 
 DeepSeek's official API uses `https://api.deepseek.com` and the initial adapter
@@ -25,46 +26,48 @@ Official DeepSeek references:
 - [DeepSeek API model documentation](https://api-docs.deepseek.com/quick_start/pricing/)
 - [AI SDK DeepSeek provider](https://ai-sdk.dev/providers/ai-sdk-providers/deepseek)
 
-OpenAI officially documents that Codex clients support Sign in with ChatGPT for
-subscription access and API keys for usage-based access. That documentation does
-not by itself establish a public OAuth contract for arbitrary third-party
-clients. Forge must not present compatibility work as an official OpenAI
-integration without evidence of such support.
+OpenAI now documents Codex App Server as the integration protocol for embedding
+Codex into a product. Its account surface supports managed ChatGPT browser and
+device-code login. Forge uses that public surface rather than copying OpenCode's
+OAuth client ID or rewriting requests to an undocumented ChatGPT endpoint.
 
 Official reference:
-[OpenAI Codex authentication](https://developers.openai.com/codex/auth)
+[OpenAI Codex App Server](https://developers.openai.com/codex/app-server)
 
 ## Architectural boundary
 
-Model transport and authentication are separate concerns:
+The two execution paths have different ownership boundaries:
 
 ```text
-Agent Runtime
-     |
-     v
-Model Adapter -----> Authentication Manager -----> Credential Store
-     |
-     v
-Vercel AI SDK -----> Model Provider
+Forge Engine: Forge Runtime -> Model Adapter -> DeepSeek or OpenAI API
+
+Codex Engine: Forge CLI -> Codex App Server -> ChatGPT subscription
 ```
 
-The model adapter requests a usable credential. It does not own browser login,
-refresh-token rotation, persistence, or logout.
+The Codex Engine is not wrapped as a Forge `ModelAdapter`: App Server owns a
+complete agent runtime, including turns, tools, sandboxing, approvals, and
+history. Treating it as a raw model transport would obscure which runtime made
+security and execution decisions.
 
-The v0.1 authentication manager validates that `DEEPSEEK_API_KEY` is present and
-returns it only to the DeepSeek adapter. Missing credentials produce an
-actionable error without printing the key or a stack trace. The key is never
-copied into Forge configuration, prompts, traces, plugin events, or repository
-files.
+The provider-neutral authentication manager resolves API keys only from the
+process environment and returns them to the selected adapter. Missing
+credentials produce an actionable error without printing the key or a stack
+trace. Keys are never copied into Forge configuration, prompts, traces, plugin
+events, or repository files.
+
+An OpenAI API key is optional and is billed independently of ChatGPT. A ChatGPT
+Plus, Pro, Business, or other subscription does not cause Forge to select the
+API path. Users who only want subscription access should keep
+`model.provider = "deepseek"` or use `forge codex`; they do not need to create
+or export `OPENAI_API_KEY`.
 
 ## Compatibility requirements
 
-Before implementing subscription login, Forge must confirm:
+The selected App Server integration satisfies these requirements:
 
-- The flow is publicly documented or explicitly authorized for third-party use
-- The required client registration and scopes are legitimate for Forge
-- The token audience and API endpoint are intended for this client
-- Refresh, revocation, account switching, and workspace selection are understood
+- The flow is publicly documented for embedding Codex into a product
+- Forge never supplies or copies an OAuth client identity
+- Codex performs token exchange, refresh, revocation, and account selection
 - The user-facing description accurately distinguishes subscription access from
   usage-based API access
 
@@ -73,14 +76,13 @@ Forge must not:
 - Copy another application's client secret or identity
 - Treat reverse-engineered endpoints as a permanent API contract
 - Ask users to paste access or refresh tokens into chat
-- Read, import, or modify `~/.codex/auth.json` without an explicit future import
-  design and user approval
+- Read, import, or modify `~/.codex/auth.json` directly
 - Store credentials inside the current repository
 
 ## Credential storage
 
-Forge v0.1 does not persist DeepSeek credentials; it reads
-`DEEPSEEK_API_KEY` from the process environment for each invocation. If a later
+Forge does not persist API credentials; it reads `DEEPSEEK_API_KEY` or
+`OPENAI_API_KEY` from the process environment for each invocation. If a later
 authentication method needs persistence, the preferred storage order is:
 
 1. Operating-system credential store
@@ -92,23 +94,41 @@ events, telemetry, and ordinary error messages.
 
 ## Refresh and concurrency
 
-An OAuth-capable credential store must coordinate refreshes. If several model
-requests discover an expired token at the same time, only one refresh operation
-should run; the others should await its result.
+Codex App Server owns subscription token refresh and persistence. Forge never
+receives OAuth access or refresh tokens. The App Server may use the Codex
+credential-store configuration shared with other local Codex clients.
 
 Credential updates must be atomic. A failed refresh must not destroy the last
 known credential before the error is handled.
 
 ## Commands
 
-The eventual CLI may expose:
+The CLI exposes:
 
 ```text
 forge auth login openai
-forge auth status
+forge auth status openai
+forge auth status openai-api
 forge auth logout openai
+forge models list --provider openai
+forge codex "Inspect this repository" --model <id> --reasoning-effort <effort>
+forge run "Inspect this repository" --provider openai --model gpt-5.4-mini --reasoning-effort low
 ```
 
-Headless and non-interactive login should be added only when supported by the
-chosen public flow. Browser login must handle cancellation, callback timeout,
-state validation, and PKCE correctly.
+Use `forge auth login openai --method device-code` for a headless login. Forge
+prints the official verification URL and code and waits for App Server's
+completion notification. Browser callback validation and PKCE are owned by
+Codex. Cancelling Forge asks App Server to cancel the pending login.
+
+`forge auth logout openai` operates on the shared Codex account and can sign
+other local Codex clients out. Forge does not claim that these are Forge-owned
+credentials.
+
+`forge auth status openai-api` only checks whether `OPENAI_API_KEY` is present;
+it never validates the key with a paid request. `forge auth login openai-api`
+prints environment-variable guidance because Forge deliberately does not store
+API keys. The interactive `/model` picker discovers the current Codex catalog,
+also shows native API adapters, and persists ordinary engine/provider/model and
+reasoning settings under `$FORGE_HOME/config.json`, never credentials.
+Selecting a ChatGPT entry routes subsequent interactive prompts through Codex
+Engine.

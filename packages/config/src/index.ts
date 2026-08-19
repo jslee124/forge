@@ -14,6 +14,8 @@ export {
   ForgeConfigError,
   type LoadedForgeConfig,
   loadForgeConfig,
+  type PersistedModelSelection,
+  saveUserModelSelection,
 } from "./loader.js";
 export {
   DEFAULT_FORGE_CONFIG,

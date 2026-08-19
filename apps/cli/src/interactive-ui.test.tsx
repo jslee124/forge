@@ -70,6 +70,121 @@ describe("Ink interactive terminal", () => {
     instance.unmount();
   });
 
+  it("opens /model, persists selection, and uses it for the next task", async () => {
+    const root = await createWorkspace();
+    let persisted: unknown;
+    let receivedOptions: unknown;
+    const instance = render(
+      <InteractiveApp
+        options={{}}
+        env={{}}
+        cwd={root}
+        persistModelSelection={async (value) => {
+          persisted = value.selection;
+          return "/tmp/forge-config.json";
+        }}
+        discoverSubscriptionModels={async () => []}
+        executeTask={async (_prompt, options, dependencies) => {
+          receivedOptions = options;
+          dependencies.onResult?.(completed("done"));
+          return 0;
+        }}
+      />,
+    );
+
+    await settle();
+    instance.stdin.write("/model");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+    expect(instance.lastFrame()).toContain("Choose model and reasoning effort");
+    instance.stdin.write("\u001B[B");
+    await settle();
+    instance.stdin.write("\u001B[B");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+    instance.stdin.write("test selection");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+
+    expect(persisted).toEqual({
+      engine: "forge",
+      provider: "openai",
+      id: "gpt-5.4-mini",
+      reasoningEffort: "low",
+    });
+    expect(receivedOptions).toMatchObject({
+      provider: "openai",
+      model: "gpt-5.4-mini",
+      reasoningEffort: "low",
+    });
+    instance.unmount();
+  });
+
+  it("discovers subscription models and routes the selection to Codex", async () => {
+    const root = await createWorkspace();
+    let persisted: unknown;
+    let codexOptions: unknown;
+    const instance = render(
+      <InteractiveApp
+        options={{}}
+        env={{}}
+        cwd={root}
+        discoverSubscriptionModels={async () => [
+          {
+            id: "gpt-subscription-test",
+            model: "gpt-subscription-test",
+            displayName: "GPT Subscription Test",
+            description: "fake model",
+            hidden: false,
+            supportedReasoningEfforts: [
+              { reasoningEffort: "high", description: "deep" },
+            ],
+            defaultReasoningEffort: "high",
+            inputModalities: ["text"],
+            isDefault: true,
+          },
+        ]}
+        persistModelSelection={async (value) => {
+          persisted = value.selection;
+          return "/tmp/forge-config.json";
+        }}
+        executeCodexTask={async (_prompt, options) => {
+          codexOptions = options;
+          return 0;
+        }}
+      />,
+    );
+
+    await settle();
+    instance.stdin.write("/model");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+    expect(instance.lastFrame()).toContain("GPT Subscription Test · high");
+    instance.stdin.write("\r");
+    await settle();
+    instance.stdin.write("use subscription");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+
+    expect(persisted).toMatchObject({
+      engine: "codex",
+      provider: "openai",
+      id: "gpt-subscription-test",
+      reasoningEffort: "high",
+    });
+    expect(codexOptions).toMatchObject({
+      engine: "codex",
+      model: "gpt-subscription-test",
+      reasoningEffort: "high",
+    });
+    instance.unmount();
+  });
+
   it("selects an @ file and sends its structured path to the model", async () => {
     const root = await createWorkspace();
     let receivedPrompt = "";

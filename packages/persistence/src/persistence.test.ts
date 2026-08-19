@@ -7,10 +7,12 @@ import type { RunEvent } from "@forge/core";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
+  configuredSecrets,
   FileSessionStore,
   FileTraceStore,
   JsonlTraceWriter,
   recordRunInSession,
+  redactValue,
   summarizeTrace,
 } from "./index.js";
 
@@ -31,6 +33,23 @@ async function forgeHome(): Promise<string> {
 }
 
 describe("persistent sessions", () => {
+  it("redacts provider keys, bearer tokens, JWTs, and secret fields", () => {
+    const apiKey = "sk-test_123456789";
+    const secrets = configuredSecrets({ OPENAI_API_KEY: apiKey });
+    const redacted = JSON.stringify(
+      // Exercise both field-name and value-based redaction.
+      redactValue(
+        {
+          authorization: `Bearer ${apiKey}`,
+          message: `failed ${apiKey} eyJabc.def.ghi`,
+        },
+        secrets,
+      ),
+    );
+    expect(redacted).not.toContain(apiKey);
+    expect(redacted).not.toContain("eyJabc");
+  });
+
   it("atomically saves, lists, and reloads completed conversation turns", async () => {
     const home = await forgeHome();
     const store = new FileSessionStore(home);

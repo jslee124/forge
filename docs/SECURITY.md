@@ -2,7 +2,7 @@
 
 ## Status
 
-This document defines Forge's implemented security model through Milestone 6.
+This document defines Forge's implemented security model through Milestone 9.
 Built-in tools stay inside the selected workspace, every valid tool action
 passes through a policy decision, and approval-required actions are denied when
 no approval channel is available. The `safe` and `workspace-write` permission
@@ -166,7 +166,8 @@ redacted.
 
 ## Credential handling
 
-API keys, access tokens, refresh tokens, authorization codes, and PKCE verifiers
+DeepSeek/OpenAI API keys, access tokens, refresh tokens, authorization codes,
+and PKCE verifiers
 are secrets. They must never appear in prompts, traces, terminal debug output,
 plugin events, crash reports, or repository files.
 
@@ -174,9 +175,26 @@ Forge should prefer the operating-system credential store. A file fallback must
 be explicit, stored outside the project, written atomically with owner-only
 permissions, and documented as sensitive plaintext storage.
 
+The implemented API-key methods deliberately use process environment variables
+and never persist keys. Provider/model/reasoning selections are ordinary config
+and may be saved under `FORGE_HOME`; credential-shaped fields and known secret
+values are redacted before traces and plugin observers receive events.
+
 OAuth token refresh must be single-flight so concurrent model requests do not
 race to rotate the same refresh token. Logout clears Forge-owned credentials.
 Forge must not silently import or modify another application's credential file.
+
+For ChatGPT subscription access, Forge delegates OAuth and refresh to the
+official Codex App Server. Forge sends account JSON-RPC requests but never reads
+Codex's credential file or receives its tokens. This account is shared Codex
+state, so the explicit `forge auth logout openai` command may also sign other
+local Codex clients out.
+
+Codex Engine security semantics are separate from the native Forge policy
+kernel. Its `safe` profile maps to Codex read-only sandboxing. Users must select
+`workspace-write` explicitly to let Codex modify the workspace. Codex tool
+events do not pass through Forge's built-in/plugin tool policy or native JSONL
+trace pipeline; the CLI labels this execution path rather than implying they do.
 
 ## Out of scope for v0.1
 

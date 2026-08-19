@@ -9,7 +9,10 @@ import type { WritableOutput } from "./ask.js";
 
 const DISPLAY_KEYS: readonly ConfigKey[] = [
   "schemaVersion",
+  "model.engine",
+  "model.provider",
   "model.id",
+  "model.reasoningEffort",
   "model.thinking",
   "permissionProfile",
   "limits.maxSteps",
@@ -76,7 +79,10 @@ function flatten(loaded: LoadedForgeConfig): Record<ConfigKey, unknown> {
   const { config } = loaded;
   return {
     schemaVersion: config.schemaVersion,
+    "model.engine": config.model.engine,
+    "model.provider": config.model.provider,
     "model.id": config.model.id,
+    "model.reasoningEffort": config.model.reasoningEffort,
     "model.thinking": config.model.thinking,
     permissionProfile: config.permissionProfile,
     "limits.maxSteps": config.limits.maxSteps,

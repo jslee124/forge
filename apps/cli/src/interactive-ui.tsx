@@ -1,3 +1,8 @@
+import {
+  loadForgeConfig,
+  type PersistedModelSelection,
+  saveUserModelSelection,
+} from "@forge/config";
 import type {
   ModelConversationMessage,
   RunEvent,
@@ -9,6 +14,11 @@ import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { AskOptions, WritableOutput } from "./ask.js";
+import {
+  type CodexCommandDependencies,
+  discoverCodexModels,
+  runCodexTask,
+} from "./codex-command.js";
 import {
   filterSlashCommands,
   formatSlashCommandHelp,
@@ -41,7 +51,7 @@ import {
   runTask,
 } from "./run.js";
 
-type Phase = "editing" | "running" | "approving" | "resuming";
+type Phase = "editing" | "running" | "approving" | "resuming" | "models";
 type TranscriptKind =
   | "user"
   | "reasoning"
@@ -64,6 +74,55 @@ interface PendingApproval {
   readonly resolve: (answer: string | null) => void;
 }
 
+interface ModelChoice {
+  readonly label: string;
+  readonly description: string;
+  readonly selection: PersistedModelSelection;
+}
+
+const MODEL_CHOICES: readonly ModelChoice[] = [
+  {
+    label: "DeepSeek V4 Flash",
+    description: "DeepSeek API · thinking enabled",
+    selection: {
+      engine: "forge",
+      provider: "deepseek",
+      id: "deepseek-v4-flash",
+      thinking: "enabled",
+    },
+  },
+  {
+    label: "DeepSeek V4 Pro",
+    description: "DeepSeek API · thinking enabled",
+    selection: {
+      engine: "forge",
+      provider: "deepseek",
+      id: "deepseek-v4-pro",
+      thinking: "enabled",
+    },
+  },
+  {
+    label: "GPT-5.4 mini · low",
+    description: "OpenAI API key · separately billed",
+    selection: {
+      engine: "forge",
+      provider: "openai",
+      id: "gpt-5.4-mini",
+      reasoningEffort: "low",
+    },
+  },
+  {
+    label: "GPT-5.4 · high",
+    description: "OpenAI API key · separately billed",
+    selection: {
+      engine: "forge",
+      provider: "openai",
+      id: "gpt-5.4",
+      reasoningEffort: "high",
+    },
+  },
+];
+
 export interface InteractiveUiDependencies {
   readonly env: NodeJS.ProcessEnv;
   readonly cwd: string;
@@ -72,7 +131,20 @@ export interface InteractiveUiDependencies {
     options: AskOptions,
     dependencies: RunDependencies,
   ) => Promise<number>;
+  readonly executeCodexTask?: (
+    prompt: string,
+    options: AskOptions,
+    dependencies: CodexCommandDependencies,
+  ) => Promise<number>;
+  readonly discoverSubscriptionModels?: (
+    dependencies: CodexCommandDependencies,
+  ) => Promise<readonly import("@forge/codex-app-server").CodexModel[]>;
   readonly sessionPersistence?: InteractiveSessionPersistence;
+  readonly persistModelSelection?: (options: {
+    readonly cwd: string;
+    readonly env: NodeJS.ProcessEnv;
+    readonly selection: PersistedModelSelection;
+  }) => Promise<string>;
 }
 
 interface InteractiveAppProps extends InteractiveUiDependencies {
@@ -110,7 +182,21 @@ export async function runInkInteractiveFromCli(
   }
 
   let sessionPersistence = dependencies.sessionPersistence;
+  let effectiveOptions = options;
   try {
+    const loaded = await loadForgeConfig({
+      cwd: dependencies.cwd,
+      env: dependencies.env,
+      cli: options,
+    });
+    effectiveOptions = {
+      engine: loaded.config.model.engine,
+      provider: loaded.config.model.provider,
+      model: loaded.config.model.id,
+      reasoningEffort: loaded.config.model.reasoningEffort,
+      thinking: loaded.config.model.thinking,
+      permissionProfile: loaded.config.permissionProfile,
+    };
     sessionPersistence ??= await createPersistentInteractiveSession({
       cwd: dependencies.cwd,
       env: dependencies.env,
@@ -126,7 +212,7 @@ export async function runInkInteractiveFromCli(
     <InteractiveApp
       {...dependencies}
       sessionPersistence={sessionPersistence}
-      options={options}
+      options={effectiveOptions}
     />,
     {
       stdin: process.stdin,
@@ -153,11 +239,15 @@ export function InteractiveApp({
   env,
   cwd,
   executeTask = runTask,
+  executeCodexTask = runCodexTask,
+  discoverSubscriptionModels = discoverCodexModels,
   sessionPersistence,
+  persistModelSelection = saveUserModelSelection,
 }: InteractiveAppProps): React.JSX.Element {
   const { exit } = useApp();
   const [editor, setEditor] = useState<EditorState>(() => createEditorState());
   const [phase, setPhase] = useState<Phase>("editing");
+  const [activeOptions, setActiveOptions] = useState<AskOptions>(options);
   const initialMessages = sessionPersistence?.messages ?? [];
   const [transcript, setTranscript] = useState<readonly TranscriptEntry[]>(() =>
     conversationTranscript(initialMessages),
@@ -168,6 +258,9 @@ export function InteractiveApp({
   const [dismissedCompletion, setDismissedCompletion] = useState<string>();
   const [approval, setApproval] = useState<PendingApproval>();
   const [sessions, setSessions] = useState<readonly SessionSummary[]>([]);
+  const [modelChoices, setModelChoices] =
+    useState<readonly ModelChoice[]>(MODEL_CHOICES);
+  const [modelsLoading, setModelsLoading] = useState(false);
   const conversation = useRef<ModelConversationMessage[]>([...initialMessages]);
   const activeController = useRef<AbortController | undefined>(undefined);
   const idleExitArmed = useRef(false);
@@ -343,6 +436,55 @@ export function InteractiveApp({
           },
         );
         return;
+      case "/model":
+        setEditor(createEditorState());
+        setSelectedIndex(0);
+        setPhase("models");
+        setModelsLoading(true);
+        void discoverSubscriptionModels({
+          env,
+          cwd,
+          stdout,
+          stderr,
+          signal: new AbortController().signal,
+          isTTY: true,
+        }).then(
+          (models) => {
+            const subscriptionChoices = models.flatMap((model) =>
+              model.supportedReasoningEfforts.flatMap(({ reasoningEffort }) => {
+                const effort = asPersistedReasoningEffort(reasoningEffort);
+                return effort
+                  ? [
+                      {
+                        label: `${model.displayName} · ${effort}`,
+                        description: "ChatGPT subscription · Codex Engine",
+                        selection: {
+                          engine: "codex" as const,
+                          provider: "openai" as const,
+                          id: model.id,
+                          reasoningEffort: effort,
+                        },
+                      },
+                    ]
+                  : [];
+              }),
+            );
+            setModelChoices([
+              ...subscriptionChoices.slice(0, 40),
+              ...MODEL_CHOICES,
+            ]);
+            setModelsLoading(false);
+          },
+          (error: unknown) => {
+            appendEntry(
+              "warning",
+              `${error instanceof Error ? error.message : "Could not discover Codex models."} API models remain available.`,
+            );
+            setModelChoices(MODEL_CHOICES);
+            setModelsLoading(false);
+          },
+        );
+        return;
       case "/help":
         appendEntry("system", formatSlashCommandHelp());
         setEditor(createEditorState());
@@ -404,8 +546,19 @@ export function InteractiveApp({
     );
 
     void (async () => {
+      if (activeOptions.engine === "codex") {
+        await executeCodexTask(prompt, activeOptions, {
+          env,
+          cwd,
+          stdout,
+          stderr,
+          signal: controller.signal,
+          isTTY: true,
+        });
+        return;
+      }
       const sessionId = await sessionPersistence?.prepareRun();
-      await executeTask(prompt, options, {
+      await executeTask(prompt, activeOptions, {
         env,
         cwd,
         stdout,
@@ -524,6 +677,57 @@ export function InteractiveApp({
             },
           );
         }
+        return;
+      }
+      return;
+    }
+    if (phase === "models") {
+      if (key.escape) {
+        setPhase("editing");
+        return;
+      }
+      if (key.upArrow || key.downArrow) {
+        setSelectedIndex((current) => {
+          if (modelChoices.length === 0) return 0;
+          const delta = key.upArrow ? -1 : 1;
+          return (current + delta + modelChoices.length) % modelChoices.length;
+        });
+        return;
+      }
+      if (key.return) {
+        const selected =
+          modelChoices[Math.min(selectedIndex, modelChoices.length - 1)];
+        if (!selected) return;
+        const nextOptions: AskOptions = {
+          ...activeOptions,
+          engine: selected.selection.engine,
+          provider: selected.selection.provider,
+          model: selected.selection.id,
+          ...(selected.selection.reasoningEffort
+            ? { reasoningEffort: selected.selection.reasoningEffort }
+            : {}),
+          ...(selected.selection.thinking
+            ? { thinking: selected.selection.thinking }
+            : {}),
+        };
+        setActiveOptions(nextOptions);
+        setPhase("editing");
+        void persistModelSelection({
+          cwd,
+          env,
+          selection: selected.selection,
+        }).then(
+          (configPath) =>
+            appendEntry(
+              "system",
+              `Selected ${selected.label}. Saved to ${configPath}.`,
+            ),
+          (error: unknown) =>
+            appendEntry(
+              "error",
+              `Could not persist model selection: ${error instanceof Error ? error.message : "unknown error"}`,
+            ),
+        );
         return;
       }
       return;
@@ -711,6 +915,36 @@ export function InteractiveApp({
             </Text>
           ))}
           <Text dimColor>Enter resume · Esc cancel</Text>
+        </Box>
+      ) : null}
+
+      {phase === "models" ? (
+        <Box
+          borderStyle="round"
+          borderColor="cyan"
+          flexDirection="column"
+          paddingX={1}
+        >
+          <Text bold color="cyan">
+            Choose model and reasoning effort
+          </Text>
+          {modelsLoading ? (
+            <Text dimColor>Discovering ChatGPT subscription models…</Text>
+          ) : null}
+          {modelChoices.map((choice, index) => (
+            <Text
+              key={choice.label}
+              bold={index === selectedIndex}
+              {...(index === selectedIndex ? { color: "cyan" as const } : {})}
+            >
+              {index === selectedIndex ? "› " : "  "}
+              {choice.label} · {choice.description}
+            </Text>
+          ))}
+          <Text dimColor>
+            ChatGPT entries use Codex Engine; OpenAI API-key entries are billed
+            separately · Enter select · Esc cancel
+          </Text>
         </Box>
       ) : null}
 
@@ -903,4 +1137,22 @@ function nextCursor(state: EditorState): number {
   return (
     state.cursor + (Array.from(state.value.slice(state.cursor))[0]?.length ?? 0)
   );
+}
+
+function asPersistedReasoningEffort(
+  value: string,
+): PersistedModelSelection["reasoningEffort"] {
+  if (
+    value === "none" ||
+    value === "minimal" ||
+    value === "low" ||
+    value === "medium" ||
+    value === "high" ||
+    value === "xhigh" ||
+    value === "max" ||
+    value === "ultra"
+  ) {
+    return value;
+  }
+  return undefined;
 }

@@ -1,4 +1,11 @@
-import { access, readFile, realpath } from "node:fs/promises";
+import {
+  access,
+  mkdir,
+  readFile,
+  realpath,
+  rename,
+  writeFile,
+} from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
 
@@ -14,7 +21,10 @@ import {
 
 export type ConfigKey =
   | "schemaVersion"
+  | "model.engine"
+  | "model.provider"
   | "model.id"
+  | "model.reasoningEffort"
   | "model.thinking"
   | "permissionProfile"
   | "limits.maxSteps"
@@ -33,7 +43,10 @@ export interface ConfigSource {
 export type ConfigProvenance = Readonly<Record<ConfigKey, ConfigSource>>;
 
 export interface ConfigOverrides {
+  readonly engine?: string;
+  readonly provider?: string;
   readonly model?: string;
+  readonly reasoningEffort?: string;
   readonly thinking?: string;
   readonly permissionProfile?: string;
   readonly maxSteps?: number;
@@ -45,6 +58,8 @@ export interface ConfigOverrides {
 interface ForgeEnvironment extends NodeJS.ProcessEnv {
   readonly FORGE_HOME?: string;
   readonly FORGE_MODEL?: string;
+  readonly FORGE_PROVIDER?: string;
+  readonly FORGE_REASONING_EFFORT?: string;
   readonly FORGE_THINKING?: string;
 }
 
@@ -67,6 +82,49 @@ export class ForgeConfigError extends Error {
     this.name = "ForgeConfigError";
     this.sourcePath = sourcePath;
   }
+}
+
+export interface PersistedModelSelection {
+  readonly engine: "forge" | "codex";
+  readonly provider: "deepseek" | "openai";
+  readonly id: string;
+  readonly reasoningEffort?: EffectiveForgeConfig["model"]["reasoningEffort"];
+  readonly thinking?: EffectiveForgeConfig["model"]["thinking"];
+}
+
+export async function saveUserModelSelection(options: {
+  readonly cwd: string;
+  readonly env?: NodeJS.ProcessEnv;
+  readonly selection: PersistedModelSelection;
+}): Promise<string> {
+  const loaded = await loadForgeConfig({
+    cwd: options.cwd,
+    ...(options.env ? { env: options.env } : {}),
+  });
+  const existing = await readConfigFile(loaded.userConfigPath);
+  const next: ForgeConfigFile = forgeConfigFileSchema.parse({
+    ...(existing ?? { schemaVersion: 1 }),
+    model: {
+      ...(existing?.model ?? {}),
+      ...options.selection,
+    },
+  });
+  await mkdir(loaded.forgeHome, { recursive: true, mode: 0o700 });
+  const temporaryPath = `${loaded.userConfigPath}.tmp-${process.pid}-${Date.now()}`;
+  try {
+    await writeFile(temporaryPath, `${JSON.stringify(next, null, 2)}\n`, {
+      encoding: "utf8",
+      mode: 0o600,
+    });
+    await rename(temporaryPath, loaded.userConfigPath);
+  } catch (error) {
+    throw new ForgeConfigError(
+      `Could not persist model selection at ${loaded.userConfigPath}.`,
+      loaded.userConfigPath,
+      { cause: error },
+    );
+  }
+  return loaded.userConfigPath;
 }
 
 export async function loadForgeConfig(options: {
@@ -125,7 +183,10 @@ export async function loadForgeConfig(options: {
 
 const CONFIG_KEYS: readonly ConfigKey[] = [
   "schemaVersion",
+  "model.engine",
+  "model.provider",
   "model.id",
+  "model.reasoningEffort",
   "model.thinking",
   "permissionProfile",
   "limits.maxSteps",
@@ -234,10 +295,19 @@ function mergeOrdinary(
   base: EffectiveForgeConfig,
   next: ForgeConfigFile,
 ): EffectiveForgeConfig {
+  const provider = next.model?.provider ?? base.model.provider;
   return {
     schemaVersion: 1,
     model: {
-      id: next.model?.id ?? base.model.id,
+      engine: next.model?.engine ?? base.model.engine,
+      provider,
+      id:
+        next.model?.id ??
+        (next.model?.provider && next.model.provider !== base.model.provider
+          ? defaultModelId(provider)
+          : base.model.id),
+      reasoningEffort:
+        next.model?.reasoningEffort ?? base.model.reasoningEffort,
       thinking: next.model?.thinking ?? base.model.thinking,
     },
     permissionProfile: next.permissionProfile ?? base.permissionProfile,
@@ -277,6 +347,21 @@ function applyEnvironment(
   env: ForgeEnvironment,
 ): EffectiveForgeConfig {
   let config = base;
+  if (env.FORGE_PROVIDER?.trim()) {
+    const provider = parseProvider(env.FORGE_PROVIDER, "FORGE_PROVIDER");
+    config = {
+      ...config,
+      model: {
+        ...config.model,
+        provider,
+        ...(!env.FORGE_MODEL ? { id: defaultModelId(provider) } : {}),
+      },
+    };
+    provenance["model.provider"] = {
+      kind: "environment",
+      label: "FORGE_PROVIDER",
+    };
+  }
   if (env.FORGE_MODEL?.trim()) {
     config = {
       ...config,
@@ -292,6 +377,17 @@ function applyEnvironment(
       label: "FORGE_THINKING",
     };
   }
+  if (env.FORGE_REASONING_EFFORT !== undefined) {
+    const reasoningEffort = parseReasoningEffort(
+      env.FORGE_REASONING_EFFORT,
+      "FORGE_REASONING_EFFORT",
+    );
+    config = { ...config, model: { ...config.model, reasoningEffort } };
+    provenance["model.reasoningEffort"] = {
+      kind: "environment",
+      label: "FORGE_REASONING_EFFORT",
+    };
+  }
   return config;
 }
 
@@ -302,6 +398,27 @@ function applyCli(
 ): EffectiveForgeConfig {
   let config = base;
   const cliSource: ConfigSource = { kind: "cli", label: "explicit CLI option" };
+  if (cli.engine !== undefined) {
+    if (cli.engine !== "forge" && cli.engine !== "codex") {
+      throw new ForgeConfigError(
+        `Invalid --engine value "${cli.engine}". Use "forge" or "codex".`,
+      );
+    }
+    config = { ...config, model: { ...config.model, engine: cli.engine } };
+    provenance["model.engine"] = cliSource;
+  }
+  if (cli.provider !== undefined) {
+    const provider = parseProvider(cli.provider, "--provider");
+    config = {
+      ...config,
+      model: {
+        ...config.model,
+        provider,
+        ...(cli.model === undefined ? { id: defaultModelId(provider) } : {}),
+      },
+    };
+    provenance["model.provider"] = cliSource;
+  }
   if (cli.model !== undefined) {
     const model = cli.model.trim();
     if (!model) throw new ForgeConfigError("--model must not be empty.");
@@ -317,6 +434,19 @@ function applyCli(
       },
     };
     provenance["model.thinking"] = cliSource;
+  }
+  if (cli.reasoningEffort !== undefined) {
+    config = {
+      ...config,
+      model: {
+        ...config.model,
+        reasoningEffort: parseReasoningEffort(
+          cli.reasoningEffort,
+          "--reasoning-effort",
+        ),
+      },
+    };
+    provenance["model.reasoningEffort"] = cliSource;
   }
   if (cli.permissionProfile !== undefined) {
     const parsed = permissionProfileSchema.safeParse(cli.permissionProfile);
@@ -347,7 +477,12 @@ function recordFileProvenance(
   source: ConfigSource,
 ): void {
   provenance.schemaVersion = source;
+  if (config.model?.engine !== undefined) provenance["model.engine"] = source;
+  if (config.model?.provider !== undefined)
+    provenance["model.provider"] = source;
   if (config.model?.id !== undefined) provenance["model.id"] = source;
+  if (config.model?.reasoningEffort !== undefined)
+    provenance["model.reasoningEffort"] = source;
   if (config.model?.thinking !== undefined)
     provenance["model.thinking"] = source;
   if (config.permissionProfile !== undefined)
@@ -372,6 +507,38 @@ function parseThinking(value: string, source: string): "enabled" | "disabled" {
   throw new ForgeConfigError(
     `Invalid ${source} value "${value}". Use "enabled" or "disabled".`,
   );
+}
+
+function parseProvider(value: string, source: string): "deepseek" | "openai" {
+  if (value === "deepseek" || value === "openai") return value;
+  throw new ForgeConfigError(
+    `Invalid ${source} value "${value}". Use "deepseek" or "openai".`,
+  );
+}
+
+function parseReasoningEffort(
+  value: string,
+  source: string,
+): EffectiveForgeConfig["model"]["reasoningEffort"] {
+  if (
+    value === "none" ||
+    value === "minimal" ||
+    value === "low" ||
+    value === "medium" ||
+    value === "high" ||
+    value === "xhigh" ||
+    value === "max" ||
+    value === "ultra"
+  ) {
+    return value;
+  }
+  throw new ForgeConfigError(
+    `Invalid ${source} value "${value}". Use none, minimal, low, medium, high, xhigh, max, or ultra.`,
+  );
+}
+
+function defaultModelId(provider: "deepseek" | "openai"): string {
+  return provider === "openai" ? "gpt-5.4-mini" : "deepseek-v4-flash";
 }
 
 function formatIssuePath(parts: readonly PropertyKey[]): string {

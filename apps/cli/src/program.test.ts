@@ -25,6 +25,13 @@ describe("Forge CLI", () => {
     expect(program.commands.map((command) => command.name())).toContain(
       "resume",
     );
+    expect(program.commands.map((command) => command.name())).toContain("auth");
+    expect(program.commands.map((command) => command.name())).toContain(
+      "models",
+    );
+    expect(program.commands.map((command) => command.name())).toContain(
+      "codex",
+    );
   });
 
   it("passes model options and environment to the ask command", async () => {
@@ -95,6 +102,73 @@ describe("Forge CLI", () => {
 
     expect(receivedPrompt).toBe("inspect repository:disabled");
     expect(exitCode).toBe(3);
+  });
+
+  it("routes the Codex engine with model and reasoning selection", async () => {
+    let received: string | undefined;
+    let exitCode: number | undefined;
+    const program = createProgram({
+      env: {},
+      runCodex: async (prompt, options) => {
+        received = `${prompt}:${options.model}:${options.reasoningEffort}`;
+        return 0;
+      },
+      setExitCode: (value) => {
+        exitCode = value;
+      },
+    });
+
+    await program.parseAsync([
+      "node",
+      "forge",
+      "run",
+      "inspect repository",
+      "--engine",
+      "codex",
+      "--model",
+      "gpt-test",
+      "--reasoning-effort",
+      "high",
+    ]);
+
+    expect(received).toBe("inspect repository:gpt-test:high");
+    expect(exitCode).toBe(0);
+  });
+
+  it("routes auth and model discovery commands", async () => {
+    const received: string[] = [];
+    const program = createProgram({
+      env: {},
+      runAuth: async (mode, provider, options) => {
+        received.push(`${mode}:${provider}:${options.method ?? "none"}`);
+        return 0;
+      },
+      runModels: async (provider) => {
+        received.push(`models:${provider}`);
+        return 0;
+      },
+      setExitCode: () => undefined,
+    });
+
+    await program.parseAsync([
+      "node",
+      "forge",
+      "auth",
+      "login",
+      "openai",
+      "--method",
+      "device-code",
+    ]);
+    await program.parseAsync([
+      "node",
+      "forge",
+      "models",
+      "list",
+      "--provider",
+      "openai",
+    ]);
+
+    expect(received).toEqual(["login:openai:device-code", "models:openai"]);
   });
 
   it("starts the interactive session when no subcommand is provided", async () => {

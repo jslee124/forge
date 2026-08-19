@@ -1,8 +1,13 @@
 import { FORGE_VERSION } from "@forge/core";
-import { DEFAULT_DEEPSEEK_MODEL } from "@forge/model-deepseek";
 import { Command } from "commander";
 
 import { type AskOptions, runAskFromCli } from "./ask.js";
+import {
+  type CodexAuthOptions,
+  runCodexAuthFromCli,
+  runCodexModelsFromCli,
+  runCodexTaskFromCli,
+} from "./codex-command.js";
 import { runConfigCommand } from "./config-command.js";
 import { runInspectFromCli } from "./inspect.js";
 import { runPluginsCommand } from "./plugins-command.js";
@@ -20,6 +25,21 @@ export interface ProgramDependencies {
   readonly runTask?: (
     prompt: string,
     options: AskOptions,
+    env: NodeJS.ProcessEnv,
+  ) => Promise<number>;
+  readonly runCodex?: (
+    prompt: string,
+    options: AskOptions,
+    env: NodeJS.ProcessEnv,
+  ) => Promise<number>;
+  readonly runAuth?: (
+    mode: "login" | "status" | "logout",
+    provider: string,
+    options: CodexAuthOptions,
+    env: NodeJS.ProcessEnv,
+  ) => Promise<number>;
+  readonly runModels?: (
+    provider: string,
     env: NodeJS.ProcessEnv,
   ) => Promise<number>;
   readonly runInteractive?: (
@@ -53,9 +73,17 @@ export interface ProgramDependencies {
 
 export function createProgram(dependencies: ProgramDependencies = {}): Command {
   const env = dependencies.env ?? process.env;
-  const { FORGE_MODEL, FORGE_THINKING } = env;
+  const {
+    FORGE_MODEL,
+    FORGE_PROVIDER,
+    FORGE_REASONING_EFFORT,
+    FORGE_THINKING,
+  } = env;
   const ask = dependencies.runAsk ?? runAskFromCli;
   const run = dependencies.runTask ?? runTaskFromCli;
+  const codex = dependencies.runCodex ?? runCodexTaskFromCli;
+  const auth = dependencies.runAuth ?? runCodexAuthFromCli;
+  const models = dependencies.runModels ?? runCodexModelsFromCli;
   const interactive = dependencies.runInteractive ?? runInteractiveFromCli;
   const setExitCode =
     dependencies.setExitCode ??
@@ -100,7 +128,9 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
     .enablePositionalOptions()
     .version(FORGE_VERSION)
     .showHelpAfterError()
-    .option("--model <model>", "DeepSeek model ID")
+    .option("--provider <provider>", "API provider: deepseek or openai")
+    .option("--model <model>", "model ID")
+    .option("--reasoning-effort <effort>", "OpenAI API reasoning effort")
     .option("--thinking <mode>", "thinking mode: enabled or disabled")
     .option(
       "--permission-profile <profile>",
@@ -112,12 +142,18 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
 
   program
     .command("ask")
-    .description("Send one prompt to DeepSeek and stream the response")
+    .description("Send one prompt through a configured API provider")
     .argument("<prompt>", "prompt to send to the model")
+    .option("--model <model>", "model ID", FORGE_MODEL)
     .option(
-      "--model <model>",
-      "DeepSeek model ID",
-      FORGE_MODEL ?? DEFAULT_DEEPSEEK_MODEL,
+      "--provider <provider>",
+      "API provider: deepseek or openai",
+      FORGE_PROVIDER,
+    )
+    .option(
+      "--reasoning-effort <effort>",
+      "OpenAI API reasoning effort",
+      FORGE_REASONING_EFFORT,
     )
     .option(
       "--thinking <mode>",
@@ -132,7 +168,17 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
     .command("run")
     .description("Run a safe multi-step coding-agent task")
     .argument("<prompt>", "repository task for Forge")
-    .option("--model <model>", "DeepSeek model ID")
+    .option(
+      "--engine <engine>",
+      "execution engine: forge or codex",
+      parseEngine,
+    )
+    .option("--provider <provider>", "Forge API provider: deepseek or openai")
+    .option("--model <model>", "model ID")
+    .option(
+      "--reasoning-effort <effort>",
+      "reasoning effort supported by the selected model/provider",
+    )
     .option("--thinking <mode>", "thinking mode: enabled or disabled")
     .option(
       "--permission-profile <profile>",
@@ -155,7 +201,70 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
       parsePositiveInteger,
     )
     .action(async (prompt: string, options: AskOptions) => {
-      setExitCode(await run(prompt, options, env));
+      setExitCode(
+        options.engine === "codex"
+          ? await codex(prompt, options, env)
+          : await run(prompt, options, env),
+      );
+    });
+
+  program
+    .command("codex")
+    .description("Run a task with Codex using ChatGPT subscription access")
+    .argument("<prompt>", "repository task for Codex")
+    .option("--model <model>", "Codex model ID")
+    .option(
+      "--reasoning-effort <effort>",
+      "reasoning effort supported by the selected model",
+    )
+    .option(
+      "--permission-profile <profile>",
+      "permission profile: safe or workspace-write",
+    )
+    .action(async (prompt: string, options: AskOptions) => {
+      setExitCode(await codex(prompt, options, env));
+    });
+
+  const authCommand = program
+    .command("auth")
+    .description("Manage Forge model authentication");
+  authCommand
+    .command("login")
+    .description("Sign in through the official Codex authentication flow")
+    .argument("[provider]", "authentication provider", "openai")
+    .option(
+      "--method <method>",
+      "login method: browser or device-code",
+      parseLoginMethod,
+      "browser",
+    )
+    .action(async (provider: string, options: CodexAuthOptions) => {
+      setExitCode(await auth("login", provider, options, env));
+    });
+  authCommand
+    .command("status")
+    .description("Show the current authentication state")
+    .argument("[provider]", "authentication provider", "openai")
+    .action(async (provider: string) => {
+      setExitCode(await auth("status", provider, {}, env));
+    });
+  authCommand
+    .command("logout")
+    .description("Sign out of the selected provider")
+    .argument("[provider]", "authentication provider", "openai")
+    .action(async (provider: string) => {
+      setExitCode(await auth("logout", provider, {}, env));
+    });
+
+  const modelsCommand = program
+    .command("models")
+    .description("Discover models and reasoning capabilities");
+  modelsCommand
+    .command("list")
+    .description("List available models")
+    .option("--provider <provider>", "model provider", "openai")
+    .action(async (options: { readonly provider: string }) => {
+      setExitCode(await models(options.provider, env));
     });
 
   const configCommand = program
@@ -183,7 +292,9 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
     .description("Resume a persisted interactive session")
     .argument("[session-id]", "session UUID")
     .option("--last", "resume the latest session in this workspace")
-    .option("--model <model>", "DeepSeek model ID")
+    .option("--provider <provider>", "API provider: deepseek or openai")
+    .option("--model <model>", "model ID")
+    .option("--reasoning-effort <effort>", "OpenAI API reasoning effort")
     .option("--thinking <mode>", "thinking mode: enabled or disabled")
     .option(
       "--permission-profile <profile>",
@@ -229,4 +340,16 @@ function parsePositiveInteger(value: string): number {
     throw new Error(`Expected a positive integer, received "${value}".`);
   }
   return parsed;
+}
+
+function parseEngine(value: string): "forge" | "codex" {
+  if (value === "forge" || value === "codex") return value;
+  throw new Error(`Invalid engine "${value}". Use "forge" or "codex".`);
+}
+
+function parseLoginMethod(value: string): "browser" | "device-code" {
+  if (value === "browser" || value === "device-code") return value;
+  throw new Error(
+    `Invalid login method "${value}". Use "browser" or "device-code".`,
+  );
 }

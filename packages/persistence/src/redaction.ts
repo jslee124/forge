@@ -35,5 +35,11 @@ function redactString(value: string, secrets: readonly string[]): string {
   for (const secret of secrets) {
     redacted = redacted.replaceAll(secret, "[REDACTED]");
   }
-  return redacted;
+  return redacted
+    .replace(/\bBearer\s+\S+/giu, "Bearer [REDACTED]")
+    .replace(/\bsk-[A-Za-z0-9_-]{8,}\b/gu, "[REDACTED]")
+    .replace(
+      /\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/gu,
+      "[REDACTED]",
+    );
 }
