@@ -1,5 +1,6 @@
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { AuthenticationStoreError } from "@forge/auth";
 import {
   type ModelAdapter,
   ModelProviderError,
@@ -212,5 +213,52 @@ describe("forge ask", () => {
     // The DeepSeek default model must not stand in for another provider.
     expect(exitCode).toBe(2);
     expect(stderr.read()).toMatch(/No model was selected for provider/u);
+  });
+
+  it("reports an unreadable credential file as a credential fault", async () => {
+    const stdout = outputBuffer();
+    const stderr = outputBuffer();
+
+    const exitCode = await runAsk(
+      "hello",
+      { provider: "my-gateway", model: "m" },
+      {
+        env: {},
+        stdout: stdout.output,
+        stderr: stderr.output,
+        signal: new AbortController().signal,
+        createAdapter: () => {
+          throw new AuthenticationStoreError("Could not read auth.json.");
+        },
+      },
+    );
+
+    // This previously fell through to "contacting DeepSeek", sending the user
+    // to check the network for a purely local, provider-independent fault.
+    expect(exitCode).toBe(2);
+    expect(stderr.read()).toMatch(/Credential error/u);
+    expect(stderr.read()).not.toMatch(/DeepSeek/u);
+  });
+
+  it("never names a specific vendor in the unexpected-error fallback", async () => {
+    const stdout = outputBuffer();
+    const stderr = outputBuffer();
+
+    const exitCode = await runAsk(
+      "hello",
+      { provider: "my-gateway", model: "m" },
+      {
+        env: {},
+        stdout: stdout.output,
+        stderr: stderr.output,
+        signal: new AbortController().signal,
+        createAdapter: () => {
+          throw new Error("something unrecognized");
+        },
+      },
+    );
+
+    expect(exitCode).toBe(1);
+    expect(stderr.read()).not.toMatch(/DeepSeek/u);
   });
 });

@@ -1,3 +1,4 @@
+import { AuthenticationStoreError } from "@forge/auth";
 import {
   ForgeConfigError,
   loadForgeConfig,
@@ -107,8 +108,18 @@ export async function runAsk(
       return 1;
     }
 
+    // A credential file that cannot be read is a configuration fault, not a
+    // provider fault; reporting it as an unexpected provider error sent users
+    // to check the network for a purely local problem.
+    if (error instanceof AuthenticationStoreError) {
+      dependencies.stderr.write(`Credential error: ${error.message}\n`);
+      return 2;
+    }
+
     dependencies.stderr.write(
-      "Unexpected error while contacting DeepSeek. Run with debug logging after checking your configuration.\n",
+      // The provider is whatever configuration selected, so this must not name
+      // one; it previously always said "DeepSeek".
+      "Unexpected error while contacting the model provider. Run with debug logging after checking your configuration.\n",
     );
     return 1;
   }

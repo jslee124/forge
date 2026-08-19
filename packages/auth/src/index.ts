@@ -162,7 +162,14 @@ export class FileCredentialStore {
     try {
       const parsed: unknown = JSON.parse(readFileSync(this.path, "utf8"));
       const validated = validateAuthenticationFile(parsed);
-      chmodSync(this.path, 0o600);
+      // Tightening permissions is best-effort hardening, not a precondition
+      // for reading. A read-only mount, or a file owned by another user but
+      // readable, must not make an otherwise valid credential file unusable.
+      try {
+        chmodSync(this.path, 0o600);
+      } catch {
+        // The credential was still read; the mode simply could not be changed.
+      }
       return validated;
     } catch (error) {
       if (isNodeError(error, "ENOENT")) return EMPTY_AUTHENTICATION_FILE;

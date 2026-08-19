@@ -1,13 +1,47 @@
 import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+/**
+ * Lets one test make the hardening `chmodSync` fail the way a read-only mount
+ * does. ESM exports cannot be spied on, so the module is wrapped instead and
+ * every other call is passed through untouched.
+ */
+const fsControl = vi.hoisted(() => ({
+  chmodFailsFor: undefined as string | undefined,
+}));
+
+vi.mock("node:fs", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:fs")>();
+  return {
+    ...actual,
+    chmodSync: (
+      target: Parameters<typeof actual.chmodSync>[0],
+      mode: number,
+    ) => {
+      if (
+        fsControl.chmodFailsFor !== undefined &&
+        String(target) === fsControl.chmodFailsFor
+      ) {
+        const error: NodeJS.ErrnoException = new Error(
+          "EROFS: read-only file system",
+        );
+        error.code = "EROFS";
+        throw error;
+      }
+      return actual.chmodSync(target, mode);
+    },
+  };
+});
 
 import { AuthenticationManager, AuthenticationStoreError } from "./index.js";
 
 const temporaryDirectories: string[] = [];
 
 afterEach(async () => {
+  fsControl.chmodFailsFor = undefined;
+  vi.restoreAllMocks();
   await Promise.all(
     temporaryDirectories
       .splice(0)
@@ -128,6 +162,24 @@ describe("AuthenticationManager", () => {
     await expect(
       manager.storeApiKey("Has Spaces", "secret"),
     ).rejects.toBeInstanceOf(AuthenticationStoreError);
+  });
+
+  it("still reads a credential when its permissions cannot be tightened", async () => {
+    const forgeHome = await createForgeHome();
+    const authPath = path.join(forgeHome, "auth.json");
+    await writeFile(
+      authPath,
+      `{"version":1,"credentials":{"deepseek":{"type":"api_key","key":"kept"}}}`,
+      "utf8",
+    );
+    // A read-only mount, or a file owned by another user but readable, makes
+    // the hardening chmod fail. That must not deny access to a file Forge has
+    // just read successfully.
+    fsControl.chmodFailsFor = authPath;
+
+    const manager = new AuthenticationManager({ FORGE_HOME: forgeHome });
+
+    expect(manager.requireApiKey("deepseek").apiKey).toBe("kept");
   });
 
   it("skips an unusable stored entry instead of failing every credential", async () => {
