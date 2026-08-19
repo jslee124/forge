@@ -267,6 +267,19 @@ define `providers`, because a route names the endpoint that receives your API
 key. Plain `http` endpoints are accepted only for loopback hosts, so a local
 gateway works while an external plaintext endpoint is refused.
 
+Behind a proxy, tell Node to honor it. Node ignores `HTTP_PROXY` and
+`HTTPS_PROXY` unless asked, so a proxy that already works for your shell and
+browser will not be used by Forge and the route simply times out:
+
+```bash
+NODE_USE_ENV_PROXY=1 HTTPS_PROXY=http://127.0.0.1:8080 forge
+```
+
+Forge has no proxy setting of its own, because a proxy decides where your API
+key travels and so belongs to how the process is launched, not to repository or
+route configuration. A route that resolves but never connects says this in the
+error; a host name that does not resolve points at the baseUrl instead.
+
 Use a ChatGPT subscription through the official Codex App Server:
 
 ```bash

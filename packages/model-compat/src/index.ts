@@ -74,4 +74,9 @@ export {
   ModelDiscoveryError,
   readModelListing,
 } from "./discovery.js";
+export {
+  classifyReachFailure,
+  type ReachFailure,
+  reachAdvice,
+} from "./reachability.js";
 export type { CompatTransport, CompatTransportRequest } from "./transport.js";

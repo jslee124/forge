@@ -140,6 +140,28 @@ gear mapped to null is offered but sends no reasoning parameter, `false`
 declares a model that does not reason, and an absent declaration sends no
 reasoning parameter at all.
 
+### Proxies
+
+Forge does not configure a proxy and offers no proxy setting. A proxy decides
+where the API key travels, which makes it part of how the process is launched
+rather than something repository or route configuration may redirect. This
+mirrors the treatment of `NODE_OPTIONS`, `SSL_CERT_FILE`, and
+`NODE_TLS_REJECT_UNAUTHORIZED`: variables that can redirect or downgrade a
+connection belong to the inherited environment.
+
+Node does not read `HTTP_PROXY` or `HTTPS_PROXY` on its own, so a proxy that
+already works for the shell, curl, and the browser will not be used by Forge
+until the runtime is told to honor it:
+
+```bash
+NODE_USE_ENV_PROXY=1 HTTPS_PROXY=http://127.0.0.1:8080 forge
+```
+
+Because that gap produces a plain timeout with no hint of the cause, a request
+that resolves but never connects says so and names both variables. A host name
+that does not resolve reports the baseUrl instead, since a proxy cannot fix a
+wrong name.
+
 ## Refresh and concurrency
 
 Codex App Server owns subscription token refresh and persistence. Forge never

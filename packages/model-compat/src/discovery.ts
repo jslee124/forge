@@ -19,6 +19,8 @@ import {
   providerUrl,
 } from "@forge/config";
 
+import { classifyReachFailure, reachAdvice } from "./reachability.js";
+
 /**
  * Replies larger than this are refused. The endpoint is whatever URL the user
  * typed, so the ceiling holds on the bytes actually read rather than on the
@@ -242,7 +244,7 @@ export async function discoverModels(
   } catch (error) {
     if (request.signal?.aborted) throw error;
     throw new ModelDiscoveryError(
-      `could not reach ${url}; check the baseUrl and the network`,
+      `could not reach ${url}: ${reachAdvice(classifyReachFailure(error))}`,
       { cause: error },
     );
   } finally {

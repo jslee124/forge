@@ -16,6 +16,7 @@ import {
   tool,
 } from "ai";
 
+import { classifyReachFailure, reachAdvice } from "./reachability.js";
 import type { CompatTransport, CompatTransportRequest } from "./transport.js";
 
 type StreamTextFunction = typeof streamText;
@@ -307,9 +308,12 @@ export function mapCompatError(
       },
     );
   }
+  // No status code means the endpoint never answered, so the advice depends
+  // on how far the request got rather than on the provider.
+  const failure = classifyReachFailure(error);
   return new ModelProviderError(
-    `Could not reach provider route "${route}". Check the network and the route's baseUrl.`,
-    { provider: route, retryable: true, cause: error },
+    `Could not reach provider route "${route}": ${reachAdvice(failure)}.`,
+    { provider: route, retryable: failure !== "dns", cause: error },
   );
 }
 
