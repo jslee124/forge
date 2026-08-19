@@ -84,6 +84,65 @@ describe("AuthenticationManager", () => {
       ),
     ).toThrow(/forge codex.*subscription access/iu);
   });
+
+  it("stores and resolves a credential for a third-party route", async () => {
+    const forgeHome = await createForgeHome();
+    const manager = new AuthenticationManager({ FORGE_HOME: forgeHome });
+
+    await manager.storeApiKey("my-gateway", "route-secret");
+
+    expect(manager.status("my-gateway").authenticated).toBe(true);
+    expect(manager.requireApiKey("my-gateway").apiKey).toBe("route-secret");
+    // A route without a declared variable gets one derived from its name.
+    expect(manager.status("my-gateway").environmentVariable).toBe(
+      "FORGE_MY_GATEWAY_API_KEY",
+    );
+    // Built-in credentials are unaffected by the generalization.
+    expect(manager.status("deepseek").authenticated).toBe(false);
+  });
+
+  it("prefers the environment variable a route profile declares", async () => {
+    const forgeHome = await createForgeHome();
+    const manager = new AuthenticationManager({
+      FORGE_HOME: forgeHome,
+      MY_GATEWAY_TOKEN: "from-environment",
+    });
+    await manager.storeApiKey("my-gateway", "stored-secret");
+
+    const declared = { environmentVariable: "MY_GATEWAY_TOKEN" };
+    expect(manager.status("my-gateway", declared).source).toBe("environment");
+    expect(manager.requireApiKey("my-gateway", declared).apiKey).toBe(
+      "from-environment",
+    );
+    // Without the declaration the stored credential still answers.
+    expect(manager.requireApiKey("my-gateway").apiKey).toBe("stored-secret");
+  });
+
+  it("refuses a credential name that is not a usable route", async () => {
+    const forgeHome = await createForgeHome();
+    const manager = new AuthenticationManager({ FORGE_HOME: forgeHome });
+
+    await expect(
+      manager.storeApiKey("__proto__", "secret"),
+    ).rejects.toBeInstanceOf(AuthenticationStoreError);
+    await expect(
+      manager.storeApiKey("Has Spaces", "secret"),
+    ).rejects.toBeInstanceOf(AuthenticationStoreError);
+  });
+
+  it("skips an unusable stored entry instead of failing every credential", async () => {
+    const forgeHome = await createForgeHome();
+    const authPath = path.join(forgeHome, "auth.json");
+    await writeFile(
+      authPath,
+      `{"version":1,"credentials":{"__proto__":{"type":"api_key","key":"ignored"},"deepseek":{"type":"api_key","key":"kept"}}}`,
+      "utf8",
+    );
+    const manager = new AuthenticationManager({ FORGE_HOME: forgeHome });
+
+    expect(manager.requireApiKey("deepseek").apiKey).toBe("kept");
+    expect(manager.status("__proto__").authenticated).toBe(false);
+  });
 });
 
 async function createForgeHome(): Promise<string> {

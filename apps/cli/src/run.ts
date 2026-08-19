@@ -162,6 +162,7 @@ export async function runTask(
       model: loaded.config.model.id,
       thinking,
       reasoningEffort: loaded.config.model.reasoningEffort,
+      providers: loaded.config.providers,
     } satisfies CreateForgeModelAdapterOptions);
     const workspace = await resolveWorkspace(
       loaded.workspaceRoot,

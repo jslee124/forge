@@ -13,8 +13,19 @@ import { homedir } from "node:os";
 import path from "node:path";
 import { ModelConfigurationError } from "@forge/core";
 
-export type ApiKeyProvider = "deepseek" | "openai";
+/** Providers Forge ships an adapter and a known environment variable for. */
+export type BuiltInApiKeyProvider = "deepseek" | "openai";
+
+/**
+ * A credential owner: a built-in provider, or a configured third-party route
+ * key. Route names are checked before reaching the store, so a caller cannot
+ * write an arbitrary property into the credential file.
+ */
+export type ApiKeyProvider = string;
 export type ApiKeySource = "environment" | "stored";
+
+/** Route names the credential store accepts, matching the config schema. */
+const ROUTE_NAME = /^[a-z][a-z0-9-]{0,63}$/u;
 
 export interface ApiKeyAuthentication {
   readonly kind: "api-key";
@@ -23,6 +34,11 @@ export interface ApiKeyAuthentication {
   readonly source: ApiKeySource;
   readonly environmentVariable: string;
   readonly credentialPath?: string;
+}
+
+/** Per-call overrides for a route whose profile names its own variable. */
+export interface ApiKeyLookupOptions {
+  readonly environmentVariable?: string;
 }
 
 export interface AuthenticationStatus {
@@ -41,7 +57,7 @@ interface StoredApiKey {
 
 interface AuthenticationFile {
   readonly version: 1;
-  readonly credentials: Partial<Record<ApiKeyProvider, StoredApiKey>>;
+  readonly credentials: Readonly<Record<string, StoredApiKey>>;
 }
 
 interface ParsedRecord extends Record<string, unknown> {
@@ -54,7 +70,25 @@ interface ParsedRecord extends Record<string, unknown> {
 const API_KEY_ENVIRONMENT_VARIABLES = {
   deepseek: "DEEPSEEK_API_KEY",
   openai: "OPENAI_API_KEY",
-} as const satisfies Record<ApiKeyProvider, string>;
+} as const satisfies Record<BuiltInApiKeyProvider, string>;
+
+/**
+ * The environment variable consulted for one credential owner.
+ *
+ * A built-in provider keeps its published name. A third-party route uses the
+ * name its profile declares, falling back to a name derived from the route so
+ * a key can be exported without first editing configuration.
+ */
+export function apiKeyEnvironmentVariable(
+  provider: ApiKeyProvider,
+  declared?: string,
+): string {
+  if (declared !== undefined && declared !== "") return declared;
+  if (isBuiltInApiKeyProvider(provider)) {
+    return API_KEY_ENVIRONMENT_VARIABLES[provider];
+  }
+  return `FORGE_${provider.replaceAll("-", "_").toLocaleUpperCase()}_API_KEY`;
+}
 
 const EMPTY_AUTHENTICATION_FILE: AuthenticationFile = {
   version: 1,
@@ -70,6 +104,15 @@ export class AuthenticationStoreError extends Error {
   }
 }
 
+/** Refuse a name that must never become a key in the credential file. */
+function assertCredentialOwner(provider: string): void {
+  if (!isApiKeyProvider(provider)) {
+    throw new AuthenticationStoreError(
+      `"${provider}" is not a usable credential name. Use a provider route of lowercase letters, digits, and hyphens.`,
+    );
+  }
+}
+
 /** User-scoped, owner-readable credential storage inspired by Pi and OpenCode. */
 export class FileCredentialStore {
   readonly path: string;
@@ -81,11 +124,15 @@ export class FileCredentialStore {
   }
 
   getApiKey(provider: ApiKeyProvider): string | undefined {
-    const key = this.#read().credentials[provider]?.key.trim();
+    if (!isApiKeyProvider(provider)) return undefined;
+    const key = Object.hasOwn(this.#read().credentials, provider)
+      ? this.#read().credentials[provider]?.key.trim()
+      : undefined;
     return key || undefined;
   }
 
   async setApiKey(provider: ApiKeyProvider, apiKey: string): Promise<void> {
+    assertCredentialOwner(provider);
     const key = apiKey.trim();
     if (key === "")
       throw new AuthenticationStoreError("API key cannot be empty.");
@@ -99,9 +146,10 @@ export class FileCredentialStore {
   }
 
   async removeApiKey(provider: ApiKeyProvider): Promise<boolean> {
+    assertCredentialOwner(provider);
     let removed = false;
     await this.#mutate((current) => {
-      if (!current.credentials[provider]) return current;
+      if (!Object.hasOwn(current.credentials, provider)) return current;
       removed = true;
       const credentials = { ...current.credentials };
       delete credentials[provider];
@@ -167,8 +215,14 @@ export class AuthenticationManager {
     this.#store = store;
   }
 
-  status(provider: ApiKeyProvider): AuthenticationStatus {
-    const environmentVariable = API_KEY_ENVIRONMENT_VARIABLES[provider];
+  status(
+    provider: ApiKeyProvider,
+    options: ApiKeyLookupOptions = {},
+  ): AuthenticationStatus {
+    const environmentVariable = apiKeyEnvironmentVariable(
+      provider,
+      options.environmentVariable,
+    );
     const environmentKey = this.#env[environmentVariable]?.trim();
     const storedKey = environmentKey
       ? undefined
@@ -188,8 +242,11 @@ export class AuthenticationManager {
     };
   }
 
-  requireApiKey(provider: ApiKeyProvider): ApiKeyAuthentication {
-    const status = this.status(provider);
+  requireApiKey(
+    provider: ApiKeyProvider,
+    options: ApiKeyLookupOptions = {},
+  ): ApiKeyAuthentication {
+    const status = this.status(provider, options);
     const apiKey =
       status.source === "environment"
         ? this.#env[status.environmentVariable]?.trim()
@@ -232,8 +289,19 @@ export function resolveForgeHome(env: NodeJS.ProcessEnv = process.env): string {
   );
 }
 
-export function isApiKeyProvider(value: string): value is ApiKeyProvider {
+export function isBuiltInApiKeyProvider(
+  value: string,
+): value is BuiltInApiKeyProvider {
   return value === "deepseek" || value === "openai";
+}
+
+/**
+ * Whether a name may own a credential. Built-in providers always may; any
+ * other name must look like a configured route, so a caller cannot reach
+ * `__proto__` or an arbitrary key in the credential file.
+ */
+export function isApiKeyProvider(value: string): value is ApiKeyProvider {
+  return isBuiltInApiKeyProvider(value) || ROUTE_NAME.test(value);
 }
 
 async function acquireLock(
@@ -275,9 +343,15 @@ function validateAuthenticationFile(value: unknown): AuthenticationFile {
       "Credential file has an unsupported or invalid format.",
     );
   }
-  const credentials: Partial<Record<ApiKeyProvider, StoredApiKey>> = {};
-  for (const provider of ["deepseek", "openai"] as const) {
-    const credential = value.credentials[provider];
+  const credentials: Record<string, StoredApiKey> = Object.create(
+    null,
+  ) as Record<string, StoredApiKey>;
+  for (const [provider, credential] of Object.entries(value.credentials)) {
+    // A name that could never be written by Forge is skipped rather than
+    // rejected: a hand-edited stray entry should not make every other stored
+    // credential unreadable. `JSON.parse` exposes "__proto__" as an ordinary
+    // key, and this is what refuses it.
+    if (!isApiKeyProvider(provider)) continue;
     if (credential === undefined) continue;
     if (
       !isRecord(credential) ||

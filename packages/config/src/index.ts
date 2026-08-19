@@ -18,10 +18,24 @@ export {
   saveUserModelSelection,
 } from "./loader.js";
 export {
+  isLoopbackHost,
+  LISTABLE_PROVIDER_APIS,
+  PROVIDER_APIS,
+  type ProviderApi,
+  ProviderEndpointError,
+  parseProviderBaseUrl,
+  providerUrl,
+  RESERVED_PROVIDER_ROUTES,
+} from "./providers.js";
+export {
   DEFAULT_FORGE_CONFIG,
   type EffectiveForgeConfig,
   type ForgeConfigFile,
   forgeConfigFileSchema,
   type PermissionProfile,
+  type ProviderModelProfile,
+  type ProviderProfile,
   permissionProfileSchema,
+  type ReasoningEffort,
+  type ReasoningGears,
 } from "./schema.js";

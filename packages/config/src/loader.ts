@@ -16,6 +16,7 @@ import {
   type EffectiveForgeConfig,
   type ForgeConfigFile,
   forgeConfigFileSchema,
+  type ProviderProfile,
   permissionProfileSchema,
 } from "./schema.js";
 
@@ -193,6 +194,15 @@ export async function loadForgeConfig(options: {
   config = applyEnvironment(config, provenance, env);
   config = applyCli(config, provenance, options.cli ?? {});
 
+  // A provider is only selectable once its route exists. User configuration
+  // can name a route it never defined, and a stored model selection can
+  // outlive the route it was made against.
+  parseProvider(
+    config.model.provider,
+    provenance["model.provider"].label,
+    config.providers,
+  );
+
   return {
     config,
     provenance,
@@ -330,6 +340,9 @@ function rejectProjectOnlyFields(
     config.permissionProfile === undefined ? undefined : "permissionProfile",
     config.trace === undefined ? undefined : "trace",
     config.plugins === undefined ? undefined : "plugins",
+    // A provider route names the endpoint that receives the stored API key.
+    // Repository configuration must never be able to point it somewhere.
+    config.providers === undefined ? undefined : "providers",
   ].filter((value): value is string => value !== undefined);
   if (forbidden.length > 0) {
     throw new ForgeConfigError(
@@ -343,6 +356,7 @@ function mergeOrdinary(
   base: EffectiveForgeConfig,
   next: ForgeConfigFile,
 ): EffectiveForgeConfig {
+  const providers = next.providers ?? base.providers;
   const provider = next.model?.provider ?? base.model.provider;
   return {
     schemaVersion: 1,
@@ -352,7 +366,7 @@ function mergeOrdinary(
       id:
         next.model?.id ??
         (next.model?.provider && next.model.provider !== base.model.provider
-          ? defaultModelId(provider)
+          ? defaultModelId(provider, providers, "model.provider")
           : base.model.id),
       reasoningEffort:
         next.model?.reasoningEffort ?? base.model.reasoningEffort,
@@ -379,6 +393,9 @@ function mergeOrdinary(
       summaryTargetTokens:
         next.context?.summaryTargetTokens ?? base.context.summaryTargetTokens,
     },
+    // Routes are replaced as a unit rather than merged per key, so deleting a
+    // route from user configuration actually removes it.
+    providers: next.providers ?? base.providers,
   };
 }
 
@@ -426,13 +443,21 @@ function applyEnvironment(
 ): EffectiveForgeConfig {
   let config = base;
   if (env.FORGE_PROVIDER?.trim()) {
-    const provider = parseProvider(env.FORGE_PROVIDER, "FORGE_PROVIDER");
+    const provider = parseProvider(
+      env.FORGE_PROVIDER,
+      "FORGE_PROVIDER",
+      config.providers,
+    );
     config = {
       ...config,
       model: {
         ...config.model,
         provider,
-        ...(!env.FORGE_MODEL ? { id: defaultModelId(provider) } : {}),
+        ...(!env.FORGE_MODEL
+          ? {
+              id: defaultModelId(provider, config.providers, "FORGE_PROVIDER"),
+            }
+          : {}),
       },
     };
     provenance["model.provider"] = {
@@ -486,13 +511,19 @@ function applyCli(
     provenance["model.engine"] = cliSource;
   }
   if (cli.provider !== undefined) {
-    const provider = parseProvider(cli.provider, "--provider");
+    const provider = parseProvider(
+      cli.provider,
+      "--provider",
+      config.providers,
+    );
     config = {
       ...config,
       model: {
         ...config.model,
         provider,
-        ...(cli.model === undefined ? { id: defaultModelId(provider) } : {}),
+        ...(cli.model === undefined
+          ? { id: defaultModelId(provider, config.providers, "--provider") }
+          : {}),
       },
     };
     provenance["model.provider"] = cliSource;
@@ -637,10 +668,20 @@ function parseThinking(value: string, source: string): "enabled" | "disabled" {
   );
 }
 
-function parseProvider(value: string, source: string): "deepseek" | "openai" {
+function parseProvider(
+  value: string,
+  source: string,
+  providers: Readonly<Record<string, ProviderProfile>>,
+): string {
   if (value === "deepseek" || value === "openai") return value;
+  if (Object.hasOwn(providers, value)) return value;
+  const routes = Object.keys(providers).sort();
   throw new ForgeConfigError(
-    `Invalid ${source} value "${value}". Use "deepseek" or "openai".`,
+    `Invalid ${source} value "${value}". Use "deepseek", "openai"${
+      routes.length === 0
+        ? ""
+        : `, or a configured provider route: ${routes.join(", ")}`
+    }.`,
   );
 }
 
@@ -665,8 +706,24 @@ function parseReasoningEffort(
   );
 }
 
-function defaultModelId(provider: "deepseek" | "openai"): string {
-  return provider === "openai" ? "gpt-5.4-mini" : "deepseek-v4-flash";
+/**
+ * The model selected when a provider changes without naming one. A
+ * third-party route has no built-in default, so its first configured model
+ * stands in; a route with no models cannot answer and says so instead of
+ * silently keeping the previous provider's model id.
+ */
+function defaultModelId(
+  provider: string,
+  providers: Readonly<Record<string, ProviderProfile>>,
+  source: string,
+): string {
+  if (provider === "openai") return "gpt-5.4-mini";
+  if (provider === "deepseek") return "deepseek-v4-flash";
+  const first = providers[provider]?.models?.[0]?.id;
+  if (first !== undefined) return first;
+  throw new ForgeConfigError(
+    `Provider route "${provider}" (${source}) configures no models, so no model can be selected by default. Add models to the route, or name one with model.id, FORGE_MODEL, or --model.`,
+  );
 }
 
 function formatIssuePath(parts: readonly PropertyKey[]): string {

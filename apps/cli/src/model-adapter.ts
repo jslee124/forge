@@ -1,3 +1,4 @@
+import type { ProviderProfile } from "@forge/config";
 import type { ModelAdapter } from "@forge/core";
 import { ModelConfigurationError } from "@forge/core";
 import {
@@ -11,10 +12,13 @@ import {
 
 export interface CreateForgeModelAdapterOptions {
   readonly env: NodeJS.ProcessEnv;
-  readonly provider: "deepseek" | "openai";
+  /** A built-in provider name, or a configured third-party route key. */
+  readonly provider: string;
   readonly model: string;
   readonly thinking: DeepSeekThinkingMode;
   readonly reasoningEffort: OpenAIReasoningEffort | "ultra";
+  /** Configured third-party routes, consulted when provider is not built in. */
+  readonly providers?: Readonly<Record<string, ProviderProfile>>;
 }
 
 export function createForgeModelAdapter(
@@ -32,9 +36,20 @@ export function createForgeModelAdapter(
       reasoningEffort: options.reasoningEffort,
     });
   }
-  return createDeepSeekModelAdapter({
-    env: options.env,
-    model: options.model,
-    thinking: options.thinking,
-  });
+  if (options.provider === "deepseek") {
+    return createDeepSeekModelAdapter({
+      env: options.env,
+      model: options.model,
+      thinking: options.thinking,
+    });
+  }
+  const route = options.providers?.[options.provider];
+  if (route === undefined) {
+    throw new ModelConfigurationError(
+      `Unknown provider "${options.provider}". Use "deepseek", "openai", or a route defined under providers in the user configuration.`,
+    );
+  }
+  throw new ModelConfigurationError(
+    `Provider route "${options.provider}" speaks ${route.api}, which this build cannot dispatch yet.`,
+  );
 }
