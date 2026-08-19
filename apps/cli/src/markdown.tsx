@@ -91,7 +91,7 @@ function MarkdownLine({
   const quote = /^\s*>\s+(.*)$/u.exec(text);
   if (quote) {
     return (
-      <Text dimColor>
+      <Text dimColor={dimColor}>
         <Text color="gray">│ </Text>
         <InlineMarkdown text={quote[1] ?? ""} />
       </Text>
