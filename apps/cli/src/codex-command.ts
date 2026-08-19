@@ -73,21 +73,35 @@ export async function runCodexAuthCommand(
 ): Promise<number> {
   if (provider === "openai-api" || provider === "deepseek") {
     const apiProvider = provider === "openai-api" ? "openai" : "deepseek";
-    const status = new AuthenticationManager(dependencies.env).status(
-      apiProvider,
-    );
+    const authentication = new AuthenticationManager(dependencies.env);
+    const status = authentication.status(apiProvider);
     if (mode === "status") {
       dependencies.stdout.write(
-        `${provider}: ${status.authenticated ? `authenticated via ${status.environmentVariable}` : `not configured (${status.environmentVariable})`}\n`,
+        `${provider}: ${status.authenticated ? (status.source === "environment" ? `authenticated via ${status.environmentVariable}` : `authenticated via ${status.credentialPath}`) : `not configured (${status.environmentVariable} or ${status.credentialPath})`}\n`,
       );
       return status.authenticated ? 0 : 1;
     }
-    dependencies.stderr.write(
-      mode === "login"
-        ? `${provider} uses an environment API key. Export ${status.environmentVariable}; Forge will not persist it. OpenAI API usage is billed separately from ChatGPT.\n`
-        : `${provider} credentials are environment-managed. Unset ${status.environmentVariable} in your shell to log out.\n`,
+    if (mode === "login") {
+      dependencies.stderr.write(
+        `Open interactive Forge and enter /login to save a ${provider} key, or export ${status.environmentVariable}. OpenAI API usage is billed separately from ChatGPT.\n`,
+      );
+      return 2;
+    }
+    const removed = await authentication.removeStoredApiKey(apiProvider);
+    const environmentStillSet = Boolean(
+      dependencies.env[status.environmentVariable]?.trim(),
     );
-    return 2;
+    dependencies.stdout.write(
+      removed
+        ? `Removed the stored ${provider} credential from ${status.credentialPath}.\n`
+        : `No stored ${provider} credential was found in ${status.credentialPath}.\n`,
+    );
+    if (environmentStillSet) {
+      dependencies.stderr.write(
+        `${status.environmentVariable} is still set and continues to authenticate this provider. Unset it in your shell to fully log out.\n`,
+      );
+    }
+    return removed && !environmentStillSet ? 0 : 1;
   }
   if (provider !== "openai") {
     dependencies.stderr.write(

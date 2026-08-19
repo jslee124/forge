@@ -1,10 +1,14 @@
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { AuthenticationManager } from "@forge/auth";
 import type {
   CodexLoginCompleted,
   CodexModel,
   JsonRpcNotification,
   JsonRpcServerRequest,
 } from "@forge/codex-app-server";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import {
   type CodexClient,
@@ -14,6 +18,16 @@ import {
   runCodexModelsCommand,
   runCodexTask,
 } from "./codex-command.js";
+
+const temporaryDirectories: string[] = [];
+
+afterEach(async () => {
+  await Promise.all(
+    temporaryDirectories
+      .splice(0)
+      .map((directory) => rm(directory, { recursive: true, force: true })),
+  );
+});
 
 class BufferOutput {
   value = "";
@@ -132,6 +146,27 @@ describe("Codex commands", () => {
 
     expect(result).toBe(0);
     expect(stdout.value).toBe("openai-api: authenticated via OPENAI_API_KEY\n");
+  });
+
+  it("removes stored API credentials but does not pretend to unset the environment", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "forge-auth-command-"));
+    temporaryDirectories.push(root);
+    const env = { FORGE_HOME: root };
+    await new AuthenticationManager(env).storeApiKey("deepseek", "test-secret");
+    const stdout = new BufferOutput();
+
+    const result = await runCodexAuthCommand(
+      "logout",
+      "deepseek",
+      {},
+      { ...dependencies(new FakeClient(), stdout, new BufferOutput()), env },
+    );
+
+    expect(result).toBe(0);
+    expect(stdout.value).toContain("Removed the stored deepseek credential");
+    expect(
+      new AuthenticationManager(env).status("deepseek").authenticated,
+    ).toBe(false);
   });
 
   it("runs browser login through the official app-server account surface", async () => {

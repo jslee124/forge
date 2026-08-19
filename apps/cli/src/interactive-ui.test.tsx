@@ -68,6 +68,82 @@ describe("Ink interactive terminal", () => {
     expect(instance.lastFrame()).toContain(
       "/clear  Clear conversation context",
     );
+    expect(instance.lastFrame()).toContain(
+      "/login  Configure a model provider",
+    );
+    instance.unmount();
+  });
+
+  it("stores an API key through /login without rendering the secret", async () => {
+    const root = await createWorkspace();
+    let saved: { provider: string; apiKey: string } | undefined;
+    const instance = render(
+      <InteractiveApp
+        options={{}}
+        env={{}}
+        cwd={root}
+        saveApiKey={async ({ provider, apiKey }) => {
+          saved = { provider, apiKey };
+          return "/tmp/forge-auth.json";
+        }}
+      />,
+    );
+
+    await settle();
+    instance.stdin.write("/login");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+    expect(instance.lastFrame()).toContain("Choose model provider");
+    instance.stdin.write("\u001B[B");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+    instance.stdin.write("deepseek-secret-value");
+    await settle();
+
+    expect(instance.lastFrame()).toContain("Enter DeepSeek API key");
+    expect(instance.lastFrame()).not.toContain("deepseek-secret-value");
+    expect(instance.lastFrame()).toContain("••••");
+
+    instance.stdin.write("\r");
+    await settle();
+    expect(saved).toEqual({
+      provider: "deepseek",
+      apiKey: "deepseek-secret-value",
+    });
+    expect(instance.lastFrame()).toContain("Saved DeepSeek API credential");
+    expect(instance.lastFrame()).not.toContain("deepseek-secret-value");
+    instance.unmount();
+  });
+
+  it("routes ChatGPT subscription login through the Codex auth surface", async () => {
+    const root = await createWorkspace();
+    let invoked = false;
+    const instance = render(
+      <InteractiveApp
+        options={{}}
+        env={{}}
+        cwd={root}
+        executeAuthentication={async () => {
+          invoked = true;
+          return 0;
+        }}
+      />,
+    );
+
+    await settle();
+    instance.stdin.write("/login");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+
+    expect(invoked).toBe(true);
+    expect(instance.lastFrame()).toContain(
+      "ChatGPT subscription sign-in completed",
+    );
     instance.unmount();
   });
 

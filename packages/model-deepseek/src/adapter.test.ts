@@ -1,3 +1,5 @@
+import { tmpdir } from "node:os";
+import path from "node:path";
 import type { ModelStreamEvent } from "@forge/core";
 import { ModelConfigurationError } from "@forge/core";
 import { describe, expect, it } from "vitest";
@@ -40,10 +42,19 @@ class FakeTransport implements DeepSeekTransport {
 
 describe("DeepSeek model adapter", () => {
   it("rejects a missing API key without exposing a secret", () => {
-    expect(() => resolveDeepSeekApiKey({})).toThrow(ModelConfigurationError);
-    expect(() => resolveDeepSeekApiKey({ DEEPSEEK_API_KEY: "  " })).toThrow(
-      "Missing DEEPSEEK_API_KEY",
+    const forgeHome = path.join(
+      tmpdir(),
+      `forge-no-auth-deepseek-${process.pid}`,
     );
+    expect(() => resolveDeepSeekApiKey({ FORGE_HOME: forgeHome })).toThrow(
+      ModelConfigurationError,
+    );
+    expect(() =>
+      resolveDeepSeekApiKey({
+        FORGE_HOME: forgeHome,
+        DEEPSEEK_API_KEY: "  ",
+      }),
+    ).toThrow("Missing DEEPSEEK_API_KEY");
   });
 
   it("uses explicit defaults and forwards normalized stream events", async () => {

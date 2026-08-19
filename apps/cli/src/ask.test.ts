@@ -1,3 +1,5 @@
+import { tmpdir } from "node:os";
+import path from "node:path";
 import {
   type ModelAdapter,
   ModelProviderError,
@@ -81,7 +83,9 @@ describe("forge ask", () => {
       "hello",
       {},
       {
-        env: {},
+        env: {
+          FORGE_HOME: path.join(tmpdir(), `forge-no-auth-ask-${process.pid}`),
+        },
         stdout: stdout.output,
         stderr: stderr.output,
         signal: new AbortController().signal,

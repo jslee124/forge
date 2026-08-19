@@ -335,6 +335,8 @@ private OAuth behavior as a stable contract.
 - [x] Discover available Codex models and reasoning efforts through `model/list`
 - [x] Add explicit `forge codex` and `forge run --engine codex` execution paths
 - [x] Add an interactive `/model` picker and persisted user selection
+- [x] Add an interactive `/login` provider picker with masked API-key entry
+- [x] Store API keys in an owner-only user file with environment overrides
 - [x] Redact credentials from logs, traces, errors, and plugin events
 - [x] Test login, refresh, cancellation, expiry, corruption, and logout with fake
   authorization responses

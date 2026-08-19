@@ -1,3 +1,4 @@
+import { type ApiKeyProvider, AuthenticationManager } from "@forge/auth";
 import {
   loadForgeConfig,
   type PersistedModelSelection,
@@ -18,6 +19,7 @@ import {
   type CodexCommandDependencies,
   type CodexOutputEvent,
   discoverCodexModels,
+  runCodexAuthCommand,
   runCodexTask,
 } from "./codex-command.js";
 import {
@@ -53,7 +55,14 @@ import {
   runTask,
 } from "./run.js";
 
-type Phase = "editing" | "running" | "approving" | "resuming" | "models";
+type Phase =
+  | "editing"
+  | "running"
+  | "approving"
+  | "resuming"
+  | "models"
+  | "login-providers"
+  | "login-key";
 type TranscriptKind =
   | "user"
   | "reasoning"
@@ -81,6 +90,33 @@ interface ModelChoice {
   readonly description: string;
   readonly selection: PersistedModelSelection;
 }
+
+interface LoginChoice {
+  readonly label: string;
+  readonly description: string;
+  readonly kind: "subscription" | "api-key";
+  readonly provider?: ApiKeyProvider;
+}
+
+const LOGIN_CHOICES: readonly LoginChoice[] = [
+  {
+    label: "ChatGPT subscription",
+    description: "Official Codex sign-in · subscription usage",
+    kind: "subscription",
+  },
+  {
+    label: "DeepSeek API",
+    description: "Save a DeepSeek API key",
+    kind: "api-key",
+    provider: "deepseek",
+  },
+  {
+    label: "OpenAI API",
+    description: "Save an API key · billed separately from ChatGPT",
+    kind: "api-key",
+    provider: "openai",
+  },
+];
 
 function modelChoiceKey(choice: ModelChoice): string {
   const { selection } = choice;
@@ -165,6 +201,14 @@ export interface InteractiveUiDependencies {
   readonly discoverSubscriptionModels?: (
     dependencies: CodexCommandDependencies,
   ) => Promise<readonly import("@forge/codex-app-server").CodexModel[]>;
+  readonly executeAuthentication?: (
+    dependencies: CodexCommandDependencies,
+  ) => Promise<number>;
+  readonly saveApiKey?: (options: {
+    readonly provider: ApiKeyProvider;
+    readonly apiKey: string;
+    readonly env: NodeJS.ProcessEnv;
+  }) => Promise<string>;
   readonly sessionPersistence?: InteractiveSessionPersistence;
   readonly persistModelSelection?: (options: {
     readonly cwd: string;
@@ -267,6 +311,10 @@ export function InteractiveApp({
   executeTask = runTask,
   executeCodexTask = runCodexTask,
   discoverSubscriptionModels = discoverCodexModels,
+  executeAuthentication = (dependencies) =>
+    runCodexAuthCommand("login", "openai", {}, dependencies),
+  saveApiKey = ({ provider, apiKey, env: loginEnv }) =>
+    new AuthenticationManager(loginEnv).storeApiKey(provider, apiKey),
   sessionPersistence,
   persistModelSelection = saveUserModelSelection,
 }: InteractiveAppProps): React.JSX.Element {
@@ -288,6 +336,8 @@ export function InteractiveApp({
     useState<readonly ModelChoice[]>(MODEL_CHOICES);
   const [modelsLoading, setModelsLoading] = useState(false);
   const [modelQuery, setModelQuery] = useState("");
+  const [loginKey, setLoginKey] = useState("");
+  const [loginChoice, setLoginChoice] = useState<LoginChoice>();
   const conversation = useRef<ModelConversationMessage[]>([...initialMessages]);
   const activeController = useRef<AbortController | undefined>(undefined);
   const idleExitArmed = useRef(false);
@@ -486,6 +536,13 @@ export function InteractiveApp({
             setPhase("editing");
           },
         );
+        return;
+      case "/login":
+        setEditor(createEditorState());
+        setLoginKey("");
+        setLoginChoice(undefined);
+        setSelectedIndex(0);
+        setPhase("login-providers");
         return;
       case "/model":
         setEditor(createEditorState());
@@ -688,6 +745,9 @@ export function InteractiveApp({
     (text) => updateEditor((current) => insertEditorText(current, text)),
     { isActive: phase === "editing" },
   );
+  usePaste((text) => setLoginKey((current) => current + text), {
+    isActive: phase === "login-key",
+  });
 
   useInput((input, key) => {
     const interruptCount = Array.from(input).filter(
@@ -742,6 +802,103 @@ export function InteractiveApp({
           );
         }
         return;
+      }
+      return;
+    }
+    if (phase === "login-providers") {
+      if (key.escape) {
+        setPhase("editing");
+        return;
+      }
+      if (key.upArrow || key.downArrow) {
+        setSelectedIndex((current) => {
+          const delta = key.upArrow ? -1 : 1;
+          return (
+            (current + delta + LOGIN_CHOICES.length) % LOGIN_CHOICES.length
+          );
+        });
+        return;
+      }
+      if (key.return) {
+        const selected = LOGIN_CHOICES[selectedIndex];
+        if (!selected) return;
+        if (selected.kind === "api-key") {
+          setLoginChoice(selected);
+          setLoginKey("");
+          setPhase("login-key");
+          return;
+        }
+        const controller = new AbortController();
+        activeController.current = controller;
+        setPhase("running");
+        void executeAuthentication({
+          env,
+          cwd,
+          stdout,
+          stderr,
+          signal: controller.signal,
+          isTTY: true,
+        })
+          .then((code) => {
+            appendEntry(
+              code === 0 ? "system" : "error",
+              code === 0
+                ? "ChatGPT subscription sign-in completed. Use /model to choose a Codex model."
+                : "ChatGPT subscription sign-in did not complete.",
+            );
+          })
+          .catch((error: unknown) =>
+            appendEntry(
+              "error",
+              `Could not sign in: ${error instanceof Error ? error.message : "unknown error"}`,
+            ),
+          )
+          .finally(() => {
+            activeController.current = undefined;
+            setPhase("editing");
+          });
+        return;
+      }
+      return;
+    }
+    if (phase === "login-key") {
+      if (key.escape) {
+        setLoginKey("");
+        setLoginChoice(undefined);
+        setPhase("login-providers");
+        return;
+      }
+      if (key.return) {
+        const apiKey = loginKey.trim();
+        const provider = loginChoice?.provider;
+        if (!provider || apiKey === "") return;
+        setLoginKey("");
+        setPhase("running");
+        void saveApiKey({ provider, apiKey, env }).then(
+          (credentialPath) => {
+            appendEntry(
+              "system",
+              `Saved ${loginChoice.label} credential to ${credentialPath}. Environment variables take precedence. Use /model to choose a model.`,
+            );
+            setLoginChoice(undefined);
+            setPhase("editing");
+          },
+          (error: unknown) => {
+            appendEntry(
+              "error",
+              `Could not save credential: ${error instanceof Error ? error.message : "unknown error"}`,
+            );
+            setPhase("login-key");
+          },
+        );
+        return;
+      }
+      if (key.backspace || key.delete) {
+        setLoginKey((current) => Array.from(current).slice(0, -1).join(""));
+        return;
+      }
+      if (!key.ctrl && !key.meta && input !== "") {
+        setLoginKey((current) => current + input);
       }
       return;
     }
@@ -913,7 +1070,7 @@ export function InteractiveApp({
           <Text bold color="cyan">
             Forge
           </Text>
-          <Text dimColor> coding agent · / commands · @ files</Text>
+          <Text dimColor> coding agent · /login provider · @ files</Text>
         </Text>
       </Box>
 
@@ -1038,15 +1195,65 @@ export function InteractiveApp({
         </Box>
       ) : null}
 
-      <Box
-        borderStyle="round"
-        borderColor={phase === "editing" ? "green" : "gray"}
-        paddingX={1}
-        marginTop={1}
-      >
-        <Text color="green">❯ </Text>
-        <PromptWithCursor state={editor} active={phase === "editing"} />
-      </Box>
+      {phase === "login-providers" ? (
+        <Box
+          borderStyle="round"
+          borderColor="cyan"
+          flexDirection="column"
+          paddingX={1}
+        >
+          <Text bold color="cyan">
+            Choose model provider
+          </Text>
+          {LOGIN_CHOICES.map((choice, index) => (
+            <Text
+              key={choice.label}
+              bold={index === selectedIndex}
+              {...(index === selectedIndex ? { color: "cyan" as const } : {})}
+            >
+              {index === selectedIndex ? "› " : "  "}
+              {choice.label} · {choice.description}
+            </Text>
+          ))}
+          <Text dimColor>Enter continue · Esc cancel</Text>
+        </Box>
+      ) : null}
+
+      {phase === "login-key" && loginChoice?.provider ? (
+        <Box
+          borderStyle="round"
+          borderColor="cyan"
+          flexDirection="column"
+          paddingX={1}
+        >
+          <Text bold color="cyan">
+            Enter {loginChoice.label} key
+          </Text>
+          <Text>
+            API key:{" "}
+            <Text color="cyan">
+              {loginKey ? "•".repeat(Array.from(loginKey).length) : "_"}
+            </Text>
+          </Text>
+          <Text dimColor>
+            Saved under $FORGE_HOME/auth.json with owner-only permissions. The
+            key is never shown in the transcript.
+          </Text>
+          <Text dimColor>Enter save · Esc back</Text>
+        </Box>
+      ) : null}
+
+      {phase !== "login-providers" && phase !== "login-key" ? (
+        <Box
+          borderStyle="round"
+          borderColor={phase === "editing" ? "green" : "gray"}
+          paddingX={1}
+          marginTop={1}
+        >
+          <Text color="green">❯ </Text>
+          <PromptWithCursor state={editor} active={phase === "editing"} />
+        </Box>
+      ) : null}
 
       {phase === "editing" && completionKind && visibleCandidates.length > 0 ? (
         <Box

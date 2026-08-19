@@ -139,6 +139,13 @@ pnpm forge --help
 Start an interactive session from the repository:
 
 ```bash
+pnpm forge
+# Then enter /login and choose a provider.
+```
+
+Environment-only setup remains available:
+
+```bash
 export DEEPSEEK_API_KEY="your-api-key"
 pnpm forge
 ```
@@ -148,10 +155,18 @@ The interactive prompt persists completed user/assistant turns under
 `forge resume --last`, or the interactive `/resume` picker. Each prompt remains
 a separate bounded run with fresh policy and approval state; pending tool calls,
 provider continuations, and command approvals are never restored.
-Available commands are `/help`, `/clear`, `/model`, `/resume`, and `/exit`.
+Available commands are `/help`, `/clear`, `/login`, `/model`, `/resume`, and
+`/exit`. `/login` lets you choose ChatGPT subscription, DeepSeek API, or OpenAI
+API. API keys are entered through a masked field and stored in
+`$FORGE_HOME/auth.json`; the directory is mode `0700` and the file is mode
+`0600`. Like Pi and OpenCode's local auth files, this is plaintext protected by
+filesystem permissions rather than an OS keychain. ChatGPT credentials remain
+owned by the official Codex App Server.
+`DEEPSEEK_API_KEY` and `OPENAI_API_KEY` remain supported and take precedence
+over stored credentials.
 `/model` discovers ChatGPT subscription models and also shows API models; it
-persists ordinary engine/provider/model settings, never credentials. Ctrl+C cancels
-an active task and returns to the prompt; press it again to exit.
+persists ordinary engine/provider/model settings separately from credentials.
+Ctrl+C cancels an active task and returns to the prompt; press it again to exit.
 
 The [interactive CLI UI](docs/CLI_UI.md) supports Shift+Enter, Meta+Enter
 (`ESC+Enter`), or Ctrl+J for a newline, live `/` command completion, and
@@ -197,6 +212,12 @@ pnpm forge run "Inspect this repository" \
 If you only have a ChatGPT subscription, skip this API-key setup and use the
 Codex commands below. Forge's default tests use mocked transports and never make
 paid OpenAI API requests.
+
+Inspect or remove saved API credentials with `forge auth status deepseek`,
+`forge auth logout deepseek`, `forge auth status openai-api`, and
+`forge auth logout openai-api`. Logout removes only Forge's stored key; it
+cannot unset an environment variable in your parent shell. Never commit
+`auth.json`, and do not set `FORGE_HOME` to a shared or repository directory.
 
 Use a ChatGPT subscription through the official Codex App Server:
 
