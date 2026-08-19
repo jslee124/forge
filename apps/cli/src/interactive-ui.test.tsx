@@ -249,9 +249,7 @@ describe("Ink interactive terminal", () => {
     expect(instance.lastFrame()).toContain("Project");
     expect(instance.lastFrame()).toContain("First step");
     expect(instance.lastFrame()).toContain("const x = 1;");
-    expect(instance.lastFrame()).toContain(
-      "Using gpt-5.6-luna · thinking effort: medium",
-    );
+    expect(instance.lastFrame()).toContain("gpt-5.6-luna · medium");
     expect(instance.lastFrame()).toContain(
       "Completed · gpt-5.6-luna · thinking effort: medium",
     );

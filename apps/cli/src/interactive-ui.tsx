@@ -1048,12 +1048,6 @@ export function InteractiveApp({
         <PromptWithCursor state={editor} active={phase === "editing"} />
       </Box>
 
-      <Box paddingX={1}>
-        <Text dimColor>
-          Using <Text color="cyan">{formatModelStatus(activeOptions)}</Text>
-        </Text>
-      </Box>
-
       {phase === "editing" && completionKind && visibleCandidates.length > 0 ? (
         <Box
           borderStyle="single"
@@ -1084,15 +1078,11 @@ export function InteractiveApp({
         </Box>
       ) : null}
 
-      <Text dimColor>
-        {phase === "editing"
-          ? `${filesLoading ? "Indexing files · " : ""}Enter submit · Shift+Enter/Meta+Enter/Ctrl+J newline · Ctrl+C cancel/exit`
-          : phase === "running"
-            ? "● Running · Ctrl+C cancel"
-            : phase === "approving"
-              ? "Waiting for approval"
-              : "Choose a saved session"}
-      </Text>
+      <PromptFooter
+        activeOptions={activeOptions}
+        filesLoading={filesLoading}
+        phase={phase}
+      />
     </Box>
   );
 }
@@ -1118,6 +1108,48 @@ function formatModelStatus(options: AskOptions): string {
   const effort =
     options.reasoningEffort?.trim() || options.thinking?.trim() || "default";
   return `${model} · thinking effort: ${effort}`;
+}
+
+function formatCompactModelStatus(options: AskOptions): string {
+  const model = options.model?.trim() || "default";
+  const effort =
+    options.reasoningEffort?.trim() || options.thinking?.trim() || "default";
+  return `${model} · ${effort}`;
+}
+
+function PromptFooter({
+  activeOptions,
+  filesLoading,
+  phase,
+}: {
+  readonly activeOptions: AskOptions;
+  readonly filesLoading: boolean;
+  readonly phase: Phase;
+}): React.JSX.Element {
+  if (phase === "editing") {
+    return (
+      <Box paddingX={1}>
+        <Text color="gray">
+          <Text color="blue">{formatCompactModelStatus(activeOptions)}</Text>
+          {"  ·  "}
+          {filesLoading ? "Indexing files  ·  " : ""}
+          <Text color="green">Enter</Text> submit ·{" "}
+          <Text color="cyan">Shift+Enter/Meta+Enter/Ctrl+J</Text> newline ·{" "}
+          <Text color="red">Ctrl+C</Text> cancel/exit
+        </Text>
+      </Box>
+    );
+  }
+
+  return (
+    <Text dimColor>
+      {phase === "running"
+        ? "● Running · Ctrl+C cancel"
+        : phase === "approving"
+          ? "Waiting for approval"
+          : "Choose a saved session"}
+    </Text>
+  );
 }
 
 function PromptWithCursor({
