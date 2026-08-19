@@ -120,6 +120,16 @@ prints the official verification URL and code and waits for App Server's
 completion notification. Browser callback validation and PKCE are owned by
 Codex. Cancelling Forge asks App Server to cancel the pending login.
 
+Sign-in URLs are much wider than a terminal window. Terminals that linkify
+plain text do so one display line at a time, so a wrapped URL would stay
+clickable only up to its first wrap. Forge therefore emits the URL as a single
+OSC 8 hyperlink on terminals known to support it, including VS Code, Ghostty,
+WezTerm, iTerm2, Kitty, Windows Terminal, Konsole, and VTE 5000 or newer. The
+visible label remains the complete address, so an unsupported terminal still
+shows a copyable URL. Redirected output, `TERM=dumb`, and `NO_COLOR` always
+produce the bare URL. Set `FORCE_HYPERLINK=1` to opt an unrecognized terminal
+in, or `FORCE_HYPERLINK=0` to opt out.
+
 `forge auth logout openai` operates on the shared Codex account and can sign
 other local Codex clients out. Forge does not claim that these are Forge-owned
 credentials.
