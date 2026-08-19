@@ -204,7 +204,7 @@ describe("forge run", () => {
       "Inspect this repository",
       {},
       {
-        env: {},
+        env: { FORGE_HOME: root },
         cwd: root,
         stdout: stdout.output,
         stderr: stderr.output,

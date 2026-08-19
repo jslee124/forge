@@ -9,6 +9,7 @@ import { describe, expect, it } from "vitest";
 import {
   type CodexClient,
   type CodexCommandDependencies,
+  type CodexOutputEvent,
   runCodexAuthCommand,
   runCodexModelsCommand,
   runCodexTask,
@@ -59,6 +60,14 @@ class FakeClient implements CodexClient {
         this.emit({
           method: "item/agentMessage/delta",
           params: { delta: "done" },
+        }),
+      );
+      queueMicrotask(() =>
+        this.emit({
+          method: "item/started",
+          params: {
+            item: { type: "commandExecution", command: "pwd" },
+          },
         }),
       );
       queueMicrotask(() =>
@@ -179,7 +188,8 @@ describe("Codex commands", () => {
     );
 
     expect(result).toBe(0);
-    expect(stdout.value).toContain("[answer]\ndone");
+    expect(stdout.value).toBe("[answer]\ndone\n");
+    expect(stderr.value).toContain("[command] pwd\n");
     expect(client.requests).toContainEqual({
       method: "account/read",
       params: { refreshToken: true },
@@ -206,6 +216,26 @@ describe("Codex commands", () => {
         effort: "high",
       },
     });
+  });
+
+  it("emits structured interactive output without changing plain CLI output", async () => {
+    const client = new FakeClient();
+    const events: CodexOutputEvent[] = [];
+    const result = await runCodexTask(
+      "inspect the repository",
+      { model: "gpt-test", reasoningEffort: "high" },
+      dependencies(client, new BufferOutput(), new BufferOutput(), {
+        onOutput: (event) => events.push(event),
+      }),
+    );
+
+    expect(result).toBe(0);
+    expect(events).toEqual([
+      { type: "system", text: "Codex · gpt-test · reasoning high" },
+      { type: "answer", text: "" },
+      { type: "answer", text: "done" },
+      { type: "tool", text: "○ Running command: pwd" },
+    ]);
   });
 
   it("rejects unsupported reasoning effort before starting a thread", async () => {

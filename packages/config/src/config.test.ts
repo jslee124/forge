@@ -113,6 +113,42 @@ describe("Forge configuration", () => {
     expect(loaded.provenance["model.id"].kind).toBe("cli");
   });
 
+  it("does not load the user config a second time as project config", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "forge-home-"));
+    temporaryDirectories.push(root);
+    const forgeHome = path.join(root, ".forge");
+    await mkdir(forgeHome);
+    await writeFile(
+      path.join(forgeHome, "config.json"),
+      JSON.stringify({
+        schemaVersion: 1,
+        model: {
+          engine: "codex",
+          provider: "openai",
+          id: "gpt-5.6-luna",
+          reasoningEffort: "low",
+        },
+      }),
+    );
+
+    const loaded = await loadForgeConfig({
+      cwd: root,
+      env: { FORGE_HOME: forgeHome },
+    });
+
+    expect(loaded.userConfigPath).toBe(path.join(forgeHome, "config.json"));
+    expect(await realpath(loaded.projectConfigPath)).toBe(
+      await realpath(loaded.userConfigPath),
+    );
+    expect(loaded.config.model).toMatchObject({
+      engine: "codex",
+      provider: "openai",
+      id: "gpt-5.6-luna",
+      reasoningEffort: "low",
+    });
+    expect(loaded.provenance["model.id"].kind).toBe("user");
+  });
+
   it("selects a provider-appropriate default model", async () => {
     const { nested, forgeHome } = await fixture();
     const loaded = await loadForgeConfig({

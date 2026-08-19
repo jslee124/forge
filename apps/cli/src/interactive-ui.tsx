@@ -16,6 +16,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AskOptions, WritableOutput } from "./ask.js";
 import {
   type CodexCommandDependencies,
+  type CodexOutputEvent,
   discoverCodexModels,
   runCodexTask,
 } from "./codex-command.js";
@@ -32,6 +33,7 @@ import {
   deleteEditorRange,
   discoverWorkspaceFiles,
   type EditorState,
+  filterFuzzy,
   filterWorkspaceFiles,
   insertEditorText,
   insertFileMention,
@@ -78,6 +80,30 @@ interface ModelChoice {
   readonly label: string;
   readonly description: string;
   readonly selection: PersistedModelSelection;
+}
+
+function modelChoiceKey(choice: ModelChoice): string {
+  const { selection } = choice;
+  return [
+    selection.engine,
+    selection.provider,
+    selection.id,
+    selection.reasoningEffort ?? "",
+    selection.thinking ?? "",
+  ].join("\u0000");
+}
+
+function modelChoiceSearchFields(choice: ModelChoice): readonly string[] {
+  const { selection } = choice;
+  return [
+    choice.label,
+    choice.description,
+    selection.engine,
+    selection.provider,
+    selection.id,
+    selection.reasoningEffort,
+    selection.thinking,
+  ].filter((value): value is string => value !== undefined);
 }
 
 const MODEL_CHOICES: readonly ModelChoice[] = [
@@ -261,6 +287,7 @@ export function InteractiveApp({
   const [modelChoices, setModelChoices] =
     useState<readonly ModelChoice[]>(MODEL_CHOICES);
   const [modelsLoading, setModelsLoading] = useState(false);
+  const [modelQuery, setModelQuery] = useState("");
   const conversation = useRef<ModelConversationMessage[]>([...initialMessages]);
   const activeController = useRef<AbortController | undefined>(undefined);
   const idleExitArmed = useRef(false);
@@ -277,6 +304,20 @@ export function InteractiveApp({
   const fileCandidates = mentionQuery
     ? filterWorkspaceFiles(files, mentionQuery.query, 11)
     : [];
+  const visibleModelChoices = useMemo(
+    () =>
+      filterFuzzy(
+        modelChoices,
+        modelQuery,
+        modelChoiceSearchFields,
+        modelQuery.trim() === "" ? modelChoices.length : 12,
+      ),
+    [modelChoices, modelQuery],
+  );
+  const selectedModelIndex =
+    visibleModelChoices.length === 0
+      ? 0
+      : Math.min(selectedIndex, visibleModelChoices.length - 1);
   const completionDismissed = dismissedCompletion === completionSignature;
   const completionKind = completionDismissed
     ? undefined
@@ -313,6 +354,16 @@ export function InteractiveApp({
     [appendOutput],
   );
   const stderr = stdout;
+  const handleCodexOutput = useCallback(
+    (event: CodexOutputEvent): void => {
+      appendEntry(
+        event.type,
+        event.text,
+        event.type === "reasoning" || event.type === "answer",
+      );
+    },
+    [appendEntry],
+  );
   const handleRunEvent = useCallback(
     (event: RunEvent): void => {
       switch (event.type) {
@@ -439,6 +490,7 @@ export function InteractiveApp({
       case "/model":
         setEditor(createEditorState());
         setSelectedIndex(0);
+        setModelQuery("");
         setPhase("models");
         setModelsLoading(true);
         void discoverSubscriptionModels({
@@ -514,6 +566,7 @@ export function InteractiveApp({
     appendEntry("user", editor.value);
     let result: RunResult | undefined;
     let metadata: RunMetadata | undefined;
+    let codexExitCode: number | undefined;
     let commandPreview: CommandApprovalPreview | undefined;
 
     const approvalChannel = createApprovalChannel(
@@ -547,11 +600,12 @@ export function InteractiveApp({
 
     void (async () => {
       if (activeOptions.engine === "codex") {
-        await executeCodexTask(prompt, activeOptions, {
+        codexExitCode = await executeCodexTask(prompt, activeOptions, {
           env,
           cwd,
           stdout,
           stderr,
+          onOutput: handleCodexOutput,
           signal: controller.signal,
           isTTY: true,
         });
@@ -585,6 +639,16 @@ export function InteractiveApp({
         );
       })
       .finally(() => {
+        const completed =
+          activeOptions.engine === "codex"
+            ? codexExitCode === 0
+            : result?.status === "completed";
+        if (completed) {
+          appendEntry(
+            "system",
+            `Completed · ${formatModelStatus(activeOptions)}`,
+          );
+        }
         if (result?.status === "completed") {
           conversation.current.push({ role: "user", content: prompt });
           if (result.finalText !== "") {
@@ -683,20 +747,23 @@ export function InteractiveApp({
     }
     if (phase === "models") {
       if (key.escape) {
+        setModelQuery("");
         setPhase("editing");
         return;
       }
       if (key.upArrow || key.downArrow) {
         setSelectedIndex((current) => {
-          if (modelChoices.length === 0) return 0;
+          if (visibleModelChoices.length === 0) return 0;
           const delta = key.upArrow ? -1 : 1;
-          return (current + delta + modelChoices.length) % modelChoices.length;
+          return (
+            (current + delta + visibleModelChoices.length) %
+            visibleModelChoices.length
+          );
         });
         return;
       }
       if (key.return) {
-        const selected =
-          modelChoices[Math.min(selectedIndex, modelChoices.length - 1)];
+        const selected = visibleModelChoices[selectedModelIndex];
         if (!selected) return;
         const nextOptions: AskOptions = {
           ...activeOptions,
@@ -729,6 +796,15 @@ export function InteractiveApp({
             ),
         );
         return;
+      }
+      if (key.backspace || key.delete) {
+        setModelQuery((current) => Array.from(current).slice(0, -1).join(""));
+        setSelectedIndex(0);
+        return;
+      }
+      if (!key.ctrl && !key.meta && input !== "") {
+        setModelQuery((current) => current + input);
+        setSelectedIndex(0);
       }
       return;
     }
@@ -928,22 +1004,36 @@ export function InteractiveApp({
           <Text bold color="cyan">
             Choose model and reasoning effort
           </Text>
+          <Text>
+            Search models: <Text color="cyan">{modelQuery || "_"}</Text>
+          </Text>
           {modelsLoading ? (
             <Text dimColor>Discovering ChatGPT subscription models…</Text>
           ) : null}
-          {modelChoices.map((choice, index) => (
+          {modelQuery.trim() !== "" ? (
+            <Text dimColor>
+              Showing {visibleModelChoices.length} of {modelChoices.length}{" "}
+              matches
+            </Text>
+          ) : null}
+          {visibleModelChoices.length === 0 ? (
+            <Text dimColor>No matching models.</Text>
+          ) : null}
+          {visibleModelChoices.map((choice, index) => (
             <Text
-              key={choice.label}
-              bold={index === selectedIndex}
-              {...(index === selectedIndex ? { color: "cyan" as const } : {})}
+              key={modelChoiceKey(choice)}
+              bold={index === selectedModelIndex}
+              {...(index === selectedModelIndex
+                ? { color: "cyan" as const }
+                : {})}
             >
-              {index === selectedIndex ? "› " : "  "}
+              {index === selectedModelIndex ? "› " : "  "}
               {choice.label} · {choice.description}
             </Text>
           ))}
           <Text dimColor>
             ChatGPT entries use Codex Engine; OpenAI API-key entries are billed
-            separately · Enter select · Esc cancel
+            separately · Type to fuzzy search · Enter select · Esc cancel
           </Text>
         </Box>
       ) : null}
@@ -956,6 +1046,12 @@ export function InteractiveApp({
       >
         <Text color="green">❯ </Text>
         <PromptWithCursor state={editor} active={phase === "editing"} />
+      </Box>
+
+      <Box paddingX={1}>
+        <Text dimColor>
+          Using <Text color="cyan">{formatModelStatus(activeOptions)}</Text>
+        </Text>
       </Box>
 
       {phase === "editing" && completionKind && visibleCandidates.length > 0 ? (
@@ -1015,6 +1111,13 @@ function formatDuration(milliseconds: number): string {
   return milliseconds % 1000 === 0
     ? `${milliseconds / 1000}s`
     : `${milliseconds}ms`;
+}
+
+function formatModelStatus(options: AskOptions): string {
+  const model = options.model?.trim() || "default";
+  const effort =
+    options.reasoningEffort?.trim() || options.thinking?.trim() || "default";
+  return `${model} · thinking effort: ${effort}`;
 }
 
 function PromptWithCursor({
@@ -1092,7 +1195,10 @@ function TranscriptBlock({
     case "system":
       return <Text dimColor>{entry.text}</Text>;
     case "raw":
-      return <Text>{entry.text}</Text>;
+      // Codex Engine streams stdout/stderr chunks instead of structured
+      // RunEvents. Render those chunks as Markdown so its answer keeps the
+      // same terminal presentation as Forge model output.
+      return <TerminalMarkdown>{entry.text}</TerminalMarkdown>;
   }
 }
 

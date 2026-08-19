@@ -140,6 +140,13 @@ export async function loadForgeConfig(options: {
   );
   const userConfigPath = path.join(forgeHome, "config.json");
   const projectConfigPath = path.join(workspaceRoot, ".forge", "config.json");
+  const [canonicalUserConfigPath, canonicalProjectConfigPath] =
+    await Promise.all([
+      canonicalConfigPath(userConfigPath),
+      canonicalConfigPath(projectConfigPath),
+    ]);
+  const projectConfigIsUserConfig =
+    canonicalProjectConfigPath === canonicalUserConfigPath;
   const defaults: ConfigSource = { kind: "default", label: "built-in default" };
   const provenance = Object.fromEntries(
     CONFIG_KEYS.map((key) => [key, defaults]),
@@ -156,7 +163,13 @@ export async function loadForgeConfig(options: {
     });
   }
 
-  const project = await readConfigFile(projectConfigPath);
+  // When Forge is started from the user's home directory, the conventional
+  // user config path can also be the derived project config path. Load that
+  // file only as user config; otherwise user-only fields such as model are
+  // incorrectly rejected as project settings.
+  const project = projectConfigIsUserConfig
+    ? undefined
+    : await readConfigFile(projectConfigPath);
   if (project) {
     rejectProjectOnlyFields(project, projectConfigPath);
     const source: ConfigSource = {
@@ -216,6 +229,25 @@ async function canonicalDirectory(directory: string): Promise<string> {
       directory,
       { cause: error },
     );
+  }
+}
+
+async function canonicalConfigPath(configPath: string): Promise<string> {
+  const resolvedPath = path.resolve(configPath);
+  try {
+    return await realpath(resolvedPath);
+  } catch (error) {
+    if (!isNotFound(error)) return resolvedPath;
+  }
+
+  try {
+    return path.join(
+      await realpath(path.dirname(resolvedPath)),
+      path.basename(resolvedPath),
+    );
+  } catch (error) {
+    if (!isNotFound(error)) return resolvedPath;
+    return resolvedPath;
   }
 }
 

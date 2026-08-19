@@ -216,21 +216,50 @@ export function filterWorkspaceFiles(
   query: string,
   limit = 10,
 ): readonly string[] {
-  const normalized = query.toLocaleLowerCase();
-  return files
-    .map((filePath) => ({ filePath, score: fuzzyScore(filePath, normalized) }))
+  return filterFuzzy(files, query, (filePath) => filePath, limit);
+}
+
+export function filterFuzzy<T>(
+  items: readonly T[],
+  query: string,
+  getText: (item: T) => string | readonly string[],
+  limit = items.length,
+): readonly T[] {
+  const normalized = query.trim().toLocaleLowerCase();
+  if (normalized === "") return items.slice(0, limit);
+
+  return items
+    .map((item) => {
+      const text = getText(item);
+      const fields = typeof text === "string" ? [text] : text;
+      const matches = fields
+        .map((field) => ({ text: field, score: fuzzyScore(field, normalized) }))
+        .filter(
+          (match): match is { readonly text: string; readonly score: number } =>
+            match.score !== undefined,
+        )
+        .sort(
+          (left, right) =>
+            left.score - right.score || left.text.localeCompare(right.text),
+        );
+      const best = matches[0];
+      return { item, text: best?.text ?? "", score: best?.score };
+    })
     .filter(
       (
         candidate,
-      ): candidate is { readonly filePath: string; readonly score: number } =>
-        candidate.score !== undefined,
+      ): candidate is {
+        readonly item: T;
+        readonly text: string;
+        readonly score: number;
+      } => candidate.score !== undefined,
     )
     .sort(
       (left, right) =>
-        left.score - right.score || left.filePath.localeCompare(right.filePath),
+        left.score - right.score || left.text.localeCompare(right.text),
     )
     .slice(0, limit)
-    .map(({ filePath }) => filePath);
+    .map(({ item }) => item);
 }
 
 function fuzzyScore(filePath: string, query: string): number | undefined {

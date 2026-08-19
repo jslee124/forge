@@ -40,11 +40,20 @@ export interface CodexClient {
   close(): void;
 }
 
+export type CodexOutputEvent =
+  | { readonly type: "system"; readonly text: string }
+  | { readonly type: "reasoning"; readonly text: string }
+  | { readonly type: "answer"; readonly text: string }
+  | { readonly type: "tool"; readonly text: string }
+  | { readonly type: "warning"; readonly text: string };
+
 export interface CodexCommandDependencies {
   readonly env: NodeJS.ProcessEnv;
   readonly cwd: string;
   readonly stdout: WritableOutput;
   readonly stderr: WritableOutput;
+  /** Structured events used by the Ink UI; omitted by the plain CLI path. */
+  readonly onOutput?: (event: CodexOutputEvent) => void;
   readonly signal: AbortSignal;
   readonly isTTY: boolean;
   readonly connect?: () => Promise<CodexClient>;
@@ -232,8 +241,14 @@ export async function runCodexTask(
       dependencies.stderr.write(`${selection.message}\n`);
       return 2;
     }
-    dependencies.stderr.write(
+    writeCodexOutput(
+      dependencies,
+      "stderr",
       `[codex] model=${selection.model.id} reasoning=${selection.effort}\n`,
+      {
+        type: "system",
+        text: `Codex · ${selection.model.id} · reasoning ${selection.effort}`,
+      },
     );
 
     const permissionProfile = options.permissionProfile ?? "safe";
@@ -508,27 +523,58 @@ function renderCodexNotifications(
 ): () => void {
   let reasoningStarted = false;
   let answerStarted = false;
+  let reasoningLineOpen = false;
+  let answerLineOpen = false;
+  const finishOpenLines = (): void => {
+    if (dependencies.onOutput) {
+      reasoningLineOpen = false;
+      answerLineOpen = false;
+      return;
+    }
+    if (reasoningLineOpen) {
+      dependencies.stderr.write("\n");
+      reasoningLineOpen = false;
+    }
+    if (answerLineOpen) {
+      dependencies.stdout.write("\n");
+      answerLineOpen = false;
+    }
+  };
   return client.onNotification((notification) => {
     const params = asRecord(notification.params);
     if (notification.method === "item/reasoning/summaryTextDelta") {
       const { delta } = params ?? {};
       if (typeof delta !== "string") return;
       if (!reasoningStarted) {
-        dependencies.stderr.write("[reasoning]\n");
+        writeCodexOutput(dependencies, "stderr", "[reasoning]\n", {
+          type: "reasoning",
+          text: "",
+        });
         reasoningStarted = true;
       }
-      dependencies.stderr.write(delta);
+      writeCodexOutput(dependencies, "stderr", delta, {
+        type: "reasoning",
+        text: delta,
+      });
+      reasoningLineOpen = delta.length > 0 && !delta.endsWith("\n");
       return;
     }
     if (notification.method === "item/agentMessage/delta") {
       const { delta } = params ?? {};
       if (typeof delta !== "string") return;
       if (!answerStarted) {
-        if (reasoningStarted) dependencies.stderr.write("\n");
-        dependencies.stdout.write("[answer]\n");
+        if (reasoningStarted) finishOpenLines();
+        writeCodexOutput(dependencies, "stdout", "[answer]\n", {
+          type: "answer",
+          text: "",
+        });
         answerStarted = true;
       }
-      dependencies.stdout.write(delta);
+      writeCodexOutput(dependencies, "stdout", delta, {
+        type: "answer",
+        text: delta,
+      });
+      answerLineOpen = delta.length > 0 && !delta.endsWith("\n");
       return;
     }
     if (notification.method === "item/started") {
@@ -536,9 +582,23 @@ function renderCodexNotifications(
       const item = asRecord(itemValue);
       const { type, command } = item ?? {};
       if (type === "commandExecution") {
-        dependencies.stderr.write(`[command] ${String(command)}\n`);
+        finishOpenLines();
+        const commandText = String(command);
+        writeCodexOutput(dependencies, "stderr", `[command] ${commandText}\n`, {
+          type: "tool",
+          text: `○ Running command: ${commandText}`,
+        });
       } else if (type === "fileChange") {
-        dependencies.stderr.write("[file change] preparing patch\n");
+        finishOpenLines();
+        writeCodexOutput(
+          dependencies,
+          "stderr",
+          "[file change] preparing patch\n",
+          {
+            type: "tool",
+            text: "○ Preparing file change",
+          },
+        );
       }
       return;
     }
@@ -547,11 +607,21 @@ function renderCodexNotifications(
       const item = asRecord(itemValue);
       const { type, status, exitCode } = item ?? {};
       if (type === "commandExecution") {
-        dependencies.stderr.write(
-          `[command] ${String(status)}${typeof exitCode === "number" ? ` exit=${exitCode}` : ""}\n`,
-        );
+        finishOpenLines();
+        const statusText = `${String(status)}${typeof exitCode === "number" ? ` exit=${exitCode}` : ""}`;
+        writeCodexOutput(dependencies, "stderr", `[command] ${statusText}\n`, {
+          type: "tool",
+          text: `✓ Command ${statusText}`,
+        });
       } else if (type === "fileChange") {
-        dependencies.stderr.write(`[file change] ${String(status)}\n`);
+        finishOpenLines();
+        const statusText = String(status);
+        writeCodexOutput(
+          dependencies,
+          "stderr",
+          `[file change] ${statusText}\n`,
+          { type: "tool", text: `✓ File change ${statusText}` },
+        );
       }
       return;
     }
@@ -562,15 +632,32 @@ function renderCodexNotifications(
     ) {
       const { message } = params ?? {};
       if (typeof message === "string") {
-        dependencies.stderr.write(`Warning: ${redactCodexMessage(message)}\n`);
+        finishOpenLines();
+        const warning = `Warning: ${redactCodexMessage(message)}`;
+        writeCodexOutput(dependencies, "stderr", `${warning}\n`, {
+          type: "warning",
+          text: warning,
+        });
       }
       return;
     }
     if (notification.method === "turn/completed") {
-      if (answerStarted) dependencies.stdout.write("\n");
-      if (reasoningStarted && !answerStarted) dependencies.stderr.write("\n");
+      finishOpenLines();
     }
   });
+}
+
+function writeCodexOutput(
+  dependencies: CodexCommandDependencies,
+  stream: "stdout" | "stderr",
+  plainText: string,
+  event: CodexOutputEvent,
+): void {
+  if (dependencies.onOutput) {
+    dependencies.onOutput(event);
+    return;
+  }
+  dependencies[stream].write(plainText);
 }
 
 async function handleServerRequest(

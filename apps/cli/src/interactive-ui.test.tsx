@@ -5,7 +5,7 @@ import type { ForgeTool, RunResult } from "@forge/core";
 import type { SessionSummary } from "@forge/persistence";
 import { renderToString } from "ink";
 import { render } from "ink-testing-library";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   INK_INCREMENTAL_RENDERING,
@@ -17,6 +17,7 @@ import type { InteractiveSessionPersistence } from "./persistent-session.js";
 const temporaryDirectories: string[] = [];
 
 afterEach(async () => {
+  vi.restoreAllMocks();
   await Promise.all(
     temporaryDirectories
       .splice(0)
@@ -127,6 +128,9 @@ describe("Ink interactive terminal", () => {
     const root = await createWorkspace();
     let persisted: unknown;
     let codexOptions: unknown;
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
     const instance = render(
       <InteractiveApp
         options={{}}
@@ -145,6 +149,19 @@ describe("Ink interactive terminal", () => {
             defaultReasoningEffort: "high",
             inputModalities: ["text"],
             isDefault: true,
+          },
+          {
+            id: "gpt-5.4-subscription",
+            model: "gpt-5.4-subscription",
+            displayName: "GPT-5.4",
+            description: "same visible model name as API choice",
+            hidden: false,
+            supportedReasoningEfforts: [
+              { reasoningEffort: "high", description: "deep" },
+            ],
+            defaultReasoningEffort: "high",
+            inputModalities: ["text"],
+            isDefault: false,
           },
         ]}
         persistModelSelection={async (value) => {
@@ -181,6 +198,131 @@ describe("Ink interactive terminal", () => {
       engine: "codex",
       model: "gpt-subscription-test",
       reasoningEffort: "high",
+    });
+    expect(
+      consoleError.mock.calls.some(([message]) =>
+        String(message).includes("same key"),
+      ),
+    ).toBe(false);
+    instance.unmount();
+  });
+
+  it("renders Codex Engine Markdown output in the transcript", async () => {
+    const root = await createWorkspace();
+    const instance = render(
+      <InteractiveApp
+        options={{
+          engine: "codex",
+          provider: "openai",
+          model: "gpt-5.6-luna",
+          reasoningEffort: "medium",
+        }}
+        env={{}}
+        cwd={root}
+        executeCodexTask={async (_prompt, _options, dependencies) => {
+          const fence = String.fromCharCode(96).repeat(3);
+          dependencies.onOutput?.({ type: "answer", text: "" });
+          dependencies.onOutput?.({
+            type: "answer",
+            text: [
+              "# Project",
+              "",
+              "1. First step",
+              "",
+              `${fence}ts`,
+              "const x = 1;",
+              fence,
+              "",
+            ].join("\n"),
+          });
+          return 0;
+        }}
+      />,
+    );
+
+    await settle();
+    instance.stdin.write("explain this project");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+
+    expect(instance.lastFrame()).toContain("Project");
+    expect(instance.lastFrame()).toContain("First step");
+    expect(instance.lastFrame()).toContain("const x = 1;");
+    expect(instance.lastFrame()).toContain(
+      "Using gpt-5.6-luna · thinking effort: medium",
+    );
+    expect(instance.lastFrame()).toContain(
+      "Completed · gpt-5.6-luna · thinking effort: medium",
+    );
+    expect(instance.lastFrame()).not.toContain(
+      `${String.fromCharCode(96).repeat(3)}ts`,
+    );
+    instance.unmount();
+  });
+
+  it("fuzzy-filters subscription models before selection", async () => {
+    const root = await createWorkspace();
+    let persisted: unknown;
+    const instance = render(
+      <InteractiveApp
+        options={{}}
+        env={{}}
+        cwd={root}
+        discoverSubscriptionModels={async () => [
+          {
+            id: "gpt-5.6-sol",
+            model: "gpt-5.6-sol",
+            displayName: "GPT-5.6-Sol",
+            description: "fake model",
+            hidden: false,
+            supportedReasoningEfforts: [
+              { reasoningEffort: "high", description: "deep" },
+            ],
+            defaultReasoningEffort: "high",
+            inputModalities: ["text"],
+            isDefault: true,
+          },
+          {
+            id: "gpt-5.6-luna",
+            model: "gpt-5.6-luna",
+            displayName: "GPT-5.6-Luna",
+            description: "fake model",
+            hidden: false,
+            supportedReasoningEfforts: [
+              { reasoningEffort: "low", description: "fast" },
+            ],
+            defaultReasoningEffort: "low",
+            inputModalities: ["text"],
+            isDefault: false,
+          },
+        ]}
+        persistModelSelection={async (value) => {
+          persisted = value.selection;
+          return "/tmp/forge-config.json";
+        }}
+      />,
+    );
+
+    await settle();
+    instance.stdin.write("/model");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+    instance.stdin.write("luna");
+    await settle();
+
+    expect(instance.lastFrame()).toContain("Search models: luna");
+    expect(instance.lastFrame()).toContain("GPT-5.6-Luna · low");
+    expect(instance.lastFrame()).not.toContain("GPT-5.6-Sol · high");
+
+    instance.stdin.write("\r");
+    await settle();
+    expect(persisted).toMatchObject({
+      engine: "codex",
+      provider: "openai",
+      id: "gpt-5.6-luna",
+      reasoningEffort: "low",
     });
     instance.unmount();
   });
