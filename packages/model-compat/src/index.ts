@@ -64,4 +64,14 @@ export {
   resolveReasoningWireValue,
 } from "./adapter.js";
 export { AiSdkCompatTransport, mapCompatError } from "./ai-sdk-transport.js";
+export {
+  canDiscoverModels,
+  DISCOVERY_TIMEOUT_MS,
+  type DiscoveredModel,
+  type DiscoverModelsRequest,
+  discoverModels,
+  MAX_DISCOVERY_RESPONSE_BYTES,
+  ModelDiscoveryError,
+  readModelListing,
+} from "./discovery.js";
 export type { CompatTransport, CompatTransportRequest } from "./transport.js";
