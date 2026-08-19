@@ -44,6 +44,7 @@ packages/
 |-- codex-app-server/       # Official Codex JSON-RPC transport and auth boundary
 |-- model-deepseek/         # @forge/model-deepseek: AI SDK translation
 |-- model-openai/           # @forge/model-openai: Responses API translation
+|-- model-compat/           # @forge/model-compat: configured OpenAI-compatible routes
 |-- auth/                   # provider-neutral API-key resolution
 |-- tools/                  # @forge/tools: built-in tool implementations
 `-- config/                 # @forge/config: configuration and context loading

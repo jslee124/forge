@@ -2,9 +2,9 @@
 
 ## Current milestone
 
-**Milestone 10: Budgeted context management is complete.** Automatic
-checkpoint generation remains opt-in while live provider-quality gates are
-collected. No later milestone has started.
+**Milestone 11: Third-party provider routes is complete.** Automatic
+checkpoint generation from Milestone 10 remains opt-in while live
+provider-quality gates are collected.
 
 ## Working rules
 
@@ -464,12 +464,47 @@ Acceptance criteria:
 - Documentation distinguishes conversation compaction from repository
   retrieval and persistent semantic memory.
 
+## Milestone 11: Third-party provider routes
+
+Reach a model provider Forge does not ship an adapter for, without weakening
+the credential or configuration boundaries.
+
+### Scope
+
+- A `providers` table in user configuration, keyed by route name, declaring the
+  wire protocol, endpoint, optional display name and credential variable, and
+  the models the route serves.
+- `openai-completions` and `openai-responses`, which cover gateways,
+  self-hosted servers, and OpenAI-compatible proxies. Other protocols are
+  deferred; each one added must state how its reasoning parameter is spelled.
+- Model discovery from an OpenAI-compatible `GET /models`, with hand entry as
+  the documented fallback rather than an error path.
+- Reasoning gears that map a Forge gear name to the wire value an endpoint
+  expects.
+- A guided `/login` entry that adds a route end to end.
+
+### Acceptance criteria
+
+- Repository configuration cannot define a provider route, because a route
+  names the endpoint that receives the stored API key.
+- Plain HTTP endpoints are accepted only for loopback hosts, and an endpoint
+  may not embed credentials, a query string, or a fragment.
+- The credential store accepts only validated route names, and an unusable
+  stored entry is skipped rather than making every credential unreadable.
+- Discovery is bounded in response size and time, validates the endpoint before
+  reaching the network, and reports a rejected key, a missing listing, an
+  unreachable endpoint, and a non-JSON reply distinctly.
+- A route that configures no models reports that no model can be selected by
+  default, instead of silently keeping the previous provider's model id.
+- Built-in DeepSeek and OpenAI behavior, configuration, and stored credentials
+  are unchanged.
+
 ## Later extensions
 
 These items are intentionally unordered and are not part of v0.1:
 
 - Broader evaluation tasks and graders
-- Additional model providers
+- Additional wire protocols for provider routes, such as `anthropic-messages`
 - Narrow outside-workspace approvals
 - A clearly warned `full-access` profile
 - Optional shell-language execution

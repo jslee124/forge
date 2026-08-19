@@ -15,6 +15,7 @@ Codex owns OAuth, credential persistence, refresh, and revocation.
 | DeepSeek API key | Local development and automation | Implemented |
 | OpenAI API key | Optional usage-based OpenAI API access | Implemented |
 | Sign in with ChatGPT | OpenAI subscription access through Codex App Server | Implemented |
+| Third-party provider route | A gateway or self-hosted OpenAI-compatible endpoint | Implemented |
 | Codex access token | Trusted enterprise automation | Deferred |
 
 DeepSeek's official API uses `https://api.deepseek.com` and the initial adapter
@@ -81,16 +82,63 @@ Forge must not:
 
 ## Credential storage
 
-Forge does not persist API credentials; it reads `DEEPSEEK_API_KEY` or
-`OPENAI_API_KEY` from the process environment for each invocation. If a later
-authentication method needs persistence, the preferred storage order is:
+An environment variable is always consulted first, and a key present there is
+never written to disk. `/login` may additionally store a key in
+`$FORGE_HOME/auth.json`, whose directory is mode `0700` and whose file is mode
+`0600`; writes are atomic and guarded by a lock file. Like Pi and OpenCode's
+local auth files, this is plaintext protected by filesystem permissions rather
+than an OS keychain, which remains the preferred storage if one is adopted.
 
-1. Operating-system credential store
-2. Explicit file fallback outside the project with owner-only permissions
-3. Environment variables for API keys in automation
+The credential file is keyed by credential owner: `deepseek`, `openai`, or a
+third-party route name. Any other key is skipped when the file is read and
+refused when written, so a hand-edited stray entry cannot make the remaining
+credentials unreadable and no caller can write an arbitrary property.
 
 Credentials must be excluded from prompts, run events, JSONL traces, plugin
 events, telemetry, and ordinary error messages.
+
+## Third-party provider routes
+
+A route is one entry of the user-configuration `providers` table, keyed by the
+route name. It declares the wire protocol, the endpoint, an optional display
+name and credential variable, and the models the route serves:
+
+```json
+{
+  "schemaVersion": 1,
+  "providers": {
+    "my-gateway": {
+      "api": "openai-completions",
+      "baseUrl": "https://gateway.example/openai/v1",
+      "models": [
+        { "id": "glm-4.6", "reasoningGears": { "none": null, "high": "high" } }
+      ]
+    }
+  }
+}
+```
+
+Three boundaries apply to a route:
+
+- **Repository configuration may not define one.** A route names the endpoint
+  that receives the stored API key, so `.forge/config.json` is refused if it
+  contains `providers`. Only user configuration and the CLI may add a route.
+- **Plain HTTP is accepted only for a loopback host.** A local gateway such as
+  Ollama or vLLM has no certificate, while an external plaintext endpoint would
+  put the key on the network. An endpoint may not embed a username, password,
+  query string, or fragment.
+- **Route names are validated.** Lowercase letters, digits, and hyphens only,
+  and the built-in provider and engine names are reserved.
+
+A route's key is read from the environment variable its profile declares, or
+from `FORGE_<ROUTE>_API_KEY` when it declares none, before the stored
+credential is consulted.
+
+Reasoning gears map a Forge gear name to the wire value the endpoint expects,
+so the selectable gear is decoupled from each endpoint's parameter spelling. A
+gear mapped to null is offered but sends no reasoning parameter, `false`
+declares a model that does not reason, and an absent declaration sends no
+reasoning parameter at all.
 
 ## Refresh and concurrency
 

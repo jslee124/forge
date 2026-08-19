@@ -222,6 +222,51 @@ Inspect or remove saved API credentials with `forge auth status deepseek`,
 cannot unset an environment variable in your parent shell. Never commit
 `auth.json`, and do not set `FORGE_HOME` to a shared or repository directory.
 
+Reach a provider Forge does not ship an adapter for by adding a **provider
+route**. Enter `/login`, choose "Third-party provider", and the wizard asks for
+a route name, an endpoint, a wire protocol (`openai-completions` or
+`openai-responses`), and a key, then looks up the endpoint's models and lets
+you pick one and its reasoning gears. This covers OpenAI-compatible gateways
+and self-hosted servers such as Ollama, vLLM, and one-API proxies.
+
+If the endpoint publishes no model listing, cannot be reached, or speaks a
+protocol whose listing Forge cannot read, the wizard shows the reason and lets
+you type a model id instead; discovery is a convenience, never a requirement.
+
+Routes live in `$FORGE_HOME/config.json` and can also be written by hand:
+
+```json
+{
+  "schemaVersion": 1,
+  "providers": {
+    "my-gateway": {
+      "api": "openai-completions",
+      "baseUrl": "https://gateway.example/openai/v1",
+      "models": [
+        { "id": "glm-4.6", "reasoningGears": { "none": null, "high": "high" } }
+      ]
+    }
+  }
+}
+```
+
+Then select it like any other provider:
+
+```bash
+pnpm forge run "Inspect this repository" --provider my-gateway --model glm-4.6
+```
+
+A route's key comes from the environment variable its profile declares through
+`apiKeyEnv`, or from `FORGE_<ROUTE>_API_KEY`, before the stored credential is
+used. Reasoning gears map a Forge gear name to the wire value the endpoint
+expects, so a gateway that spells them differently is configured rather than
+patched; a gear mapped to `null` is offered but sends no reasoning parameter.
+
+Two boundaries are deliberate. A repository's `.forge/config.json` may **not**
+define `providers`, because a route names the endpoint that receives your API
+key. Plain `http` endpoints are accepted only for loopback hosts, so a local
+gateway works while an external plaintext endpoint is refused.
+
 Use a ChatGPT subscription through the official Codex App Server:
 
 ```bash
@@ -379,8 +424,13 @@ only the declared 60-second verification command, so Forge denied the action.
 
 ## Limitations
 
-- The native Forge runtime supports DeepSeek and OpenAI API providers; the
-  separate Codex Engine supports ChatGPT subscription access.
+- The native Forge runtime supports DeepSeek, OpenAI, and configured
+  OpenAI-compatible provider routes; the separate Codex Engine supports ChatGPT
+  subscription access. A route speaking another wire protocol, such as
+  Anthropic's messages API, is not supported yet.
+- A provider route is a claim about an endpoint, not a check of it. Forge
+  validates the URL and bounds the model lookup, but a gateway that advertises
+  a model it cannot serve fails at request time.
 - Model behavior is nondeterministic; runtime tests do not prove live task
   success.
 - Built-in file tools enforce a workspace boundary, but Forge is not an OS
