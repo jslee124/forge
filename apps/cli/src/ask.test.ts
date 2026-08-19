@@ -147,4 +147,70 @@ describe("forge ask", () => {
     expect(exitCode).toBe(130);
     expect(stderr.read()).toBe("Cancelled.\n");
   });
+
+  it("dispatches a third-party route by name instead of downgrading it", async () => {
+    const stdout = outputBuffer();
+    const stderr = outputBuffer();
+    let received: { provider?: string; model?: string } = {};
+    const profile = {
+      api: "openai-completions",
+      baseUrl: "https://gateway.example/v1",
+    } as const;
+
+    const exitCode = await runAsk(
+      "hello",
+      { provider: "my-gateway", model: "glm-4.6" },
+      {
+        env: {},
+        stdout: stdout.output,
+        stderr: stderr.output,
+        signal: new AbortController().signal,
+        providers: { "my-gateway": profile },
+        createAdapter: (options) => {
+          received = { provider: options.provider, model: options.model };
+          expect(options.providers?.["my-gateway"]).toEqual(profile);
+          return adapterFrom([
+            { type: "text.delta", text: "ok" },
+            {
+              type: "finish",
+              finishReason: "stop",
+              usage: {
+                inputTokens: 1,
+                outputTokens: 1,
+                reasoningTokens: 0,
+                cachedInputTokens: 0,
+                cacheWriteTokens: 0,
+                totalTokens: 2,
+              },
+            },
+          ]);
+        },
+      },
+    );
+
+    expect(exitCode).toBe(0);
+    // A provider that is neither "openai" nor "deepseek" must survive intact.
+    expect(received).toEqual({ provider: "my-gateway", model: "glm-4.6" });
+  });
+
+  it("refuses a route selection that names no model", async () => {
+    const stdout = outputBuffer();
+    const stderr = outputBuffer();
+
+    const exitCode = await runAsk(
+      "hello",
+      { provider: "my-gateway" },
+      {
+        env: {},
+        stdout: stdout.output,
+        stderr: stderr.output,
+        signal: new AbortController().signal,
+        createAdapter: () => adapterFrom([]),
+      },
+    );
+
+    // The DeepSeek default model must not stand in for another provider.
+    expect(exitCode).toBe(2);
+    expect(stderr.read()).toMatch(/No model was selected for provider/u);
+  });
 });

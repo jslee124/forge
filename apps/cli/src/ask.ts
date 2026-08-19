@@ -1,4 +1,8 @@
-import { ForgeConfigError, loadForgeConfig } from "@forge/config";
+import {
+  ForgeConfigError,
+  loadForgeConfig,
+  type ProviderProfile,
+} from "@forge/config";
 import {
   type ModelAdapter,
   ModelConfigurationError,
@@ -45,6 +49,8 @@ export interface AskDependencies {
   readonly createAdapter?: (
     options: CreateForgeModelAdapterOptions,
   ) => ModelAdapter;
+  /** Configured routes, needed to dispatch a provider that is not built in. */
+  readonly providers?: Readonly<Record<string, ProviderProfile>>;
 }
 
 export async function runAsk(
@@ -54,17 +60,28 @@ export async function runAsk(
 ): Promise<number> {
   try {
     const thinking = parseThinkingMode(options.thinking ?? "enabled");
-    const model = options.model?.trim() || DEFAULT_DEEPSEEK_MODEL;
+    // A configured route is dispatched by name; only an unnamed provider falls
+    // back to the built-in default, so a route is never silently downgraded.
+    const provider = options.provider?.trim() || "deepseek";
+    const model =
+      options.model?.trim() ||
+      (provider === "deepseek" ? DEFAULT_DEEPSEEK_MODEL : "");
+    if (model === "") {
+      throw new ModelConfigurationError(
+        `No model was selected for provider "${provider}". Pass --model, or set FORGE_MODEL.`,
+      );
+    }
     const adapterFactory =
       dependencies.createAdapter ?? createForgeModelAdapter;
     const adapter = adapterFactory({
       env: dependencies.env,
-      provider: options.provider === "openai" ? "openai" : "deepseek",
+      provider,
       model,
       thinking,
       reasoningEffort: parseReasoningEffort(
         options.reasoningEffort ?? "medium",
       ),
+      ...(dependencies.providers ? { providers: dependencies.providers } : {}),
     });
 
     return await consumeModelStream(
@@ -123,6 +140,7 @@ export async function runAskFromCli(
         stdout: process.stdout,
         stderr: process.stderr,
         signal: cancellation.signal,
+        providers: loaded.config.providers,
       },
     );
   } catch (error) {
