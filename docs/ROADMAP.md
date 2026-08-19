@@ -364,15 +364,21 @@ plan lives in [Context Management Improvement Plan](CONTEXT_MANAGEMENT.md).
   fallback behavior
 - [ ] Reserve explicit budgets for output, current instructions, tool schemas,
   the current request, conversation history, and in-run tool continuation
+- [ ] Use the larger of the requested output allowance and safety buffer as the
+  context reserve instead of double-counting both
 - [ ] Emit versioned context-budget events without storing hidden credentials
 - [ ] Extend `forge inspect` with estimated, provider-reported, retained, and
   omitted context metrics
+- [ ] Budget both native `ModelAdapter` requests and the Forge conversation JSON
+  currently wrapped into Codex App Server prompts
 - [ ] Warn before a request is likely to exceed the active model's context
   window
 
 Acceptance criteria:
 
 - Every native Forge model request has an inspectable preflight budget report.
+- Every Codex Engine turn reports the Forge-owned wrapper cost separately from
+  context managed inside Codex App Server when that usage is observable.
 - Estimation error can be compared with provider-reported input-token usage.
 - A request that cannot fit its mandatory context fails before a paid provider
   call with an actionable explanation.
@@ -382,19 +388,24 @@ Acceptance criteria:
 
 - [ ] Introduce a versioned context checkpoint separate from the canonical
   session transcript
+- [ ] Support adapter-owned provider-native opaque compaction when available and
+  a Forge-generated inspectable checkpoint otherwise
+- [ ] Stop sending an unbounded full Forge transcript inside every Codex Engine
+  prompt; use the derived active view first, then evaluate persistent App Server
+  thread mapping as a separate integration
 - [ ] Always retain current instructions, the current request, and a configured
-  recent-turn window
+  recent serialized-tail token budget
 - [ ] Compact only a completed prefix of user/assistant turns
 - [ ] Preserve the full original transcript until a separately designed
   retention policy exists
 - [ ] Treat generated summaries as untrusted conversation memory, never as
   instructions, approvals, verification evidence, or permission state
-- [ ] Persist summary provenance, source range, source hash, model ID, token
-  counts, and generation time
+- [ ] Persist checkpoint strategy, provenance, source and tail hashes, model ID,
+  token counts, and generation time
 - [ ] Fall back predictably when summary generation fails or produces invalid
   output
-- [ ] Add an explicit `/context` status view and a manual `/compact` action
-  before enabling automatic compaction by default
+- [ ] Add an explicit `/context` status view, `/compact --dry-run`, and a manual
+  `/compact` action before enabling automatic compaction by default
 
 Acceptance criteria:
 
@@ -411,8 +422,14 @@ Acceptance criteria:
 - [ ] Re-check the context budget before every model step
 - [ ] Account for provider continuation data, assistant tool calls, and tool
   results without interpreting opaque provider metadata in `@forge/core`
-- [ ] Prefer bounded tool-result representations and targeted re-reads over
-  retaining duplicate large outputs
+- [ ] Prune or replace old completed tool outputs with explicit bounded
+  placeholders before summarizing broader conversation history
+- [ ] Prefer bounded tool-result representations, targeted re-reads, and a
+  measured advertised-tool set over retaining duplicate outputs or schemas
+- [ ] Recover once from a provider-classified context overflow only when the
+  failed attempt produced no assistant output or other retry evidence
+- [ ] Detect compaction thrashing and stop when repeated compaction fails to
+  reclaim a minimum useful budget
 - [ ] Stop with `limit_reached` and a specific context-budget reason when the
   active run cannot be reduced safely
 - [ ] Evaluate provider-specific continuation compaction only behind adapter
@@ -425,6 +442,7 @@ Acceptance criteria:
   translation.
 - Forge never drops a pending tool call or tool result required by the provider
   protocol.
+- Overflow recovery never duplicates a user prompt or a completed tool action.
 
 ### 10.4 Evaluation and default rollout
 
