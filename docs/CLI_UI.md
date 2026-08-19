@@ -145,6 +145,20 @@ Process-command approval uses the same dedicated panel. It renders a
 shell-readable `$ command` line followed by clearly labelled working-directory
 and timeout rows; these details must not appear as detached transcript text.
 
+## Sign-in panel
+
+A pending browser sign-in is a dedicated panel, not transcript text. The Codex
+auth surface reports the URL as a structured `login` output event carrying the
+address as its own field, so the UI never re-parses it out of a text chunk.
+
+Sign-in URLs are several times wider than a terminal window. The panel wraps
+the address in a single OSC 8 hyperlink, which keeps the whole URL clickable
+after Ink wraps it; terminals that linkify plain text do so one display line at
+a time and would otherwise leave only the first wrapped line clickable. The
+visible label stays the complete address so an unsupported terminal still shows
+a copyable URL, and escape sequences must not count toward display width or the
+panel border would fall out of alignment.
+
 ## Rendering boundaries
 
 The CLI may turn runtime events into components such as message blocks, tool

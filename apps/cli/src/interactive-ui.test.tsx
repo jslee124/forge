@@ -147,6 +147,60 @@ describe("Ink interactive terminal", () => {
     instance.unmount();
   });
 
+  it("presents a pending sign-in URL as one clickable panel", async () => {
+    const root = await createWorkspace();
+    const url =
+      "https://auth.openai.com/oauth/authorize?response_type=code&client_id=app_EMoamEEZ73f0CkXaXp7hrann&redirect_uri=http%3A%2F%2Flocalhost%3A1455%2Fauth%2Fcallback&state=imdzqm24Mh9";
+    let release: (() => void) | undefined;
+    const instance = render(
+      <InteractiveApp
+        options={{}}
+        env={{ TERM_PROGRAM: "vscode" }}
+        cwd={root}
+        executeAuthentication={async (dependencies) => {
+          dependencies.onOutput?.({ type: "login", text: url, url });
+          await new Promise<void>((resolve) => {
+            release = resolve;
+          });
+          return 0;
+        }}
+      />,
+    );
+
+    await settle();
+    instance.stdin.write("/login");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+
+    const frame = instance.lastFrame() ?? "";
+    expect(frame).toContain("Login");
+    expect(frame).toContain("Browser didn't open?");
+    // Every wrapped row reopens the same OSC 8 target, so the address stays
+    // one clickable link instead of separate per-line fragments.
+    const openings = frame.split(`\u001B]8;;${url}\u0007`).length - 1;
+    expect(openings).toBeGreaterThan(0);
+    // The visible label is the address itself, never a truncated form.
+    expect(stripSequences(frame)).toContain(url.slice(0, 60));
+    // Escape sequences must not be counted as display width, or the panel
+    // border would be pushed out of alignment.
+    const widths = new Set(
+      stripSequences(frame)
+        .split("\n")
+        .filter((line) => line.includes("│"))
+        .map((line) => line.length),
+    );
+    expect(widths.size).toBe(1);
+
+    release?.();
+    await settle();
+    // The panel is torn down once the sign-in resolves.
+    expect(instance.lastFrame()).not.toContain("Browser didn't open?");
+    instance.unmount();
+  });
+
   it("opens /model, persists selection, and uses it for the next task", async () => {
     const root = await createWorkspace();
     let persisted: unknown;
@@ -731,4 +785,15 @@ function completed(finalText: string): RunResult {
 
 async function settle(): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 30));
+}
+
+/** Remove OSC 8 hyperlinks and SGR colors to leave the visible display text. */
+function stripSequences(frame: string): string {
+  return (
+    frame
+      // biome-ignore lint/suspicious/noControlCharactersInRegex: matching terminal escape sequences is the purpose of this helper.
+      .replaceAll(/\u001B\]8;;[^\u0007]*\u0007/gu, "")
+      // biome-ignore lint/suspicious/noControlCharactersInRegex: matching terminal escape sequences is the purpose of this helper.
+      .replaceAll(/\u001B\[[0-9;]*m/gu, "")
+  );
 }

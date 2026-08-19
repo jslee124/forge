@@ -28,6 +28,7 @@ import { openAIModelContext } from "@forge/model-openai";
 import type { ContextCheckpoint } from "@forge/persistence";
 
 import type { AskOptions, WritableOutput } from "./ask.js";
+import { terminalHyperlink } from "./hyperlink.js";
 import { createSigintCancellationScope } from "./signals.js";
 
 export interface CodexClient {
@@ -55,7 +56,17 @@ export type CodexOutputEvent =
   | { readonly type: "reasoning"; readonly text: string }
   | { readonly type: "answer"; readonly text: string }
   | { readonly type: "tool"; readonly text: string }
-  | { readonly type: "warning"; readonly text: string };
+  | { readonly type: "warning"; readonly text: string }
+  /**
+   * A pending sign-in. The URL is kept as its own field so the Ink UI can
+   * present it as a dedicated panel instead of re-parsing a text chunk.
+   */
+  | {
+      readonly type: "login";
+      readonly text: string;
+      readonly url: string;
+      readonly userCode?: string;
+    };
 
 export interface CodexCommandDependencies {
   readonly env: NodeJS.ProcessEnv;
@@ -149,13 +160,30 @@ export async function runCodexAuthCommand(
     const loginId = response.loginId;
     const targetUrl =
       response.type === "chatgpt" ? response.authUrl : response.verificationUrl;
-    if (response.type === "chatgptDeviceCode") {
-      dependencies.stdout.write(
-        `Open ${response.verificationUrl}\nEnter code: ${response.userCode}\n`,
-      );
+    const userCode =
+      response.type === "chatgptDeviceCode" ? response.userCode : undefined;
+    const plainText =
+      userCode === undefined
+        ? `Complete ChatGPT sign-in in your browser:\n${targetUrl}`
+        : `Open ${targetUrl}\nEnter code: ${userCode}`;
+    if (dependencies.onOutput) {
+      // The Ink UI renders its own sign-in panel and applies the hyperlink
+      // itself, so hand it the raw URL rather than a formatted text chunk.
+      dependencies.onOutput({
+        type: "login",
+        text: plainText,
+        url: targetUrl,
+        ...(userCode === undefined ? {} : { userCode }),
+      });
     } else {
+      // Sign-in URLs are far wider than a terminal window. Emit them as OSC 8
+      // hyperlinks so the whole address stays clickable after the terminal
+      // wraps it, instead of only the first wrapped line.
+      const link = { env: dependencies.env, isTTY: dependencies.isTTY };
       dependencies.stdout.write(
-        `Complete ChatGPT sign-in in your browser:\n${response.authUrl}\n`,
+        userCode === undefined
+          ? `Complete ChatGPT sign-in in your browser:\n${terminalHyperlink(targetUrl, link)}\n`
+          : `Open ${terminalHyperlink(targetUrl, link)}\nEnter code: ${userCode}\n`,
       );
     }
     try {

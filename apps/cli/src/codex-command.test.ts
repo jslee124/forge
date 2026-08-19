@@ -186,6 +186,11 @@ describe("Codex commands", () => {
 
     expect(result).toBe(0);
     expect(opened).toEqual(["https://chatgpt.com/login"]);
+    // Without a hyperlink-capable terminal the URL stays plain text.
+    expect(stdout.value).toContain(
+      "Complete ChatGPT sign-in in your browser:\nhttps://chatgpt.com/login\n",
+    );
+    expect(stdout.value).not.toContain("\u001B]8;;");
     expect(stdout.value).toContain("OpenAI sign-in completed");
     expect(stdout.value).toContain("ChatGPT subscription (plus)");
     expect(client.requests[0]).toEqual({
@@ -197,6 +202,28 @@ describe("Codex commands", () => {
       },
     });
     expect(client.closed).toBe(true);
+  });
+
+  it("emits the sign-in URL as one clickable OSC 8 hyperlink", async () => {
+    const client = new FakeClient();
+    const stdout = new BufferOutput();
+    const result = await runCodexAuthCommand(
+      "login",
+      "openai",
+      { method: "browser" },
+      dependencies(client, stdout, new BufferOutput(), {
+        env: { TERM_PROGRAM: "vscode" },
+        isTTY: true,
+        openUrl: async () => undefined,
+      }),
+    );
+
+    expect(result).toBe(0);
+    // One sequence covers the whole URL, so terminal wrapping cannot split it
+    // into separate unclickable fragments.
+    expect(stdout.value).toContain(
+      "\u001B]8;;https://chatgpt.com/login\u0007https://chatgpt.com/login\u001B]8;;\u0007",
+    );
   });
 
   it("lists model-specific reasoning efforts", async () => {

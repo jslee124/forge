@@ -28,6 +28,7 @@ import {
   formatSlashCommandHelp,
   type SlashCommand,
 } from "./commands.js";
+import { terminalHyperlink } from "./hyperlink.js";
 import {
   activeMentionQuery,
   assemblePrompt,
@@ -84,6 +85,12 @@ interface PendingApproval {
   readonly prompt: string;
   readonly command?: CommandApprovalPreview;
   readonly resolve: (answer: string | null) => void;
+}
+
+/** A sign-in that App Server has started and is still waiting to complete. */
+interface PendingSignIn {
+  readonly url: string;
+  readonly userCode?: string;
 }
 
 interface ModelChoice {
@@ -344,6 +351,7 @@ export function InteractiveApp({
   const [modelQuery, setModelQuery] = useState("");
   const [loginKey, setLoginKey] = useState("");
   const [loginChoice, setLoginChoice] = useState<LoginChoice>();
+  const [loginPrompt, setLoginPrompt] = useState<PendingSignIn>();
   const conversation = useRef<ModelConversationMessage[]>([...initialMessages]);
   const activeController = useRef<AbortController | undefined>(undefined);
   const idleExitArmed = useRef(false);
@@ -412,6 +420,15 @@ export function InteractiveApp({
   const stderr = stdout;
   const handleCodexOutput = useCallback(
     (event: CodexOutputEvent): void => {
+      if (event.type === "login") {
+        // Rendered as a dedicated panel rather than transcript text, so the
+        // URL keeps one unbroken clickable run.
+        setLoginPrompt({
+          url: event.url,
+          ...(event.userCode === undefined ? {} : { userCode: event.userCode }),
+        });
+        return;
+      }
       appendEntry(
         event.type,
         event.text,
@@ -915,6 +932,7 @@ export function InteractiveApp({
           cwd,
           stdout,
           stderr,
+          onOutput: handleCodexOutput,
           signal: controller.signal,
           isTTY: true,
         })
@@ -934,6 +952,7 @@ export function InteractiveApp({
           )
           .finally(() => {
             activeController.current = undefined;
+            setLoginPrompt(undefined);
             setPhase("editing");
           });
         return;
@@ -1302,6 +1321,8 @@ export function InteractiveApp({
         </Box>
       ) : null}
 
+      {loginPrompt ? <SignInPanel prompt={loginPrompt} env={env} /> : null}
+
       {phase === "login-key" && loginChoice?.provider ? (
         <Box
           borderStyle="round"
@@ -1460,6 +1481,61 @@ function PromptWithCursor({
       <Text inverse>{character || " "}</Text>
       {after}
     </Text>
+  );
+}
+
+/**
+ * A pending browser sign-in.
+ *
+ * The URL is rendered as its own block rather than as transcript text so it
+ * keeps one unbroken clickable run: Ink wraps the visible characters while the
+ * surrounding OSC 8 sequence continues to describe a single link target.
+ */
+function SignInPanel({
+  prompt,
+  env,
+}: {
+  readonly prompt: PendingSignIn;
+  readonly env: NodeJS.ProcessEnv;
+}): React.JSX.Element {
+  const link = terminalHyperlink(prompt.url, { env, isTTY: true });
+  return (
+    <Box
+      borderStyle="round"
+      borderColor="cyan"
+      flexDirection="column"
+      paddingX={1}
+      marginBottom={1}
+    >
+      <Text bold color="cyan">
+        Login
+      </Text>
+      <Box marginTop={1}>
+        <Text dimColor>
+          {prompt.userCode === undefined
+            ? "Browser didn't open? Use the URL below to sign in."
+            : "Open the URL below and enter the code to sign in."}
+        </Text>
+      </Box>
+      <Box marginTop={1}>
+        <Text color="cyan" underline>
+          {link}
+        </Text>
+      </Box>
+      {prompt.userCode === undefined ? null : (
+        <Box marginTop={1}>
+          <Text>
+            Code:{" "}
+            <Text bold color="cyan">
+              {prompt.userCode}
+            </Text>
+          </Text>
+        </Box>
+      )}
+      <Box marginTop={1}>
+        <Text dimColor>Waiting for sign-in to complete · Ctrl+C cancel</Text>
+      </Box>
+    </Box>
   );
 }
 
