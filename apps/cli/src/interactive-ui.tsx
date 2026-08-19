@@ -3,13 +3,16 @@ import { type ApiKeyProvider, AuthenticationManager } from "@forge/auth";
 import {
   loadForgeConfig,
   type PersistedModelSelection,
+  type ProviderProfile,
   saveUserModelSelection,
+  saveUserProviderRoute,
 } from "@forge/config";
 import type {
   ModelConversationMessage,
   RunEvent,
   RunResult,
 } from "@forge/core";
+import type { discoverModels } from "@forge/model-compat";
 import type { SessionSummary } from "@forge/persistence";
 import { Box, render, Text, useApp, useInput, usePaste } from "ink";
 import type React from "react";
@@ -49,6 +52,7 @@ import {
   createPersistentInteractiveSession,
   type InteractiveSessionPersistence,
 } from "./persistent-session.js";
+import { ProviderSetup, type ProviderSetupResult } from "./provider-setup.js";
 import {
   type CommandApprovalPreview,
   createApprovalChannel,
@@ -64,7 +68,8 @@ type Phase =
   | "resuming"
   | "models"
   | "login-providers"
-  | "login-key";
+  | "login-key"
+  | "provider-setup";
 type TranscriptKind =
   | "user"
   | "reasoning"
@@ -102,7 +107,7 @@ interface ModelChoice {
 interface LoginChoice {
   readonly label: string;
   readonly description: string;
-  readonly kind: "subscription" | "api-key";
+  readonly kind: "subscription" | "api-key" | "provider-route";
   readonly provider?: ApiKeyProvider;
 }
 
@@ -123,6 +128,11 @@ const LOGIN_CHOICES: readonly LoginChoice[] = [
     description: "Save an API key · billed separately from ChatGPT",
     kind: "api-key",
     provider: "openai",
+  },
+  {
+    label: "Third-party provider",
+    description: "Own baseUrl · OpenAI-compatible protocol · own key",
+    kind: "provider-route",
   },
 ];
 
@@ -223,6 +233,14 @@ export interface InteractiveUiDependencies {
     readonly env: NodeJS.ProcessEnv;
     readonly selection: PersistedModelSelection;
   }) => Promise<string>;
+  readonly persistProviderRoute?: (options: {
+    readonly cwd: string;
+    readonly env: NodeJS.ProcessEnv;
+    readonly route: string;
+    readonly profile: ProviderProfile;
+  }) => Promise<string>;
+  /** Injected for tests; the wizard otherwise probes the real endpoint. */
+  readonly discoverProviderModels?: typeof discoverModels;
 }
 
 interface InteractiveAppProps extends InteractiveUiDependencies {
@@ -330,6 +348,8 @@ export function InteractiveApp({
     new AuthenticationManager(loginEnv).storeApiKey(provider, apiKey),
   sessionPersistence,
   persistModelSelection = saveUserModelSelection,
+  persistProviderRoute = saveUserProviderRoute,
+  discoverProviderModels,
 }: InteractiveAppProps): React.JSX.Element {
   const { exit } = useApp();
   const [editor, setEditor] = useState<EditorState>(() => createEditorState());
@@ -352,6 +372,7 @@ export function InteractiveApp({
   const [loginKey, setLoginKey] = useState("");
   const [loginChoice, setLoginChoice] = useState<LoginChoice>();
   const [loginPrompt, setLoginPrompt] = useState<PendingSignIn>();
+  const [providerRoutes, setProviderRoutes] = useState<readonly string[]>([]);
   const conversation = useRef<ModelConversationMessage[]>([...initialMessages]);
   const activeController = useRef<AbortController | undefined>(undefined);
   const idleExitArmed = useRef(false);
@@ -418,6 +439,70 @@ export function InteractiveApp({
     [appendOutput],
   );
   const stderr = stdout;
+
+  /**
+   * Persist a completed provider route, then select it.
+   *
+   * The credential is stored before the route is selected, so a route can
+   * never become current while Forge has no key for it.
+   */
+  const completeProviderSetup = useCallback(
+    async (result: ProviderSetupResult): Promise<void> => {
+      try {
+        if (result.apiKey !== undefined) {
+          await saveApiKey({
+            provider: result.route,
+            apiKey: result.apiKey,
+            env,
+          });
+        }
+        const configPath = await persistProviderRoute({
+          cwd,
+          env,
+          route: result.route,
+          profile: result.profile,
+        });
+        await persistModelSelection({
+          cwd,
+          env,
+          selection: {
+            engine: "forge",
+            provider: result.route,
+            id: result.model,
+          },
+        });
+        setActiveOptions((current) => ({
+          ...current,
+          engine: "forge",
+          provider: result.route,
+          model: result.model,
+        }));
+        setProviderRoutes((current) =>
+          current.includes(result.route) ? current : [...current, result.route],
+        );
+        appendEntry(
+          "system",
+          `Saved provider route "${result.route}" to ${configPath} and selected ${result.model}.`,
+        );
+      } catch (error) {
+        appendEntry(
+          "error",
+          `Could not save the provider route: ${error instanceof Error ? error.message : "unknown error"}`,
+        );
+      } finally {
+        setPhase("editing");
+      }
+    },
+    [
+      appendEntry,
+      cwd,
+      env,
+      persistModelSelection,
+      persistProviderRoute,
+      saveApiKey,
+    ],
+  );
+
   const handleCodexOutput = useCallback(
     (event: CodexOutputEvent): void => {
       if (event.type === "login") {
@@ -499,6 +584,22 @@ export function InteractiveApp({
     );
     return () => controller.abort();
   }, [cwd]);
+
+  // Existing routes are read once so the wizard can warn before replacing one.
+  // A configuration that fails to load is not reported here; the ordinary
+  // startup path already surfaces that.
+  useEffect(() => {
+    let cancelled = false;
+    void loadForgeConfig({ cwd, env }).then(
+      (loaded) => {
+        if (!cancelled) setProviderRoutes(Object.keys(loaded.config.providers));
+      },
+      () => undefined,
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [cwd, env]);
 
   useEffect(
     () => () => {
@@ -855,6 +956,10 @@ export function InteractiveApp({
       return;
     }
 
+    // The provider wizard owns the keyboard while it is open, so the two
+    // handlers never consume the same keypress.
+    if (phase === "provider-setup") return;
+
     if (phase === "approving") {
       const answer = input.toLocaleLowerCase();
       if (answer === "y") finishApproval("y");
@@ -922,6 +1027,10 @@ export function InteractiveApp({
           setLoginChoice(selected);
           setLoginKey("");
           setPhase("login-key");
+          return;
+        }
+        if (selected.kind === "provider-route") {
+          setPhase("provider-setup");
           return;
         }
         const controller = new AbortController();
@@ -1347,7 +1456,23 @@ export function InteractiveApp({
         </Box>
       ) : null}
 
-      {phase !== "login-providers" && phase !== "login-key" ? (
+      {phase === "provider-setup" ? (
+        <ProviderSetup
+          existingRoutes={providerRoutes}
+          {...(discoverProviderModels
+            ? { discover: discoverProviderModels }
+            : {})}
+          onCancel={() => setPhase("editing")}
+          onComplete={(result) => {
+            setPhase("running");
+            void completeProviderSetup(result);
+          }}
+        />
+      ) : null}
+
+      {phase !== "login-providers" &&
+      phase !== "login-key" &&
+      phase !== "provider-setup" ? (
         <Box
           borderStyle="round"
           borderColor={phase === "editing" ? "green" : "gray"}

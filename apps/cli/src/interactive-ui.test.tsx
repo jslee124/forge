@@ -117,6 +117,198 @@ describe("Ink interactive terminal", () => {
     instance.unmount();
   });
 
+  it("adds a third-party provider route through the guided wizard", async () => {
+    const root = await createWorkspace();
+    let savedRoute: unknown;
+    let savedKey: unknown;
+    let savedSelection: unknown;
+    let probed: unknown;
+    const instance = render(
+      <InteractiveApp
+        options={{}}
+        env={{}}
+        cwd={root}
+        discoverProviderModels={async (request) => {
+          probed = { api: request.api, baseUrl: request.baseUrl };
+          return [
+            { id: "glm-4.6", name: "GLM 4.6", contextWindow: 200_000 },
+            { id: "kimi-k2" },
+          ];
+        }}
+        saveApiKey={async ({ provider, apiKey }) => {
+          savedKey = { provider, apiKey };
+          return "/tmp/auth.json";
+        }}
+        persistProviderRoute={async ({ route, profile }) => {
+          savedRoute = { route, profile };
+          return "/tmp/config.json";
+        }}
+        persistModelSelection={async ({ selection }) => {
+          savedSelection = selection;
+          return "/tmp/config.json";
+        }}
+      />,
+    );
+
+    await settle();
+    instance.stdin.write("/login");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+    // Move to the third-party entry, past the three built-in ones.
+    instance.stdin.write("\u001B[B\u001B[B\u001B[B");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+    expect(instance.lastFrame()).toContain("Add a provider");
+
+    instance.stdin.write("my-gateway");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+    instance.stdin.write("https://gateway.example/openai/v1/");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+    // Protocol step: keep openai-completions.
+    expect(instance.lastFrame()).toContain("openai-completions");
+    instance.stdin.write("\r");
+    await settle();
+    instance.stdin.write("route-secret");
+    await settle();
+    // The key is masked while it is typed.
+    expect(instance.lastFrame()).not.toContain("route-secret");
+    instance.stdin.write("\r");
+    await settle();
+
+    // Discovery ran against the canonicalized endpoint.
+    expect(probed).toEqual({
+      api: "openai-completions",
+      baseUrl: "https://gateway.example/openai/v1",
+    });
+    expect(instance.lastFrame()).toContain("GLM 4.6");
+    instance.stdin.write("\r");
+    await settle();
+
+    // Gear step: select "high" and save.
+    instance.stdin.write("\u001B[B\u001B[B\u001B[B\u001B[B");
+    await settle();
+    instance.stdin.write(" ");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+
+    expect(savedKey).toEqual({
+      provider: "my-gateway",
+      apiKey: "route-secret",
+    });
+    expect(savedRoute).toEqual({
+      route: "my-gateway",
+      profile: {
+        api: "openai-completions",
+        baseUrl: "https://gateway.example/openai/v1",
+        models: [
+          {
+            id: "glm-4.6",
+            reasoningGears: { high: "high" },
+            contextWindow: 200_000,
+          },
+        ],
+      },
+    });
+    expect(savedSelection).toEqual({
+      engine: "forge",
+      provider: "my-gateway",
+      id: "glm-4.6",
+    });
+    expect(instance.lastFrame()).toContain('Saved provider route "my-gateway"');
+    instance.unmount();
+  });
+
+  it("falls back to hand entry when the endpoint cannot be interrogated", async () => {
+    const root = await createWorkspace();
+    let savedRoute: { profile?: { models?: { id: string }[] } } | undefined;
+    const instance = render(
+      <InteractiveApp
+        options={{}}
+        env={{}}
+        cwd={root}
+        discoverProviderModels={async () => {
+          throw new Error("could not reach the endpoint");
+        }}
+        saveApiKey={async () => "/tmp/auth.json"}
+        persistProviderRoute={async ({ route, profile }) => {
+          savedRoute = { profile } as typeof savedRoute;
+          void route;
+          return "/tmp/config.json";
+        }}
+        persistModelSelection={async () => "/tmp/config.json"}
+      />,
+    );
+
+    await settle();
+    instance.stdin.write("/login");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+    instance.stdin.write("\u001B[B\u001B[B\u001B[B");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+    instance.stdin.write("local-llama");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+    // A loopback endpoint may use plain http.
+    instance.stdin.write("http://localhost:11434/v1");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+    // No key: probe unauthenticated, which this endpoint refuses.
+    instance.stdin.write("\r");
+    await settle();
+
+    expect(instance.lastFrame()).toContain("could not reach the endpoint");
+    expect(instance.lastFrame()).toContain("Model id");
+    instance.stdin.write("llama3.3");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+    // Select no gears at all, which declares no reasoning support.
+    instance.stdin.write("\r");
+    await settle();
+
+    expect(savedRoute?.profile?.models).toEqual([{ id: "llama3.3" }]);
+    instance.unmount();
+  });
+
+  it("refuses a reserved or malformed route name", async () => {
+    const root = await createWorkspace();
+    const instance = render(
+      <InteractiveApp options={{}} env={{}} cwd={root} />,
+    );
+
+    await settle();
+    instance.stdin.write("/login");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+    instance.stdin.write("\u001B[B\u001B[B\u001B[B");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+
+    instance.stdin.write("openai");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+    expect(instance.lastFrame()).toContain("reserved");
+
+    instance.unmount();
+  });
+
   it("routes ChatGPT subscription login through the Codex auth surface", async () => {
     const root = await createWorkspace();
     let invoked = false;

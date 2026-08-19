@@ -97,10 +97,40 @@ export class ForgeConfigError extends Error {
 
 export interface PersistedModelSelection {
   readonly engine: "forge" | "codex";
-  readonly provider: "deepseek" | "openai";
+  /** A built-in provider name, or a configured third-party route key. */
+  readonly provider: string;
   readonly id: string;
   readonly reasoningEffort?: EffectiveForgeConfig["model"]["reasoningEffort"];
   readonly thinking?: EffectiveForgeConfig["model"]["thinking"];
+}
+
+/**
+ * Replace user configuration atomically, validating the result first so a
+ * rejected edit never reaches the file. The temporary file is created with
+ * owner-only permissions because configuration can name credential variables.
+ */
+async function writeUserConfig(
+  loaded: LoadedForgeConfig,
+  candidate: unknown,
+  description: string,
+): Promise<string> {
+  const next: ForgeConfigFile = forgeConfigFileSchema.parse(candidate);
+  await mkdir(loaded.forgeHome, { recursive: true, mode: 0o700 });
+  const temporaryPath = `${loaded.userConfigPath}.tmp-${process.pid}-${Date.now()}`;
+  try {
+    await writeFile(temporaryPath, `${JSON.stringify(next, null, 2)}\n`, {
+      encoding: "utf8",
+      mode: 0o600,
+    });
+    await rename(temporaryPath, loaded.userConfigPath);
+  } catch (error) {
+    throw new ForgeConfigError(
+      `Could not persist ${description} at ${loaded.userConfigPath}.`,
+      loaded.userConfigPath,
+      { cause: error },
+    );
+  }
+  return loaded.userConfigPath;
 }
 
 export async function saveUserModelSelection(options: {
@@ -113,29 +143,81 @@ export async function saveUserModelSelection(options: {
     ...(options.env ? { env: options.env } : {}),
   });
   const existing = await readConfigFile(loaded.userConfigPath);
-  const next: ForgeConfigFile = forgeConfigFileSchema.parse({
-    ...(existing ?? { schemaVersion: 1 }),
-    model: {
-      ...(existing?.model ?? {}),
-      ...options.selection,
+  return writeUserConfig(
+    loaded,
+    {
+      ...(existing ?? { schemaVersion: 1 }),
+      model: { ...(existing?.model ?? {}), ...options.selection },
     },
+    "model selection",
+  );
+}
+
+/**
+ * Add or replace one third-party provider route in user configuration.
+ *
+ * The route is written whole rather than merged field by field, so removing a
+ * model or a declared credential variable from the form actually removes it.
+ */
+export async function saveUserProviderRoute(options: {
+  readonly cwd: string;
+  readonly env?: NodeJS.ProcessEnv;
+  readonly route: string;
+  readonly profile: ProviderProfile;
+}): Promise<string> {
+  const loaded = await loadForgeConfig({
+    cwd: options.cwd,
+    ...(options.env ? { env: options.env } : {}),
   });
-  await mkdir(loaded.forgeHome, { recursive: true, mode: 0o700 });
-  const temporaryPath = `${loaded.userConfigPath}.tmp-${process.pid}-${Date.now()}`;
-  try {
-    await writeFile(temporaryPath, `${JSON.stringify(next, null, 2)}\n`, {
-      encoding: "utf8",
-      mode: 0o600,
-    });
-    await rename(temporaryPath, loaded.userConfigPath);
-  } catch (error) {
+  const existing = await readConfigFile(loaded.userConfigPath);
+  return writeUserConfig(
+    loaded,
+    {
+      ...(existing ?? { schemaVersion: 1 }),
+      providers: {
+        ...(existing?.providers ?? {}),
+        [options.route]: options.profile,
+      },
+    },
+    `provider route "${options.route}"`,
+  );
+}
+
+/**
+ * Remove one third-party provider route. A route still selected by
+ * `model.provider` is refused, because loading the result would fail and leave
+ * Forge unable to start.
+ */
+export async function removeUserProviderRoute(options: {
+  readonly cwd: string;
+  readonly env?: NodeJS.ProcessEnv;
+  readonly route: string;
+}): Promise<{ readonly path: string; readonly removed: boolean }> {
+  const loaded = await loadForgeConfig({
+    cwd: options.cwd,
+    ...(options.env ? { env: options.env } : {}),
+  });
+  const existing = await readConfigFile(loaded.userConfigPath);
+  if (existing?.providers === undefined) {
+    return { path: loaded.userConfigPath, removed: false };
+  }
+  if (!Object.hasOwn(existing.providers, options.route)) {
+    return { path: loaded.userConfigPath, removed: false };
+  }
+  if (existing.model?.provider === options.route) {
     throw new ForgeConfigError(
-      `Could not persist model selection at ${loaded.userConfigPath}.`,
+      `Provider route "${options.route}" is the selected model provider. Choose another provider before removing it.`,
       loaded.userConfigPath,
-      { cause: error },
     );
   }
-  return loaded.userConfigPath;
+  const providers = { ...existing.providers };
+  delete providers[options.route];
+  const path = await writeUserConfig(
+    loaded,
+    { ...existing, providers },
+    `provider route "${options.route}"`,
+  );
+  return { path, removed: true };
 }
 
 export async function loadForgeConfig(options: {

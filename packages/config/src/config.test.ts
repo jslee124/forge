@@ -14,7 +14,9 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   loadForgeConfig,
   loadInstructions,
+  removeUserProviderRoute,
   saveUserModelSelection,
+  saveUserProviderRoute,
 } from "./index.js";
 
 const temporaryDirectories: string[] = [];
@@ -386,6 +388,100 @@ describe("Forge configuration", () => {
       },
     });
     expect(loaded.config.model.id).toBe("hand-entered");
+  });
+
+  it("persists and removes a third-party provider route", async () => {
+    const { nested, forgeHome } = await fixture();
+    const env = { FORGE_HOME: forgeHome };
+
+    const configPath = await saveUserProviderRoute({
+      cwd: nested,
+      env,
+      route: "my-gateway",
+      profile: {
+        api: "openai-completions",
+        baseUrl: "https://gateway.example/openai/v1",
+        models: [{ id: "glm-4.6", reasoningGears: { high: "high" } }],
+      },
+    });
+
+    expect(JSON.parse(await readFile(configPath, "utf8"))).toMatchObject({
+      schemaVersion: 1,
+      providers: { "my-gateway": { api: "openai-completions" } },
+    });
+    let loaded = await loadForgeConfig({ cwd: nested, env });
+    expect(Object.keys(loaded.config.providers)).toEqual(["my-gateway"]);
+
+    // A second route is added beside the first rather than replacing it.
+    await saveUserProviderRoute({
+      cwd: nested,
+      env,
+      route: "local-llama",
+      profile: {
+        api: "openai-responses",
+        baseUrl: "http://localhost:11434/v1",
+      },
+    });
+    loaded = await loadForgeConfig({ cwd: nested, env });
+    expect(Object.keys(loaded.config.providers).sort()).toEqual([
+      "local-llama",
+      "my-gateway",
+    ]);
+
+    expect(
+      (await removeUserProviderRoute({ cwd: nested, env, route: "absent" }))
+        .removed,
+    ).toBe(false);
+    expect(
+      (
+        await removeUserProviderRoute({
+          cwd: nested,
+          env,
+          route: "local-llama",
+        })
+      ).removed,
+    ).toBe(true);
+    loaded = await loadForgeConfig({ cwd: nested, env });
+    expect(Object.keys(loaded.config.providers)).toEqual(["my-gateway"]);
+  });
+
+  it("refuses to persist a route whose endpoint is unusable", async () => {
+    const { nested, forgeHome } = await fixture();
+    await expect(
+      saveUserProviderRoute({
+        cwd: nested,
+        env: { FORGE_HOME: forgeHome },
+        route: "leaky",
+        profile: {
+          api: "openai-completions",
+          baseUrl: "http://gateway.example/v1",
+        },
+      }),
+    ).rejects.toThrow(/plaintext http/u);
+  });
+
+  it("refuses to remove the route that is currently selected", async () => {
+    const { nested, forgeHome } = await fixture();
+    const env = { FORGE_HOME: forgeHome };
+    await saveUserProviderRoute({
+      cwd: nested,
+      env,
+      route: "my-gateway",
+      profile: {
+        api: "openai-completions",
+        baseUrl: "https://gateway.example/v1",
+        models: [{ id: "glm-4.6" }],
+      },
+    });
+    await saveUserModelSelection({
+      cwd: nested,
+      env,
+      selection: { engine: "forge", provider: "my-gateway", id: "glm-4.6" },
+    });
+
+    await expect(
+      removeUserProviderRoute({ cwd: nested, env, route: "my-gateway" }),
+    ).rejects.toThrow(/selected model provider/u);
   });
 
   it("loads user and root-to-leaf instructions with override preference", async () => {

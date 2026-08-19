@@ -15,7 +15,9 @@ export {
   type LoadedForgeConfig,
   loadForgeConfig,
   type PersistedModelSelection,
+  removeUserProviderRoute,
   saveUserModelSelection,
+  saveUserProviderRoute,
 } from "./loader.js";
 export {
   isLoopbackHost,
