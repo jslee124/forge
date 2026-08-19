@@ -2,13 +2,20 @@
 
 ## Status
 
-This document defines Forge's implemented security model through Milestone 9.
+This document defines Forge's implemented security model through Milestone 10.
 Built-in tools stay inside the selected workspace, every valid tool action
 passes through a policy decision, and approval-required actions are denied when
 no approval channel is available. The `safe` and `workspace-write` permission
 profiles are implemented. Persisted sessions restore completed conversation
 only, and every resumed run receives fresh policy and approval state;
 `full-access` remains deferred.
+
+Context checkpoints are derived, untrusted conversation memory. They cannot
+carry approvals, trust decisions, permission profiles, or current verification
+status. Fresh instructions and the current request remain mandatory; the
+canonical transcript is retained separately. Provider-native opaque context is
+treated as sensitive state and is never exposed to plugin observers or ordinary
+trace payloads.
 
 ## Principle
 

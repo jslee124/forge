@@ -41,6 +41,27 @@ class FakeTransport implements DeepSeekTransport {
 }
 
 describe("DeepSeek model adapter", () => {
+  it("uses an explicit model table and a conservative unknown-model fallback", () => {
+    const known = createDeepSeekModelAdapter({
+      env: { DEEPSEEK_API_KEY: "test" },
+      model: "deepseek-v4-flash",
+      transport: new FakeTransport(),
+    });
+    const unknown = createDeepSeekModelAdapter({
+      env: { DEEPSEEK_API_KEY: "test" },
+      model: "future-unknown",
+      transport: new FakeTransport(),
+    });
+    expect(known.context).toMatchObject({
+      contextWindowTokens: 1_048_576,
+      contextWindowSource: "adapter-table",
+    });
+    expect(unknown.context).toMatchObject({
+      contextWindowTokens: 32_768,
+      contextWindowSource: "configured-fallback",
+    });
+  });
+
   it("rejects a missing API key without exposing a secret", () => {
     const forgeHome = path.join(
       tmpdir(),

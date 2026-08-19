@@ -43,6 +43,16 @@ const pluginsSchema = z
   })
   .strict();
 
+const contextSchema = z
+  .object({
+    mode: z.enum(["off", "warn", "compact"]).optional(),
+    reservedOutputTokens: z.number().int().positive().max(2_000_000).optional(),
+    bufferTokens: z.number().int().positive().max(2_000_000).optional(),
+    recentTailTokens: z.number().int().nonnegative().max(2_000_000).optional(),
+    summaryTargetTokens: z.number().int().min(64).max(2_000_000).optional(),
+  })
+  .strict();
+
 export const forgeConfigFileSchema = z
   .object({
     schemaVersion: z.literal(1),
@@ -51,6 +61,7 @@ export const forgeConfigFileSchema = z
     limits: limitsSchema.optional(),
     trace: traceSchema.optional(),
     plugins: pluginsSchema.optional(),
+    context: contextSchema.optional(),
   })
   .strict();
 
@@ -82,6 +93,13 @@ export interface EffectiveForgeConfig {
   };
   readonly trace: { readonly enabled: boolean };
   readonly plugins: { readonly enabled: readonly string[] };
+  readonly context: {
+    readonly mode: "off" | "warn" | "compact";
+    readonly reservedOutputTokens: number;
+    readonly bufferTokens: number;
+    readonly recentTailTokens: number;
+    readonly summaryTargetTokens: number;
+  };
 }
 
 export const DEFAULT_FORGE_CONFIG: EffectiveForgeConfig = {
@@ -102,4 +120,11 @@ export const DEFAULT_FORGE_CONFIG: EffectiveForgeConfig = {
   },
   trace: { enabled: true },
   plugins: { enabled: [] },
+  context: {
+    mode: "warn",
+    reservedOutputTokens: 4_096,
+    bufferTokens: 8_192,
+    recentTailTokens: 12_000,
+    summaryTargetTokens: 1_200,
+  },
 };

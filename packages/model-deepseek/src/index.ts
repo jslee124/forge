@@ -27,7 +27,7 @@ export function createDeepSeekModelAdapter(
   });
 }
 
-export { DeepSeekModelAdapter } from "./adapter.js";
+export { DeepSeekModelAdapter, deepSeekModelContext } from "./adapter.js";
 export {
   AiSdkDeepSeekTransport,
   mapDeepSeekError,

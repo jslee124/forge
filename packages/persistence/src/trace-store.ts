@@ -1,7 +1,12 @@
 import { appendFile, mkdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 
-import type { ModelUsage, RunEvent, RunStatus } from "@forge/core";
+import type {
+  ContextBudgetReport,
+  ModelUsage,
+  RunEvent,
+  RunStatus,
+} from "@forge/core";
 
 import { redactValue } from "./redaction.js";
 import { type TraceEnvelope, traceEnvelopeSchema } from "./schema.js";
@@ -129,6 +134,14 @@ export interface TraceSummary {
   readonly toolsByName: Readonly<Record<string, number>>;
   readonly usage: ModelUsage;
   readonly status: RunStatus | "unknown";
+  readonly context: {
+    readonly preflightCount: number;
+    readonly warningCount: number;
+    readonly lastBudget?: ContextBudgetReport;
+    readonly estimatedInputTokens: number;
+    readonly providerInputTokens?: number;
+    readonly absoluteErrorTokens?: number;
+  };
 }
 
 export function summarizeTrace(
@@ -141,11 +154,25 @@ export function summarizeTrace(
   const tools: Record<string, number> = {};
   const usage = emptyUsage();
   let modelSteps = 0;
+  let preflightCount = 0;
+  let warningCount = 0;
+  let lastBudget: ContextBudgetReport | undefined;
+  let providerInputTokens: number | undefined;
+  let absoluteErrorTokens: number | undefined;
   for (const { event } of envelopes) {
     if (event.type === "model.started") modelSteps += 1;
     if (event.type === "tool.proposed")
       tools[event.call.name] = (tools[event.call.name] ?? 0) + 1;
     if (event.type === "model.completed") addUsage(usage, event.usage);
+    if (event.type === "context.budgeted") {
+      preflightCount += 1;
+      lastBudget = event.budget;
+    }
+    if (event.type === "context.warning") warningCount += 1;
+    if (event.type === "context.usage") {
+      providerInputTokens = event.providerInputTokens;
+      absoluteErrorTokens = event.absoluteErrorTokens;
+    }
   }
   return {
     runId: first.runId,
@@ -161,6 +188,14 @@ export function summarizeTrace(
     toolsByName: tools,
     usage,
     status: statusFromEvent(last.event),
+    context: {
+      preflightCount,
+      warningCount,
+      estimatedInputTokens: lastBudget?.estimatedInputTokens ?? 0,
+      ...(lastBudget ? { lastBudget } : {}),
+      ...(providerInputTokens !== undefined ? { providerInputTokens } : {}),
+      ...(absoluteErrorTokens !== undefined ? { absoluteErrorTokens } : {}),
+    },
   };
 }
 

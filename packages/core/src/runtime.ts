@@ -1,3 +1,9 @@
+import {
+  budgetModelRequest,
+  type ContextBudgetReport,
+  type ContextConfiguration,
+  DEFAULT_CONTEXT_CONFIGURATION,
+} from "./context.js";
 import type {
   ModelAdapter,
   ModelContinuation,
@@ -38,6 +44,45 @@ export type RunEvent =
       readonly context?: RunContextSnapshot;
     }
   | { readonly type: "model.started"; readonly step: number }
+  | {
+      readonly type: "context.budgeted";
+      readonly step: number;
+      readonly budget: ContextBudgetReport;
+    }
+  | {
+      readonly type: "context.warning" | "context.limit_reached";
+      readonly step: number;
+      readonly message: string;
+      readonly budget: ContextBudgetReport;
+    }
+  | {
+      readonly type: "context.usage";
+      readonly step: number;
+      readonly estimatedInputTokens: number;
+      readonly providerInputTokens: number;
+      readonly absoluteErrorTokens: number;
+      readonly relativeError: number;
+    }
+  | {
+      readonly type: "context.compaction.started";
+      readonly step: number;
+      readonly strategy: "adapter-continuation";
+      readonly estimatedBeforeTokens: number;
+    }
+  | {
+      readonly type: "context.compaction.completed";
+      readonly step: number;
+      readonly strategy: "adapter-continuation";
+      readonly estimatedBeforeTokens: number;
+      readonly estimatedAfterTokens: number;
+      readonly reclaimedTokens: number;
+    }
+  | {
+      readonly type: "context.compaction.failed";
+      readonly step: number;
+      readonly strategy: "adapter-continuation";
+      readonly message: string;
+    }
   | {
       readonly type: "model.reasoning" | "model.text";
       readonly step: number;
@@ -104,6 +149,8 @@ export interface RunAgentOptions {
   readonly context?: RunContextSnapshot;
   readonly instructions?: string;
   readonly conversation?: readonly ModelConversationMessage[];
+  readonly omittedConversationMessages?: number;
+  readonly contextConfiguration?: ContextConfiguration;
   readonly model: ModelAdapter;
   readonly tools: readonly ForgeTool[];
   readonly policy: ApprovalPolicy;
@@ -148,6 +195,9 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
   let continuation: ModelContinuation | undefined;
   let toolResults: readonly ModelToolResult[] | undefined;
   let finalText = "";
+  let overflowRecoveryUsed = false;
+  const contextConfiguration =
+    options.contextConfiguration ?? DEFAULT_CONTEXT_CONFIGURATION;
 
   await emit({
     type: "run.started",
@@ -163,25 +213,116 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
       return finish("limit_reached", "The model-step limit was reached.");
     }
 
-    modelSteps += 1;
+    const nextStep = modelSteps + 1;
+    let request = {
+      prompt: options.prompt,
+      ...(options.instructions ? { instructions: options.instructions } : {}),
+      ...(options.conversation ? { conversation: options.conversation } : {}),
+      tools,
+      ...(continuation ? { continuation } : {}),
+      ...(toolResults ? { toolResults } : {}),
+    };
+    let budget = await budgetModelRequest({
+      model: options.model,
+      request,
+      configuration: contextConfiguration,
+      ...(options.omittedConversationMessages !== undefined
+        ? { omittedMessageCount: options.omittedConversationMessages }
+        : {}),
+    });
+    const capabilities = options.model.context;
+    if (
+      contextConfiguration.mode === "compact" &&
+      !budget.fits &&
+      continuation &&
+      capabilities?.projectContinuation
+    ) {
+      await emit({
+        type: "context.compaction.started",
+        step: nextStep,
+        strategy: "adapter-continuation",
+        estimatedBeforeTokens: budget.estimatedInputTokens,
+      });
+      const projected = await capabilities.projectContinuation(
+        continuation,
+        Math.max(0, budget.availableInputTokens - budget.mandatoryTokens),
+      );
+      if (projected) {
+        const projectedRequest = { ...request, continuation: projected };
+        const projectedBudget = await budgetModelRequest({
+          model: options.model,
+          request: projectedRequest,
+          configuration: contextConfiguration,
+          ...(options.omittedConversationMessages !== undefined
+            ? { omittedMessageCount: options.omittedConversationMessages }
+            : {}),
+        });
+        const reclaimedTokens = Math.max(
+          0,
+          budget.estimatedInputTokens - projectedBudget.estimatedInputTokens,
+        );
+        if (reclaimedTokens >= 128) {
+          request = projectedRequest;
+          continuation = projected;
+          await emit({
+            type: "context.compaction.completed",
+            step: nextStep,
+            strategy: "adapter-continuation",
+            estimatedBeforeTokens: budget.estimatedInputTokens,
+            estimatedAfterTokens: projectedBudget.estimatedInputTokens,
+            reclaimedTokens,
+          });
+          budget = projectedBudget;
+        } else {
+          await emit({
+            type: "context.compaction.failed",
+            step: nextStep,
+            strategy: "adapter-continuation",
+            message: `Continuation projection reclaimed only ${reclaimedTokens} tokens; minimum useful reclamation is 128.`,
+          });
+        }
+      } else {
+        await emit({
+          type: "context.compaction.failed",
+          step: nextStep,
+          strategy: "adapter-continuation",
+          message: "The adapter could not safely project its continuation.",
+        });
+      }
+    }
+    await emit({ type: "context.budgeted", step: nextStep, budget });
+    if (!budget.mandatoryFits) {
+      const message = contextLimitMessage(budget, "mandatory context");
+      await emit({
+        type: "context.limit_reached",
+        step: nextStep,
+        message,
+        budget,
+      });
+      return finish("limit_reached", message);
+    }
+    if (!budget.fits) {
+      const message = contextLimitMessage(budget, "complete request");
+      await emit({ type: "context.warning", step: nextStep, message, budget });
+      if (contextConfiguration.mode === "compact") {
+        await emit({
+          type: "context.limit_reached",
+          step: nextStep,
+          message,
+          budget,
+        });
+        return finish("limit_reached", message);
+      }
+    }
+
+    modelSteps = nextStep;
     await emit({ type: "model.started", step: modelSteps });
 
     let step: StepOutcome;
     try {
       step = await consumeModelStep(
         options.model,
-        {
-          prompt: options.prompt,
-          ...(options.instructions
-            ? { instructions: options.instructions }
-            : {}),
-          ...(options.conversation
-            ? { conversation: options.conversation }
-            : {}),
-          tools,
-          ...(continuation ? { continuation } : {}),
-          ...(toolResults ? { toolResults } : {}),
-        },
+        request,
         options.signal,
         modelSteps,
         emit,
@@ -190,7 +331,38 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
       if (options.signal.aborted || error instanceof RunCancellationError) {
         return finish("cancelled", "The run was cancelled.");
       }
-      const message = safeErrorMessage(error);
+      const stepFailure = error instanceof ModelStepFailure ? error : undefined;
+      const overflowError = stepFailure?.error ?? error;
+      const capabilities = options.model.context;
+      if (
+        !overflowRecoveryUsed &&
+        stepFailure &&
+        !stepFailure.producedEvidence &&
+        capabilities?.isContextOverflow?.(overflowError) &&
+        capabilities.projectContinuation &&
+        continuation
+      ) {
+        const projected = await capabilities.projectContinuation(
+          continuation,
+          0,
+        );
+        if (
+          projected &&
+          JSON.stringify(projected.data) !== JSON.stringify(continuation.data)
+        ) {
+          overflowRecoveryUsed = true;
+          continuation = projected;
+          await emit({
+            type: "context.warning",
+            step: modelSteps,
+            message:
+              "The provider rejected a clean attempt for context overflow. Forge projected completed tool results and will retry the same admitted input once.",
+            budget,
+          });
+          continue;
+        }
+      }
+      const message = safeErrorMessage(overflowError);
       return finish("failed", message);
     }
 
@@ -200,6 +372,22 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
       finishReason: step.finishReason,
       usage: step.usage,
     });
+    if (step.usage.inputTokens !== undefined) {
+      const absoluteErrorTokens = Math.abs(
+        step.usage.inputTokens - budget.estimatedInputTokens,
+      );
+      await emit({
+        type: "context.usage",
+        step: modelSteps,
+        estimatedInputTokens: budget.estimatedInputTokens,
+        providerInputTokens: step.usage.inputTokens,
+        absoluteErrorTokens,
+        relativeError:
+          step.usage.inputTokens === 0
+            ? 0
+            : absoluteErrorTokens / step.usage.inputTokens,
+      });
+    }
 
     if (step.calls.length === 0) {
       finalText = step.text;
@@ -340,6 +528,17 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
   }
 }
 
+function contextLimitMessage(
+  budget: ContextBudgetReport,
+  category: string,
+): string {
+  const estimated =
+    category === "mandatory context"
+      ? budget.mandatoryTokens
+      : budget.estimatedInputTokens;
+  return `The ${category} is estimated at ${estimated} tokens, but ${budget.availableInputTokens} input tokens are available for ${budget.modelId} after a single ${budget.effectiveReserveTokens}-token output/safety reserve. Reduce instructions, tools, or history, or select a model with a larger context window.`;
+}
+
 export function exitCodeForRunStatus(status: RunStatus): number {
   switch (status) {
     case "completed":
@@ -364,31 +563,40 @@ async function consumeModelStep(
 ): Promise<StepOutcome> {
   const calls: ToolCall[] = [];
   let text = "";
+  let producedEvidence = false;
   let finishEvent:
     | Extract<ModelStreamEvent, { readonly type: "finish" }>
     | undefined;
 
-  for await (const event of model.stream(request, signal)) {
-    switch (event.type) {
-      case "reasoning.delta":
-        await emit({ type: "model.reasoning", step, text: event.text });
-        break;
-      case "text.delta":
-        text += event.text;
-        await emit({ type: "model.text", step, text: event.text });
-        break;
-      case "warning":
-        await emit({ type: "model.warning", step, message: event.message });
-        break;
-      case "tool.call":
-        calls.push(event.call);
-        break;
-      case "finish":
-        finishEvent = event;
-        break;
-      case "abort":
-        throw new RunCancellationError();
+  try {
+    for await (const event of model.stream(request, signal)) {
+      switch (event.type) {
+        case "reasoning.delta":
+          producedEvidence = true;
+          await emit({ type: "model.reasoning", step, text: event.text });
+          break;
+        case "text.delta":
+          producedEvidence = true;
+          text += event.text;
+          await emit({ type: "model.text", step, text: event.text });
+          break;
+        case "warning":
+          await emit({ type: "model.warning", step, message: event.message });
+          break;
+        case "tool.call":
+          producedEvidence = true;
+          calls.push(event.call);
+          break;
+        case "finish":
+          finishEvent = event;
+          break;
+        case "abort":
+          throw new RunCancellationError();
+      }
     }
+  } catch (error) {
+    if (error instanceof RunCancellationError) throw error;
+    throw new ModelStepFailure(error, producedEvidence);
   }
 
   if (signal.aborted) {
@@ -468,6 +676,15 @@ function toModelToolDefinitions(
 }
 
 class RunCancellationError extends Error {}
+
+class ModelStepFailure extends Error {
+  constructor(
+    readonly error: unknown,
+    readonly producedEvidence: boolean,
+  ) {
+    super("The model step failed.", { cause: error });
+  }
+}
 
 function safeErrorMessage(error: unknown): string {
   if (error instanceof RunCancellationError) {

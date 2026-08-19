@@ -38,7 +38,7 @@ export function createOpenAIModelAdapter(
   });
 }
 
-export { OpenAIModelAdapter } from "./adapter.js";
+export { OpenAIModelAdapter, openAIModelContext } from "./adapter.js";
 export { AiSdkOpenAITransport, mapOpenAIError } from "./ai-sdk-transport.js";
 export type {
   OpenAITransport,

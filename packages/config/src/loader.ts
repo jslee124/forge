@@ -32,7 +32,12 @@ export type ConfigKey =
   | "limits.commandTimeoutMs"
   | "limits.maxToolOutputBytes"
   | "trace.enabled"
-  | "plugins.enabled";
+  | "plugins.enabled"
+  | "context.mode"
+  | "context.reservedOutputTokens"
+  | "context.bufferTokens"
+  | "context.recentTailTokens"
+  | "context.summaryTargetTokens";
 
 export interface ConfigSource {
   readonly kind: "default" | "user" | "project" | "environment" | "cli";
@@ -53,6 +58,11 @@ export interface ConfigOverrides {
   readonly maxToolCalls?: number;
   readonly commandTimeoutMs?: number;
   readonly maxToolOutputBytes?: number;
+  readonly contextMode?: string;
+  readonly reservedOutputTokens?: number;
+  readonly bufferTokens?: number;
+  readonly recentTailTokens?: number;
+  readonly summaryTargetTokens?: number;
 }
 
 interface ForgeEnvironment extends NodeJS.ProcessEnv {
@@ -208,6 +218,11 @@ const CONFIG_KEYS: readonly ConfigKey[] = [
   "limits.maxToolOutputBytes",
   "trace.enabled",
   "plugins.enabled",
+  "context.mode",
+  "context.reservedOutputTokens",
+  "context.bufferTokens",
+  "context.recentTailTokens",
+  "context.summaryTargetTokens",
 ];
 
 function cloneDefaults(): EffectiveForgeConfig {
@@ -217,6 +232,7 @@ function cloneDefaults(): EffectiveForgeConfig {
     limits: { ...DEFAULT_FORGE_CONFIG.limits },
     trace: { ...DEFAULT_FORGE_CONFIG.trace },
     plugins: { enabled: [...DEFAULT_FORGE_CONFIG.plugins.enabled] },
+    context: { ...DEFAULT_FORGE_CONFIG.context },
   };
 }
 
@@ -353,6 +369,16 @@ function mergeOrdinary(
     },
     trace: { enabled: next.trace?.enabled ?? base.trace.enabled },
     plugins: { enabled: next.plugins?.enabled ?? base.plugins.enabled },
+    context: {
+      mode: next.context?.mode ?? base.context.mode,
+      reservedOutputTokens:
+        next.context?.reservedOutputTokens ?? base.context.reservedOutputTokens,
+      bufferTokens: next.context?.bufferTokens ?? base.context.bufferTokens,
+      recentTailTokens:
+        next.context?.recentTailTokens ?? base.context.recentTailTokens,
+      summaryTargetTokens:
+        next.context?.summaryTargetTokens ?? base.context.summaryTargetTokens,
+    },
   };
 }
 
@@ -370,7 +396,27 @@ function mergeProjectLimits(
       provenance[key] = source;
     }
   }
-  return { ...base, limits };
+  const context = { ...base.context };
+  const projectMode = project.context?.mode;
+  if (
+    projectMode !== undefined &&
+    CONTEXT_MODE_STRENGTH[projectMode] > CONTEXT_MODE_STRENGTH[context.mode]
+  ) {
+    context.mode = projectMode;
+    provenance["context.mode"] = source;
+  }
+  for (const [field, key] of CONTEXT_LIMIT_KEYS) {
+    const proposed = project.context?.[field];
+    const stricter =
+      field === "reservedOutputTokens" || field === "bufferTokens"
+        ? proposed !== undefined && proposed > context[field]
+        : proposed !== undefined && proposed < context[field];
+    if (proposed !== undefined && stricter) {
+      context[field] = proposed;
+      provenance[key] = source;
+    }
+  }
+  return { ...base, limits, context };
 }
 
 function applyEnvironment(
@@ -500,6 +546,43 @@ function applyCli(
       provenance[key] = cliSource;
     }
   }
+  if (cli.contextMode !== undefined) {
+    if (
+      cli.contextMode !== "off" &&
+      cli.contextMode !== "warn" &&
+      cli.contextMode !== "compact"
+    ) {
+      throw new ForgeConfigError(
+        `Invalid --context-mode value "${cli.contextMode}". Use off, warn, or compact.`,
+      );
+    }
+    config = {
+      ...config,
+      context: { ...config.context, mode: cli.contextMode },
+    };
+    provenance["context.mode"] = cliSource;
+  }
+  for (const [field, key] of CONTEXT_LIMIT_KEYS) {
+    const value = cli[field];
+    if (value !== undefined) {
+      if (
+        !Number.isInteger(value) ||
+        value <
+          (field === "recentTailTokens"
+            ? 0
+            : field === "summaryTargetTokens"
+              ? 64
+              : 1) ||
+        value > 2_000_000
+      ) {
+        throw new ForgeConfigError(
+          `--${toKebab(field)} must be an integer from ${field === "recentTailTokens" ? 0 : field === "summaryTargetTokens" ? 64 : 1} to 2000000.`,
+        );
+      }
+      config = { ...config, context: { ...config.context, [field]: value } };
+      provenance[key] = cliSource;
+    }
+  }
   return config;
 }
 
@@ -525,6 +608,10 @@ function recordFileProvenance(
   if (config.trace?.enabled !== undefined) provenance["trace.enabled"] = source;
   if (config.plugins?.enabled !== undefined)
     provenance["plugins.enabled"] = source;
+  if (config.context?.mode !== undefined) provenance["context.mode"] = source;
+  for (const [field, key] of CONTEXT_LIMIT_KEYS) {
+    if (config.context?.[field] !== undefined) provenance[key] = source;
+  }
 }
 
 const LIMIT_KEYS = [
@@ -533,6 +620,15 @@ const LIMIT_KEYS = [
   ["commandTimeoutMs", "limits.commandTimeoutMs"],
   ["maxToolOutputBytes", "limits.maxToolOutputBytes"],
 ] as const;
+
+const CONTEXT_LIMIT_KEYS = [
+  ["reservedOutputTokens", "context.reservedOutputTokens"],
+  ["bufferTokens", "context.bufferTokens"],
+  ["recentTailTokens", "context.recentTailTokens"],
+  ["summaryTargetTokens", "context.summaryTargetTokens"],
+] as const;
+
+const CONTEXT_MODE_STRENGTH = { off: 0, warn: 1, compact: 2 } as const;
 
 function parseThinking(value: string, source: string): "enabled" | "disabled" {
   if (value === "enabled" || value === "disabled") return value;

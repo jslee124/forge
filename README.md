@@ -7,12 +7,15 @@ It is a learning project and portfolio project focused on the engineering behind
 coding agents: model interaction, tool execution, safety boundaries, execution
 traces, plugins, and reproducible evaluations.
 
-> Status: Milestones 8 and 9 are complete. Forge v0.2 includes the bounded coding runtime,
+> Status: Milestones 8 through 10 are complete. Forge v0.2 includes the bounded coding runtime,
 > persistent sessions and traces, three reproducible evaluation tasks, external
 > graders, an opt-in DeepSeek runner, published live evidence, and an MIT
 > license. Trusted plugins and portable project skills are available in v0.2.
 > Forge can also use ChatGPT subscription access through the official Codex App
 > Server without copying or parsing another application's credential file.
+> Long sessions now receive inspectable per-step context budgets, lossless v2
+> transcripts with opt-in checkpoints, bounded Codex wrappers, and explicit
+> context-limit stops.
 
 ## Vision
 
@@ -417,6 +420,10 @@ opt-in live runner, trace-derived reports, published live evidence, and the
 first v0.1 release. Milestone 8 added the versioned trusted-plugin API, explicit
 project trust, custom tools and commands, immutable observers, prompt and
 strictness-only policy hooks, and explicitly selected portable project skills.
+Milestone 9 added OpenAI API and ChatGPT-subscription authentication boundaries.
+Milestone 10 added provider capability tables, conservative request preflight,
+safe conversation checkpoints, adapter-owned continuation pressure handling,
+Codex wrapper budgets, context inspection, and deterministic long-session gates.
 See [Trusted Plugin API](docs/PLUGINS.md).
 
 ## License

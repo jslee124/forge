@@ -11,6 +11,7 @@ The core relationship is:
 ```text
 Session
 |-- completed user/assistant turns
+|-- optional derived context checkpoint
 |-- workspace and working-directory metadata
 `-- Run 1 -> events.jsonl
     Run 2 -> events.jsonl
@@ -33,9 +34,10 @@ $FORGE_HOME/
     `-- <run-id>.jsonl
 ```
 
-Both formats have an explicit `schemaVersion: 1`. Files are written only under
-the resolved Forge home. Session snapshots are replaced atomically. Run traces
-are append-only while their run is active.
+Session snapshots use `schemaVersion: 2`; v1 snapshots migrate on load. Trace
+envelopes retain `schemaVersion: 1`. Files are written only under the resolved
+Forge home. Session snapshots are replaced atomically. Run traces are append-only
+while their run is active.
 
 Each session stores:
 
@@ -43,6 +45,7 @@ Each session stores:
 - Canonical workspace root and the saved working directory
 - Completed user and assistant messages
 - The ordered run IDs belonging to the session
+- An optional versioned checkpoint with source/tail hashes and provenance
 
 Each trace line is a versioned envelope containing the run ID, optional session
 ID, sequence number, timestamp, and one structured `RunEvent`.
@@ -72,6 +75,8 @@ Resume follows these rules:
    from that workspace explicitly.
 7. Missing or invalid session files produce an actionable configuration-style
    error without starting a model request.
+8. A valid checkpoint restores the same bounded active view; a stale or invalid
+   checkpoint is ignored without changing the canonical transcript.
 
 This means Forge restores conversation context, not authority or executable
 state.
@@ -80,8 +85,9 @@ state.
 
 `forge inspect <run-id>` reads and validates the corresponding JSONL trace,
 then renders an event timeline plus duration, model steps, tool calls, token
-usage, and terminal status. Inspection never executes tools or contacts the
-model provider.
+usage, context-budget categories, retained/omitted messages, estimation error,
+and terminal status. Inspection never executes tools or contacts the model
+provider.
 
 Terminal rendering and trace persistence consume the same `RunEvent` objects.
 The trace is therefore evidence of the runtime path, rather than a second log
@@ -112,6 +118,6 @@ Session resume does not weaken the existing security model:
 - Branching or forking a session
 - Cross-machine synchronization
 - SQLite indexing
-- Automatic compaction of long conversation histories (planned in
-  [Milestone 10](ROADMAP.md#milestone-10-budgeted-context-management))
+- Deleting canonical transcript history through a retention policy
+- Cross-provider reuse of provider-native opaque checkpoints
 - Trace encryption

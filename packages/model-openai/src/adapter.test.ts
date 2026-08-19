@@ -4,6 +4,32 @@ import { createOpenAIModelAdapter } from "./index.js";
 import type { OpenAITransportRequest } from "./transport.js";
 
 describe("OpenAI model adapter", () => {
+  it("uses an explicit model table and a conservative unknown-model fallback", () => {
+    const transport = {
+      async *stream() {
+        yield { type: "abort" as const };
+      },
+    };
+    const known = createOpenAIModelAdapter({
+      env: { OPENAI_API_KEY: "test" },
+      model: "gpt-5.4-mini",
+      transport,
+    });
+    const unknown = createOpenAIModelAdapter({
+      env: { OPENAI_API_KEY: "test" },
+      model: "future-unknown",
+      transport,
+    });
+    expect(known.context).toMatchObject({
+      contextWindowTokens: 400_000,
+      contextWindowSource: "adapter-table",
+    });
+    expect(unknown.context).toMatchObject({
+      contextWindowTokens: 32_768,
+      contextWindowSource: "configured-fallback",
+    });
+  });
+
   it("supports API-key authentication without making a paid request", async () => {
     let captured: OpenAITransportRequest | undefined;
     const adapter = createOpenAIModelAdapter({

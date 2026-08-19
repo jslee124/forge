@@ -1,5 +1,24 @@
 export const FORGE_VERSION = "0.2.0";
 
+export {
+  type ActiveConversationView,
+  budgetModelRequest,
+  type ContextBudgetReport,
+  type ContextConfiguration,
+  type ContextMode,
+  type ContextTokenBreakdown,
+  conservativeRequestEstimate,
+  conservativeTextTokens,
+  conservativeValueTokens,
+  DEFAULT_CONTEXT_CONFIGURATION,
+  type ModelContextCapabilities,
+  modelContextCapabilities,
+  selectRecentConversation,
+  sha256,
+  type TokenEstimate,
+  type TokenEstimateMethod,
+} from "./context.js";
+
 export { ModelConfigurationError, ModelProviderError } from "./errors.js";
 export type {
   ModelAdapter,

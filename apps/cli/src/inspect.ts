@@ -62,6 +62,22 @@ export function formatInspection(events: readonly TraceEnvelope[]): string {
     .filter((entry): entry is [string, number] => entry[1] !== undefined)
     .map(([name, value]) => `${name}=${value}`)
     .join(" ");
+  const budget = summary.context.lastBudget;
+  const contextLines = budget
+    ? [
+        "",
+        "Context budget",
+        `Model ${budget.provider}/${budget.modelId} window=${budget.contextWindowTokens} source=${budget.contextWindowSource}`,
+        `Estimated ${budget.estimatedInputTokens} available=${budget.availableInputTokens} reserve=${budget.effectiveReserveTokens} method=${budget.estimationMethod}`,
+        `Categories instructions=${budget.estimates.instructions} request=${budget.estimates.currentRequest} tools=${budget.estimates.toolSchemas} history=${budget.estimates.conversationHistory} continuation=${budget.estimates.continuation} toolResults=${budget.estimates.toolResults}`,
+        `Messages retained=${budget.retainedMessageCount} omitted=${budget.omittedMessageCount} warnings=${summary.context.warningCount}`,
+        ...(summary.context.providerInputTokens !== undefined
+          ? [
+              `Provider input=${summary.context.providerInputTokens} absoluteError=${summary.context.absoluteErrorTokens ?? 0}`,
+            ]
+          : ["Provider input=unreported"]),
+      ]
+    : ["", "Context budget", "No context preflight was recorded."];
   return [
     `Run ${summary.runId}`,
     ...(summary.sessionId ? [`Session ${summary.sessionId}`] : []),
@@ -71,6 +87,7 @@ export function formatInspection(events: readonly TraceEnvelope[]): string {
     `Model steps ${summary.modelSteps}`,
     `Tool calls ${summary.toolCalls}${toolSummary ? ` (${toolSummary})` : ""}`,
     `Usage ${usage}`,
+    ...contextLines,
     "",
     "Events",
     ...events.map(
@@ -93,6 +110,19 @@ function describeEvent(event: TraceEnvelope["event"]): string {
       return `${event.type} step=${event.step} ${JSON.stringify(event.text)}`;
     case "model.warning":
       return `${event.type} ${JSON.stringify(event.message)}`;
+    case "context.budgeted":
+      return `${event.type} step=${event.step} estimated=${event.budget.estimatedInputTokens} available=${event.budget.availableInputTokens} retained=${event.budget.retainedMessageCount} omitted=${event.budget.omittedMessageCount}`;
+    case "context.warning":
+    case "context.limit_reached":
+      return `${event.type} step=${event.step} ${event.message}`;
+    case "context.usage":
+      return `${event.type} step=${event.step} estimated=${event.estimatedInputTokens} provider=${event.providerInputTokens} error=${event.absoluteErrorTokens}`;
+    case "context.compaction.started":
+      return `${event.type} step=${event.step} strategy=${event.strategy} before=${event.estimatedBeforeTokens}`;
+    case "context.compaction.completed":
+      return `${event.type} step=${event.step} strategy=${event.strategy} reclaimed=${event.reclaimedTokens}`;
+    case "context.compaction.failed":
+      return `${event.type} step=${event.step} strategy=${event.strategy} ${event.message}`;
     case "tool.proposed":
     case "tool.started":
     case "tool.completed":
@@ -101,6 +131,8 @@ function describeEvent(event: TraceEnvelope["event"]): string {
     case "tool.decision":
       return `${event.type} ${event.call.name} decision=${event.decision.kind}`;
     default:
-      return event.message ? `${event.type} ${event.message}` : event.type;
+      return "message" in event && event.message
+        ? `${event.type} ${event.message}`
+        : event.type;
   }
 }

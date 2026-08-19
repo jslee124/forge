@@ -1,3 +1,7 @@
+export {
+  type ContextModeMetrics,
+  evaluateContextModes,
+} from "./context-evaluation.js";
 export { type GradeResult, gradeWorkspace } from "./grader.js";
 export {
   type EvaluationEnvironment,

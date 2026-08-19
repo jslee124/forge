@@ -22,6 +22,7 @@ merge, instruction discovery, provenance reporting, and the `safe` and
 `workspace-write` profiles. Milestone 6 persists versioned sessions and run
 traces under `FORGE_HOME` while reloading that context for every resumed run.
 Milestone 8 adds explicitly selected portable skills and trusted plugins.
+Milestone 10 adds strictness-merged context budgets and versioned checkpoints.
 
 ## `AGENTS.md`
 
@@ -121,6 +122,11 @@ start from the same contract:
 | `limits.maxToolOutputBytes` | `65536` | Project may only choose a lower value |
 | `trace.enabled` | `true` | User configuration or explicit CLI only |
 | `plugins.enabled` | `[]` | User configuration only; names enabled user plugins |
+| `context.mode` | `warn` | Project may only select a stricter mode |
+| `context.reservedOutputTokens` | `4096` | Project may only choose a larger reserve |
+| `context.bufferTokens` | `8192` | Project may only choose a larger safety reserve |
+| `context.recentTailTokens` | `12000` | Project may only choose a lower budget |
+| `context.summaryTargetTokens` | `1200` | Project may only choose a lower budget |
 
 Unknown fields are errors rather than silently ignored. `DEEPSEEK_API_KEY` is a
 secret environment variable and is never represented as a configuration field.

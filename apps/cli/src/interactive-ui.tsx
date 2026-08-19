@@ -267,6 +267,11 @@ export async function runInkInteractiveFromCli(
       reasoningEffort: loaded.config.model.reasoningEffort,
       thinking: loaded.config.model.thinking,
       permissionProfile: loaded.config.permissionProfile,
+      contextMode: loaded.config.context.mode,
+      reservedOutputTokens: loaded.config.context.reservedOutputTokens,
+      bufferTokens: loaded.config.context.bufferTokens,
+      recentTailTokens: loaded.config.context.recentTailTokens,
+      summaryTargetTokens: loaded.config.context.summaryTargetTokens,
     };
     sessionPersistence ??= await createPersistentInteractiveSession({
       cwd: dependencies.cwd,
@@ -427,6 +432,9 @@ export function InteractiveApp({
         case "model.warning":
           appendEntry("warning", event.message);
           break;
+        case "context.warning":
+          appendEntry("warning", event.message);
+          break;
         case "tool.proposed":
           appendEntry("tool", `○ Proposed ${event.call.name}`);
           break;
@@ -518,6 +526,35 @@ export function InteractiveApp({
         setEditor(createEditorState());
         appendEntry("system", "Started a new session.");
         return;
+      case "/context":
+        setEditor(createEditorState());
+        appendEntry(
+          "system",
+          sessionPersistence?.contextStatus?.() ??
+            "Context status is unavailable because persistence is disabled.",
+        );
+        return;
+      case "/compact --dry-run":
+      case "/compact": {
+        setEditor(createEditorState());
+        if (!sessionPersistence?.compact) {
+          appendEntry(
+            "warning",
+            "Compaction is unavailable because persistence is disabled.",
+          );
+          return;
+        }
+        const dryRun = command.trim() === "/compact --dry-run";
+        void sessionPersistence.compact(dryRun).then(
+          (message) => appendEntry("system", message),
+          (error: unknown) =>
+            appendEntry(
+              "error",
+              `Could not compact session: ${error instanceof Error ? error.message : "unknown error"}`,
+            ),
+        );
+        return;
+      }
       case "/resume":
         setEditor(createEditorState());
         if (!sessionPersistence) {
@@ -679,6 +716,9 @@ export function InteractiveApp({
             if (event.type === "answer") finalText += event.text;
           },
           conversation: [...conversation.current],
+          ...(sessionPersistence?.contextCheckpoint
+            ? { contextCheckpoint: sessionPersistence.contextCheckpoint }
+            : {}),
           signal: controller.signal,
           isTTY: true,
         });
@@ -713,6 +753,9 @@ export function InteractiveApp({
         signal: controller.signal,
         approvalChannel,
         conversation: [...conversation.current],
+        ...(sessionPersistence?.contextCheckpoint
+          ? { contextCheckpoint: sessionPersistence.contextCheckpoint }
+          : {}),
         ...(sessionId ? { sessionId } : {}),
         onEvent: handleRunEvent,
         renderEventsToOutput: false,
@@ -971,6 +1014,10 @@ export function InteractiveApp({
             : {}),
         };
         setActiveOptions(nextOptions);
+        sessionPersistence?.selectModel?.(
+          selected.selection.provider,
+          selected.selection.id,
+        );
         setPhase("editing");
         void persistModelSelection({
           cwd,

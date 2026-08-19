@@ -200,6 +200,27 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
       "maximum retained tool output",
       parsePositiveInteger,
     )
+    .option("--context-mode <mode>", "context mode: off, warn, or compact")
+    .option(
+      "--reserved-output-tokens <count>",
+      "tokens reserved for model output",
+      parsePositiveInteger,
+    )
+    .option(
+      "--buffer-tokens <count>",
+      "context estimation safety buffer",
+      parsePositiveInteger,
+    )
+    .option(
+      "--recent-tail-tokens <count>",
+      "verbatim recent conversation budget",
+      parsePositiveInteger,
+    )
+    .option(
+      "--summary-target-tokens <count>",
+      "checkpoint summary target",
+      parsePositiveInteger,
+    )
     .action(async (prompt: string, options: AskOptions) => {
       setExitCode(
         options.engine === "codex"

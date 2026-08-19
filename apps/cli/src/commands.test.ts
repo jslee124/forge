@@ -10,6 +10,8 @@ describe("slash command registry", () => {
   it("drives both completion and help", () => {
     expect(filterSlashCommands("/c").map(({ name }) => name)).toEqual([
       "/clear",
+      "/context",
+      "/compact",
     ]);
     expect(filterSlashCommands("/n").map(({ name }) => name)).toEqual(["/new"]);
     for (const command of SLASH_COMMANDS) {

@@ -101,6 +101,162 @@ function fakeReadTool(executions: string[]): ForgeTool {
 }
 
 describe("native agent runtime", () => {
+  it("emits a preflight and stops mandatory overflow before a provider call", async () => {
+    let calls = 0;
+    const model: ModelAdapter = {
+      context: {
+        provider: "fake",
+        modelId: "tiny",
+        contextWindowTokens: 100,
+        contextWindowSource: "adapter-table",
+        maxOutputTokens: 20,
+        nativeCompaction: "unsupported",
+        continuationProjection: "unsupported",
+        estimateRequestTokens: async () => ({
+          tokens: 500,
+          method: "sdk",
+          confidence: "exact",
+        }),
+      },
+      stream: async function* () {
+        calls += 1;
+        yield finish("stop");
+      },
+    };
+    const result = await runAgent({
+      prompt: "x".repeat(500),
+      instructions: "y".repeat(500),
+      model,
+      tools: [],
+      policy: new ReadOnlyPolicy(),
+      toolContext,
+      signal: toolContext.signal,
+      contextConfiguration: {
+        mode: "warn",
+        reservedOutputTokens: 20,
+        bufferTokens: 20,
+        recentTailTokens: 10,
+        summaryTargetTokens: 10,
+      },
+    });
+
+    expect(result.status).toBe("limit_reached");
+    expect(calls).toBe(0);
+    expect(result.events.map(({ type }) => type)).toContain(
+      "context.limit_reached",
+    );
+  });
+
+  it("recovers one clean overflow without replaying a completed tool action", async () => {
+    const executions: string[] = [];
+    let requestIndex = 0;
+    const requests: ModelRequest[] = [];
+    const model: ModelAdapter = {
+      context: {
+        provider: "fake",
+        modelId: "fake",
+        contextWindowTokens: 10_000,
+        contextWindowSource: "adapter-table",
+        nativeCompaction: "unsupported",
+        continuationProjection: "adapter-owned",
+        estimateRequestTokens: async () => ({
+          tokens: 100,
+          method: "sdk",
+          confidence: "exact",
+        }),
+        isContextOverflow: (error) =>
+          error instanceof Error && error.message === "context length exceeded",
+        projectContinuation: async (continuation) => ({
+          provider: continuation.provider,
+          data: { projected: true },
+        }),
+      },
+      stream: async function* (request) {
+        requests.push(request);
+        const current = requestIndex;
+        requestIndex += 1;
+        if (current === 0) {
+          yield toolCall("once", "a.ts");
+          yield {
+            ...finish("tool-calls"),
+            continuation: {
+              provider: "fake",
+              data: { largeCompletedToolResult: "x".repeat(1_000) },
+            },
+          };
+          return;
+        }
+        if (current === 1) throw new Error("context length exceeded");
+        yield { type: "text.delta", text: "Recovered once." };
+        yield finish("stop");
+      },
+    };
+    const result = await runAgent({
+      prompt: "read once",
+      model,
+      tools: [fakeReadTool(executions)],
+      policy: new ReadOnlyPolicy(),
+      toolContext,
+      signal: toolContext.signal,
+    });
+
+    expect(result.status).toBe("completed");
+    expect(executions).toEqual(["a.ts"]);
+    expect(requests).toHaveLength(3);
+    expect(requests[2]?.continuation?.data).toEqual({ projected: true });
+  });
+
+  it("does not retry an overflow after partial assistant output", async () => {
+    let requestIndex = 0;
+    let projections = 0;
+    const model: ModelAdapter = {
+      context: {
+        provider: "fake",
+        modelId: "fake",
+        contextWindowTokens: 10_000,
+        contextWindowSource: "adapter-table",
+        nativeCompaction: "unsupported",
+        continuationProjection: "adapter-owned",
+        estimateRequestTokens: async () => ({
+          tokens: 100,
+          method: "sdk",
+          confidence: "exact",
+        }),
+        isContextOverflow: () => true,
+        projectContinuation: async (continuation) => {
+          projections += 1;
+          return continuation;
+        },
+      },
+      stream: async function* () {
+        const current = requestIndex;
+        requestIndex += 1;
+        if (current === 0) {
+          yield toolCall("once", "a.ts");
+          yield {
+            ...finish("tool-calls"),
+            continuation: { provider: "fake", data: { step: 1 } },
+          };
+          return;
+        }
+        yield { type: "text.delta", text: "partial" };
+        throw new Error("context length exceeded");
+      },
+    };
+    const result = await runAgent({
+      prompt: "read",
+      model,
+      tools: [fakeReadTool([])],
+      policy: new ReadOnlyPolicy(),
+      toolContext,
+      signal: toolContext.signal,
+    });
+
+    expect(result.status).toBe("failed");
+    expect(requestIndex).toBe(2);
+    expect(projections).toBe(0);
+  });
+
   it("inspects multiple files and continues with tool results", async () => {
     const model = new ScriptedModel([
       [toolCall("call-1", "a.ts"), finish("tool-calls", 1)],

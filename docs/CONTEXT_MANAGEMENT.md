@@ -2,8 +2,19 @@
 
 ## Status
 
-This document is the implementation plan for Roadmap Milestone 10. It describes
-planned behavior, not behavior available in the current release.
+Roadmap Milestone 10 is implemented. This document records the design,
+invariants, rollout decision, and follow-up live-evaluation gates. The default
+remains `warn`; automatic checkpoint generation is opt-in until the published
+provider-quality gates pass.
+
+The first shipped Forge checkpoint uses a deterministic, redacted extractive
+summarizer so default tests and manual `/compact` make no paid model call. It
+allocates bounded space across every eligible historical message, removes
+authority-like approval claims, and labels verification text as historical.
+The checkpoint schema and adapter capability contract support opaque
+provider-native state, but the current OpenAI AI SDK and DeepSeek adapters
+advertise native compaction as unsupported because their active transports do
+not yet expose a safe compact-item round trip.
 
 ## Why this work is next
 

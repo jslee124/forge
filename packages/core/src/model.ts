@@ -1,3 +1,4 @@
+import type { ModelContextCapabilities } from "./context.js";
 import type { ModelToolDefinition, ToolCall, ToolResult } from "./tools.js";
 
 export interface ModelContinuation {
@@ -72,6 +73,7 @@ export type ModelStreamEvent =
     };
 
 export interface ModelAdapter {
+  readonly context?: ModelContextCapabilities;
   stream(
     request: ModelRequest,
     signal: AbortSignal,

@@ -2,9 +2,9 @@
 
 ## Current milestone
 
-**Milestone 9: OpenAI authentication expansion is complete.** The next
-milestone is **Milestone 10: Budgeted context management**. No later milestone
-should be treated as implemented merely because its design is documented.
+**Milestone 10: Budgeted context management is complete.** Automatic
+checkpoint generation remains opt-in while live provider-quality gates are
+collected. No later milestone has started.
 
 ## Working rules
 
@@ -359,19 +359,19 @@ plan lives in [Context Management Improvement Plan](CONTEXT_MANAGEMENT.md).
 
 ### 10.1 Budget accounting and observability
 
-- [ ] Define provider/model context capabilities separately from runtime limits
-- [ ] Add a provider-neutral token estimator with documented conservative
+- [x] Define provider/model context capabilities separately from runtime limits
+- [x] Add a provider-neutral token estimator with documented conservative
   fallback behavior
-- [ ] Reserve explicit budgets for output, current instructions, tool schemas,
+- [x] Reserve explicit budgets for output, current instructions, tool schemas,
   the current request, conversation history, and in-run tool continuation
-- [ ] Use the larger of the requested output allowance and safety buffer as the
+- [x] Use the larger of the requested output allowance and safety buffer as the
   context reserve instead of double-counting both
-- [ ] Emit versioned context-budget events without storing hidden credentials
-- [ ] Extend `forge inspect` with estimated, provider-reported, retained, and
+- [x] Emit versioned context-budget events without storing hidden credentials
+- [x] Extend `forge inspect` with estimated, provider-reported, retained, and
   omitted context metrics
-- [ ] Budget both native `ModelAdapter` requests and the Forge conversation JSON
+- [x] Budget both native `ModelAdapter` requests and the Forge conversation JSON
   currently wrapped into Codex App Server prompts
-- [ ] Warn before a request is likely to exceed the active model's context
+- [x] Warn before a request is likely to exceed the active model's context
   window
 
 Acceptance criteria:
@@ -386,25 +386,25 @@ Acceptance criteria:
 
 ### 10.2 Safe conversation compaction
 
-- [ ] Introduce a versioned context checkpoint separate from the canonical
+- [x] Introduce a versioned context checkpoint separate from the canonical
   session transcript
-- [ ] Support adapter-owned provider-native opaque compaction when available and
+- [x] Support adapter-owned provider-native opaque compaction when available and
   a Forge-generated inspectable checkpoint otherwise
-- [ ] Stop sending an unbounded full Forge transcript inside every Codex Engine
+- [x] Stop sending an unbounded full Forge transcript inside every Codex Engine
   prompt; use the derived active view first, then evaluate persistent App Server
   thread mapping as a separate integration
-- [ ] Always retain current instructions, the current request, and a configured
+- [x] Always retain current instructions, the current request, and a configured
   recent serialized-tail token budget
-- [ ] Compact only a completed prefix of user/assistant turns
-- [ ] Preserve the full original transcript until a separately designed
+- [x] Compact only a completed prefix of user/assistant turns
+- [x] Preserve the full original transcript until a separately designed
   retention policy exists
-- [ ] Treat generated summaries as untrusted conversation memory, never as
+- [x] Treat generated summaries as untrusted conversation memory, never as
   instructions, approvals, verification evidence, or permission state
-- [ ] Persist checkpoint strategy, provenance, source and tail hashes, model ID,
+- [x] Persist checkpoint strategy, provenance, source and tail hashes, model ID,
   token counts, and generation time
-- [ ] Fall back predictably when summary generation fails or produces invalid
+- [x] Fall back predictably when summary generation fails or produces invalid
   output
-- [ ] Add an explicit `/context` status view, `/compact --dry-run`, and a manual
+- [x] Add an explicit `/context` status view, `/compact --dry-run`, and a manual
   `/compact` action before enabling automatic compaction by default
 
 Acceptance criteria:
@@ -419,20 +419,20 @@ Acceptance criteria:
 
 ### 10.3 In-run pressure handling
 
-- [ ] Re-check the context budget before every model step
-- [ ] Account for provider continuation data, assistant tool calls, and tool
+- [x] Re-check the context budget before every model step
+- [x] Account for provider continuation data, assistant tool calls, and tool
   results without interpreting opaque provider metadata in `@forge/core`
-- [ ] Prune or replace old completed tool outputs with explicit bounded
+- [x] Prune or replace old completed tool outputs with explicit bounded
   placeholders before summarizing broader conversation history
-- [ ] Prefer bounded tool-result representations, targeted re-reads, and a
+- [x] Prefer bounded tool-result representations, targeted re-reads, and a
   measured advertised-tool set over retaining duplicate outputs or schemas
-- [ ] Recover once from a provider-classified context overflow only when the
+- [x] Recover once from a provider-classified context overflow only when the
   failed attempt produced no assistant output or other retry evidence
-- [ ] Detect compaction thrashing and stop when repeated compaction fails to
+- [x] Detect compaction thrashing and stop when repeated compaction fails to
   reclaim a minimum useful budget
-- [ ] Stop with `limit_reached` and a specific context-budget reason when the
+- [x] Stop with `limit_reached` and a specific context-budget reason when the
   active run cannot be reduced safely
-- [ ] Evaluate provider-specific continuation compaction only behind adapter
+- [x] Evaluate provider-specific continuation compaction only behind adapter
   capabilities and feature flags
 
 Acceptance criteria:
@@ -446,13 +446,13 @@ Acceptance criteria:
 
 ### 10.4 Evaluation and default rollout
 
-- [ ] Add deterministic long-session fixtures for recall, instruction changes,
+- [x] Add deterministic long-session fixtures for recall, instruction changes,
   tool-result pressure, resume, and hostile historical text
-- [ ] Measure task success, input tokens, estimation error, latency, compaction
+- [x] Measure task success, input tokens, estimation error, latency, compaction
   count, retained-turn count, and summary regeneration rate
-- [ ] Compare `off`, `warn`, and `compact` modes on the same tasks
-- [ ] Define release thresholds before making automatic compaction the default
-- [ ] Keep semantic or vector retrieval deferred until evaluation demonstrates
+- [x] Compare `off`, `warn`, and `compact` modes on the same tasks
+- [x] Define release thresholds before making automatic compaction the default
+- [x] Keep semantic or vector retrieval deferred until evaluation demonstrates
   that budgeted history plus existing lexical tools is insufficient
 
 Acceptance criteria:

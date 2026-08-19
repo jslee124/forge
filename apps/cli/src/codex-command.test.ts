@@ -296,6 +296,33 @@ describe("Codex commands", () => {
     expect(JSON.stringify(request?.params)).toContain("what was the result?");
   });
 
+  it("refuses to silently omit Forge history beyond the Codex wrapper budget", async () => {
+    const client = new FakeClient();
+    const stderr = new BufferOutput();
+    const result = await runCodexTask(
+      "continue",
+      {
+        model: "gpt-test",
+        reasoningEffort: "high",
+        recentTailTokens: 10,
+      },
+      dependencies(client, new BufferOutput(), stderr, {
+        conversation: [
+          { role: "user", content: "a".repeat(100) },
+          { role: "assistant", content: "b".repeat(100) },
+          { role: "user", content: "c".repeat(100) },
+          { role: "assistant", content: "d".repeat(100) },
+        ],
+      }),
+    );
+
+    expect(result).toBe(3);
+    expect(stderr.value).toContain("will not silently omit older turns");
+    expect(client.requests.some(({ method }) => method === "turn/start")).toBe(
+      false,
+    );
+  });
+
   it("rejects unsupported reasoning effort before starting a thread", async () => {
     const client = new FakeClient();
     const stderr = new BufferOutput();

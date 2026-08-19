@@ -3,6 +3,8 @@ export interface SlashCommand {
     | "/help"
     | "/new"
     | "/clear"
+    | "/context"
+    | "/compact"
     | "/login"
     | "/model"
     | "/resume"
@@ -14,6 +16,11 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
   { name: "/help", description: "Show available commands" },
   { name: "/new", description: "Start a new session" },
   { name: "/clear", description: "Clear conversation context" },
+  {
+    name: "/context",
+    description: "Show context budget and checkpoint status",
+  },
+  { name: "/compact", description: "Create a safe conversation checkpoint" },
   { name: "/login", description: "Configure a model provider" },
   { name: "/model", description: "Choose model and reasoning effort" },
   { name: "/resume", description: "Resume a saved workspace session" },

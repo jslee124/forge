@@ -113,6 +113,45 @@ describe("Forge configuration", () => {
     expect(loaded.provenance["model.id"].kind).toBe("cli");
   });
 
+  it("allows project context settings only to strengthen user guards", async () => {
+    const { root, nested, forgeHome } = await fixture();
+    await writeFile(
+      path.join(forgeHome, "config.json"),
+      JSON.stringify({
+        schemaVersion: 1,
+        context: {
+          mode: "warn",
+          bufferTokens: 4_000,
+          recentTailTokens: 2_000,
+        },
+      }),
+    );
+    await writeFile(
+      path.join(root, ".forge", "config.json"),
+      JSON.stringify({
+        schemaVersion: 1,
+        context: {
+          mode: "compact",
+          bufferTokens: 8_000,
+          recentTailTokens: 1_000,
+        },
+      }),
+    );
+
+    const loaded = await loadForgeConfig({
+      cwd: nested,
+      env: { FORGE_HOME: forgeHome },
+    });
+    expect(loaded.config.context).toMatchObject({
+      mode: "compact",
+      bufferTokens: 8_000,
+      recentTailTokens: 1_000,
+    });
+    expect(loaded.provenance["context.mode"].kind).toBe("project");
+    expect(loaded.provenance["context.bufferTokens"].kind).toBe("project");
+    expect(loaded.provenance["context.recentTailTokens"].kind).toBe("project");
+  });
+
   it("does not load the user config a second time as project config", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "forge-home-"));
     temporaryDirectories.push(root);

@@ -120,3 +120,16 @@ The [published JSON report](../evals/reports/v0.1/report.json),
 [Markdown summary](../evals/reports/v0.1/report.md), and all nine JSONL traces
 are checked in. Every trace was revalidated for schema, sequence, run ID, and
 terminal-status consistency, and the configured API key was not present.
+
+## Milestone 10 context gate
+
+The default suite compares `off`, `warn`, and `compact` on the same synthetic
+long-session transcript without a provider call. It records task success,
+estimated and fake-provider-reported input, estimation error, local latency,
+compaction count, retained turns, and summary regeneration. Separate runtime
+fixtures cover mandatory overflow, clean one-shot recovery, partial-output
+non-retry, tool-result projection, hostile history, and resume integrity.
+
+See the [Milestone 10 release gate](../evals/reports/v0.2/CONTEXT_MANAGEMENT.md).
+`warn` remains the default until paid-provider estimator and task-quality gates
+are published.

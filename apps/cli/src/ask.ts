@@ -30,6 +30,11 @@ export interface AskOptions {
   readonly maxToolCalls?: number;
   readonly commandTimeoutMs?: number;
   readonly maxToolOutputBytes?: number;
+  readonly contextMode?: string;
+  readonly reservedOutputTokens?: number;
+  readonly bufferTokens?: number;
+  readonly recentTailTokens?: number;
+  readonly summaryTargetTokens?: number;
 }
 
 export interface AskDependencies {

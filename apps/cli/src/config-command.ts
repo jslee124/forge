@@ -21,6 +21,11 @@ const DISPLAY_KEYS: readonly ConfigKey[] = [
   "limits.maxToolOutputBytes",
   "trace.enabled",
   "plugins.enabled",
+  "context.mode",
+  "context.reservedOutputTokens",
+  "context.bufferTokens",
+  "context.recentTailTokens",
+  "context.summaryTargetTokens",
 ];
 
 export async function runConfigCommand(
@@ -91,5 +96,10 @@ function flatten(loaded: LoadedForgeConfig): Record<ConfigKey, unknown> {
     "limits.maxToolOutputBytes": config.limits.maxToolOutputBytes,
     "trace.enabled": config.trace.enabled,
     "plugins.enabled": config.plugins.enabled,
+    "context.mode": config.context.mode,
+    "context.reservedOutputTokens": config.context.reservedOutputTokens,
+    "context.bufferTokens": config.context.bufferTokens,
+    "context.recentTailTokens": config.context.recentTailTokens,
+    "context.summaryTargetTokens": config.context.summaryTargetTokens,
   };
 }

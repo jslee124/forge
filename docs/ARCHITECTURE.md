@@ -440,6 +440,13 @@ Trace implementations ---> Core interfaces
 Plugin host --------------> Core extension interfaces
 ```
 
+Milestone 10 keeps context ownership split across these boundaries: core owns
+categories, budget arithmetic, events, and stop decisions; adapters own model
+windows, estimation, overflow classification, and continuation projection;
+persistence owns session-v2 checkpoints; the CLI owns `/context`, `/compact`,
+Codex wrapper budgeting, and inspection rendering. The canonical transcript is
+never replaced by its active model view.
+
 The core should not import CLI rendering, a specific provider implementation, a
 plugin implementation, or a future LangChain adapter.
 

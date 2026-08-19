@@ -8,9 +8,12 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import {
   configuredSecrets,
+  createForgeSummaryCheckpoint,
   FileSessionStore,
   FileTraceStore,
+  isCheckpointValid,
   JsonlTraceWriter,
+  previewSessionCompaction,
   recordRunInSession,
   redactValue,
   summarizeTrace,
@@ -89,6 +92,82 @@ describe("persistent sessions", () => {
     expect(saved.messages).toEqual([]);
     expect(saved.runIds).toHaveLength(1);
     expect(saved.lastRunStatus).toBe("denied");
+  });
+
+  it("persists a redacted derived checkpoint without changing the transcript", async () => {
+    const store = new FileSessionStore(await forgeHome(), {
+      secrets: ["session-secret-value"],
+    });
+    let snapshot = store.create({ root: "/workspace", cwd: "/workspace" });
+    for (let index = 0; index < 4; index += 1) {
+      snapshot = recordRunInSession(snapshot, {
+        prompt: `constraint ${index} session-secret-value`,
+        finalText: `result ${index}`,
+        status: "completed",
+        runId: randomUUID(),
+      });
+    }
+    const originalMessages = snapshot.messages;
+    const preview = previewSessionCompaction(snapshot, {
+      recentTailTokens: 20,
+      summaryTargetTokens: 80,
+    });
+    const compacted = createForgeSummaryCheckpoint(snapshot, {
+      provider: "fake",
+      modelId: "fake-model",
+      recentTailTokens: 20,
+      summaryTargetTokens: 80,
+      secrets: ["session-secret-value"],
+      now: "2026-08-19T00:00:00.000Z",
+    });
+
+    expect(preview.eligibleMessageCount).toBeGreaterThan(0);
+    expect(compacted.messages).toBe(originalMessages);
+    expect(compacted.contextCheckpoint?.summary).not.toContain(
+      "session-secret-value",
+    );
+    expect(compacted.contextCheckpoint?.safetyLabels).toEqual([
+      "untrusted-conversation-memory",
+      "no-approval-state",
+      "no-policy-authority",
+    ]);
+    expect(isCheckpointValid(compacted)).toBe(true);
+    await store.save(compacted);
+    const reloaded = await store.load(compacted.id);
+    expect(isCheckpointValid(reloaded)).toBe(true);
+    expect(JSON.stringify(reloaded)).not.toContain("session-secret-value");
+    const continued = recordRunInSession(reloaded, {
+      prompt: "new turn",
+      finalText: "new answer",
+      status: "completed",
+      runId: randomUUID(),
+    });
+    expect(continued.contextCheckpoint).toBeUndefined();
+    await expect(store.save(continued)).resolves.toBeUndefined();
+  });
+
+  it("migrates a v1 session snapshot to v2 on load", async () => {
+    const home = await forgeHome();
+    const id = randomUUID();
+    await mkdir(path.join(home, "sessions"), { recursive: true });
+    await writeFile(
+      path.join(home, "sessions", `${id}.json`),
+      JSON.stringify({
+        schemaVersion: 1,
+        id,
+        createdAt: "2026-08-19T00:00:00.000Z",
+        updatedAt: "2026-08-19T00:00:00.000Z",
+        workspaceRoot: "/workspace",
+        workingDirectory: "/workspace",
+        messages: [],
+        runIds: [],
+      }),
+    );
+
+    await expect(new FileSessionStore(home).load(id)).resolves.toMatchObject({
+      schemaVersion: 2,
+      id,
+    });
   });
 
   it("rejects invalid IDs and cross-workspace resume", async () => {
