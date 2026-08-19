@@ -35,6 +35,9 @@ importers:
       '@forge/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@forge/model-compat':
+        specifier: workspace:*
+        version: link:../../packages/model-compat
       '@forge/model-deepseek':
         specifier: workspace:*
         version: link:../../packages/model-deepseek
@@ -104,6 +107,24 @@ importers:
       zod:
         specifier: ^4.4.3
         version: 4.4.3
+
+  packages/model-compat:
+    dependencies:
+      '@ai-sdk/openai':
+        specifier: ^4.0.43
+        version: 4.0.43(zod@4.4.3)
+      '@forge/auth':
+        specifier: workspace:*
+        version: link:../auth
+      '@forge/config':
+        specifier: workspace:*
+        version: link:../config
+      '@forge/core':
+        specifier: workspace:*
+        version: link:../core
+      ai:
+        specifier: ^7.0.66
+        version: 7.0.66(zod@4.4.3)
 
   packages/model-deepseek:
     dependencies:

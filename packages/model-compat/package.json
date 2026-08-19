@@ -1,0 +1,22 @@
+{
+  "name": "@forge/model-compat",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@ai-sdk/openai": "^4.0.43",
+    "@forge/auth": "workspace:*",
+    "@forge/config": "workspace:*",
+    "@forge/core": "workspace:*",
+    "ai": "^7.0.66"
+  }
+}

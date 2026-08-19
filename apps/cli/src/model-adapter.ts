@@ -1,6 +1,7 @@
 import type { ProviderProfile } from "@forge/config";
 import type { ModelAdapter } from "@forge/core";
 import { ModelConfigurationError } from "@forge/core";
+import { createCompatModelAdapter } from "@forge/model-compat";
 import {
   createDeepSeekModelAdapter,
   type DeepSeekThinkingMode,
@@ -49,7 +50,16 @@ export function createForgeModelAdapter(
       `Unknown provider "${options.provider}". Use "deepseek", "openai", or a route defined under providers in the user configuration.`,
     );
   }
-  throw new ModelConfigurationError(
-    `Provider route "${options.provider}" speaks ${route.api}, which this build cannot dispatch yet.`,
-  );
+  if (options.reasoningEffort === "ultra") {
+    throw new ModelConfigurationError(
+      'Reasoning effort "ultra" may be selected only for a Codex subscription model that advertises it.',
+    );
+  }
+  return createCompatModelAdapter({
+    env: options.env,
+    route: options.provider,
+    profile: route,
+    model: options.model,
+    reasoningEffort: options.reasoningEffort,
+  });
 }

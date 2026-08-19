@@ -24,6 +24,7 @@
     "@forge/codex-app-server": "workspace:*",
     "@forge/config": "workspace:*",
     "@forge/core": "workspace:*",
+    "@forge/model-compat": "workspace:*",
     "@forge/model-deepseek": "workspace:*",
     "@forge/model-openai": "workspace:*",
     "@forge/persistence": "workspace:*",
