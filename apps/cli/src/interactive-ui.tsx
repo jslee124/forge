@@ -46,6 +46,7 @@ import {
 } from "./interactive-model.js";
 import { TerminalMarkdown } from "./markdown.js";
 import {
+  type ContextStatus,
   createPersistentInteractiveSession,
   type InteractiveSessionPersistence,
 } from "./persistent-session.js";
@@ -339,6 +340,7 @@ export function InteractiveApp({
   const [transcript, setTranscript] = useState<readonly TranscriptEntry[]>(() =>
     conversationTranscript(initialMessages),
   );
+  const [contextPanel, setContextPanel] = useState<ContextStatus>();
   const [files, setFiles] = useState<readonly string[]>([]);
   const [filesLoading, setFilesLoading] = useState(true);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -531,6 +533,7 @@ export function InteractiveApp({
       case "/clear":
         conversation.current = [];
         sessionPersistence?.clear();
+        setContextPanel(undefined);
         setTranscript([]);
         nextTranscriptId.current = 0;
         setEditor(createEditorState());
@@ -538,6 +541,7 @@ export function InteractiveApp({
       case "/new":
         conversation.current = [];
         sessionPersistence?.clear();
+        setContextPanel(undefined);
         setTranscript([]);
         nextTranscriptId.current = 0;
         setEditor(createEditorState());
@@ -545,11 +549,15 @@ export function InteractiveApp({
         return;
       case "/context":
         setEditor(createEditorState());
-        appendEntry(
-          "system",
-          sessionPersistence?.contextStatus?.() ??
-            "Context status is unavailable because persistence is disabled.",
-        );
+        if (sessionPersistence?.contextDetails) {
+          setContextPanel(sessionPersistence.contextDetails());
+        } else {
+          appendEntry(
+            "system",
+            sessionPersistence?.contextStatus?.() ??
+              "Context status is unavailable because persistence is disabled.",
+          );
+        }
         return;
       case "/compact --dry-run":
       case "/compact": {
@@ -563,7 +571,12 @@ export function InteractiveApp({
         }
         const dryRun = command.trim() === "/compact --dry-run";
         void sessionPersistence.compact(dryRun).then(
-          (message) => appendEntry("system", message),
+          (message) => {
+            appendEntry("system", message);
+            if (sessionPersistence.contextDetails) {
+              setContextPanel(sessionPersistence.contextDetails());
+            }
+          },
           (error: unknown) =>
             appendEntry(
               "error",
@@ -574,6 +587,7 @@ export function InteractiveApp({
       }
       case "/resume":
         setEditor(createEditorState());
+        setContextPanel(undefined);
         if (!sessionPersistence) {
           appendEntry("warning", "Persistent sessions are unavailable.\n");
           return;
@@ -682,6 +696,7 @@ export function InteractiveApp({
     const prompt = assemblePrompt(editor);
     const controller = new AbortController();
     activeController.current = controller;
+    setContextPanel(undefined);
     setEditor(createEditorState());
     setPhase("running");
     appendEntry("user", editor.value);
@@ -1184,6 +1199,8 @@ export function InteractiveApp({
         </Box>
       ) : null}
 
+      {contextPanel ? <ContextPanel status={contextPanel} /> : null}
+
       {phase === "approving" && approval ? (
         <Box
           borderStyle="round"
@@ -1482,6 +1499,141 @@ function PromptWithCursor({
       {after}
     </Text>
   );
+}
+
+function ContextPanel({
+  status,
+}: {
+  readonly status: ContextStatus;
+}): React.JSX.Element {
+  const inputBudget = status.availableInputTokens;
+  const usedTokens = Math.min(status.estimatedTranscriptTokens, inputBudget);
+  const usageRatio =
+    inputBudget === 0 ? (usedTokens > 0 ? 1 : 0) : usedTokens / inputBudget;
+  const usagePercent = Math.round(usageRatio * 100);
+  const reclaimedTokens = Math.max(
+    0,
+    status.estimatedTranscriptTokens - status.projectedCompactedTokens,
+  );
+  const checkpoint = status.checkpoint;
+  const checkpointLabel =
+    checkpoint.status === "none"
+      ? "not created"
+      : checkpoint.status === "valid"
+        ? `${checkpoint.strategy} ready · ${checkpoint.summarizedMessageCount} messages summarized`
+        : `${checkpoint.strategy} stale · not used`;
+
+  return (
+    <Box
+      borderStyle="round"
+      borderColor="cyan"
+      flexDirection="column"
+      paddingX={1}
+      marginTop={1}
+      marginBottom={1}
+    >
+      <Text>
+        <Text bold color="cyan">
+          Context window
+        </Text>
+        <Text dimColor> · {status.mode} mode</Text>
+      </Text>
+
+      <Box flexDirection="column" marginTop={1}>
+        <Text>
+          <Text bold color={contextUsageColor(usagePercent)}>
+            {usagePercent}% history
+          </Text>
+          <Text dimColor>
+            {" "}
+            · ~{formatTokenCount(status.estimatedTranscriptTokens)} of{" "}
+            {formatTokenCount(inputBudget)} input tokens
+          </Text>
+        </Text>
+        <Text color={contextUsageColor(usagePercent)}>
+          {contextUsageBar(usageRatio)}
+        </Text>
+      </Box>
+
+      <Box flexDirection="column" marginTop={1}>
+        <Text>
+          <Text bold color="gray">
+            Model
+          </Text>
+          {"  "}
+          {status.provider}/{status.modelId}
+        </Text>
+        <Text>
+          <Text bold color="gray">
+            Window
+          </Text>{" "}
+          {formatTokenCount(status.contextWindowTokens)} total ·{" "}
+          {formatTokenCount(status.availableInputTokens)} input
+        </Text>
+        <Text>
+          <Text bold color="gray">
+            Reserve
+          </Text>{" "}
+          {formatTokenCount(status.reservedOutputTokens)} output +{" "}
+          {formatTokenCount(status.bufferTokens)} safety →{" "}
+          {formatTokenCount(status.effectiveReserveTokens)} effective
+        </Text>
+      </Box>
+
+      <Box flexDirection="column" marginTop={1}>
+        <Text bold color="gray">
+          Conversation
+        </Text>
+        <Text>
+          {status.canonicalMessageCount === 0
+            ? "No messages yet."
+            : `${status.canonicalMessageCount} canonical messages · ~${formatTokenCount(status.estimatedTranscriptTokens)} estimated`}
+        </Text>
+        {status.canonicalMessageCount > 0 ? (
+          <>
+            <Text>
+              Active tail: {status.activeTailMessageCount} messages from index{" "}
+              {status.activeTailStartIndex}
+            </Text>
+            <Text dimColor>
+              /compact → ~{formatTokenCount(status.projectedCompactedTokens)}{" "}
+              tokens
+              {reclaimedTokens > 0
+                ? ` · saves ~${formatTokenCount(reclaimedTokens)}`
+                : " · no estimated savings"}
+            </Text>
+          </>
+        ) : null}
+      </Box>
+
+      <Box flexDirection="column" marginTop={1}>
+        <Text>
+          <Text bold color={checkpoint.status === "stale" ? "yellow" : "gray"}>
+            Checkpoint
+          </Text>
+          {"  "}
+          {checkpointLabel}
+        </Text>
+        <Text dimColor>
+          Canonical transcript is retained · checkpoint is untrusted memory
+        </Text>
+      </Box>
+    </Box>
+  );
+}
+
+function contextUsageBar(ratio: number): string {
+  const width = 28;
+  const filled = Math.max(0, Math.min(width, Math.round(ratio * width)));
+  return `${"█".repeat(filled)}${"░".repeat(width - filled)}`;
+}
+
+function contextUsageColor(percent: number): "green" | "yellow" | "red" {
+  return percent >= 85 ? "red" : percent >= 65 ? "yellow" : "green";
+}
+
+function formatTokenCount(value: number): string {
+  return new Intl.NumberFormat("en-US").format(value);
 }
 
 /**

@@ -33,6 +33,7 @@ export interface InteractiveSessionPersistence {
   clear(): void;
   list(): Promise<readonly SessionSummary[]>;
   resume(sessionId: string): Promise<readonly ModelConversationMessage[]>;
+  contextDetails?(): ContextStatus;
   contextStatus?(): string;
   compact?(dryRun: boolean): Promise<string>;
   selectModel?(provider: string, modelId: string): void;
@@ -48,6 +49,34 @@ interface PersistentContextOptions {
   readonly bufferTokens: number;
   readonly contextWindowTokens: number;
   readonly secrets: readonly string[];
+}
+
+export interface ContextStatus {
+  readonly provider: string;
+  readonly modelId: string;
+  readonly mode: PersistentContextOptions["mode"];
+  readonly contextWindowTokens: number;
+  readonly reservedOutputTokens: number;
+  readonly bufferTokens: number;
+  readonly effectiveReserveTokens: number;
+  readonly availableInputTokens: number;
+  readonly recentTailTokens: number;
+  readonly summaryTargetTokens: number;
+  readonly canonicalMessageCount: number;
+  readonly activeTailMessageCount: number;
+  readonly activeTailStartIndex: number;
+  readonly estimatedTranscriptTokens: number;
+  readonly projectedCompactedTokens: number;
+  readonly checkpoint:
+    | {
+        readonly status: "none";
+      }
+    | {
+        readonly status: "valid" | "stale";
+        readonly strategy: ContextCheckpoint["strategy"];
+        readonly summarizedMessageCount: number;
+        readonly estimatedTokens: number;
+      };
 }
 
 export class PersistentInteractiveSession
@@ -141,28 +170,66 @@ export class PersistentInteractiveSession
     return this.#snapshot.messages;
   }
 
+  contextDetails(): ContextStatus {
+    const effectiveReserveTokens = Math.max(
+      this.#context.reservedOutputTokens,
+      this.#context.bufferTokens,
+    );
+    const availableInputTokens = Math.max(
+      0,
+      this.#context.contextWindowTokens - effectiveReserveTokens,
+    );
+    const messageCount = this.#snapshot?.messages.length ?? 0;
+    const preview = this.#snapshot
+      ? previewSessionCompaction(this.#snapshot, this.#context)
+      : undefined;
+    const checkpoint = this.#snapshot?.contextCheckpoint;
+
+    return {
+      provider: this.#context.provider,
+      modelId: this.#context.modelId,
+      mode: this.#context.mode,
+      contextWindowTokens: this.#context.contextWindowTokens,
+      reservedOutputTokens: this.#context.reservedOutputTokens,
+      bufferTokens: this.#context.bufferTokens,
+      effectiveReserveTokens,
+      availableInputTokens,
+      recentTailTokens: this.#context.recentTailTokens,
+      summaryTargetTokens: this.#context.summaryTargetTokens,
+      canonicalMessageCount: messageCount,
+      activeTailMessageCount: preview?.retainedMessageCount ?? 0,
+      activeTailStartIndex: preview?.retainedTailStartIndex ?? 0,
+      estimatedTranscriptTokens: preview?.estimatedBeforeTokens ?? 0,
+      projectedCompactedTokens: preview?.estimatedAfterTokens ?? 0,
+      checkpoint: checkpoint
+        ? {
+            status:
+              this.#snapshot && isCheckpointValid(this.#snapshot)
+                ? "valid"
+                : "stale",
+            strategy: checkpoint.strategy,
+            summarizedMessageCount: checkpoint.summarizedThroughMessageIndex,
+            estimatedTokens: checkpoint.estimatedCheckpointTokens,
+          }
+        : { status: "none" },
+    };
+  }
+
   contextStatus(): string {
-    if (!this.#snapshot || this.#snapshot.messages.length === 0) {
-      return [
-        `Context: ${this.#context.provider}/${this.#context.modelId} window=${this.#context.contextWindowTokens}.`,
-        `Budget: output=${this.#context.reservedOutputTokens} buffer=${this.#context.bufferTokens} effectiveReserve=${Math.max(this.#context.reservedOutputTokens, this.#context.bufferTokens)} recentTail=${this.#context.recentTailTokens} summaryTarget=${this.#context.summaryTargetTokens}.`,
-        "Canonical transcript: 0 messages.",
-      ].join("\n");
-    }
-    const preview = previewSessionCompaction(this.#snapshot, this.#context);
-    const checkpoint = this.#snapshot.contextCheckpoint;
-    const checkpointStatus = checkpoint
-      ? isCheckpointValid(this.#snapshot)
-        ? `${checkpoint.strategy}, messages 0-${checkpoint.summarizedThroughMessageIndex - 1}, ${checkpoint.estimatedCheckpointTokens} estimated tokens`
-        : "stale (not used)"
-      : "none";
+    const status = this.contextDetails();
+    const checkpoint = status.checkpoint;
+    const checkpointText =
+      checkpoint.status === "none"
+        ? "none"
+        : `${checkpoint.status} ${checkpoint.strategy}, ${checkpoint.summarizedMessageCount} summarized messages, ${checkpoint.estimatedTokens} estimated tokens`;
     return [
-      `Model: ${this.#context.provider}/${this.#context.modelId} window=${this.#context.contextWindowTokens} availableInput=${Math.max(0, this.#context.contextWindowTokens - Math.max(this.#context.reservedOutputTokens, this.#context.bufferTokens))}.`,
-      `Configured categories: output=${this.#context.reservedOutputTokens} buffer=${this.#context.bufferTokens} recentTail=${this.#context.recentTailTokens} summaryTarget=${this.#context.summaryTargetTokens}.`,
-      `Context: ${this.#snapshot.messages.length} canonical messages (always retained).`,
-      `Checkpoint: ${checkpointStatus}.`,
-      `Active tail: ${preview.retainedMessageCount} messages from index ${preview.retainedTailStartIndex}.`,
-      `Estimated transcript: ${preview.estimatedBeforeTokens} tokens; projected compact view: ${preview.estimatedAfterTokens} tokens.`,
+      `Model: ${status.provider}/${status.modelId}.`,
+      `Window: ${status.contextWindowTokens} tokens; available input ${status.availableInputTokens}; mode ${status.mode}.`,
+      `Reserve: ${status.effectiveReserveTokens} tokens; recent tail ${status.recentTailTokens}; summary target ${status.summaryTargetTokens}.`,
+      `Transcript: ${status.canonicalMessageCount} canonical messages; estimated ${status.estimatedTranscriptTokens} tokens.`,
+      `Active tail: ${status.activeTailMessageCount} messages from index ${status.activeTailStartIndex}.`,
+      `Projected compact view: ${status.projectedCompactedTokens} tokens.`,
+      `Checkpoint: ${checkpointText}.`,
     ].join("\n");
   }
 

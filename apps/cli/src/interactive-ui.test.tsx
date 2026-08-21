@@ -12,7 +12,10 @@ import {
   InteractiveApp,
   resolveInkKeyboardMode,
 } from "./interactive-ui.js";
-import type { InteractiveSessionPersistence } from "./persistent-session.js";
+import type {
+  ContextStatus,
+  InteractiveSessionPersistence,
+} from "./persistent-session.js";
 
 const temporaryDirectories: string[] = [];
 
@@ -71,6 +74,66 @@ describe("Ink interactive terminal", () => {
     expect(instance.lastFrame()).toContain(
       "/login  Configure a model provider",
     );
+    instance.unmount();
+  });
+
+  it("renders /context as a readable budget panel", async () => {
+    const root = await createWorkspace();
+    const contextStatus: ContextStatus = {
+      provider: "deepseek",
+      modelId: "deepseek-v4-flash",
+      mode: "warn",
+      contextWindowTokens: 32_768,
+      reservedOutputTokens: 4_096,
+      bufferTokens: 8_192,
+      effectiveReserveTokens: 8_192,
+      availableInputTokens: 24_576,
+      recentTailTokens: 12_000,
+      summaryTargetTokens: 1_200,
+      canonicalMessageCount: 8,
+      activeTailMessageCount: 3,
+      activeTailStartIndex: 5,
+      estimatedTranscriptTokens: 10_240,
+      projectedCompactedTokens: 4_096,
+      checkpoint: {
+        status: "valid",
+        strategy: "forge-summary",
+        summarizedMessageCount: 5,
+        estimatedTokens: 1_200,
+      },
+    };
+    const sessionPersistence: InteractiveSessionPersistence = {
+      messages: [],
+      sessionId: undefined,
+      prepareRun: async () => "session-id",
+      recordRun: async () => undefined,
+      clear: () => undefined,
+      list: async () => [],
+      resume: async () => [],
+      contextDetails: () => contextStatus,
+    };
+    const instance = render(
+      <InteractiveApp
+        options={{}}
+        env={{}}
+        cwd={root}
+        sessionPersistence={sessionPersistence}
+      />,
+    );
+
+    await settle();
+    instance.stdin.write("/context");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+
+    const frame = instance.lastFrame() ?? "";
+    expect(frame).toContain("Context window");
+    expect(frame).toContain("42% history");
+    expect(frame).toContain("deepseek/deepseek-v4-flash");
+    expect(frame).toContain("Conversation");
+    expect(frame).toContain("forge-summary ready");
+    expect(frame).not.toContain("Configured categories:");
     instance.unmount();
   });
 
