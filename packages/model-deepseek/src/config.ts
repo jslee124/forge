@@ -3,6 +3,14 @@ import { AuthenticationManager } from "@forge/auth";
 export const DEFAULT_DEEPSEEK_MODEL = "deepseek-v4-flash";
 
 export type DeepSeekThinkingMode = "enabled" | "disabled";
+export type DeepSeekReasoningEffort =
+  | "none"
+  | "minimal"
+  | "low"
+  | "medium"
+  | "high"
+  | "xhigh"
+  | "max";
 
 export interface DeepSeekEnvironment extends NodeJS.ProcessEnv {
   readonly DEEPSEEK_API_KEY?: string;

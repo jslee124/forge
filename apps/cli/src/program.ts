@@ -130,7 +130,10 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
     .showHelpAfterError()
     .option("--provider <provider>", "API provider: deepseek or openai")
     .option("--model <model>", "model ID")
-    .option("--reasoning-effort <effort>", "OpenAI API reasoning effort")
+    .option(
+      "--reasoning-effort <effort>",
+      "reasoning effort supported by the selected model/provider",
+    )
     .option("--thinking <mode>", "thinking mode: enabled or disabled")
     .option(
       "--permission-profile <profile>",
@@ -152,7 +155,7 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
     )
     .option(
       "--reasoning-effort <effort>",
-      "OpenAI API reasoning effort",
+      "reasoning effort supported by the selected model/provider",
       FORGE_REASONING_EFFORT,
     )
     .option(
@@ -160,6 +163,7 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
       "thinking mode: enabled or disabled",
       FORGE_THINKING ?? "enabled",
     )
+    .option("--image <source...>", "attach JPEG, PNG, GIF, or WebP images")
     .action(async (prompt: string, options: AskOptions) => {
       setExitCode(await ask(prompt, options, env));
     });
@@ -180,6 +184,7 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
       "reasoning effort supported by the selected model/provider",
     )
     .option("--thinking <mode>", "thinking mode: enabled or disabled")
+    .option("--image <source...>", "attach JPEG, PNG, GIF, or WebP images")
     .option(
       "--permission-profile <profile>",
       "permission profile: safe or workspace-write",

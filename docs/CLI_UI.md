@@ -106,6 +106,21 @@ workspace-relative paths to the model. Selecting a mention does not
 automatically inject the complete file contents. The model can use `read_file`
 through the normal tool, policy, and trace path when it needs the contents.
 
+## Pasted image attachments
+
+When a bracketed paste or terminal drag-and-drop begins with an absolute image
+path, Forge removes that path from the text and shows a compact
+`[Image #N] filename` attachment. This supports OS and terminal clipboard
+helpers that materialize screenshots beneath temporary directories such as
+`/var/.../T/otty-paste/`. Quoted paths, shell-escaped spaces, and `file://`
+paths are accepted. Backspace removes the most recent attachment when the text
+composer is empty.
+
+This is an explicit user action, so the attachment may be outside the selected
+workspace. Forge does not scan arbitrary prompt prose for image paths, and this
+does not widen the workspace boundary used by model file tools. The active
+model must support image input.
+
 Example logical message:
 
 ```text

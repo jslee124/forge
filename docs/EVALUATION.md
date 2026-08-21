@@ -97,8 +97,11 @@ contain repository data and should be reviewed before publication.
 
 The default `deepseek-v4-flash` ID was revalidated on 2026-08-19 against the
 [official DeepSeek API documentation](https://api-docs.deepseek.com/api/create-chat-completion).
-The API currently lists `deepseek-v4-flash` and `deepseek-v4-pro`; thinking mode
-is selected explicitly by Forge.
+The API currently lists `deepseek-v4-flash`, `deepseek-v4-pro`, and the
+Responses-only experimental vision model `deepseek-v4-flash-vision-exp`.
+Thinking mode is selected explicitly by Forge. Vision transport and local image
+validation have deterministic tests, but no paid live vision evaluation is
+claimed by the v0.1 report below.
 
 ## v0.1 evidence
 

@@ -25,6 +25,7 @@ export type {
   ModelContinuation,
   ModelConversationMessage,
   ModelFinishReason,
+  ModelImageInput,
   ModelRequest,
   ModelStreamEvent,
   ModelToolResult,

@@ -103,6 +103,45 @@ class CreateThenAnswerModel implements ModelAdapter {
 }
 
 describe("forge run", () => {
+  it("resolves a workspace image and forwards it only to the model request", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "forge-run-vision-"));
+    temporaryDirectories.push(root);
+    const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    await writeFile(path.join(root, "screen.png"), png);
+    const model = new ReadThenAnswerModel();
+    const stdout = outputBuffer();
+    const stderr = outputBuffer();
+
+    const exitCode = await runTask(
+      "Inspect the screenshot",
+      {
+        provider: "deepseek",
+        model: "deepseek-v4-flash-vision-exp",
+        image: ["screen.png"],
+      },
+      {
+        env: { DEEPSEEK_API_KEY: "test-secret", FORGE_HOME: root },
+        cwd: root,
+        stdout: stdout.output,
+        stderr: stderr.output,
+        signal: new AbortController().signal,
+        createAdapter: () => model,
+      },
+    );
+
+    expect(exitCode).toBe(0);
+    expect(model.requests[0]?.images).toEqual([
+      {
+        type: "base64",
+        mediaType: "image/png",
+        data: png.toString("base64"),
+        filename: "screen.png",
+      },
+    ]);
+    expect(model.requests[1]?.continuation).toBeDefined();
+    expect(model.requests[1]?.images).toEqual(model.requests[0]?.images);
+  });
+
   it("executes an allowed workspace read and continues to an answer", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "forge-run-"));
     temporaryDirectories.push(root);

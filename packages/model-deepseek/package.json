@@ -14,6 +14,7 @@
   ],
   "dependencies": {
     "@ai-sdk/deepseek": "^3.0.28",
+    "@ai-sdk/openai": "^4.0.43",
     "@forge/auth": "workspace:*",
     "@forge/core": "workspace:*",
     "ai": "^7.0.66"

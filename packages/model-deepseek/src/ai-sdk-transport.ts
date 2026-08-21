@@ -4,6 +4,11 @@ import {
   type DeepSeekProviderSettings,
 } from "@ai-sdk/deepseek";
 import {
+  createOpenAI,
+  type OpenAIProviderSettings,
+  type OpenAIResponsesProviderOptions,
+} from "@ai-sdk/openai";
+import {
   type ModelFinishReason,
   ModelProviderError,
   type ModelStreamEvent,
@@ -19,7 +24,7 @@ import {
   type ToolSet,
   tool,
 } from "ai";
-
+import type { DeepSeekReasoningEffort } from "./config.js";
 import type {
   DeepSeekTransport,
   DeepSeekTransportRequest,
@@ -36,7 +41,8 @@ export class AiSdkDeepSeekTransport implements DeepSeekTransport {
       | StreamTextFunction
       | {
           readonly streamTextFunction?: StreamTextFunction;
-          readonly fetch?: DeepSeekProviderSettings["fetch"];
+          readonly fetch?: DeepSeekProviderSettings["fetch"] &
+            OpenAIProviderSettings["fetch"];
         } = {},
   ) {
     if (typeof options === "function") {
@@ -56,6 +62,17 @@ export class AiSdkDeepSeekTransport implements DeepSeekTransport {
       apiKey: request.apiKey,
       ...(this.#fetch ? { fetch: this.#fetch } : {}),
     });
+    const responses = createOpenAI({
+      apiKey: request.apiKey,
+      baseURL: "https://api.deepseek.com",
+      fetch: createDeepSeekResponsesFetch(
+        this.#fetch,
+        request.thinking === "disabled"
+          ? "none"
+          : (request.reasoningEffort ?? "high"),
+      ),
+    });
+    const usesResponsesApi = request.model === "deepseek-v4-flash-vision-exp";
     let providerMetadata: Readonly<Record<string, unknown>> | undefined;
     let finishPart:
       | {
@@ -67,7 +84,9 @@ export class AiSdkDeepSeekTransport implements DeepSeekTransport {
     try {
       const messages = buildMessages(request);
       const result = this.#streamText({
-        model: deepSeek(request.model),
+        model: usesResponsesApi
+          ? responses.responses(request.model)
+          : deepSeek(request.model),
         messages,
         abortSignal: signal,
         // Forge maps stream errors itself. The AI SDK default logs the raw
@@ -76,11 +95,24 @@ export class AiSdkDeepSeekTransport implements DeepSeekTransport {
         ...(request.tools && request.tools.length > 0
           ? { tools: toAiSdkTools(request.tools) }
           : {}),
-        providerOptions: {
-          deepseek: {
-            thinking: { type: request.thinking },
-          } satisfies DeepSeekLanguageModelChatOptions,
-        },
+        providerOptions: usesResponsesApi
+          ? {
+              openai: {
+                store: false,
+              } satisfies OpenAIResponsesProviderOptions,
+            }
+          : {
+              deepseek: {
+                thinking: { type: request.thinking },
+                ...(request.thinking === "enabled"
+                  ? {
+                      reasoningEffort: toChatReasoningEffort(
+                        request.reasoningEffort ?? "high",
+                      ),
+                    }
+                  : {}),
+              } satisfies DeepSeekLanguageModelChatOptions,
+            },
       });
 
       for await (const part of result.stream) {
@@ -176,6 +208,39 @@ export class AiSdkDeepSeekTransport implements DeepSeekTransport {
   }
 }
 
+function toChatReasoningEffort(
+  effort: DeepSeekReasoningEffort,
+): "low" | "medium" | "high" | "xhigh" | "max" {
+  return effort === "none" || effort === "minimal" ? "low" : effort;
+}
+
+function createDeepSeekResponsesFetch(
+  fetchImplementation: OpenAIProviderSettings["fetch"],
+  reasoningEffort: DeepSeekReasoningEffort,
+): NonNullable<OpenAIProviderSettings["fetch"]> {
+  const nextFetch = (fetchImplementation ?? globalThis.fetch) as NonNullable<
+    OpenAIProviderSettings["fetch"]
+  >;
+  return async (input, init) => {
+    if (typeof init?.body !== "string") {
+      return nextFetch(input, init);
+    }
+    try {
+      const body = JSON.parse(init.body) as Record<string, unknown>;
+      return nextFetch(input, {
+        ...init,
+        body: JSON.stringify({
+          ...body,
+          reasoning: { effort: reasoningEffort },
+          store: false,
+        }),
+      });
+    } catch {
+      return nextFetch(input, init);
+    }
+  };
+}
+
 interface DeepSeekContinuationData {
   readonly messages: readonly ModelMessage[];
 }
@@ -200,7 +265,15 @@ function buildMessages(request: DeepSeekTransportRequest): ModelMessage[] {
         ? [{ role: "system" as const, content: request.instructions }]
         : []),
       ...(request.conversation ?? []),
-      { role: "user", content: request.prompt },
+      {
+        role: "user",
+        content: request.images?.length
+          ? [
+              { type: "text" as const, text: request.prompt },
+              ...request.images.map(toAiSdkImagePart),
+            ]
+          : request.prompt,
+      },
     ];
   }
 
@@ -220,6 +293,24 @@ function buildMessages(request: DeepSeekTransportRequest): ModelMessage[] {
   }
 
   return messages;
+}
+
+function toAiSdkImagePart(
+  image: import("@forge/core").ModelImageInput,
+): import("ai").FilePart {
+  if (image.type === "url") {
+    return {
+      type: "file",
+      mediaType: "image",
+      data: { type: "url", url: new URL(image.url) },
+    };
+  }
+  return {
+    type: "file",
+    mediaType: image.mediaType,
+    data: { type: "data", data: image.data },
+    ...(image.filename ? { filename: image.filename } : {}),
+  };
 }
 
 function isDeepSeekContinuationData(

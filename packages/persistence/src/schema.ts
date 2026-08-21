@@ -256,6 +256,7 @@ export const runEventSchema = z.discriminatedUnion("type", [
     .object({
       type: z.literal("run.started"),
       prompt: z.string(),
+      imageCount: z.number().int().positive().max(8).optional(),
       context: z
         .object({
           workspaceRoot: z.string(),

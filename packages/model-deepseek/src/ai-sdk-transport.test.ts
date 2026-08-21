@@ -15,6 +15,128 @@ async function* streamParts(parts: readonly unknown[]): AsyncIterable<unknown> {
 }
 
 describe("AI SDK DeepSeek transport", () => {
+  it("uses the Responses API message shape for the vision model", async () => {
+    let capturedOptions: unknown;
+    const streamTextStub = ((options: unknown) => {
+      capturedOptions = options;
+      return {
+        stream: streamParts([
+          { type: "finish", finishReason: "stop", totalUsage: usage() },
+        ]),
+        responseMessages: Promise.resolve([]),
+      };
+    }) as unknown as typeof streamText;
+    const transport = new AiSdkDeepSeekTransport(streamTextStub);
+
+    for await (const _event of transport.stream(
+      {
+        apiKey: "test-secret",
+        model: "deepseek-v4-flash-vision-exp",
+        thinking: "enabled",
+        prompt: "What is shown?",
+        images: [
+          {
+            type: "base64",
+            mediaType: "image/png",
+            data: "iVBORw0KGgo=",
+            filename: "screen.png",
+          },
+          { type: "url", url: "https://example.com/reference.webp" },
+        ],
+      },
+      new AbortController().signal,
+    )) {
+      // Consume the response.
+    }
+
+    expect(capturedOptions).toMatchObject({
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "text", text: "What is shown?" },
+            {
+              type: "file",
+              mediaType: "image/png",
+              data: { type: "data", data: "iVBORw0KGgo=" },
+              filename: "screen.png",
+            },
+            {
+              type: "file",
+              mediaType: "image",
+              data: {
+                type: "url",
+                url: new URL("https://example.com/reference.webp"),
+              },
+            },
+          ],
+        },
+      ],
+      providerOptions: {
+        openai: { store: false },
+      },
+    });
+  });
+
+  it("serializes vision input to DeepSeek's /responses endpoint", async () => {
+    let requestUrl = "";
+    let requestBody: unknown;
+    const fetchMock: NonNullable<DeepSeekProviderSettings["fetch"]> = async (
+      input,
+      init,
+    ) => {
+      requestUrl = String(input);
+      requestBody = JSON.parse(String(init?.body));
+      return new Response(JSON.stringify({ error: { message: "test stop" } }), {
+        status: 400,
+        headers: { "content-type": "application/json" },
+      });
+    };
+    const transport = new AiSdkDeepSeekTransport({ fetch: fetchMock });
+
+    await expect(async () => {
+      for await (const _event of transport.stream(
+        {
+          apiKey: "test-secret",
+          model: "deepseek-v4-flash-vision-exp",
+          thinking: "enabled",
+          reasoningEffort: "max",
+          prompt: "Inspect",
+          images: [
+            {
+              type: "base64",
+              mediaType: "image/png",
+              data: "iVBORw0KGgo=",
+            },
+          ],
+        },
+        new AbortController().signal,
+      )) {
+        // Consume until the mocked provider error.
+      }
+    }).rejects.toThrow("HTTP 400");
+
+    expect(requestUrl).toBe("https://api.deepseek.com/responses");
+    expect(requestBody).toMatchObject({
+      model: "deepseek-v4-flash-vision-exp",
+      input: [
+        {
+          role: "user",
+          content: [
+            { type: "input_text", text: "Inspect" },
+            {
+              type: "input_image",
+              image_url: "data:image/png;base64,iVBORw0KGgo=",
+            },
+          ],
+        },
+      ],
+      reasoning: { effort: "max" },
+      store: false,
+      stream: true,
+    });
+  });
+
   it("places interactive conversation history before the current prompt", async () => {
     let capturedOptions: unknown;
     const streamTextStub = ((options: unknown) => {

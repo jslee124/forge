@@ -13,6 +13,7 @@ import {
   filterWorkspaceFiles,
   insertEditorText,
   insertFileMention,
+  insertPastedEditorText,
   moveEditorCursor,
   referencedPaths,
   slashCommandQuery,
@@ -93,6 +94,42 @@ describe("interactive editor model", () => {
     state = moveEditorCursor(state, 10);
     state = insertEditorText(state, "x");
     expect(referencedPaths(state)).toEqual([]);
+  });
+
+  it("turns pasted external and shell-escaped image paths into attachments", () => {
+    let state = createEditorState();
+    state = insertPastedEditorText(
+      state,
+      "/var/folders/example/T/otty-paste/image-1.png 这是什么图",
+    );
+    state = insertPastedEditorText(
+      state,
+      String.raw` /Users/mori/Desktop/Screen\ Shot.webp`,
+    );
+
+    expect(state.value).toBe("这是什么图");
+    expect(state.images).toEqual([
+      {
+        source: "/var/folders/example/T/otty-paste/image-1.png",
+        filename: "image-1.png",
+      },
+      {
+        source: "/Users/mori/Desktop/Screen Shot.webp",
+        filename: "Screen Shot.webp",
+      },
+    ]);
+    expect(assemblePrompt(state)).toContain(
+      "Attached images:\n- [Image #1] image-1.png",
+    );
+  });
+
+  it("does not infer image attachments from ordinary pasted prose", () => {
+    const state = insertPastedEditorText(
+      createEditorState(),
+      "Please inspect /tmp/private.png",
+    );
+    expect(state.images).toEqual([]);
+    expect(state.value).toBe("Please inspect /tmp/private.png");
   });
 });
 

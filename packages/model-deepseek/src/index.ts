@@ -4,6 +4,7 @@ import { DeepSeekModelAdapter } from "./adapter.js";
 import { AiSdkDeepSeekTransport } from "./ai-sdk-transport.js";
 import {
   type DeepSeekEnvironment,
+  type DeepSeekReasoningEffort,
   type DeepSeekThinkingMode,
   resolveDeepSeekApiKey,
 } from "./config.js";
@@ -13,6 +14,7 @@ export interface CreateDeepSeekModelAdapterOptions {
   readonly env: DeepSeekEnvironment;
   readonly model?: string;
   readonly thinking?: DeepSeekThinkingMode;
+  readonly reasoningEffort?: DeepSeekReasoningEffort;
   readonly transport?: DeepSeekTransport;
 }
 
@@ -24,6 +26,9 @@ export function createDeepSeekModelAdapter(
     transport: options.transport ?? new AiSdkDeepSeekTransport(),
     ...(options.model ? { model: options.model } : {}),
     ...(options.thinking ? { thinking: options.thinking } : {}),
+    ...(options.reasoningEffort
+      ? { reasoningEffort: options.reasoningEffort }
+      : {}),
   });
 }
 
@@ -36,6 +41,7 @@ export {
 export {
   DEFAULT_DEEPSEEK_MODEL,
   type DeepSeekEnvironment,
+  type DeepSeekReasoningEffort,
   type DeepSeekThinkingMode,
   resolveDeepSeekApiKey,
 } from "./config.js";

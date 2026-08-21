@@ -2,6 +2,7 @@ import type { ModelAdapter } from "@forge/core";
 import { ModelConfigurationError } from "@forge/core";
 import {
   createDeepSeekModelAdapter,
+  type DeepSeekReasoningEffort,
   type DeepSeekThinkingMode,
 } from "@forge/model-deepseek";
 import {
@@ -32,9 +33,15 @@ export function createForgeModelAdapter(
       reasoningEffort: options.reasoningEffort,
     });
   }
+  if (options.reasoningEffort === "ultra") {
+    throw new ModelConfigurationError(
+      'DeepSeek reasoning effort "ultra" is not supported. Use none, minimal, low, medium, high, xhigh, or max.',
+    );
+  }
   return createDeepSeekModelAdapter({
     env: options.env,
     model: options.model,
     thinking: options.thinking,
+    reasoningEffort: options.reasoningEffort satisfies DeepSeekReasoningEffort,
   });
 }

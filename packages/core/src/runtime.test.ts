@@ -596,6 +596,37 @@ describe("native agent runtime", () => {
     expect(model.requests).toHaveLength(1);
   });
 
+  it("forwards images without exposing their bytes in run events", async () => {
+    const model = new ScriptedModel([[finish("stop")]]);
+    const images = [
+      {
+        type: "base64" as const,
+        mediaType: "image/png" as const,
+        data: "sensitive-base64-pixels",
+      },
+    ];
+
+    const result = await runAgent({
+      prompt: "Inspect this image",
+      images,
+      model,
+      tools: [],
+      policy: new ReadOnlyPolicy(),
+      toolContext,
+      signal: toolContext.signal,
+    });
+
+    expect(model.requests[0]?.images).toEqual(images);
+    expect(result.events[0]).toEqual({
+      type: "run.started",
+      prompt: "Inspect this image",
+      imageCount: 1,
+    });
+    expect(JSON.stringify(result.events)).not.toContain(
+      "sensitive-base64-pixels",
+    );
+  });
+
   it("maps every terminal status to its documented exit code", () => {
     expect(exitCodeForRunStatus("completed")).toBe(0);
     expect(exitCodeForRunStatus("failed")).toBe(1);

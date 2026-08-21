@@ -9,6 +9,7 @@ import type {
   ModelContinuation,
   ModelConversationMessage,
   ModelFinishReason,
+  ModelImageInput,
   ModelStreamEvent,
   ModelToolResult,
   ModelUsage,
@@ -41,6 +42,7 @@ export type RunEvent =
   | {
       readonly type: "run.started";
       readonly prompt: string;
+      readonly imageCount?: number;
       readonly context?: RunContextSnapshot;
     }
   | { readonly type: "model.started"; readonly step: number }
@@ -146,6 +148,7 @@ export interface RunContextSnapshot {
 
 export interface RunAgentOptions {
   readonly prompt: string;
+  readonly images?: readonly ModelImageInput[];
   readonly context?: RunContextSnapshot;
   readonly instructions?: string;
   readonly conversation?: readonly ModelConversationMessage[];
@@ -202,6 +205,7 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
   await emit({
     type: "run.started",
     prompt: options.prompt,
+    ...(options.images?.length ? { imageCount: options.images.length } : {}),
     ...(options.context ? { context: options.context } : {}),
   });
 
@@ -216,6 +220,7 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
     const nextStep = modelSteps + 1;
     let request = {
       prompt: options.prompt,
+      ...(options.images?.length ? { images: options.images } : {}),
       ...(options.instructions ? { instructions: options.instructions } : {}),
       ...(options.conversation ? { conversation: options.conversation } : {}),
       tools,

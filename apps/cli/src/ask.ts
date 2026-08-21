@@ -9,6 +9,7 @@ import {
   DEFAULT_DEEPSEEK_MODEL,
   type DeepSeekThinkingMode,
 } from "@forge/model-deepseek";
+import { resolveImageInputs } from "./image-input.js";
 import {
   type CreateForgeModelAdapterOptions,
   createForgeModelAdapter,
@@ -35,6 +36,7 @@ export interface AskOptions {
   readonly bufferTokens?: number;
   readonly recentTailTokens?: number;
   readonly summaryTargetTokens?: number;
+  readonly image?: readonly string[];
 }
 
 export interface AskDependencies {
@@ -42,6 +44,7 @@ export interface AskDependencies {
   readonly stdout: WritableOutput;
   readonly stderr: WritableOutput;
   readonly signal: AbortSignal;
+  readonly cwd?: string;
   readonly createAdapter?: (
     options: CreateForgeModelAdapterOptions,
   ) => ModelAdapter;
@@ -57,6 +60,11 @@ export async function runAsk(
     const model = options.model?.trim() || DEFAULT_DEEPSEEK_MODEL;
     const adapterFactory =
       dependencies.createAdapter ?? createForgeModelAdapter;
+    const images = await resolveImageInputs(
+      options.image,
+      dependencies.cwd ?? process.cwd(),
+    );
+    assertImageModel(options.provider, model, images.length);
     const adapter = adapterFactory({
       env: dependencies.env,
       provider: options.provider === "openai" ? "openai" : "deepseek",
@@ -70,6 +78,7 @@ export async function runAsk(
     return await consumeModelStream(
       adapter,
       prompt,
+      images,
       dependencies.signal,
       dependencies.stdout,
       dependencies.stderr,
@@ -97,6 +106,19 @@ export async function runAsk(
   }
 }
 
+function assertImageModel(
+  provider: string | undefined,
+  model: string,
+  imageCount: number,
+): void {
+  if (imageCount === 0) return;
+  if (provider === "openai" || model !== "deepseek-v4-flash-vision-exp") {
+    throw new ModelConfigurationError(
+      "Image attachments currently require DeepSeek model deepseek-v4-flash-vision-exp.",
+    );
+  }
+}
+
 export async function runAskFromCli(
   prompt: string,
   options: AskOptions,
@@ -117,12 +139,14 @@ export async function runAskFromCli(
         provider: loaded.config.model.provider,
         reasoningEffort: loaded.config.model.reasoningEffort,
         thinking: loaded.config.model.thinking,
+        ...(options.image ? { image: options.image } : {}),
       },
       {
         env,
         stdout: process.stdout,
         stderr: process.stderr,
         signal: cancellation.signal,
+        cwd: process.cwd(),
       },
     );
   } catch (error) {
@@ -139,6 +163,7 @@ export async function runAskFromCli(
 async function consumeModelStream(
   adapter: ModelAdapter,
   prompt: string,
+  images: readonly import("@forge/core").ModelImageInput[],
   signal: AbortSignal,
   stdout: WritableOutput,
   stderr: WritableOutput,
@@ -146,7 +171,10 @@ async function consumeModelStream(
   let section: "reasoning" | "answer" | undefined;
   let finished = false;
 
-  for await (const event of adapter.stream({ prompt }, signal)) {
+  for await (const event of adapter.stream(
+    { prompt, ...(images.length ? { images } : {}) },
+    signal,
+  )) {
     switch (event.type) {
       case "reasoning.delta":
         section = renderDelta("reasoning", section, event.text, stdout);

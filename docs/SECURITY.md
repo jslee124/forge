@@ -80,6 +80,19 @@ Built-in file tools resolve canonical paths and symlinks before applying policy.
 Paths inside the selected workspace can follow the active permission profile.
 Paths outside it are denied in v0.1.
 
+Local image attachments are a separate, user-authorized input capability.
+Forge accepts an outside-workspace path only when the user explicitly supplies
+it with `--image`, pastes or drags it into the interactive composer, or selects
+an in-workspace `@` mention. Forge never infers attachments from ordinary
+prompt prose, repository content, or model output. The model's filesystem tools
+remain workspace-confined.
+
+Before encoding a local attachment, Forge resolves its canonical path, requires
+a regular readable file, validates JPEG/PNG/GIF/WebP magic bytes, and enforces
+per-image, combined-size, and count limits. User-supplied HTTP(S) image URLs are
+sent to the selected provider for retrieval; Forge does not fetch them itself.
+Session snapshots and ordinary run events do not persist base64 image bytes.
+
 The policy applies to Forge file tools. It does not automatically constrain a
 child process that has already been approved.
 

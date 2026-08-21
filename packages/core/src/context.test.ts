@@ -87,4 +87,30 @@ describe("context budgeting", () => {
 
     expect(continuation.tokens).toBeLessThan(initial.tokens / 100);
   });
+
+  it("budgets visual tokens without treating base64 transport bytes as text", () => {
+    const estimate = conservativeRequestEstimate({
+      prompt: "inspect",
+      continuation: {
+        provider: "deepseek",
+        data: {
+          messages: [
+            {
+              role: "user",
+              content: [
+                {
+                  type: "file",
+                  mediaType: "image/png",
+                  data: { type: "data", data: "a".repeat(4_000_000) },
+                },
+              ],
+            },
+          ],
+        },
+      },
+    });
+
+    expect(estimate.tokens).toBeGreaterThanOrEqual(4_096);
+    expect(estimate.tokens).toBeLessThan(5_000);
+  });
 });

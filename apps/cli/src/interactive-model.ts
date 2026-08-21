@@ -1,6 +1,9 @@
 import type { Dirent } from "node:fs";
 import { readdir, realpath } from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+import { isSupportedImagePath } from "./image-input.js";
 
 export interface FileMention {
   readonly path: string;
@@ -12,6 +15,12 @@ export interface EditorState {
   readonly value: string;
   readonly cursor: number;
   readonly mentions: readonly FileMention[];
+  readonly images: readonly PastedImageAttachment[];
+}
+
+export interface PastedImageAttachment {
+  readonly source: string;
+  readonly filename: string;
 }
 
 export interface MentionQuery {
@@ -38,7 +47,7 @@ const IGNORED_DIRECTORIES = new Set([
 ]);
 
 export function createEditorState(value = ""): EditorState {
-  return { value, cursor: value.length, mentions: [] };
+  return { value, cursor: value.length, mentions: [], images: [] };
 }
 
 export function insertEditorText(
@@ -55,6 +64,30 @@ export function insertEditorText(
       state.cursor,
       text.length,
     ),
+    images: state.images,
+  };
+}
+
+export function insertPastedEditorText(
+  state: EditorState,
+  pasted: string,
+): EditorState {
+  const extracted = extractLeadingImagePaths(pasted);
+  if (extracted.sources.length === 0) return insertEditorText(state, pasted);
+
+  const knownSources = new Set(state.images.map(({ source }) => source));
+  const images = [...state.images];
+  for (const source of extracted.sources) {
+    if (knownSources.has(source)) continue;
+    knownSources.add(source);
+    images.push({
+      source,
+      filename: attachmentFilename(source),
+    });
+  }
+  return {
+    ...insertEditorText(state, extracted.text),
+    images,
   };
 }
 
@@ -74,6 +107,7 @@ export function deleteEditorRange(
       boundedStart,
       boundedEnd,
     ),
+    images: state.images,
   };
 }
 
@@ -156,13 +190,102 @@ export function referencedPaths(state: EditorState): readonly string[] {
 export function assemblePrompt(state: EditorState): string {
   const paths = referencedPaths(state);
   const prompt = state.value;
-  if (paths.length === 0) return prompt;
-  return [
-    prompt,
-    "",
-    "Referenced files:",
-    ...paths.map((filePath) => `- ${filePath}`),
-  ].join("\n");
+  const sections: string[] = prompt === "" ? [] : [prompt];
+  if (state.images.length > 0) {
+    sections.push(
+      [
+        "Attached images:",
+        ...state.images.map(
+          ({ filename }, index) => `- [Image #${index + 1}] ${filename}`,
+        ),
+      ].join("\n"),
+    );
+  }
+  if (paths.length > 0) {
+    sections.push(
+      ["Referenced files:", ...paths.map((filePath) => `- ${filePath}`)].join(
+        "\n",
+      ),
+    );
+  }
+  return sections.join("\n\n");
+}
+
+function extractLeadingImagePaths(pasted: string): {
+  readonly sources: readonly string[];
+  readonly text: string;
+} {
+  const sources: string[] = [];
+  let remaining = pasted;
+  while (remaining !== "") {
+    const leadingWhitespace = /^\s*/u.exec(remaining)?.[0] ?? "";
+    const token = readShellLikeToken(remaining.slice(leadingWhitespace.length));
+    if (!token) break;
+    const source = normalizePastedImageSource(token.value);
+    if (!source) break;
+    sources.push(source);
+    remaining = remaining.slice(leadingWhitespace.length + token.length);
+  }
+  return {
+    sources,
+    text: sources.length > 0 ? remaining.trimStart() : pasted,
+  };
+}
+
+function readShellLikeToken(
+  input: string,
+): { readonly value: string; readonly length: number } | undefined {
+  if (input === "") return undefined;
+  const quote = input[0] === '"' || input[0] === "'" ? input[0] : undefined;
+  let value = "";
+  let index = quote ? 1 : 0;
+  for (; index < input.length; index += 1) {
+    const character = input[index];
+    if (quote && character === quote) {
+      return { value, length: index + 1 };
+    }
+    if (!quote && /\s/u.test(character ?? "")) break;
+    if (character === "\\" && index + 1 < input.length) {
+      index += 1;
+      value += input[index] ?? "";
+    } else {
+      value += character ?? "";
+    }
+  }
+  if (quote) return undefined;
+  return value === "" ? undefined : { value, length: index };
+}
+
+function normalizePastedImageSource(token: string): string | undefined {
+  if (/^file:\/\//iu.test(token)) {
+    try {
+      const localPath = fileURLToPath(token);
+      return isSupportedImagePath(localPath) ? localPath : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+  if (/^https?:\/\//iu.test(token)) {
+    try {
+      return isSupportedImagePath(new URL(token).pathname) ? token : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+  const isExplicitPath =
+    path.isAbsolute(token) || token.startsWith("./") || token.startsWith("../");
+  return isExplicitPath && isSupportedImagePath(token) ? token : undefined;
+}
+
+function attachmentFilename(source: string): string {
+  if (/^https?:\/\//iu.test(source)) {
+    try {
+      return path.basename(new URL(source).pathname) || "remote-image";
+    } catch {
+      return "remote-image";
+    }
+  }
+  return path.basename(source);
 }
 
 export async function discoverWorkspaceFiles(

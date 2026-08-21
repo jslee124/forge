@@ -110,6 +110,9 @@ importers:
       '@ai-sdk/deepseek':
         specifier: ^3.0.28
         version: 3.0.28(zod@4.4.3)
+      '@ai-sdk/openai':
+        specifier: ^4.0.43
+        version: 4.0.43(zod@4.4.3)
       '@forge/auth':
         specifier: workspace:*
         version: link:../auth

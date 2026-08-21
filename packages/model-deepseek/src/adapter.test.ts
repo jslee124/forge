@@ -103,6 +103,7 @@ describe("DeepSeek model adapter", () => {
       apiKey: "test-secret",
       model: DEFAULT_DEEPSEEK_MODEL,
       thinking: "enabled",
+      reasoningEffort: "high",
       prompt: "hello",
       conversation: [
         { role: "user", content: "previous" },
@@ -114,5 +115,55 @@ describe("DeepSeek model adapter", () => {
       "text.delta",
       "finish",
     ]);
+  });
+
+  it("advertises and forwards image input for the vision model", async () => {
+    const transport = new FakeTransport();
+    const adapter = createDeepSeekModelAdapter({
+      env: { DEEPSEEK_API_KEY: "test-secret" },
+      model: "deepseek-v4-flash-vision-exp",
+      transport,
+    });
+    const images = [
+      {
+        type: "base64" as const,
+        mediaType: "image/png" as const,
+        data: "iVBORw0KGgo=",
+        filename: "screen.png",
+      },
+    ];
+
+    for await (const _event of adapter.stream(
+      { prompt: "inspect", images },
+      new AbortController().signal,
+    )) {
+      // Consume the response.
+    }
+
+    expect(adapter.context).toMatchObject({
+      contextWindowTokens: 1_048_576,
+      contextWindowSource: "adapter-table",
+    });
+    expect(transport.request).toMatchObject({
+      model: "deepseek-v4-flash-vision-exp",
+      images,
+    });
+  });
+
+  it("rejects image input for text-only DeepSeek models", () => {
+    const adapter = createDeepSeekModelAdapter({
+      env: { DEEPSEEK_API_KEY: "test-secret" },
+      model: "deepseek-v4-pro",
+      transport: new FakeTransport(),
+    });
+    expect(() =>
+      adapter.stream(
+        {
+          prompt: "inspect",
+          images: [{ type: "url", url: "https://example.com/a.png" }],
+        },
+        new AbortController().signal,
+      ),
+    ).toThrow("does not accept image input");
   });
 });

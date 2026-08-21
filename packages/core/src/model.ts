@@ -17,8 +17,25 @@ export interface ModelConversationMessage {
   readonly content: string;
 }
 
+export type ModelImageInput =
+  | {
+      readonly type: "url";
+      readonly url: string;
+    }
+  | {
+      readonly type: "base64";
+      readonly mediaType:
+        | "image/jpeg"
+        | "image/png"
+        | "image/gif"
+        | "image/webp";
+      readonly data: string;
+      readonly filename?: string;
+    };
+
 export interface ModelRequest {
   readonly prompt: string;
+  readonly images?: readonly ModelImageInput[];
   readonly instructions?: string;
   readonly conversation?: readonly ModelConversationMessage[];
   readonly tools?: readonly ModelToolDefinition[];

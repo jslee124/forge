@@ -175,8 +175,13 @@ The [interactive CLI UI](docs/CLI_UI.md) supports Shift+Enter, Meta+Enter
 (`ESC+Enter`), or Ctrl+J for a newline, live `/` command completion, and
 bounded fuzzy `@` workspace-file selection. A selected path is sent to the
 model as an explicit reference; the model still reads its contents through the
-normal `read_file` tool. File-write approval shows a colored, line-numbered
-diff with a no-color fallback.
+normal `read_file` tool. When the selected file is JPEG, PNG, GIF, or WebP and
+the active model is `deepseek-v4-flash-vision-exp`, Forge also sends it as an
+image attachment. Pasting or dragging an absolute image path—including a
+macOS clipboard helper's `/var/.../T/...png` path—creates a visible
+`[Image #N]` attachment instead of treating the leading slash as a command.
+File-write approval shows a colored, line-numbered diff with a no-color
+fallback.
 
 Forge directly enables the enhanced keyboard protocol in known-compatible
 terminals, including VS Code and Ghostty, without sending a startup capability
@@ -291,6 +296,31 @@ line flags take precedence. Valid thinking modes are `enabled` and `disabled`.
 Reasoning is labeled separately only when DeepSeek returns reasoning content;
 Forge does not synthesize it. Token usage is written to standard error when the
 provider reports it.
+
+DeepSeek image understanding uses the experimental
+`deepseek-v4-flash-vision-exp` model and its Responses API. Attach a local
+image, an HTTP(S) URL, or a base64 image data URL:
+
+```bash
+pnpm forge run "Inspect this screenshot and fix the UI bug" \
+  --model deepseek-v4-flash-vision-exp \
+  --reasoning-effort max \
+  --image screenshots/broken-layout.png
+```
+
+`forge ask` accepts the same `--image <source...>` option. Forge supports JPEG,
+PNG, GIF, and WebP, at most eight images, 20 MiB per local/data image, and 40
+MiB combined. Local paths are canonicalized and must remain inside the
+workspace when selected through the `@` workspace picker. Paths supplied
+explicitly with `--image`, paste, or drag-and-drop may point to another
+readable local directory. Text-only DeepSeek models reject attachments locally
+instead of letting the API replace them with placeholder text. DeepSeek's
+current vision model returns text and reasoning; it does not generate image
+output. Session history records the textual file reference, not base64 pixels,
+so re-attach an image when a later interactive turn must inspect it again.
+The vision Responses transport accepts reasoning efforts `none`, `minimal`,
+`low`, `medium`, `high`, `xhigh`, and `max`; disabling `--thinking` forces
+`none`.
 
 Forge loads user defaults from `$FORGE_HOME/config.json` (or
 `~/.forge/config.json`) and project limits from `<workspace>/.forge/config.json`.

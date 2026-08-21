@@ -1,19 +1,25 @@
 import {
   conservativeRequestEstimate,
   type ModelAdapter,
+  ModelConfigurationError,
   type ModelContextCapabilities,
   type ModelRequest,
   type ModelStreamEvent,
   sha256,
 } from "@forge/core";
 
-import { DEFAULT_DEEPSEEK_MODEL, type DeepSeekThinkingMode } from "./config.js";
+import {
+  DEFAULT_DEEPSEEK_MODEL,
+  type DeepSeekReasoningEffort,
+  type DeepSeekThinkingMode,
+} from "./config.js";
 import type { DeepSeekTransport } from "./transport.js";
 
 export interface DeepSeekModelAdapterOptions {
   readonly apiKey: string;
   readonly model?: string;
   readonly thinking?: DeepSeekThinkingMode;
+  readonly reasoningEffort?: DeepSeekReasoningEffort;
   readonly transport: DeepSeekTransport;
 }
 
@@ -22,12 +28,14 @@ export class DeepSeekModelAdapter implements ModelAdapter {
   readonly #apiKey: string;
   readonly #model: string;
   readonly #thinking: DeepSeekThinkingMode;
+  readonly #reasoningEffort: DeepSeekReasoningEffort;
   readonly #transport: DeepSeekTransport;
 
   constructor(options: DeepSeekModelAdapterOptions) {
     this.#apiKey = options.apiKey;
     this.#model = options.model ?? DEFAULT_DEEPSEEK_MODEL;
     this.#thinking = options.thinking ?? "enabled";
+    this.#reasoningEffort = options.reasoningEffort ?? "high";
     this.#transport = options.transport;
     const modelContext = deepSeekModelContext(this.#model);
     this.context = {
@@ -58,12 +66,23 @@ export class DeepSeekModelAdapter implements ModelAdapter {
     request: ModelRequest,
     signal: AbortSignal,
   ): AsyncIterable<ModelStreamEvent> {
+    if (
+      request.images?.length &&
+      this.#model !== "deepseek-v4-flash-vision-exp"
+    ) {
+      throw new ModelConfigurationError(
+        `DeepSeek model "${this.#model}" does not accept image input. Select deepseek-v4-flash-vision-exp.`,
+      );
+    }
     return this.#transport.stream(
       {
         apiKey: this.#apiKey,
         model: this.#model,
         thinking: this.#thinking,
+        reasoningEffort:
+          this.#thinking === "disabled" ? "none" : this.#reasoningEffort,
         prompt: request.prompt,
+        ...(request.images?.length ? { images: request.images } : {}),
         ...(request.instructions ? { instructions: request.instructions } : {}),
         ...(request.conversation ? { conversation: request.conversation } : {}),
         ...(request.tools ? { tools: request.tools } : {}),
@@ -78,7 +97,11 @@ export class DeepSeekModelAdapter implements ModelAdapter {
 export function deepSeekModelContext(
   model: string,
 ): { readonly window: number; readonly output: number } | undefined {
-  if (model === "deepseek-v4-flash" || model === "deepseek-v4-pro") {
+  if (
+    model === "deepseek-v4-flash" ||
+    model === "deepseek-v4-pro" ||
+    model === "deepseek-v4-flash-vision-exp"
+  ) {
     return { window: 1_048_576, output: 393_216 };
   }
   return undefined;

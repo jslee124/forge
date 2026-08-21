@@ -79,11 +79,13 @@ describe("Forge CLI", () => {
 
   it("routes the run command through the native runtime entry point", async () => {
     let receivedPrompt: string | undefined;
+    let receivedImages: readonly string[] | undefined;
     let exitCode: number | undefined;
     const program = createProgram({
       env: { DEEPSEEK_API_KEY: "test-secret" },
       runTask: async (prompt, options) => {
         receivedPrompt = `${prompt}:${options.thinking}`;
+        receivedImages = options.image;
         return 3;
       },
       setExitCode: (value) => {
@@ -98,9 +100,16 @@ describe("Forge CLI", () => {
       "inspect repository",
       "--thinking",
       "disabled",
+      "--image",
+      "screen.png",
+      "https://example.com/reference.webp",
     ]);
 
     expect(receivedPrompt).toBe("inspect repository:disabled");
+    expect(receivedImages).toEqual([
+      "screen.png",
+      "https://example.com/reference.webp",
+    ]);
     expect(exitCode).toBe(3);
   });
 

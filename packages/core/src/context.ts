@@ -126,7 +126,8 @@ export async function budgetModelRequest(options: {
       : conservativeTextTokens(options.request.instructions ?? ""),
     currentRequest: usesContinuation
       ? 0
-      : conservativeTextTokens(options.request.prompt),
+      : conservativeTextTokens(options.request.prompt) +
+        conservativeImageTokens(options.request.images),
     toolSchemas: conservativeValueTokens(
       options.request.tools?.map((tool) => ({
         name: tool.name,
@@ -137,7 +138,7 @@ export async function budgetModelRequest(options: {
     conversationHistory: usesContinuation
       ? 0
       : conservativeValueTokens(options.request.conversation ?? []),
-    continuation: conservativeValueTokens(
+    continuation: conservativeContinuationTokens(
       options.request.continuation?.data ?? null,
     ),
     toolResults: conservativeValueTokens(options.request.toolResults ?? []),
@@ -216,7 +217,10 @@ export function conservativeRequestEstimate(
     (usesContinuation
       ? 0
       : conservativeTextTokens(request.instructions ?? "")) +
-    (usesContinuation ? 0 : conservativeTextTokens(request.prompt)) +
+    (usesContinuation
+      ? 0
+      : conservativeTextTokens(request.prompt) +
+        conservativeImageTokens(request.images)) +
     (usesContinuation
       ? 0
       : conservativeValueTokens(request.conversation ?? [])) +
@@ -227,7 +231,7 @@ export function conservativeRequestEstimate(
         inputSchema: safeJsonSchema(tool.inputSchema),
       })) ?? [],
     ) +
-    conservativeValueTokens(request.continuation?.data ?? null) +
+    conservativeContinuationTokens(request.continuation?.data ?? null) +
     conservativeValueTokens(request.toolResults ?? []) +
     16;
   return {
@@ -242,6 +246,65 @@ export function conservativeTextTokens(value: string): number {
   // Three UTF-8 bytes per token deliberately errs high for English/code while
   // remaining useful for CJK text. Adapters can replace this with a tokenizer.
   return Math.ceil(Buffer.byteLength(value, "utf8") / 3) + 4;
+}
+
+function conservativeImageTokens(images: ModelRequest["images"]): number {
+  // Image tokenization depends on provider-side resizing. Reserve a deliberately
+  // conservative fixed allowance without counting base64 transport bytes as text.
+  return (images?.length ?? 0) * 4_096;
+}
+
+function conservativeContinuationTokens(value: unknown): number {
+  return (
+    conservativeValueTokens(redactInlineImageDataForEstimate(value)) +
+    countInlineImages(value) * 4_096
+  );
+}
+
+function countInlineImages(value: unknown): number {
+  if (Array.isArray(value)) {
+    return value.reduce((total, entry) => total + countInlineImages(entry), 0);
+  }
+  if (typeof value !== "object" || value === null) return 0;
+  const record = value as Record<string, unknown> & {
+    readonly type?: unknown;
+    readonly mediaType?: unknown;
+  };
+  if (
+    record.type === "file" &&
+    typeof record.mediaType === "string" &&
+    (record.mediaType === "image" || record.mediaType.startsWith("image/"))
+  ) {
+    return 1;
+  }
+  return Object.values(record).reduce<number>(
+    (total, entry) => total + countInlineImages(entry),
+    0,
+  );
+}
+
+function redactInlineImageDataForEstimate(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(redactInlineImageDataForEstimate);
+  }
+  if (typeof value !== "object" || value === null) return value;
+  const record = value as Record<string, unknown> & {
+    readonly type?: unknown;
+    readonly mediaType?: unknown;
+  };
+  if (
+    record.type === "file" &&
+    typeof record.mediaType === "string" &&
+    (record.mediaType === "image" || record.mediaType.startsWith("image/"))
+  ) {
+    return { ...record, data: "[inline image: 4096 token allowance]" };
+  }
+  return Object.fromEntries(
+    Object.entries(record).map(([key, entry]) => [
+      key,
+      redactInlineImageDataForEstimate(entry),
+    ]),
+  );
 }
 
 export function conservativeValueTokens(value: unknown): number {

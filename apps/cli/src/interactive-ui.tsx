@@ -29,6 +29,7 @@ import {
   type SlashCommand,
 } from "./commands.js";
 import { terminalHyperlink } from "./hyperlink.js";
+import { isSupportedImagePath } from "./image-input.js";
 import {
   activeMentionQuery,
   assemblePrompt,
@@ -41,7 +42,9 @@ import {
   filterWorkspaceFiles,
   insertEditorText,
   insertFileMention,
+  insertPastedEditorText,
   moveEditorCursor,
+  referencedPaths,
   slashCommandQuery,
 } from "./interactive-model.js";
 import { TerminalMarkdown } from "./markdown.js";
@@ -190,6 +193,16 @@ const MODEL_CHOICES: readonly ModelChoice[] = [
       provider: "openai",
       id: "gpt-5.4",
       reasoningEffort: "high",
+    },
+  },
+  {
+    label: "DeepSeek V4 Flash Vision Experimental",
+    description: "DeepSeek Responses API · image understanding",
+    selection: {
+      engine: "forge",
+      provider: "deepseek",
+      id: "deepseek-v4-flash-vision-exp",
+      thinking: "enabled",
     },
   },
 ];
@@ -687,19 +700,33 @@ export function InteractiveApp({
 
   const submitPrompt = (): void => {
     const visiblePrompt = editor.value.trim();
-    if (visiblePrompt === "") return;
-    if (visiblePrompt.startsWith("/")) {
+    if (visiblePrompt === "" && editor.images.length === 0) return;
+    if (visiblePrompt.startsWith("/") && editor.images.length === 0) {
       executeCommand(visiblePrompt);
       return;
     }
 
     const prompt = assemblePrompt(editor);
+    const imageSources = [
+      ...editor.images.map(({ source }) => source),
+      ...referencedPaths(editor).filter(isSupportedImagePath),
+    ];
     const controller = new AbortController();
     activeController.current = controller;
     setContextPanel(undefined);
     setEditor(createEditorState());
     setPhase("running");
-    appendEntry("user", editor.value);
+    appendEntry(
+      "user",
+      [
+        editor.value,
+        ...editor.images.map(
+          ({ filename }, index) => `[Image #${index + 1}] ${filename}`,
+        ),
+      ]
+        .filter(Boolean)
+        .join("\n"),
+    );
     let result: RunResult | undefined;
     let metadata: RunMetadata | undefined;
     let codexExitCode: number | undefined;
@@ -777,25 +804,31 @@ export function InteractiveApp({
         }
         return;
       }
-      await executeTask(prompt, activeOptions, {
-        env,
-        cwd,
-        stdout,
-        stderr,
-        signal: controller.signal,
-        approvalChannel,
-        conversation: [...conversation.current],
-        ...(sessionPersistence?.contextCheckpoint
-          ? { contextCheckpoint: sessionPersistence.contextCheckpoint }
-          : {}),
-        ...(sessionId ? { sessionId } : {}),
-        onEvent: handleRunEvent,
-        renderEventsToOutput: false,
-        onResult: (nextResult, nextMetadata) => {
-          result = nextResult;
-          metadata = nextMetadata;
+      await executeTask(
+        prompt,
+        imageSources.length
+          ? { ...activeOptions, image: imageSources }
+          : activeOptions,
+        {
+          env,
+          cwd,
+          stdout,
+          stderr,
+          signal: controller.signal,
+          approvalChannel,
+          conversation: [...conversation.current],
+          ...(sessionPersistence?.contextCheckpoint
+            ? { contextCheckpoint: sessionPersistence.contextCheckpoint }
+            : {}),
+          ...(sessionId ? { sessionId } : {}),
+          onEvent: handleRunEvent,
+          renderEventsToOutput: false,
+          onResult: (nextResult, nextMetadata) => {
+            result = nextResult;
+            metadata = nextMetadata;
+          },
         },
-      });
+      );
       if (result && metadata && sessionPersistence) {
         await sessionPersistence.recordRun(prompt, result, metadata);
       }
@@ -853,7 +886,7 @@ export function InteractiveApp({
   };
 
   usePaste(
-    (text) => updateEditor((current) => insertEditorText(current, text)),
+    (text) => updateEditor((current) => insertPastedEditorText(current, text)),
     { isActive: phase === "editing" },
   );
   usePaste((text) => setLoginKey((current) => current + text), {
@@ -1163,9 +1196,20 @@ export function InteractiveApp({
       return;
     }
     if (key.backspace) {
-      updateEditor((current) =>
-        deleteEditorRange(current, previousCursor(current), current.cursor),
-      );
+      updateEditor((current) => {
+        if (
+          current.cursor === 0 &&
+          current.value === "" &&
+          current.images.length > 0
+        ) {
+          return { ...current, images: current.images.slice(0, -1) };
+        }
+        return deleteEditorRange(
+          current,
+          previousCursor(current),
+          current.cursor,
+        );
+      });
       return;
     }
     if (key.delete) {
@@ -1369,10 +1413,22 @@ export function InteractiveApp({
           borderStyle="round"
           borderColor={phase === "editing" ? "green" : "gray"}
           paddingX={1}
+          flexDirection="column"
           marginTop={1}
         >
-          <Text color="green">❯ </Text>
-          <PromptWithCursor state={editor} active={phase === "editing"} />
+          {editor.images.length > 0 ? (
+            <Text color="cyan">
+              {editor.images
+                .map(
+                  ({ filename }, index) => `[Image #${index + 1}] ${filename}`,
+                )
+                .join("  ")}
+            </Text>
+          ) : null}
+          <Box>
+            <Text color="green">❯ </Text>
+            <PromptWithCursor state={editor} active={phase === "editing"} />
+          </Box>
         </Box>
       ) : null}
 

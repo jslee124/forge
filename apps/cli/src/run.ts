@@ -46,6 +46,7 @@ import {
 import type { AskOptions, WritableOutput } from "./ask.js";
 import { parseThinkingMode } from "./ask.js";
 import { formatDiffPanel } from "./diff.js";
+import { resolveImageInputs } from "./image-input.js";
 import {
   type CreateForgeModelAdapterOptions,
   createForgeModelAdapter,
@@ -95,6 +96,19 @@ export async function runTask(
     const thinking: DeepSeekThinkingMode = parseThinkingMode(
       loaded.config.model.thinking,
     );
+    const images = await resolveImageInputs(
+      options.image,
+      loaded.workspaceRoot,
+    );
+    if (
+      images.length > 0 &&
+      (loaded.config.model.provider !== "deepseek" ||
+        loaded.config.model.id !== "deepseek-v4-flash-vision-exp")
+    ) {
+      throw new ModelConfigurationError(
+        "Image attachments currently require DeepSeek model deepseek-v4-flash-vision-exp.",
+      );
+    }
     const portableSkills = await discoverPortableSkills(loaded.workspaceRoot);
     const selectedSkills = selectPortableSkills(prompt, portableSkills);
     const pluginHost = await loadPluginHost({
@@ -173,6 +187,7 @@ export async function runTask(
     );
     const result = await runAgent({
       prompt,
+      ...(images.length ? { images } : {}),
       context: {
         workspaceRoot: loaded.workspaceRoot,
         workingDirectory: loaded.workingDirectory,

@@ -629,6 +629,89 @@ describe("Ink interactive terminal", () => {
     instance.unmount();
   });
 
+  it("attaches an @ mentioned workspace image to the vision request", async () => {
+    const root = await createWorkspace();
+    await writeFile(
+      path.join(root, "screenshot.png"),
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    );
+    let receivedOptions: unknown;
+    const instance = render(
+      <InteractiveApp
+        options={{
+          provider: "deepseek",
+          model: "deepseek-v4-flash-vision-exp",
+        }}
+        env={{}}
+        cwd={root}
+        executeTask={async (_prompt, options, dependencies) => {
+          receivedOptions = options;
+          dependencies.onResult?.(completed("done"));
+          return 0;
+        }}
+      />,
+    );
+
+    await settle();
+    instance.stdin.write("@screen");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+    instance.stdin.write(" inspect this");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+
+    expect(receivedOptions).toMatchObject({ image: ["screenshot.png"] });
+    instance.unmount();
+  });
+
+  it("attaches a pasted screenshot path outside the workspace", async () => {
+    const root = await createWorkspace();
+    const screenshots = await mkdtemp(
+      path.join(tmpdir(), "forge-pasted-screenshot-"),
+    );
+    temporaryDirectories.push(screenshots);
+    const screenshot = path.join(screenshots, "image-1.png");
+    await writeFile(
+      screenshot,
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    );
+    let receivedPrompt = "";
+    let receivedOptions: unknown;
+    const instance = render(
+      <InteractiveApp
+        options={{
+          provider: "deepseek",
+          model: "deepseek-v4-flash-vision-exp",
+        }}
+        env={{}}
+        cwd={root}
+        executeTask={async (prompt, options, dependencies) => {
+          receivedPrompt = prompt;
+          receivedOptions = options;
+          dependencies.onResult?.(completed("done"));
+          return 0;
+        }}
+      />,
+    );
+
+    await settle();
+    instance.stdin.write(`\u001B[200~${screenshot} 这是什么图\u001B[201~`);
+    await settle();
+    expect(instance.lastFrame()).toContain("[Image #1] image-1.png");
+    expect(instance.lastFrame()).not.toContain("Unknown command");
+    instance.stdin.write("\r");
+    await settle();
+
+    expect(receivedOptions).toMatchObject({ image: [screenshot] });
+    expect(receivedPrompt).toContain("这是什么图");
+    expect(receivedPrompt).toContain(
+      "Attached images:\n- [Image #1] image-1.png",
+    );
+    instance.unmount();
+  });
+
   it("inserts a newline for Shift+Enter and Meta+Enter", async () => {
     const root = await createWorkspace();
     let receivedPrompt = "";
