@@ -214,7 +214,7 @@ const MODEL_CHOICES: readonly ModelChoice[] = [
   },
   {
     label: "DeepSeek V4 Flash Vision Experimental",
-    description: "DeepSeek Responses API · image understanding",
+    description: "DeepSeek Responses API",
     selection: {
       engine: "forge",
       provider: "deepseek",
