@@ -7,6 +7,7 @@ export interface SlashCommand {
     | "/compact"
     | "/login"
     | "/model"
+    | "/effort"
     | "/resume"
     | "/exit";
   readonly description: string;
@@ -22,7 +23,8 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
   },
   { name: "/compact", description: "Create a safe conversation checkpoint" },
   { name: "/login", description: "Configure a model provider" },
-  { name: "/model", description: "Choose model and reasoning effort" },
+  { name: "/model", description: "Choose a model" },
+  { name: "/effort", description: "Choose thinking effort" },
   { name: "/resume", description: "Resume a saved workspace session" },
   { name: "/exit", description: "Exit Forge" },
 ];

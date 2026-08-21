@@ -291,7 +291,7 @@ describe("Ink interactive terminal", () => {
     await settle();
     instance.stdin.write("\r");
     await settle();
-    expect(instance.lastFrame()).toContain("Choose model and reasoning effort");
+    expect(instance.lastFrame()).toContain("Choose model");
     instance.stdin.write("\u001B[B");
     await settle();
     instance.stdin.write("\u001B[B");
@@ -313,6 +313,139 @@ describe("Ink interactive terminal", () => {
       provider: "openai",
       model: "gpt-5.4-mini",
       reasoningEffort: "low",
+    });
+    instance.unmount();
+  });
+
+  it("changes thinking effort independently with /effort", async () => {
+    const root = await createWorkspace();
+    let persisted: unknown;
+    const instance = render(
+      <InteractiveApp
+        options={{
+          engine: "forge",
+          provider: "openai",
+          model: "gpt-5.4-mini",
+          reasoningEffort: "low",
+        }}
+        env={{}}
+        cwd={root}
+        persistModelSelection={async (value) => {
+          persisted = value.selection;
+          return "/tmp/forge-config.json";
+        }}
+      />,
+    );
+
+    await settle();
+    instance.stdin.write("/effort");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+    expect(instance.lastFrame()).toContain("Choose thinking effort");
+    expect(instance.lastFrame()).toContain("low · Fast · current");
+    instance.stdin.write("\u001B[B");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+
+    expect(persisted).toEqual({
+      engine: "forge",
+      provider: "openai",
+      id: "gpt-5.4-mini",
+      reasoningEffort: "medium",
+    });
+    expect(instance.lastFrame()).toContain("gpt-5.4-mini · medium");
+    instance.unmount();
+  });
+
+  it("accepts /effort <level> and Shift+Tab cycles effort", async () => {
+    const root = await createWorkspace();
+    const persisted: unknown[] = [];
+    const instance = render(
+      <InteractiveApp
+        options={{
+          engine: "forge",
+          provider: "openai",
+          model: "gpt-5.4-mini",
+          reasoningEffort: "low",
+        }}
+        env={{}}
+        cwd={root}
+        persistModelSelection={async (value) => {
+          persisted.push(value.selection);
+          return "/tmp/forge-config.json";
+        }}
+      />,
+    );
+
+    await settle();
+    instance.stdin.write("/effort high");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+    expect(persisted.at(-1)).toMatchObject({ reasoningEffort: "high" });
+
+    instance.stdin.write("\u001B[Z");
+    await settle();
+    expect(persisted.at(-1)).toMatchObject({ reasoningEffort: "xhigh" });
+    expect(instance.lastFrame()).toContain("gpt-5.4-mini · xhigh");
+    instance.unmount();
+  });
+
+  it("uses the selected Codex model's advertised effort levels", async () => {
+    const root = await createWorkspace();
+    let persisted: unknown;
+    const instance = render(
+      <InteractiveApp
+        options={{
+          engine: "codex",
+          provider: "openai",
+          model: "gpt-subscription-test",
+          reasoningEffort: "low",
+        }}
+        env={{}}
+        cwd={root}
+        discoverSubscriptionModels={async () => [
+          {
+            id: "gpt-subscription-test",
+            model: "gpt-subscription-test",
+            displayName: "GPT Subscription Test",
+            description: "fake model",
+            hidden: false,
+            supportedReasoningEfforts: [
+              { reasoningEffort: "low", description: "fast" },
+              { reasoningEffort: "high", description: "deep" },
+            ],
+            defaultReasoningEffort: "high",
+            inputModalities: ["text"],
+            isDefault: true,
+          },
+        ]}
+        persistModelSelection={async (value) => {
+          persisted = value.selection;
+          return "/tmp/forge-config.json";
+        }}
+      />,
+    );
+
+    await settle();
+    instance.stdin.write("/effort");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+    expect(instance.lastFrame()).toContain("low · fast · current");
+    expect(instance.lastFrame()).toContain("high · deep");
+    expect(instance.lastFrame()).not.toContain("medium · Balanced");
+    instance.stdin.write("\u001B[B");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+
+    expect(persisted).toMatchObject({
+      engine: "codex",
+      id: "gpt-subscription-test",
+      reasoningEffort: "high",
     });
     instance.unmount();
   });
@@ -373,7 +506,7 @@ describe("Ink interactive terminal", () => {
     await settle();
     instance.stdin.write("\r");
     await settle();
-    expect(instance.lastFrame()).toContain("GPT Subscription Test · high");
+    expect(instance.lastFrame()).toContain("GPT Subscription Test");
     instance.stdin.write("\r");
     await settle();
     instance.stdin.write("use subscription");
@@ -582,8 +715,8 @@ describe("Ink interactive terminal", () => {
     await settle();
 
     expect(instance.lastFrame()).toContain("Search models: luna");
-    expect(instance.lastFrame()).toContain("GPT-5.6-Luna · low");
-    expect(instance.lastFrame()).not.toContain("GPT-5.6-Sol · high");
+    expect(instance.lastFrame()).toContain("GPT-5.6-Luna");
+    expect(instance.lastFrame()).not.toContain("GPT-5.6-Sol");
 
     instance.stdin.write("\r");
     await settle();

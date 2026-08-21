@@ -137,8 +137,11 @@ credentials.
 `forge auth status openai-api` only checks whether `OPENAI_API_KEY` is present;
 it never validates the key with a paid request. `forge auth login openai-api`
 prints environment-variable guidance because Forge deliberately does not store
-API keys. The interactive `/model` picker discovers the current Codex catalog,
-also shows native API adapters, and persists ordinary engine/provider/model and
-reasoning settings under `$FORGE_HOME/config.json`, never credentials.
+API keys. The interactive `/model` picker discovers the current Codex catalog
+and also shows native API adapters without duplicating models by reasoning
+effort. The separate `/effort` picker and Shift+Tab shortcut use the selected
+model's supported levels. Forge persists these ordinary
+engine/provider/model/reasoning settings under `$FORGE_HOME/config.json`, never
+credentials.
 Selecting a ChatGPT entry routes subsequent interactive prompts through Codex
 Engine.

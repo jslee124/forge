@@ -158,17 +158,20 @@ The interactive prompt persists completed user/assistant turns under
 `forge resume --last`, or the interactive `/resume` picker. Each prompt remains
 a separate bounded run with fresh policy and approval state; pending tool calls,
 provider continuations, and command approvals are never restored.
-Available commands are `/help`, `/clear`, `/login`, `/model`, `/resume`, and
-`/exit`. `/login` lets you choose ChatGPT subscription, DeepSeek API, or OpenAI
-API. API keys are entered through a masked field and stored in
+Available commands are `/help`, `/clear`, `/login`, `/model`, `/effort`,
+`/resume`, and `/exit`. `/login` lets you choose ChatGPT subscription, DeepSeek
+API, or OpenAI API. API keys are entered through a masked field and stored in
 `$FORGE_HOME/auth.json`; the directory is mode `0700` and the file is mode
 `0600`. Like Pi and OpenCode's local auth files, this is plaintext protected by
 filesystem permissions rather than an OS keychain. ChatGPT credentials remain
 owned by the official Codex App Server.
 `DEEPSEEK_API_KEY` and `OPENAI_API_KEY` remain supported and take precedence
 over stored credentials.
-`/model` discovers ChatGPT subscription models and also shows API models; it
-persists ordinary engine/provider/model settings separately from credentials.
+`/model` discovers ChatGPT subscription models and also shows API models. It
+selects the model once instead of repeating it for every effort level.
+`/effort` opens the active model's supported effort levels, `/effort high` sets
+a level directly, and Shift+Tab cycles levels from the prompt. Model and effort
+selections persist separately from credentials.
 Ctrl+C cancels an active task and returns to the prompt; press it again to exit.
 
 The [interactive CLI UI](docs/CLI_UI.md) supports Shift+Enter, Meta+Enter

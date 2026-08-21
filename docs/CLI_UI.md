@@ -62,6 +62,7 @@ session-exit behavior when Forge is otherwise idle.
   terminal resize must not corrupt the buffer or display.
 - Up/down keys navigate an open completion menu. When no menu is open, they may
   later be used for prompt history; history is not required for Milestone 4.6.
+- Shift+Tab cycles through the active model's supported thinking-effort levels.
 
 ## Slash-command completion
 
@@ -70,10 +71,12 @@ commands. Additional characters filter the list by command name.
 
 Each command is defined once with its name, description, and handler. The same
 registry drives completion and `/help`, preventing the two surfaces from
-drifting. The registry contains `/help`, `/clear`, `/model`, `/resume`, and
-`/exit`. `/model` opens a keyboard picker, discovers current ChatGPT/Codex
-models and reasoning efforts, includes configured API providers, and atomically
-saves the chosen engine/provider/model settings to user configuration.
+drifting. The registry contains `/help`, `/clear`, `/model`, `/effort`,
+`/resume`, and `/exit`. `/model` opens a keyboard picker, discovers current
+ChatGPT/Codex models, includes configured API providers, and saves one model
+entry without multiplying it by effort level. `/effort` opens a separate
+model-specific effort picker; `/effort <level>` sets a supported level directly.
+Both selections are atomically saved to user configuration.
 
 - Up/Down changes the highlighted command.
 - Enter executes the highlighted command.

@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { type ApiKeyProvider, AuthenticationManager } from "@forge/auth";
+import type { CodexModel } from "@forge/codex-app-server";
 import {
   loadForgeConfig,
   type PersistedModelSelection,
@@ -67,6 +68,7 @@ type Phase =
   | "approving"
   | "resuming"
   | "models"
+  | "effort"
   | "login-providers"
   | "login-key";
 type TranscriptKind =
@@ -101,6 +103,15 @@ interface ModelChoice {
   readonly label: string;
   readonly description: string;
   readonly selection: PersistedModelSelection;
+  readonly supportedReasoningEfforts: readonly EffortChoice[];
+  readonly defaultReasoningEffort: ReasoningEffort;
+}
+
+type ReasoningEffort = NonNullable<PersistedModelSelection["reasoningEffort"]>;
+
+interface EffortChoice {
+  readonly effort: ReasoningEffort;
+  readonly description: string;
 }
 
 interface LoginChoice {
@@ -132,13 +143,7 @@ const LOGIN_CHOICES: readonly LoginChoice[] = [
 
 function modelChoiceKey(choice: ModelChoice): string {
   const { selection } = choice;
-  return [
-    selection.engine,
-    selection.provider,
-    selection.id,
-    selection.reasoningEffort ?? "",
-    selection.thinking ?? "",
-  ].join("\u0000");
+  return [selection.engine, selection.provider, selection.id].join("\u0000");
 }
 
 function modelChoiceSearchFields(choice: ModelChoice): readonly string[] {
@@ -149,51 +154,63 @@ function modelChoiceSearchFields(choice: ModelChoice): readonly string[] {
     selection.engine,
     selection.provider,
     selection.id,
-    selection.reasoningEffort,
-    selection.thinking,
   ].filter((value): value is string => value !== undefined);
 }
+
+const STANDARD_EFFORTS: readonly EffortChoice[] = [
+  { effort: "none", description: "No reasoning" },
+  { effort: "minimal", description: "Fastest" },
+  { effort: "low", description: "Fast" },
+  { effort: "medium", description: "Balanced" },
+  { effort: "high", description: "Deep" },
+  { effort: "xhigh", description: "Deeper" },
+  { effort: "max", description: "Maximum" },
+];
 
 const MODEL_CHOICES: readonly ModelChoice[] = [
   {
     label: "DeepSeek V4 Flash",
-    description: "DeepSeek API · thinking enabled",
+    description: "DeepSeek API",
     selection: {
       engine: "forge",
       provider: "deepseek",
       id: "deepseek-v4-flash",
-      thinking: "enabled",
     },
+    supportedReasoningEfforts: STANDARD_EFFORTS,
+    defaultReasoningEffort: "medium",
   },
   {
     label: "DeepSeek V4 Pro",
-    description: "DeepSeek API · thinking enabled",
+    description: "DeepSeek API",
     selection: {
       engine: "forge",
       provider: "deepseek",
       id: "deepseek-v4-pro",
-      thinking: "enabled",
     },
+    supportedReasoningEfforts: STANDARD_EFFORTS,
+    defaultReasoningEffort: "medium",
   },
   {
-    label: "GPT-5.4 mini · low",
+    label: "GPT-5.4 mini",
     description: "OpenAI API key · separately billed",
     selection: {
       engine: "forge",
       provider: "openai",
       id: "gpt-5.4-mini",
-      reasoningEffort: "low",
     },
+    supportedReasoningEfforts: STANDARD_EFFORTS,
+    defaultReasoningEffort: "low",
   },
   {
-    label: "GPT-5.4 · high",
+    label: "GPT-5.4",
     description: "OpenAI API key · separately billed",
     selection: {
       engine: "forge",
       provider: "openai",
       id: "gpt-5.4",
-      reasoningEffort: "high",
     },
+    supportedReasoningEfforts: STANDARD_EFFORTS,
+    defaultReasoningEffort: "high",
   },
   {
     label: "DeepSeek V4 Flash Vision Experimental",
@@ -202,8 +219,9 @@ const MODEL_CHOICES: readonly ModelChoice[] = [
       engine: "forge",
       provider: "deepseek",
       id: "deepseek-v4-flash-vision-exp",
-      thinking: "enabled",
     },
+    supportedReasoningEfforts: STANDARD_EFFORTS,
+    defaultReasoningEffort: "medium",
   },
 ];
 
@@ -364,6 +382,8 @@ export function InteractiveApp({
     useState<readonly ModelChoice[]>(MODEL_CHOICES);
   const [modelsLoading, setModelsLoading] = useState(false);
   const [modelQuery, setModelQuery] = useState("");
+  const [effortChoices, setEffortChoices] =
+    useState<readonly EffortChoice[]>(STANDARD_EFFORTS);
   const [loginKey, setLoginKey] = useState("");
   const [loginChoice, setLoginChoice] = useState<LoginChoice>();
   const [loginPrompt, setLoginPrompt] = useState<PendingSignIn>();
@@ -538,8 +558,125 @@ export function InteractiveApp({
     pending.resolve(answer);
   };
 
+  const selectEffort = (effort: ReasoningEffort): void => {
+    const engine = activeOptions.engine === "codex" ? "codex" : "forge";
+    const provider =
+      activeOptions.provider === "openai" ? "openai" : "deepseek";
+    const model = activeOptions.model?.trim() || "deepseek-v4-flash";
+    const thinking =
+      provider === "deepseek"
+        ? effort === "none"
+          ? "disabled"
+          : "enabled"
+        : undefined;
+    const nextOptions: AskOptions = {
+      ...activeOptions,
+      engine,
+      provider,
+      model,
+      reasoningEffort: effort,
+      ...(thinking ? { thinking } : {}),
+    };
+    const selection: PersistedModelSelection = {
+      engine,
+      provider,
+      id: model,
+      reasoningEffort: effort,
+      ...(thinking ? { thinking } : {}),
+    };
+    setActiveOptions(nextOptions);
+    setPhase("editing");
+    void persistModelSelection({ cwd, env, selection }).then(
+      (configPath) =>
+        appendEntry(
+          "system",
+          `Thinking effort: ${effort}. Saved to ${configPath}.`,
+        ),
+      (error: unknown) =>
+        appendEntry(
+          "error",
+          `Could not persist thinking effort: ${error instanceof Error ? error.message : "unknown error"}`,
+        ),
+    );
+  };
+
+  const cycleEffort = (choices: readonly ModelChoice[]): void => {
+    const efforts = effortsForModel(choices, activeOptions);
+    const current = efforts.findIndex(
+      ({ effort }) => effort === activeOptions.reasoningEffort,
+    );
+    const next = efforts[(current + 1 + efforts.length) % efforts.length];
+    if (next) selectEffort(next.effort);
+  };
+
   const executeCommand = (command: string): void => {
-    switch (command.trim()) {
+    const normalizedCommand = command.trim();
+    if (normalizedCommand.startsWith("/effort ")) {
+      const requested = asPersistedReasoningEffort(
+        normalizedCommand.slice("/effort ".length).trim().toLocaleLowerCase(),
+      );
+      if (!requested) {
+        appendEntry(
+          "warning",
+          `Unsupported effort. Choose one of: ${STANDARD_EFFORTS.map(({ effort }) => effort).join(", ")}.`,
+        );
+        setEditor(createEditorState());
+        return;
+      }
+      setEditor(createEditorState());
+      if (
+        activeOptions.engine === "codex" &&
+        !modelChoiceFor(modelChoices, activeOptions)
+      ) {
+        void discoverSubscriptionModels({
+          env,
+          cwd,
+          stdout,
+          stderr,
+          signal: new AbortController().signal,
+          isTTY: true,
+        }).then(
+          (models) => {
+            const subscriptionChoices = subscriptionModelChoices(models);
+            setModelChoices([...subscriptionChoices, ...MODEL_CHOICES]);
+            const matching = modelChoiceFor(subscriptionChoices, activeOptions);
+            if (!matching) {
+              appendEntry(
+                "warning",
+                `Could not find effort metadata for ${activeOptions.model}.`,
+              );
+              return;
+            }
+            const supported = matching.supportedReasoningEfforts;
+            if (supported.some(({ effort }) => effort === requested)) {
+              selectEffort(requested);
+            } else {
+              appendEntry(
+                "warning",
+                `Unsupported effort for ${activeOptions.model}: ${requested}. Choose one of: ${supported.map(({ effort }) => effort).join(", ")}.`,
+              );
+            }
+          },
+          (error: unknown) =>
+            appendEntry(
+              "warning",
+              `Could not discover supported effort levels: ${error instanceof Error ? error.message : "unknown error"}`,
+            ),
+        );
+        return;
+      }
+      const supported = effortsForModel(modelChoices, activeOptions);
+      if (!supported.some(({ effort }) => effort === requested)) {
+        appendEntry(
+          "warning",
+          `Unsupported effort for ${activeOptions.model}: ${requested}. Choose one of: ${supported.map(({ effort }) => effort).join(", ")}.`,
+        );
+        return;
+      }
+      selectEffort(requested);
+      return;
+    }
+    switch (normalizedCommand) {
       case "/exit":
         exit(0);
         return;
@@ -650,25 +787,7 @@ export function InteractiveApp({
           isTTY: true,
         }).then(
           (models) => {
-            const subscriptionChoices = models.flatMap((model) =>
-              model.supportedReasoningEfforts.flatMap(({ reasoningEffort }) => {
-                const effort = asPersistedReasoningEffort(reasoningEffort);
-                return effort
-                  ? [
-                      {
-                        label: `${model.displayName} · ${effort}`,
-                        description: "ChatGPT subscription · Codex Engine",
-                        selection: {
-                          engine: "codex" as const,
-                          provider: "openai" as const,
-                          id: model.id,
-                          reasoningEffort: effort,
-                        },
-                      },
-                    ]
-                  : [];
-              }),
-            );
+            const subscriptionChoices = subscriptionModelChoices(models);
             setModelChoices([
               ...subscriptionChoices.slice(0, 40),
               ...MODEL_CHOICES,
@@ -685,6 +804,63 @@ export function InteractiveApp({
           },
         );
         return;
+      case "/effort": {
+        setEditor(createEditorState());
+        const knownModel = modelChoiceFor(modelChoices, activeOptions);
+        const availableEfforts =
+          activeOptions.engine === "codex" && !knownModel
+            ? []
+            : effortsForModel(modelChoices, activeOptions);
+        setEffortChoices(availableEfforts);
+        setSelectedIndex(
+          Math.max(
+            0,
+            availableEfforts.findIndex(
+              ({ effort }) => effort === activeOptions.reasoningEffort,
+            ),
+          ),
+        );
+        setPhase("effort");
+        if (activeOptions.engine === "codex") {
+          void discoverSubscriptionModels({
+            env,
+            cwd,
+            stdout,
+            stderr,
+            signal: new AbortController().signal,
+            isTTY: true,
+          }).then(
+            (models) => {
+              const subscriptionChoices = subscriptionModelChoices(models);
+              setModelChoices([...subscriptionChoices, ...MODEL_CHOICES]);
+              const matching = modelChoiceFor(
+                subscriptionChoices,
+                activeOptions,
+              );
+              if (!matching) {
+                appendEntry(
+                  "warning",
+                  `Could not find effort metadata for ${activeOptions.model}.`,
+                );
+                setPhase("editing");
+                return;
+              }
+              setEffortChoices(matching.supportedReasoningEfforts);
+              setSelectedIndex(() => {
+                const efforts = matching.supportedReasoningEfforts;
+                return Math.max(
+                  0,
+                  efforts.findIndex(
+                    ({ effort }) => effort === activeOptions.reasoningEffort,
+                  ),
+                );
+              });
+            },
+            () => undefined,
+          );
+        }
+        return;
+      }
       case "/help":
         appendEntry("system", formatSlashCommandHelp());
         setEditor(createEditorState());
@@ -1048,6 +1224,29 @@ export function InteractiveApp({
       }
       return;
     }
+    if (phase === "effort") {
+      if (key.escape) {
+        setPhase("editing");
+        return;
+      }
+      if (key.upArrow || key.downArrow || key.leftArrow || key.rightArrow) {
+        setSelectedIndex((current) => {
+          if (effortChoices.length === 0) return 0;
+          const delta = key.upArrow || key.leftArrow ? -1 : 1;
+          return (
+            (current + delta + effortChoices.length) % effortChoices.length
+          );
+        });
+        return;
+      }
+      if (key.return) {
+        const selected =
+          effortChoices[Math.min(selectedIndex, effortChoices.length - 1)];
+        if (selected) selectEffort(selected.effort);
+        return;
+      }
+      return;
+    }
     if (phase === "models") {
       if (key.escape) {
         setModelQuery("");
@@ -1068,17 +1267,34 @@ export function InteractiveApp({
       if (key.return) {
         const selected = visibleModelChoices[selectedModelIndex];
         if (!selected) return;
+        const currentEffort = asPersistedReasoningEffort(
+          activeOptions.reasoningEffort ?? "",
+        );
+        const reasoningEffort =
+          currentEffort &&
+          selected.supportedReasoningEfforts.some(
+            ({ effort }) => effort === currentEffort,
+          )
+            ? currentEffort
+            : selected.defaultReasoningEffort;
+        const thinking =
+          selected.selection.provider === "deepseek"
+            ? reasoningEffort === "none"
+              ? "disabled"
+              : "enabled"
+            : undefined;
         const nextOptions: AskOptions = {
           ...activeOptions,
           engine: selected.selection.engine,
           provider: selected.selection.provider,
           model: selected.selection.id,
-          ...(selected.selection.reasoningEffort
-            ? { reasoningEffort: selected.selection.reasoningEffort }
-            : {}),
-          ...(selected.selection.thinking
-            ? { thinking: selected.selection.thinking }
-            : {}),
+          reasoningEffort,
+          ...(thinking ? { thinking } : {}),
+        };
+        const selection: PersistedModelSelection = {
+          ...selected.selection,
+          reasoningEffort,
+          ...(thinking ? { thinking } : {}),
         };
         setActiveOptions(nextOptions);
         sessionPersistence?.selectModel?.(
@@ -1089,7 +1305,7 @@ export function InteractiveApp({
         void persistModelSelection({
           cwd,
           env,
-          selection: selected.selection,
+          selection,
         }).then(
           (configPath) =>
             appendEntry(
@@ -1116,6 +1332,43 @@ export function InteractiveApp({
       return;
     }
     if (phase === "running") return;
+
+    if (key.shift && key.tab) {
+      if (
+        activeOptions.engine === "codex" &&
+        !modelChoiceFor(modelChoices, activeOptions)
+      ) {
+        void discoverSubscriptionModels({
+          env,
+          cwd,
+          stdout,
+          stderr,
+          signal: new AbortController().signal,
+          isTTY: true,
+        }).then(
+          (models) => {
+            const subscriptionChoices = subscriptionModelChoices(models);
+            setModelChoices([...subscriptionChoices, ...MODEL_CHOICES]);
+            if (modelChoiceFor(subscriptionChoices, activeOptions)) {
+              cycleEffort(subscriptionChoices);
+            } else {
+              appendEntry(
+                "warning",
+                `Could not find effort metadata for ${activeOptions.model}.`,
+              );
+            }
+          },
+          (error: unknown) =>
+            appendEntry(
+              "warning",
+              `Could not discover supported effort levels: ${error instanceof Error ? error.message : "unknown error"}`,
+            ),
+        );
+      } else {
+        cycleEffort(modelChoices);
+      }
+      return;
+    }
 
     const submission = classifySubmissionKey(input, key);
     if (submission === "newline") {
@@ -1322,7 +1575,7 @@ export function InteractiveApp({
           paddingX={1}
         >
           <Text bold color="cyan">
-            Choose model and reasoning effort
+            Choose model
           </Text>
           <Text>
             Search models: <Text color="cyan">{modelQuery || "_"}</Text>
@@ -1354,6 +1607,40 @@ export function InteractiveApp({
           <Text dimColor>
             ChatGPT entries use Codex Engine; OpenAI API-key entries are billed
             separately · Type to fuzzy search · Enter select · Esc cancel
+          </Text>
+        </Box>
+      ) : null}
+
+      {phase === "effort" ? (
+        <Box
+          borderStyle="round"
+          borderColor="cyan"
+          flexDirection="column"
+          paddingX={1}
+        >
+          <Text bold color="cyan">
+            Choose thinking effort
+          </Text>
+          <Text dimColor>{activeOptions.model ?? "Current model"}</Text>
+          {effortChoices.length === 0 ? (
+            <Text dimColor>Discovering supported effort levels…</Text>
+          ) : null}
+          {effortChoices.map((choice, index) => (
+            <Text
+              key={choice.effort}
+              bold={index === selectedIndex}
+              {...(index === selectedIndex ? { color: "cyan" as const } : {})}
+            >
+              {index === selectedIndex ? "› " : "  "}
+              {choice.effort} · {choice.description}
+              {choice.effort === activeOptions.reasoningEffort
+                ? " · current"
+                : ""}
+            </Text>
+          ))}
+          <Text dimColor>
+            ↑/↓ or ←/→ adjust · Enter select · Esc cancel · /effort
+            &lt;level&gt; also works
           </Text>
         </Box>
       ) : null}
@@ -1517,6 +1804,7 @@ function PromptFooter({
           <Text color="blue">{formatCompactModelStatus(activeOptions)}</Text>
           {"  ·  "}
           {filesLoading ? "Indexing files  ·  " : ""}
+          <Text color="yellow">Shift+Tab</Text> effort ·{" "}
           <Text color="green">Enter</Text> submit ·{" "}
           <Text color="cyan">Shift+Enter/Meta+Enter/Ctrl+J</Text> newline ·{" "}
           <Text color="red">Ctrl+C</Text> cancel/exit
@@ -1531,7 +1819,11 @@ function PromptFooter({
         ? "● Running · Ctrl+C cancel"
         : phase === "approving"
           ? "Waiting for approval"
-          : "Choose a saved session"}
+          : phase === "models"
+            ? "Choose a model"
+            : phase === "effort"
+              ? "Choose thinking effort"
+              : "Choose a saved session"}
     </Text>
   );
 }
@@ -1867,4 +2159,58 @@ function asPersistedReasoningEffort(
     return value;
   }
   return undefined;
+}
+
+function subscriptionModelChoices(
+  models: readonly CodexModel[],
+): readonly ModelChoice[] {
+  return models.flatMap((model) => {
+    const supportedReasoningEfforts = model.supportedReasoningEfforts.flatMap(
+      ({ reasoningEffort, description }) => {
+        const effort = asPersistedReasoningEffort(reasoningEffort);
+        return effort ? [{ effort, description }] : [];
+      },
+    );
+    const defaultReasoningEffort = asPersistedReasoningEffort(
+      model.defaultReasoningEffort,
+    );
+    if (!defaultReasoningEffort || supportedReasoningEfforts.length === 0) {
+      return [];
+    }
+    return [
+      {
+        label: model.displayName,
+        description: "ChatGPT subscription · Codex Engine",
+        selection: {
+          engine: "codex" as const,
+          provider: "openai" as const,
+          id: model.id,
+        },
+        supportedReasoningEfforts,
+        defaultReasoningEffort,
+      },
+    ];
+  });
+}
+
+function effortsForModel(
+  choices: readonly ModelChoice[],
+  options: AskOptions,
+): readonly EffortChoice[] {
+  return (
+    modelChoiceFor(choices, options)?.supportedReasoningEfforts ??
+    STANDARD_EFFORTS
+  );
+}
+
+function modelChoiceFor(
+  choices: readonly ModelChoice[],
+  options: AskOptions,
+): ModelChoice | undefined {
+  return choices.find(
+    ({ selection }) =>
+      selection.engine === options.engine &&
+      selection.provider === options.provider &&
+      selection.id === options.model,
+  );
 }
