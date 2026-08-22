@@ -102,11 +102,15 @@ export async function runTask(
     );
     if (
       images.length > 0 &&
-      (loaded.config.model.provider !== "deepseek" ||
-        loaded.config.model.id !== "deepseek-v4-flash-vision-exp")
+      !(
+        (loaded.config.model.provider === "deepseek" &&
+          loaded.config.model.id === "deepseek-v4-flash-vision-exp") ||
+        (loaded.config.model.provider === "mimo" &&
+          loaded.config.model.id === "mimo-v2.5")
+      )
     ) {
       throw new ModelConfigurationError(
-        "Image attachments currently require DeepSeek model deepseek-v4-flash-vision-exp.",
+        "Image attachments require MiMo model mimo-v2.5 or DeepSeek model deepseek-v4-flash-vision-exp.",
       );
     }
     const portableSkills = await discoverPortableSkills(loaded.workspaceRoot);

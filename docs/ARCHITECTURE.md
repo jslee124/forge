@@ -161,6 +161,13 @@ content while keeping the runtime-owned tool loop and opaque continuation
 contract unchanged. Other DeepSeek models reject attached images before a
 provider call.
 
+The MiMo adapter always uses the provider's `/responses` protocol through
+`@ai-sdk/open-responses`. It keeps returned reasoning content and provider item
+IDs in the opaque continuation so a function-call output can be submitted on
+the next turn without violating MiMo's reasoning replay requirement. Only
+`mimo-v2.5` and `mimo-v2.5-pro` receive exact Agent context capabilities;
+similarly named ASR/TTS and unknown models retain conservative limits.
+
 The model adapter performs exactly one provider turn and maps the AI SDK full
 stream into Forge model events. Forge controls the multi-step loop and does not
 delegate it to `ToolLoopAgent`, `stopWhen`, or another prebuilt agent

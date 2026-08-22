@@ -5,6 +5,7 @@ import type {
   WorkspaceContext,
 } from "@forge/core";
 import { deepSeekModelContext } from "@forge/model-deepseek";
+import { miMoModelContext } from "@forge/model-mimo";
 import { openAIModelContext } from "@forge/model-openai";
 import {
   type ContextCheckpoint,
@@ -418,7 +419,9 @@ function contextWindowFor(provider: string, modelId: string): number {
   return (
     (provider === "deepseek"
       ? deepSeekModelContext(modelId)
-      : openAIModelContext(modelId)
+      : provider === "mimo"
+        ? miMoModelContext(modelId)
+        : openAIModelContext(modelId)
     )?.window ?? 32_768
   );
 }

@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { createInterface } from "node:readline/promises";
-import { AuthenticationManager } from "@forge/auth";
+import { type ApiKeyProvider, AuthenticationManager } from "@forge/auth";
 import {
   type CodexAccountResponse,
   CodexAppServerClient,
@@ -97,8 +97,13 @@ export async function runCodexAuthCommand(
   options: CodexAuthOptions,
   dependencies: CodexCommandDependencies,
 ): Promise<number> {
-  if (provider === "openai-api" || provider === "deepseek") {
-    const apiProvider = provider === "openai-api" ? "openai" : "deepseek";
+  if (
+    provider === "openai-api" ||
+    provider === "deepseek" ||
+    provider === "mimo"
+  ) {
+    const apiProvider: ApiKeyProvider =
+      provider === "openai-api" ? "openai" : provider;
     const authentication = new AuthenticationManager(dependencies.env);
     const status = authentication.status(apiProvider);
     if (mode === "status") {
@@ -109,7 +114,7 @@ export async function runCodexAuthCommand(
     }
     if (mode === "login") {
       dependencies.stderr.write(
-        `Open interactive Forge and enter /login to save a ${provider} key, or export ${status.environmentVariable}. OpenAI API usage is billed separately from ChatGPT.\n`,
+        `Open interactive Forge and enter /login to save a ${provider} key, or export ${status.environmentVariable}.${apiProvider === "openai" ? " OpenAI API usage is billed separately from ChatGPT." : ""}\n`,
       );
       return 2;
     }
@@ -131,7 +136,7 @@ export async function runCodexAuthCommand(
   }
   if (provider !== "openai") {
     dependencies.stderr.write(
-      `Unsupported authentication provider "${provider}". Use "openai" (ChatGPT), "openai-api", or "deepseek".\n`,
+      `Unsupported authentication provider "${provider}". Use "openai" (ChatGPT), "openai-api", "deepseek", or "mimo".\n`,
     );
     return 2;
   }
@@ -226,9 +231,16 @@ export async function runCodexModelsCommand(
   provider: string,
   dependencies: CodexCommandDependencies,
 ): Promise<number> {
+  if (provider === "mimo") {
+    dependencies.stdout.write(
+      "* mimo-v2.5  MiMo V2.5\n    reasoning: none, low, medium, high (default: medium)\n" +
+        "  mimo-v2.5-pro  MiMo V2.5 Pro\n    reasoning: none, low, medium, high (default: medium)\n",
+    );
+    return 0;
+  }
   if (provider !== "openai") {
     dependencies.stderr.write(
-      `Unsupported model provider "${provider}". Use "openai".\n`,
+      `Unsupported model provider "${provider}". Use "openai" or "mimo".\n`,
     );
     return 2;
   }

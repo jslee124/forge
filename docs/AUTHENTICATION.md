@@ -2,8 +2,8 @@
 
 ## Status
 
-Forge supports DeepSeek and OpenAI API-key authentication through
-`DEEPSEEK_API_KEY` and `OPENAI_API_KEY`, plus ChatGPT subscription
+Forge supports DeepSeek, Xiaomi MiMo, and OpenAI API-key authentication through
+`DEEPSEEK_API_KEY`, `MIMO_API_KEY`, and `OPENAI_API_KEY`, plus ChatGPT subscription
 authentication through the official Codex App Server.
 Forge presents the login command and browser/device-code instructions, while
 Codex owns OAuth, credential persistence, refresh, and revocation.
@@ -13,6 +13,7 @@ Codex owns OAuth, credential persistence, refresh, and revocation.
 | Method | Intended use | Status |
 | --- | --- | --- |
 | DeepSeek API key | Local development and automation | Implemented |
+| Xiaomi MiMo API key | MiMo Responses API access | Implemented |
 | OpenAI API key | Optional usage-based OpenAI API access | Implemented |
 | Sign in with ChatGPT | OpenAI subscription access through Codex App Server | Implemented |
 | Codex access token | Trusted enterprise automation | Deferred |
@@ -25,6 +26,15 @@ Official DeepSeek references:
 
 - [DeepSeek API model documentation](https://api-docs.deepseek.com/quick_start/pricing/)
 - [AI SDK DeepSeek provider](https://ai-sdk.dev/providers/ai-sdk-providers/deepseek)
+
+MiMo uses the official `/v1/responses` endpoint through the generic
+`@ai-sdk/open-responses` provider. The adapter reads `MIMO_API_KEY` and the
+optional `MIMO_BASE_URL` from the explicit environment supplied by the caller;
+the transport never reads global process environment state. Its default base
+URL is `https://api.xiaomimimo.com/v1`. Official references:
+
+- [MiMo Responses API](https://mimo.mi.com/docs/en-US/api/chat/responses)
+- [MiMo Agent model specifications](https://mimo.mi.com/docs/en-US/quick-start/model)
 
 OpenAI now documents Codex App Server as the integration protocol for embedding
 Codex into a product. Its account surface supports managed ChatGPT browser and
@@ -39,7 +49,7 @@ Official reference:
 The two execution paths have different ownership boundaries:
 
 ```text
-Forge Engine: Forge Runtime -> Model Adapter -> DeepSeek or OpenAI API
+Forge Engine: Forge Runtime -> Model Adapter -> DeepSeek, MiMo, or OpenAI API
 
 Codex Engine: Forge CLI -> Codex App Server -> ChatGPT subscription
 ```
@@ -49,8 +59,9 @@ complete agent runtime, including turns, tools, sandboxing, approvals, and
 history. Treating it as a raw model transport would obscure which runtime made
 security and execution decisions.
 
-The provider-neutral authentication manager resolves API keys only from the
-process environment and returns them to the selected adapter. Missing
+The provider-neutral authentication manager resolves API keys from the
+explicit process environment first and then the owner-only Forge credential
+store, and returns them to the selected adapter. Missing
 credentials produce an actionable error without printing the key or a stack
 trace. Keys are never copied into Forge configuration, prompts, traces, plugin
 events, or repository files.
@@ -81,9 +92,10 @@ Forge must not:
 
 ## Credential storage
 
-Forge does not persist API credentials; it reads `DEEPSEEK_API_KEY` or
-`OPENAI_API_KEY` from the process environment for each invocation. If a later
-authentication method needs persistence, the preferred storage order is:
+Forge can read `DEEPSEEK_API_KEY`, `MIMO_API_KEY`, or `OPENAI_API_KEY` from the
+process environment for each invocation. The interactive `/login` flow can
+instead store API keys in `$FORGE_HOME/auth.json`, outside the repository, with
+owner-only permissions. The preferred storage order is:
 
 1. Operating-system credential store
 2. Explicit file fallback outside the project with owner-only permissions
@@ -109,8 +121,11 @@ The CLI exposes:
 forge auth login openai
 forge auth status openai
 forge auth status openai-api
+forge auth status mimo
+forge auth logout mimo
 forge auth logout openai
 forge models list --provider openai
+forge models list --provider mimo
 forge codex "Inspect this repository" --model <id> --reasoning-effort <effort>
 forge run "Inspect this repository" --provider openai --model gpt-5.4-mini --reasoning-effort low
 ```
@@ -134,7 +149,8 @@ in, or `FORCE_HYPERLINK=0` to opt out.
 other local Codex clients out. Forge does not claim that these are Forge-owned
 credentials.
 
-`forge auth status openai-api` only checks whether `OPENAI_API_KEY` is present;
+`forge auth status openai-api` and `forge auth status mimo` only inspect the
+configured environment or Forge credential store;
 it never validates the key with a paid request. `forge auth login openai-api`
 prints environment-variable guidance because Forge deliberately does not store
 API keys. The interactive `/model` picker discovers the current Codex catalog

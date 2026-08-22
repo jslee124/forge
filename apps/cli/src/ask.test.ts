@@ -36,6 +36,46 @@ function outputBuffer(): {
 }
 
 describe("forge ask", () => {
+  it("routes MiMo without coercing it to DeepSeek", async () => {
+    const stdout = outputBuffer();
+    const stderr = outputBuffer();
+    let captured: unknown;
+    const exitCode = await runAsk(
+      "hello",
+      { provider: "mimo" },
+      {
+        env: { MIMO_API_KEY: "test-secret" },
+        stdout: stdout.output,
+        stderr: stderr.output,
+        signal: new AbortController().signal,
+        createAdapter: (options) => {
+          captured = options;
+          return adapterFrom([
+            {
+              type: "finish",
+              finishReason: "stop",
+              usage: {
+                inputTokens: 1,
+                outputTokens: 1,
+                reasoningTokens: 0,
+                cachedInputTokens: 0,
+                cacheWriteTokens: 0,
+                totalTokens: 2,
+              },
+            },
+          ]);
+        },
+      },
+    );
+
+    expect(exitCode).toBe(0);
+    expect(captured).toMatchObject({
+      provider: "mimo",
+      model: "mimo-v2.5",
+      reasoningEffort: "medium",
+    });
+  });
+
   it("renders reasoning and answer separately and reports usage", async () => {
     const stdout = outputBuffer();
     const stderr = outputBuffer();

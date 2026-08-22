@@ -9,6 +9,8 @@ import {
   DEFAULT_DEEPSEEK_MODEL,
   type DeepSeekThinkingMode,
 } from "@forge/model-deepseek";
+import { DEFAULT_MIMO_MODEL } from "@forge/model-mimo";
+import { DEFAULT_OPENAI_MODEL } from "@forge/model-openai";
 import { resolveImageInputs } from "./image-input.js";
 import {
   type CreateForgeModelAdapterOptions,
@@ -57,7 +59,8 @@ export async function runAsk(
 ): Promise<number> {
   try {
     const thinking = parseThinkingMode(options.thinking ?? "enabled");
-    const model = options.model?.trim() || DEFAULT_DEEPSEEK_MODEL;
+    const model =
+      options.model?.trim() || defaultModelForProvider(options.provider);
     const adapterFactory =
       dependencies.createAdapter ?? createForgeModelAdapter;
     const images = await resolveImageInputs(
@@ -67,7 +70,10 @@ export async function runAsk(
     assertImageModel(options.provider, model, images.length);
     const adapter = adapterFactory({
       env: dependencies.env,
-      provider: options.provider === "openai" ? "openai" : "deepseek",
+      provider:
+        options.provider === "openai" || options.provider === "mimo"
+          ? options.provider
+          : "deepseek",
       model,
       thinking,
       reasoningEffort: parseReasoningEffort(
@@ -100,7 +106,7 @@ export async function runAsk(
     }
 
     dependencies.stderr.write(
-      "Unexpected error while contacting DeepSeek. Run with debug logging after checking your configuration.\n",
+      "Unexpected error while contacting the model provider. Run with debug logging after checking your configuration.\n",
     );
     return 1;
   }
@@ -112,11 +118,20 @@ function assertImageModel(
   imageCount: number,
 ): void {
   if (imageCount === 0) return;
-  if (provider === "openai" || model !== "deepseek-v4-flash-vision-exp") {
+  const supported =
+    (provider === "mimo" && model === "mimo-v2.5") ||
+    (provider === "deepseek" && model === "deepseek-v4-flash-vision-exp");
+  if (!supported) {
     throw new ModelConfigurationError(
-      "Image attachments currently require DeepSeek model deepseek-v4-flash-vision-exp.",
+      "Image attachments require MiMo model mimo-v2.5 or DeepSeek model deepseek-v4-flash-vision-exp.",
     );
   }
+}
+
+function defaultModelForProvider(provider: string | undefined): string {
+  if (provider === "mimo") return DEFAULT_MIMO_MODEL;
+  if (provider === "openai") return DEFAULT_OPENAI_MODEL;
+  return DEFAULT_DEEPSEEK_MODEL;
 }
 
 export async function runAskFromCli(

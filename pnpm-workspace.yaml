@@ -3,4 +3,5 @@ packages:
   - packages/*
   - evals
 minimumReleaseAgeExclude:
-  - '@ai-sdk/openai@4.0.43'
+ - '@ai-sdk/openai@4.0.43'
+ - '@ai-sdk/open-responses@2.0.25'

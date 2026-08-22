@@ -138,6 +138,32 @@ class FakeClient implements CodexClient {
 }
 
 describe("Codex commands", () => {
+  it("reports MiMo authentication and its static Agent model catalog", async () => {
+    const authOutput = new BufferOutput();
+    const authResult = await runCodexAuthCommand(
+      "status",
+      "mimo",
+      {},
+      {
+        ...dependencies(new FakeClient(), authOutput, new BufferOutput()),
+        env: { MIMO_API_KEY: "test-secret" },
+      },
+    );
+    expect(authResult).toBe(0);
+    expect(authOutput.value).toBe("mimo: authenticated via MIMO_API_KEY\n");
+
+    const modelOutput = new BufferOutput();
+    const modelsResult = await runCodexModelsCommand(
+      "mimo",
+      dependencies(new FakeClient(), modelOutput, new BufferOutput()),
+    );
+    expect(modelsResult).toBe(0);
+    expect(modelOutput.value).toContain("mimo-v2.5");
+    expect(modelOutput.value).toContain("mimo-v2.5-pro");
+    expect(modelOutput.value).not.toContain("asr");
+    expect(modelOutput.value).not.toContain("tts");
+  });
+
   it("reports API-key providers without confusing them with ChatGPT sign-in", async () => {
     const stdout = new BufferOutput();
     const result = await runCodexAuthCommand(
