@@ -63,8 +63,8 @@ describe("Ink interactive terminal", () => {
       <InteractiveApp options={{}} env={{}} cwd={root} />,
     );
 
-    expect(frame).toContain(" _____  ____  ____   _____  _____");
-    expect(frame).toContain("/ ____|");
+    expect(frame).toContain(" _____ ___  ____   ____ _____");
+    expect(frame).toContain("/ ___| ____|");
     expect(frame).not.toContain("████  ███  ███  ███  ████");
     expect(frame).toContain("/login provider");
     expect(frame).toContain("@ files");
@@ -1204,8 +1204,8 @@ describe("Ink interactive terminal", () => {
     const narrow = renderToString(app, { columns: 60 });
     const wide = renderToString(app, { columns: 100 });
 
-    expect(narrow).toContain(" _____  ____  ____   _____  _____");
-    expect(wide).toContain(" _____  ____  ____   _____  _____");
+    expect(narrow).toContain(" _____ ___  ____   ____ _____");
+    expect(wide).toContain(" _____ ___  ____   ____ _____");
     expect(narrow).not.toBe(wide);
   });
 
