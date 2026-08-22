@@ -61,6 +61,7 @@ describe("persistent sessions", () => {
     const saved = recordRunInSession(created, {
       prompt: "Fix the parser",
       finalText: "Fixed and tested.",
+      reasoning: "Inspect the parser before editing.",
       status: "completed",
       runId,
     });
@@ -68,6 +69,12 @@ describe("persistent sessions", () => {
 
     await expect(store.load(saved.id)).resolves.toEqual(saved);
     await expect(store.latest("/workspace")).resolves.toEqual(saved);
+    expect(saved.reasoning).toEqual([
+      {
+        assistantMessageIndex: 1,
+        content: "Inspect the parser before editing.",
+      },
+    ]);
     expect(await store.list("/workspace")).toEqual([
       expect.objectContaining({
         id: saved.id,
@@ -167,6 +174,32 @@ describe("persistent sessions", () => {
     await expect(new FileSessionStore(home).load(id)).resolves.toMatchObject({
       schemaVersion: 2,
       id,
+      reasoning: [],
+    });
+  });
+
+  it("loads older v2 snapshots that predate saved reasoning", async () => {
+    const home = await forgeHome();
+    const id = randomUUID();
+    await mkdir(path.join(home, "sessions"), { recursive: true });
+    await writeFile(
+      path.join(home, "sessions", `${id}.json`),
+      JSON.stringify({
+        schemaVersion: 2,
+        id,
+        createdAt: "2026-08-19T00:00:00.000Z",
+        updatedAt: "2026-08-19T00:00:00.000Z",
+        workspaceRoot: "/workspace",
+        workingDirectory: "/workspace",
+        messages: [],
+        runIds: [],
+      }),
+    );
+
+    await expect(new FileSessionStore(home).load(id)).resolves.toMatchObject({
+      schemaVersion: 2,
+      id,
+      reasoning: [],
     });
   });
 
@@ -192,6 +225,7 @@ describe("persistent sessions", () => {
       {
         prompt: `Remember ${secret}`,
         finalText: "Done.",
+        reasoning: `Do not expose ${secret}`,
         status: "completed",
         runId: randomUUID(),
       },

@@ -618,6 +618,10 @@ describe("Ink interactive terminal", () => {
         cwd={root}
         sessionPersistence={sessionPersistence}
         executeCodexTask={async (_prompt, _options, dependencies) => {
+          dependencies.onOutput?.({
+            type: "reasoning",
+            text: "Saved reasoning",
+          });
           dependencies.onOutput?.({ type: "answer", text: "Saved answer" });
           return 0;
         }}
@@ -634,6 +638,11 @@ describe("Ink interactive terminal", () => {
     expect(recorded[0]).toMatchObject({
       prompt: "remember this",
       result: { status: "completed", finalText: "Saved answer" },
+    });
+    expect(recorded[0]?.result.events).toContainEqual({
+      type: "model.reasoning",
+      step: 1,
+      text: "Saved reasoning",
     });
     instance.unmount();
   });
@@ -1019,6 +1028,7 @@ describe("Ink interactive terminal", () => {
     };
     const sessionPersistence: InteractiveSessionPersistence = {
       messages: [],
+      reasoning: [{ assistantMessageIndex: 1, content: "Previous reasoning" }],
       sessionId: undefined,
       prepareRun: async () => sessionId,
       recordRun: async () => undefined,
@@ -1049,6 +1059,7 @@ describe("Ink interactive terminal", () => {
     await settle();
 
     expect(instance.lastFrame()).toContain("Previous answer");
+    expect(instance.lastFrame()).toContain("Previous reasoning");
     expect(instance.lastFrame()).toContain(`Resumed session ${sessionId}`);
     instance.unmount();
   });

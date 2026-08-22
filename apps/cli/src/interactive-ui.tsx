@@ -11,7 +11,7 @@ import type {
   RunEvent,
   RunResult,
 } from "@forge/core";
-import type { SessionSummary } from "@forge/persistence";
+import type { SessionReasoning, SessionSummary } from "@forge/persistence";
 import { Box, render, Text, useApp, useInput, usePaste } from "ink";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -369,7 +369,10 @@ export function InteractiveApp({
   const [activeOptions, setActiveOptions] = useState<AskOptions>(options);
   const initialMessages = sessionPersistence?.messages ?? [];
   const [transcript, setTranscript] = useState<readonly TranscriptEntry[]>(() =>
-    conversationTranscript(initialMessages),
+    conversationTranscript(
+      initialMessages,
+      sessionPersistence?.reasoning ?? [],
+    ),
   );
   const [contextPanel, setContextPanel] = useState<ContextStatus>();
   const [files, setFiles] = useState<readonly string[]>([]);
@@ -941,6 +944,7 @@ export function InteractiveApp({
       const sessionId = await sessionPersistence?.prepareRun();
       if (activeOptions.engine === "codex") {
         let finalText = "";
+        let reasoningText = "";
         codexExitCode = await executeCodexTask(prompt, activeOptions, {
           env,
           cwd,
@@ -949,6 +953,7 @@ export function InteractiveApp({
           onOutput: (event) => {
             handleCodexOutput(event);
             if (event.type === "answer") finalText += event.text;
+            if (event.type === "reasoning") reasoningText += event.text;
           },
           conversation: [...conversation.current],
           ...(sessionPersistence?.contextCheckpoint
@@ -968,7 +973,9 @@ export function InteractiveApp({
           finalText,
           modelSteps: 1,
           toolCalls: 0,
-          events: [],
+          events: reasoningText
+            ? [{ type: "model.reasoning", step: 1, text: reasoningText }]
+            : [],
         };
         metadata = {
           runId: randomUUID(),
@@ -1105,7 +1112,10 @@ export function InteractiveApp({
           void sessionPersistence.resume(selected.id).then(
             (messages) => {
               conversation.current = [...messages];
-              const restored = conversationTranscript(messages);
+              const restored = conversationTranscript(
+                messages,
+                sessionPersistence.reasoning ?? [],
+              );
               nextTranscriptId.current = restored.length;
               setTranscript(restored);
               setSessions([]);
@@ -1789,12 +1799,28 @@ function ForgeHeader(): React.JSX.Element {
 
 function conversationTranscript(
   messages: readonly ModelConversationMessage[],
+  reasoning: readonly SessionReasoning[] = [],
 ): readonly TranscriptEntry[] {
-  return messages.map((message, index) => ({
-    id: index,
-    kind: message.role === "user" ? "user" : "answer",
-    text: message.content,
-  }));
+  const reasoningByMessage = new Map(
+    reasoning.map((entry) => [entry.assistantMessageIndex, entry.content]),
+  );
+  const transcript: TranscriptEntry[] = [];
+  for (const [messageIndex, message] of messages.entries()) {
+    const savedReasoning = reasoningByMessage.get(messageIndex);
+    if (message.role === "assistant" && savedReasoning) {
+      transcript.push({
+        id: transcript.length,
+        kind: "reasoning",
+        text: savedReasoning,
+      });
+    }
+    transcript.push({
+      id: transcript.length,
+      kind: message.role === "user" ? "user" : "answer",
+      text: message.content,
+    });
+  }
+  return transcript;
 }
 
 function formatDuration(milliseconds: number): string {

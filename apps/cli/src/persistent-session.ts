@@ -14,6 +14,7 @@ import {
   isCheckpointValid,
   previewSessionCompaction,
   recordRunInSession,
+  type SessionReasoning,
   type SessionSnapshot,
   type SessionSummary,
 } from "@forge/persistence";
@@ -22,6 +23,7 @@ import type { RunMetadata } from "./run.js";
 
 export interface InteractiveSessionPersistence {
   readonly messages: readonly ModelConversationMessage[];
+  readonly reasoning?: readonly SessionReasoning[];
   readonly sessionId: string | undefined;
   readonly contextCheckpoint?: ContextCheckpoint | undefined;
   prepareRun(): Promise<string>;
@@ -107,6 +109,10 @@ export class PersistentInteractiveSession
     return this.#snapshot?.id;
   }
 
+  get reasoning(): readonly SessionReasoning[] {
+    return this.#snapshot?.reasoning ?? [];
+  }
+
   get contextCheckpoint(): ContextCheckpoint | undefined {
     return this.#snapshot?.contextCheckpoint;
   }
@@ -144,6 +150,11 @@ export class PersistentInteractiveSession
     this.#snapshot = recordRunInSession(this.#snapshot, {
       prompt,
       finalText: result.finalText,
+      reasoning: result.events
+        .flatMap((event) =>
+          event.type === "model.reasoning" ? [event.text] : [],
+        )
+        .join(""),
       status: result.status,
       runId: metadata.runId,
     });

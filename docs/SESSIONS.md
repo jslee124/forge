@@ -11,6 +11,7 @@ The core relationship is:
 ```text
 Session
 |-- completed user/assistant turns
+|-- provider-exposed reasoning summaries for completed assistant turns
 |-- optional derived context checkpoint
 |-- workspace and working-directory metadata
 `-- Run 1 -> events.jsonl
@@ -44,6 +45,7 @@ Each session stores:
 - Session ID, creation time, and last-updated time
 - Canonical workspace root and the saved working directory
 - Completed user and assistant messages
+- Provider-exposed reasoning text associated with completed assistant messages
 - The ordered run IDs belonging to the session
 - An optional versioned checkpoint with source/tail hashes and provenance
 
@@ -65,7 +67,8 @@ conversation with its completed history and continues in that saved session.
 
 Resume follows these rules:
 
-1. Only completed user/assistant turns are restored.
+1. Only completed user/assistant turns and their provider-exposed reasoning are
+   restored for display.
 2. A new prompt always starts a new bounded run with a new run ID.
 3. Current configuration and `AGENTS.md` instructions are loaded again.
 4. Approval state is new for every resumed run.
@@ -79,7 +82,11 @@ Resume follows these rules:
    checkpoint is ignored without changing the canonical transcript.
 
 This means Forge restores conversation context, not authority or executable
-state.
+state. Saved reasoning remains display-only and is not added to the model's
+conversation history. Providers may expose only a reasoning summary, not their
+private internal chain of thought; Forge saves only the text actually emitted.
+For Codex App Server turns, Forge explicitly requests a detailed reasoning
+summary and renders the streamed summary notifications.
 
 ## Inspect behavior
 

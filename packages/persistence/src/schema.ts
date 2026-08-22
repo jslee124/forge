@@ -12,6 +12,13 @@ const conversationMessageSchema = z
   })
   .strict();
 
+const sessionReasoningSchema = z
+  .object({
+    assistantMessageIndex: z.number().int().nonnegative(),
+    content: z.string(),
+  })
+  .strict();
+
 const checkpointSafetyLabels = z.tuple([
   z.literal("untrusted-conversation-memory"),
   z.literal("no-approval-state"),
@@ -112,6 +119,7 @@ export const sessionSnapshotSchema = z
     workspaceRoot: z.string().min(1),
     workingDirectory: z.string().min(1),
     messages: z.array(conversationMessageSchema).max(10_000),
+    reasoning: z.array(sessionReasoningSchema).max(10_000).default([]),
     runIds: z.array(z.uuid()).max(10_000),
     lastRunStatus: z
       .enum(["completed", "failed", "cancelled", "denied", "limit_reached"])
@@ -120,6 +128,14 @@ export const sessionSnapshotSchema = z
   })
   .strict()
   .superRefine((session, context) => {
+    for (const entry of session.reasoning) {
+      if (session.messages[entry.assistantMessageIndex]?.role !== "assistant") {
+        context.addIssue({
+          code: "custom",
+          message: "Saved reasoning must reference an assistant message.",
+        });
+      }
+    }
     const checkpoint = session.contextCheckpoint;
     if (!checkpoint) return;
     if (
@@ -146,9 +162,15 @@ export interface SessionSnapshot {
   readonly workspaceRoot: string;
   readonly workingDirectory: string;
   readonly messages: readonly ModelConversationMessage[];
+  readonly reasoning: readonly SessionReasoning[];
   readonly runIds: readonly string[];
   readonly lastRunStatus?: RunStatus;
   readonly contextCheckpoint?: ContextCheckpoint;
+}
+
+export interface SessionReasoning {
+  readonly assistantMessageIndex: number;
+  readonly content: string;
 }
 
 export interface SessionSummary {

@@ -4,6 +4,7 @@ export {
   contextCheckpointSchema,
   persistedSessionSnapshotSchema,
   runEventSchema,
+  type SessionReasoning,
   type SessionSnapshot,
   type SessionSummary,
   sessionSnapshotSchema,

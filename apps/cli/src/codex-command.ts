@@ -398,6 +398,7 @@ export async function runCodexTask(
           },
         ],
         effort: selection.effort,
+        summary: "detailed",
       });
       completion.expect(turn.turn.id);
       const abort = () => {

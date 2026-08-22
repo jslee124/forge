@@ -61,6 +61,7 @@ export class FileSessionStore {
       workspaceRoot: workspace.root,
       workingDirectory: workspace.cwd,
       messages: [],
+      reasoning: [],
       runIds: [],
     };
   }
@@ -111,7 +112,11 @@ export class FileSessionStore {
     try {
       const persisted = persistedSessionSnapshotSchema.parse(JSON.parse(text));
       if (persisted.schemaVersion === 2) return persisted as SessionSnapshot;
-      return { ...persisted, schemaVersion: 2 } as SessionSnapshot;
+      return {
+        ...persisted,
+        schemaVersion: 2,
+        reasoning: [],
+      } as SessionSnapshot;
     } catch (error) {
       throw new PersistenceError(
         `Session ${sessionId} is invalid or unsupported.`,
@@ -353,22 +358,32 @@ export function recordRunInSession(
   options: {
     readonly prompt: string;
     readonly finalText: string;
+    readonly reasoning?: string;
     readonly status: RunStatus;
     readonly runId: string;
   },
 ): SessionSnapshot {
   const { contextCheckpoint, ...base } = snapshot;
   const messages: ModelConversationMessage[] = [...snapshot.messages];
+  const reasoning = [...snapshot.reasoning];
   if (options.status === "completed") {
     messages.push({ role: "user", content: options.prompt });
     if (options.finalText !== "") {
+      const assistantMessageIndex = messages.length;
       messages.push({ role: "assistant", content: options.finalText });
+      if (options.reasoning) {
+        reasoning.push({
+          assistantMessageIndex,
+          content: options.reasoning,
+        });
+      }
     }
   }
   return {
     ...base,
     updatedAt: new Date().toISOString(),
     messages,
+    reasoning,
     runIds: [...snapshot.runIds, options.runId],
     lastRunStatus: options.status,
     ...(messages.length === snapshot.messages.length &&

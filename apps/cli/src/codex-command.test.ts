@@ -72,6 +72,12 @@ class FakeClient implements CodexClient {
     if (method === "turn/start") {
       queueMicrotask(() =>
         this.emit({
+          method: "item/reasoning/summaryTextDelta",
+          params: { delta: "Inspecting the repository." },
+        }),
+      );
+      queueMicrotask(() =>
+        this.emit({
           method: "item/agentMessage/delta",
           params: { delta: "done" },
         }),
@@ -251,6 +257,7 @@ describe("Codex commands", () => {
 
     expect(result).toBe(0);
     expect(stdout.value).toBe("[answer]\ndone\n");
+    expect(stderr.value).toContain("[reasoning]\nInspecting the repository.\n");
     expect(stderr.value).toContain("[command] pwd\n");
     expect(client.requests).toContainEqual({
       method: "account/read",
@@ -276,6 +283,7 @@ describe("Codex commands", () => {
           { type: "text", text: "inspect the repository", text_elements: [] },
         ],
         effort: "high",
+        summary: "detailed",
       },
     });
   });
@@ -294,6 +302,8 @@ describe("Codex commands", () => {
     expect(result).toBe(0);
     expect(events).toEqual([
       { type: "system", text: "Codex · gpt-test · reasoning high" },
+      { type: "reasoning", text: "" },
+      { type: "reasoning", text: "Inspecting the repository." },
       { type: "answer", text: "" },
       { type: "answer", text: "done" },
       { type: "tool", text: "○ Running command: pwd" },

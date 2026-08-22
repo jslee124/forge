@@ -29,11 +29,15 @@ describe("persistent interactive session", () => {
     const first = await createPersistentInteractiveSession({ cwd: root, env });
     const sessionId = await first.prepareRun();
     const firstRunId = randomUUID();
-    await first.recordRun("first task", completed("first answer"), {
-      runId: firstRunId,
-      sessionId,
-      tracePersisted: true,
-    });
+    await first.recordRun(
+      "first task",
+      completed("first answer", "first reasoning"),
+      {
+        runId: firstRunId,
+        sessionId,
+        tracePersisted: true,
+      },
+    );
 
     const resumed = await createPersistentInteractiveSession({
       cwd: root,
@@ -45,6 +49,9 @@ describe("persistent interactive session", () => {
     expect(resumed.messages).toEqual([
       { role: "user", content: "first task" },
       { role: "assistant", content: "first answer" },
+    ]);
+    expect(resumed.reasoning).toEqual([
+      { assistantMessageIndex: 1, content: "first reasoning" },
     ]);
     expect(await resumed.prepareRun()).toBe(sessionId);
 
@@ -66,13 +73,15 @@ describe("persistent interactive session", () => {
   });
 });
 
-function completed(finalText: string) {
+function completed(finalText: string, reasoning = "") {
   return {
     status: "completed" as const,
     exitCode: 0,
     finalText,
     modelSteps: 1,
     toolCalls: 0,
-    events: [],
+    events: reasoning
+      ? [{ type: "model.reasoning" as const, step: 1, text: reasoning }]
+      : [],
   };
 }

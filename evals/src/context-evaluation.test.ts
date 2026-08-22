@@ -34,6 +34,7 @@ function longSession(): SessionSnapshot {
     workspaceRoot: "/workspace",
     workingDirectory: "/workspace",
     messages,
+    reasoning: [],
     runIds: Array.from({ length: 12 }, () => randomUUID()),
     lastRunStatus: "completed",
   };
