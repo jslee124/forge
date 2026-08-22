@@ -13,7 +13,7 @@ import { homedir } from "node:os";
 import path from "node:path";
 import { ModelConfigurationError } from "@forge/core";
 
-export type ApiKeyProvider = "deepseek" | "openai";
+export type ApiKeyProvider = "deepseek" | "mimo" | "openai";
 export type ApiKeySource = "environment" | "stored";
 
 export interface ApiKeyAuthentication {
@@ -53,6 +53,7 @@ interface ParsedRecord extends Record<string, unknown> {
 
 const API_KEY_ENVIRONMENT_VARIABLES = {
   deepseek: "DEEPSEEK_API_KEY",
+  mimo: "MIMO_API_KEY",
   openai: "OPENAI_API_KEY",
 } as const satisfies Record<ApiKeyProvider, string>;
 
@@ -233,7 +234,7 @@ export function resolveForgeHome(env: NodeJS.ProcessEnv = process.env): string {
 }
 
 export function isApiKeyProvider(value: string): value is ApiKeyProvider {
-  return value === "deepseek" || value === "openai";
+  return value === "deepseek" || value === "mimo" || value === "openai";
 }
 
 async function acquireLock(
@@ -276,7 +277,7 @@ function validateAuthenticationFile(value: unknown): AuthenticationFile {
     );
   }
   const credentials: Partial<Record<ApiKeyProvider, StoredApiKey>> = {};
-  for (const provider of ["deepseek", "openai"] as const) {
+  for (const provider of ["deepseek", "mimo", "openai"] as const) {
     const credential = value.credentials[provider];
     if (credential === undefined) continue;
     if (

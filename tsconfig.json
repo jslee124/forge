@@ -6,6 +6,7 @@
     { "path": "./packages/codex-app-server" },
     { "path": "./packages/core" },
     { "path": "./packages/model-deepseek" },
+    { "path": "./packages/model-mimo" },
     { "path": "./packages/model-openai" },
     { "path": "./packages/persistence" },
     { "path": "./packages/plugin-api" },

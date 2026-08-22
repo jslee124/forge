@@ -68,12 +68,12 @@ forge
 CLI
  |
  |-- Forge Engine
- |    `-- Model Adapter --> Vercel AI SDK --> DeepSeek / OpenAI API
+ |    `-- Model Adapter --> Vercel AI SDK --> DeepSeek / MiMo / OpenAI API
  |
  `-- Codex Engine -------> Official Codex App Server --> ChatGPT subscription
 
 Forge Agent Runtime
- |-- Model Adapter ------> Vercel AI SDK ------> DeepSeek / OpenAI API
+ |-- Model Adapter ------> Vercel AI SDK ------> DeepSeek / MiMo / OpenAI API
  |-- Context Loader -----> ~/.forge / AGENTS.md / .agents / project .forge
  |-- Plugin Host --------> Tools / Commands / Controlled Hooks
  |-- Policy Kernel ------> Allow / Confirm / Deny
@@ -111,7 +111,8 @@ added later as optional adapters and evaluation baselines.
 - Zod for runtime schemas
 - Biome for formatting and linting
 - Vitest for tests
-- Vercel AI SDK with `@ai-sdk/deepseek` and `@ai-sdk/openai`
+- Vercel AI SDK with `@ai-sdk/deepseek`, `@ai-sdk/open-responses`, and
+  `@ai-sdk/openai`
 - `deepseek-v4-flash` as the initial model, with thinking mode selected
   explicitly rather than inherited from provider defaults
 
@@ -201,14 +202,14 @@ provider continuations, and command approvals are never restored.
 Available commands are `/help`, `/new`, `/clear`, `/context`, `/compact`,
 `/plugins`, `/login`, `/model`, `/effort`, `/resume`, and `/exit`. `/plugins`
 reviews, trusts, or untrusts project plugins without leaving the TUI. `/login`
-lets you choose ChatGPT subscription, DeepSeek
-API, or OpenAI API. API keys are entered through a masked field and stored in
+lets you choose ChatGPT subscription, DeepSeek API, Xiaomi MiMo API, or OpenAI
+API. API keys are entered through a masked field and stored in
 `$FORGE_HOME/auth.json`; the directory is mode `0700` and the file is mode
 `0600`. Like Pi and OpenCode's local auth files, this is plaintext protected by
 filesystem permissions rather than an OS keychain. ChatGPT credentials remain
 owned by the official Codex App Server.
-`DEEPSEEK_API_KEY` and `OPENAI_API_KEY` remain supported and take precedence
-over stored credentials.
+`DEEPSEEK_API_KEY`, `MIMO_API_KEY`, and `OPENAI_API_KEY` remain supported and
+take precedence over stored credentials.
 `/model` discovers ChatGPT subscription models and also shows API models. It
 selects the model once instead of repeating it for every effort level.
 `/effort` opens the active model's supported effort levels, `/effort high` sets
@@ -221,8 +222,8 @@ The [interactive CLI UI](docs/CLI_UI.md) supports Shift+Enter, Meta+Enter
 bounded fuzzy `@` workspace-file selection. A selected path is sent to the
 model as an explicit reference; the model still reads its contents through the
 normal `read_file` tool. When the selected file is JPEG, PNG, GIF, or WebP and
-the active model is `deepseek-v4-flash-vision-exp`, Forge also sends it as an
-image attachment. Pasting or dragging an absolute image path—including a
+the active model is `deepseek-v4-flash-vision-exp` or `mimo-v2.5`, Forge also
+sends it as an image attachment. Pasting or dragging an absolute image path—including a
 macOS clipboard helper's `/var/.../T/...png` path—creates a visible
 `[Image #N]` attachment instead of treating the leading slash as a command.
 File-write approval shows a colored, line-numbered diff with a no-color
@@ -266,9 +267,33 @@ If you only have a ChatGPT subscription, skip this API-key setup and use the
 Codex commands below. Forge's default tests use mocked transports and never make
 paid OpenAI API requests.
 
+Xiaomi MiMo uses its Responses API. `mimo-v2.5` is the default MiMo model;
+`mimo-v2.5-pro` is also available in `/model` and the static model catalog:
+
+```bash
+export MIMO_API_KEY="your-api-key"
+# Optional for a token-plan or compatible endpoint; defaults to the official URL.
+export MIMO_BASE_URL="https://api.xiaomimimo.com/v1"
+pnpm forge run "Inspect this repository" \
+  --provider mimo \
+  --model mimo-v2.5 \
+  --reasoning-effort medium
+pnpm forge models list --provider mimo
+```
+
+MiMo reasoning effort is validated locally as `none`, `low`, `medium`, or
+`high`. Forge uses the Responses transport so provider-returned
+`reasoning_content`, reasoning item IDs, function calls, and function-call
+outputs survive a tool-result continuation. Only the confirmed Agent model IDs
+receive the 1M/128K capability table; ASR, TTS, unknown, and similarly named
+models use the conservative fallback. `mimo-v2.5` accepts the same JPEG, PNG,
+GIF, and WebP image inputs described below; other MiMo models reject image
+attachments locally.
+
 Inspect or remove saved API credentials with `forge auth status deepseek`,
 `forge auth logout deepseek`, `forge auth status openai-api`, and
-`forge auth logout openai-api`. Logout removes only Forge's stored key; it
+`forge auth logout openai-api`. MiMo uses `forge auth status mimo` and
+`forge auth logout mimo`. Logout removes only Forge's stored key; it
 cannot unset an environment variable in your parent shell. Never commit
 `auth.json`, and do not set `FORGE_HOME` to a shared or repository directory.
 

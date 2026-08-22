@@ -6,7 +6,7 @@ export type PermissionProfile = z.infer<typeof permissionProfileSchema>;
 const modelSchema = z
   .object({
     engine: z.enum(["forge", "codex"]).optional(),
-    provider: z.enum(["deepseek", "openai"]).optional(),
+    provider: z.enum(["deepseek", "mimo", "openai"]).optional(),
     id: z.string().trim().min(1).optional(),
     reasoningEffort: z
       .enum([
@@ -71,7 +71,7 @@ export interface EffectiveForgeConfig {
   readonly schemaVersion: 1;
   readonly model: {
     readonly engine: "forge" | "codex";
-    readonly provider: "deepseek" | "openai";
+    readonly provider: "deepseek" | "mimo" | "openai";
     readonly id: string;
     readonly reasoningEffort:
       | "none"

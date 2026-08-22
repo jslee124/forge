@@ -202,6 +202,20 @@ describe("Forge configuration", () => {
     });
   });
 
+  it("selects mimo-v2.5 when MiMo is chosen without a model", async () => {
+    const { nested, forgeHome } = await fixture();
+    const loaded = await loadForgeConfig({
+      cwd: nested,
+      env: { FORGE_HOME: forgeHome },
+      cli: { provider: "mimo" },
+    });
+    expect(loaded.config.model).toMatchObject({
+      provider: "mimo",
+      id: "mimo-v2.5",
+      reasoningEffort: "medium",
+    });
+  });
+
   it("rejects project attempts to select a permission profile", async () => {
     const { root, nested, forgeHome } = await fixture();
     const sourcePath = path.join(root, ".forge", "config.json");

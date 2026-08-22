@@ -150,6 +150,12 @@ const LOGIN_CHOICES: readonly LoginChoice[] = [
     kind: "api-key",
     provider: "openai",
   },
+  {
+    label: "Xiaomi MiMo API",
+    description: "Save a MiMo API key",
+    kind: "api-key",
+    provider: "mimo",
+  },
 ];
 
 function modelChoiceKey(choice: ModelChoice): string {
@@ -176,6 +182,13 @@ const STANDARD_EFFORTS: readonly EffortChoice[] = [
   { effort: "high", description: "Deep" },
   { effort: "xhigh", description: "Deeper" },
   { effort: "max", description: "Maximum" },
+];
+
+const MIMO_EFFORTS: readonly EffortChoice[] = [
+  { effort: "none", description: "No reasoning" },
+  { effort: "low", description: "Fast" },
+  { effort: "medium", description: "Balanced" },
+  { effort: "high", description: "Deep" },
 ];
 
 const MODEL_CHOICES: readonly ModelChoice[] = [
@@ -232,6 +245,28 @@ const MODEL_CHOICES: readonly ModelChoice[] = [
       id: "deepseek-v4-flash-vision-exp",
     },
     supportedReasoningEfforts: STANDARD_EFFORTS,
+    defaultReasoningEffort: "medium",
+  },
+  {
+    label: "MiMo V2.5",
+    description: "MiMo Responses API · image input",
+    selection: {
+      engine: "forge",
+      provider: "mimo",
+      id: "mimo-v2.5",
+    },
+    supportedReasoningEfforts: MIMO_EFFORTS,
+    defaultReasoningEffort: "medium",
+  },
+  {
+    label: "MiMo V2.5 Pro",
+    description: "MiMo Responses API",
+    selection: {
+      engine: "forge",
+      provider: "mimo",
+      id: "mimo-v2.5-pro",
+    },
+    supportedReasoningEfforts: MIMO_EFFORTS,
     defaultReasoningEffort: "medium",
   },
 ];
@@ -663,8 +698,16 @@ export function InteractiveApp({
   const selectEffort = (effort: ReasoningEffort): void => {
     const engine = activeOptions.engine === "codex" ? "codex" : "forge";
     const provider =
-      activeOptions.provider === "openai" ? "openai" : "deepseek";
-    const model = activeOptions.model?.trim() || "deepseek-v4-flash";
+      activeOptions.provider === "openai" || activeOptions.provider === "mimo"
+        ? activeOptions.provider
+        : "deepseek";
+    const model =
+      activeOptions.model?.trim() ||
+      (provider === "mimo"
+        ? "mimo-v2.5"
+        : provider === "openai"
+          ? "gpt-5.4-mini"
+          : "deepseek-v4-flash");
     const thinking =
       provider === "deepseek"
         ? effort === "none"
@@ -1801,8 +1844,8 @@ export function InteractiveApp({
             </Text>
           ))}
           <Text dimColor>
-            ChatGPT entries use Codex Engine; OpenAI API-key entries are billed
-            separately · Type to fuzzy search · Enter select · Esc cancel
+            ChatGPT entries use Codex Engine; API-key entries use Forge Engine ·
+            Type to fuzzy search · Enter select · Esc cancel
           </Text>
         </Box>
       ) : null}

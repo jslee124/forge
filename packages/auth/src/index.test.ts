@@ -31,6 +31,19 @@ describe("AuthenticationManager", () => {
     });
   });
 
+  it("resolves MiMo credentials from MIMO_API_KEY", async () => {
+    const forgeHome = await createForgeHome();
+    const manager = new AuthenticationManager({
+      FORGE_HOME: forgeHome,
+      MIMO_API_KEY: " mimo-secret ",
+    });
+    expect(manager.requireApiKey("mimo")).toMatchObject({
+      apiKey: "mimo-secret",
+      source: "environment",
+      environmentVariable: "MIMO_API_KEY",
+    });
+  });
+
   it("stores multiple providers atomically with owner-only permissions", async () => {
     const forgeHome = await createForgeHome();
     const manager = new AuthenticationManager({ FORGE_HOME: forgeHome });

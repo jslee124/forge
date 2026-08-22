@@ -96,7 +96,7 @@ export class ForgeConfigError extends Error {
 
 export interface PersistedModelSelection {
   readonly engine: "forge" | "codex";
-  readonly provider: "deepseek" | "openai";
+  readonly provider: "deepseek" | "mimo" | "openai";
   readonly id: string;
   readonly reasoningEffort?: EffectiveForgeConfig["model"]["reasoningEffort"];
   readonly thinking?: EffectiveForgeConfig["model"]["thinking"];
@@ -637,10 +637,15 @@ function parseThinking(value: string, source: string): "enabled" | "disabled" {
   );
 }
 
-function parseProvider(value: string, source: string): "deepseek" | "openai" {
-  if (value === "deepseek" || value === "openai") return value;
+function parseProvider(
+  value: string,
+  source: string,
+): "deepseek" | "mimo" | "openai" {
+  if (value === "deepseek" || value === "mimo" || value === "openai") {
+    return value;
+  }
   throw new ForgeConfigError(
-    `Invalid ${source} value "${value}". Use "deepseek" or "openai".`,
+    `Invalid ${source} value "${value}". Use "deepseek", "mimo", or "openai".`,
   );
 }
 
@@ -665,7 +670,8 @@ function parseReasoningEffort(
   );
 }
 
-function defaultModelId(provider: "deepseek" | "openai"): string {
+function defaultModelId(provider: "deepseek" | "mimo" | "openai"): string {
+  if (provider === "mimo") return "mimo-v2.5";
   return provider === "openai" ? "gpt-5.4-mini" : "deepseek-v4-flash";
 }
 

@@ -444,6 +444,51 @@ describe("Ink interactive terminal", () => {
     instance.unmount();
   });
 
+  it("selects MiMo models and exposes only MiMo-supported efforts", async () => {
+    const root = await createWorkspace();
+    let persisted: unknown;
+    const instance = render(
+      <InteractiveApp
+        options={{}}
+        env={{}}
+        cwd={root}
+        persistModelSelection={async (value) => {
+          persisted = value.selection;
+          return "/tmp/forge-config.json";
+        }}
+        discoverSubscriptionModels={async () => []}
+      />,
+    );
+
+    await settle();
+    instance.stdin.write("/model");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+    instance.stdin.write("mimo-v2.5");
+    await settle();
+    expect(instance.lastFrame()).toContain("MiMo V2.5");
+    instance.stdin.write("\r");
+    await settle();
+    expect(persisted).toEqual({
+      engine: "forge",
+      provider: "mimo",
+      id: "mimo-v2.5",
+      reasoningEffort: "medium",
+    });
+
+    instance.stdin.write("/effort");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+    expect(instance.lastFrame()).toContain("none · No reasoning");
+    expect(instance.lastFrame()).toContain("high · Deep");
+    expect(instance.lastFrame()).not.toContain("minimal · Fastest");
+    expect(instance.lastFrame()).not.toContain("xhigh · Deeper");
+    expect(instance.lastFrame()).not.toContain("max · Maximum");
+    instance.unmount();
+  });
+
   it("changes thinking effort independently with /effort", async () => {
     const root = await createWorkspace();
     let persisted: unknown;
