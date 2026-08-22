@@ -1955,11 +1955,11 @@ export function InteractiveApp({
 }
 
 const FORGE_WORDMARK = [
-  "████  ███  ███  ███  ████",
-  "█     █ █  █ █  █    █",
-  "███   █ █  ███  █ ██  ███",
-  "█     █ █  █ █  █  █  █",
-  "█     ███  █ █  ███  ████",
+  " _____ ___  ____   ____ _____ ",
+  "|  ___/ _ \\|  _ \\ / ___| ____|",
+  "| |_ | | | | |_) | |  _|  _|  ",
+  "|  _|| |_| |  _ <| |_| | |___ ",
+  "|_|   \\___/|_| \\_\\\\____|_____|",
 ].join("\n");
 
 function PluginsPanel({
@@ -2093,8 +2093,9 @@ function ForgeHeader({
       borderStyle="round"
       borderColor="cyan"
       flexDirection="column"
-      alignItems="center"
-      paddingX={1}
+      alignItems="flex-start"
+      paddingX={2}
+      paddingY={1}
     >
       <Box marginBottom={1}>
         <Text bold color="cyan">

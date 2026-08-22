@@ -63,9 +63,23 @@ describe("Ink interactive terminal", () => {
       <InteractiveApp options={{}} env={{}} cwd={root} />,
     );
 
-    expect(frame).toContain("████  ███  ███  ███  ████");
+    expect(frame).toContain(" _____  ____  ____   _____  _____");
+    expect(frame).toContain("/ ____|");
+    expect(frame).not.toContain("████  ███  ███  ███  ████");
     expect(frame).toContain("/login provider");
     expect(frame).toContain("@ files");
+  });
+
+  it("left-aligns and pads startup content inside the header frame", () => {
+    const frame = renderToString(
+      <InteractiveApp options={{}} env={{}} cwd="/tmp/forge-header-left" />,
+    );
+    const lines = frame.split("\n");
+    const wordmarkIndex = lines.findIndex((line) => line.includes("____"));
+    const wordmarkLine = lines[wordmarkIndex];
+
+    expect(wordmarkLine).toMatch(/│ {2} _____/u);
+    expect(lines[wordmarkIndex - 1]).toMatch(/│\s+│$/u);
   });
 
   it("lists detected plugins and skills inside the blue startup frame", () => {
@@ -1187,11 +1201,11 @@ describe("Ink interactive terminal", () => {
   it("renders at narrow and wide terminal widths", async () => {
     const root = await createWorkspace();
     const app = <InteractiveApp options={{}} env={{}} cwd={root} />;
-    const narrow = renderToString(app, { columns: 40 });
+    const narrow = renderToString(app, { columns: 60 });
     const wide = renderToString(app, { columns: 100 });
 
-    expect(narrow).toContain("████  ███  ███  ███  ████");
-    expect(wide).toContain("████  ███  ███  ███  ████");
+    expect(narrow).toContain(" _____  ____  ____   _____  _____");
+    expect(wide).toContain(" _____  ____  ____   _____  _____");
     expect(narrow).not.toBe(wide);
   });
 
