@@ -234,6 +234,28 @@ const MODEL_CHOICES: readonly ModelChoice[] = [
     supportedReasoningEfforts: STANDARD_EFFORTS,
     defaultReasoningEffort: "medium",
   },
+  {
+    label: "MiMo v2.5",
+    description: "Xiaomi MiMo API · via OpenAI-compat endpoint",
+    selection: {
+      engine: "forge",
+      provider: "openai",
+      id: "mimo-v2.5",
+    },
+    supportedReasoningEfforts: STANDARD_EFFORTS,
+    defaultReasoningEffort: "low",
+  },
+  {
+    label: "MiMo v2.5 Pro",
+    description: "Xiaomi MiMo API · via OpenAI-compat endpoint",
+    selection: {
+      engine: "forge",
+      provider: "openai",
+      id: "mimo-v2.5-pro",
+    },
+    supportedReasoningEfforts: STANDARD_EFFORTS,
+    defaultReasoningEffort: "medium",
+  },
 ];
 
 export interface InteractiveUiDependencies {

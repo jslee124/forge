@@ -130,6 +130,12 @@ function projectToolResults(
 export function openAIModelContext(
   model: string,
 ): { readonly window: number; readonly output: number } | undefined {
+  if (/^mimo-v2\.5(?:-pro)?$/iu.test(model)) {
+    return { window: 1_048_576, output: 131_072 };
+  }
+  if (/^mimo-v2\.5(?:-|$)/iu.test(model)) {
+    return { window: 262_144, output: 65_536 };
+  }
   if (/^gpt-5\.4-(mini|nano)(?:-|$)/u.test(model)) {
     return { window: 400_000, output: 128_000 };
   }

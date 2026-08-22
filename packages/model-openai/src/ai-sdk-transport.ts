@@ -49,10 +49,13 @@ export class AiSdkOpenAITransport implements OpenAITransport {
     request: OpenAITransportRequest,
     signal: AbortSignal,
   ): AsyncIterable<ModelStreamEvent> {
+    const baseURL = process.env["OPENAI_BASE_URL"];
     const openai = createOpenAI({
       apiKey: request.apiKey,
+      ...(baseURL ? { baseURL } : {}),
       ...(this.#fetch ? { fetch: this.#fetch } : {}),
     });
+    const usesResponsesApi = !baseURL;
     let metadata: Readonly<Record<string, unknown>> | undefined;
     let finish:
       | {
@@ -63,19 +66,23 @@ export class AiSdkOpenAITransport implements OpenAITransport {
     try {
       const messages = buildMessages(request);
       const result = this.#streamText({
-        model: openai.responses(request.model),
+        model: usesResponsesApi
+          ? openai.responses(request.model)
+          : openai.chat(request.model),
         messages,
         abortSignal: signal,
         onError: () => undefined,
         ...(request.tools?.length
           ? { tools: toAiSdkTools(request.tools) }
           : {}),
-        providerOptions: {
-          openai: {
-            reasoningEffort: request.reasoningEffort,
-            store: false,
-          } satisfies OpenAIResponsesProviderOptions,
-        },
+        providerOptions: usesResponsesApi
+          ? {
+              openai: {
+                reasoningEffort: request.reasoningEffort,
+                store: false,
+              } satisfies OpenAIResponsesProviderOptions,
+            }
+          : {},
       });
 
       for await (const part of result.stream) {
