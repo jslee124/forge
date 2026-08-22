@@ -291,6 +291,70 @@ describe("native agent runtime", () => {
     );
   });
 
+  it("reports reasoning tokens when the provider returns no reasoning text", async () => {
+    const hiddenReasoningUsage = {
+      ...usage,
+      outputTokens: 13,
+      reasoningTokens: 12,
+      totalTokens: 14,
+    };
+    const model = new ScriptedModel([
+      [
+        { type: "text.delta", text: "Final answer." },
+        {
+          type: "finish",
+          finishReason: "stop",
+          usage: hiddenReasoningUsage,
+        },
+      ],
+    ]);
+
+    const result = await runAgent({
+      prompt: "Think",
+      model,
+      tools: [],
+      policy: new ReadOnlyPolicy(),
+      toolContext,
+      signal: toolContext.signal,
+    });
+
+    expect(result.events).toContainEqual({
+      type: "model.reasoning-unavailable",
+      step: 1,
+      reasoningTokens: 12,
+    });
+    expect(result.events.some(({ type }) => type === "model.reasoning")).toBe(
+      false,
+    );
+  });
+
+  it("does not report reasoning as unavailable when text was returned", async () => {
+    const model = new ScriptedModel([
+      [
+        { type: "reasoning.delta", text: "Visible reasoning." },
+        { type: "text.delta", text: "Final answer." },
+        {
+          type: "finish",
+          finishReason: "stop",
+          usage: { ...usage, reasoningTokens: 2, totalTokens: 4 },
+        },
+      ],
+    ]);
+
+    const result = await runAgent({
+      prompt: "Think",
+      model,
+      tools: [],
+      policy: new ReadOnlyPolicy(),
+      toolContext,
+      signal: toolContext.signal,
+    });
+
+    expect(
+      result.events.some(({ type }) => type === "model.reasoning-unavailable"),
+    ).toBe(false);
+  });
+
   it("returns recoverable tool failures to the model", async () => {
     const failingTool: ForgeTool = {
       ...fakeReadTool([]),

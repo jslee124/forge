@@ -103,6 +103,47 @@ class CreateThenAnswerModel implements ModelAdapter {
 }
 
 describe("forge run", () => {
+  it("reports provider-hidden reasoning tokens without inventing reasoning text", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "forge-run-reasoning-"));
+    temporaryDirectories.push(root);
+    const stdout = outputBuffer();
+    const stderr = outputBuffer();
+    const model: ModelAdapter = {
+      async *stream(): AsyncIterable<ModelStreamEvent> {
+        yield { type: "text.delta", text: "Final answer." };
+        yield {
+          type: "finish",
+          finishReason: "stop",
+          usage: {
+            ...usage,
+            outputTokens: 13,
+            reasoningTokens: 12,
+            totalTokens: 14,
+          },
+        };
+      },
+    };
+
+    const exitCode = await runTask(
+      "Think",
+      {},
+      {
+        env: { DEEPSEEK_API_KEY: "test-secret", FORGE_HOME: root },
+        cwd: root,
+        stdout: stdout.output,
+        stderr: stderr.output,
+        signal: new AbortController().signal,
+        createAdapter: () => model,
+      },
+    );
+
+    expect(exitCode).toBe(0);
+    expect(stdout.read()).toBe("[answer]\nFinal answer.\n");
+    expect(stderr.read()).toContain(
+      "[reasoning] Provider used 12 reasoning tokens but did not return reasoning text.",
+    );
+  });
+
   it("resolves a workspace image and forwards it only to the model request", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "forge-run-vision-"));
     temporaryDirectories.push(root);

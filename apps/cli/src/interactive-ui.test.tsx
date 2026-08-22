@@ -1002,6 +1002,38 @@ describe("Ink interactive terminal", () => {
     instance.unmount();
   });
 
+  it("shows when the provider used hidden reasoning tokens", async () => {
+    const root = await createWorkspace();
+    const instance = render(
+      <InteractiveApp
+        options={{}}
+        env={{}}
+        cwd={root}
+        executeTask={async (_prompt, _options, dependencies) => {
+          await dependencies.onEvent?.({
+            type: "model.reasoning-unavailable",
+            step: 1,
+            reasoningTokens: 42,
+          });
+          dependencies.onResult?.(completed("Here is the result."));
+          return 0;
+        }}
+      />,
+    );
+
+    await settle();
+    instance.stdin.write("hello");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+
+    expect(instance.lastFrame()).toContain("◆ Reasoning");
+    expect(instance.lastFrame()).toContain(
+      "Provider used 42 reasoning tokens but did not return reasoning text.",
+    );
+    instance.unmount();
+  });
+
   it("renders at narrow and wide terminal widths", async () => {
     const root = await createWorkspace();
     const app = <InteractiveApp options={{}} env={{}} cwd={root} />;

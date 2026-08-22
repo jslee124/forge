@@ -506,6 +506,12 @@ function createRunEventRenderer(
       case "model.reasoning":
         delta("reasoning", event.text);
         break;
+      case "model.reasoning-unavailable":
+        closeSection();
+        stderr.write(
+          `[reasoning] Provider used ${event.reasoningTokens} reasoning tokens but did not return reasoning text.\n`,
+        );
+        break;
       case "model.text":
         delta("answer", event.text);
         break;

@@ -231,7 +231,14 @@ function createDeepSeekResponsesFetch(
         ...init,
         body: JSON.stringify({
           ...body,
-          reasoning: { effort: reasoningEffort },
+          // The OpenAI provider does not classify DeepSeek's custom vision
+          // model as a reasoning model, so it will not request a summary for
+          // us. Without one, usage includes reasoning tokens but the stream
+          // contains no reasoning deltas for Forge to render.
+          reasoning: {
+            effort: reasoningEffort,
+            ...(reasoningEffort === "none" ? {} : { summary: "detailed" }),
+          },
           store: false,
         }),
       });

@@ -91,6 +91,11 @@ export type RunEvent =
       readonly text: string;
     }
   | {
+      readonly type: "model.reasoning-unavailable";
+      readonly step: number;
+      readonly reasoningTokens: number;
+    }
+  | {
       readonly type: "model.warning";
       readonly step: number;
       readonly message: string;
@@ -569,6 +574,7 @@ async function consumeModelStep(
   const calls: ToolCall[] = [];
   let text = "";
   let producedEvidence = false;
+  let receivedReasoningText = false;
   let finishEvent:
     | Extract<ModelStreamEvent, { readonly type: "finish" }>
     | undefined;
@@ -578,6 +584,7 @@ async function consumeModelStep(
       switch (event.type) {
         case "reasoning.delta":
           producedEvidence = true;
+          if (event.text.length > 0) receivedReasoningText = true;
           await emit({ type: "model.reasoning", step, text: event.text });
           break;
         case "text.delta":
@@ -609,6 +616,17 @@ async function consumeModelStep(
   }
   if (!finishEvent) {
     throw new Error("The model stream ended without a finish event.");
+  }
+  if (
+    !receivedReasoningText &&
+    finishEvent.usage.reasoningTokens !== undefined &&
+    finishEvent.usage.reasoningTokens > 0
+  ) {
+    await emit({
+      type: "model.reasoning-unavailable",
+      step,
+      reasoningTokens: finishEvent.usage.reasoningTokens,
+    });
   }
 
   return {

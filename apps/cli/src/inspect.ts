@@ -108,6 +108,8 @@ function describeEvent(event: TraceEnvelope["event"]): string {
     case "model.reasoning":
     case "model.text":
       return `${event.type} step=${event.step} ${JSON.stringify(event.text)}`;
+    case "model.reasoning-unavailable":
+      return `${event.type} step=${event.step} tokens=${event.reasoningTokens}`;
     case "model.warning":
       return `${event.type} ${JSON.stringify(event.message)}`;
     case "context.budgeted":

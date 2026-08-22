@@ -131,9 +131,46 @@ describe("AI SDK DeepSeek transport", () => {
           ],
         },
       ],
-      reasoning: { effort: "max" },
+      reasoning: { effort: "max", summary: "detailed" },
       store: false,
       stream: true,
+    });
+  });
+
+  it("does not request a reasoning summary when vision thinking is disabled", async () => {
+    let requestBody: unknown;
+    const fetchMock: NonNullable<DeepSeekProviderSettings["fetch"]> = async (
+      _input,
+      init,
+    ) => {
+      requestBody = JSON.parse(String(init?.body));
+      return new Response(JSON.stringify({ error: { message: "test stop" } }), {
+        status: 400,
+        headers: { "content-type": "application/json" },
+      });
+    };
+    const transport = new AiSdkDeepSeekTransport({ fetch: fetchMock });
+
+    await expect(async () => {
+      for await (const _event of transport.stream(
+        {
+          apiKey: "test-secret",
+          model: "deepseek-v4-flash-vision-exp",
+          thinking: "disabled",
+          reasoningEffort: "max",
+          prompt: "Inspect",
+        },
+        new AbortController().signal,
+      )) {
+        // Consume until the mocked provider error.
+      }
+    }).rejects.toThrow("HTTP 400");
+
+    expect(requestBody).toMatchObject({
+      reasoning: { effort: "none" },
+    });
+    expect(requestBody).not.toMatchObject({
+      reasoning: { summary: expect.anything() },
     });
   });
 

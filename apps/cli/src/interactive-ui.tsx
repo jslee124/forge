@@ -542,6 +542,12 @@ export function InteractiveApp({
         case "model.reasoning":
           appendEntry("reasoning", event.text, true);
           break;
+        case "model.reasoning-unavailable":
+          appendEntry(
+            "reasoning",
+            `Provider used ${event.reasoningTokens} reasoning tokens but did not return reasoning text.`,
+          );
+          break;
         case "model.text":
           appendEntry("answer", event.text, true);
           break;

@@ -323,7 +323,10 @@ output. Session history records the textual file reference, not base64 pixels,
 so re-attach an image when a later interactive turn must inspect it again.
 The vision Responses transport accepts reasoning efforts `none`, `minimal`,
 `low`, `medium`, `high`, `xhigh`, and `max`; disabling `--thinking` forces
-`none`.
+`none`. The experimental endpoint may report reasoning-token usage without
+returning reasoning text. In that case Forge shows the reported token count and
+states that the provider did not expose the reasoning instead of presenting a
+blank or invented reasoning block.
 
 Forge loads user defaults from `$FORGE_HOME/config.json` (or
 `~/.forge/config.json`) and project limits from `<workspace>/.forge/config.json`.
