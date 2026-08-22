@@ -219,6 +219,115 @@ describe("web-tools example plugin", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("delegates hostname resolution to an explicitly configured HTTP proxy", async () => {
+    const module = await loadWebPluginModule();
+    const lookupAll = vi.fn(async () => [
+      { address: "198.18.0.21", family: 4 },
+    ]);
+    const fetchMock = vi.fn(
+      async (..._arguments: Parameters<typeof fetch>): Promise<Response> =>
+        htmlResponse("<html><body>Proxied page.</body></html>"),
+    );
+    const fetchTool = requireTool(
+      module.createWebTools(
+        { z },
+        {
+          env: { HTTPS_PROXY: "http://127.0.0.1:1082" },
+          fetch: fetchMock,
+          lookupAll,
+        },
+      ),
+      1,
+    );
+
+    const result = await fetchTool.execute(
+      { url: "https://example.com/article" },
+      toolContext(),
+    );
+
+    expect(result).toMatchObject({
+      ok: true,
+      output: { text: "Proxied page." },
+    });
+    expect(lookupAll).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  it("keeps full DNS checks for NO_PROXY destinations", async () => {
+    const module = await loadWebPluginModule();
+    const lookupAll = vi.fn(async () => [
+      { address: "198.18.0.21", family: 4 },
+    ]);
+    const fetchMock = vi.fn(
+      async (..._arguments: Parameters<typeof fetch>): Promise<Response> =>
+        htmlResponse("unexpected"),
+    );
+    const fetchTool = requireTool(
+      module.createWebTools(
+        { z },
+        {
+          env: {
+            HTTPS_PROXY: "http://127.0.0.1:1082",
+            NO_PROXY: ".example.com",
+          },
+          fetch: fetchMock,
+          lookupAll,
+        },
+      ),
+      1,
+    );
+
+    const result = await fetchTool.execute(
+      { url: "https://news.example.com/article" },
+      toolContext(),
+    );
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: "invalid_input" },
+    });
+    expect(lookupAll).toHaveBeenCalledWith("news.example.com");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("still blocks private literals reached through redirects with a proxy", async () => {
+    const module = await loadWebPluginModule();
+    const fetchMock = vi
+      .fn<(...arguments_: Parameters<typeof fetch>) => Promise<Response>>()
+      .mockResolvedValueOnce(
+        new Response(null, {
+          status: 302,
+          headers: { location: "http://127.0.0.1/private" },
+        }),
+      )
+      .mockResolvedValueOnce(htmlResponse("unexpected"));
+    const fetchTool = requireTool(
+      module.createWebTools(
+        { z },
+        {
+          env: {
+            HTTP_PROXY: "http://127.0.0.1:1082",
+            HTTPS_PROXY: "http://127.0.0.1:1082",
+          },
+          fetch: fetchMock,
+          lookupAll: publicLookup,
+        },
+      ),
+      1,
+    );
+
+    const result = await fetchTool.execute(
+      { url: "https://example.com/start" },
+      toolContext(),
+    );
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: "invalid_input" },
+    });
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
   it("enforces MIME, cancellation, and serialized output limits", async () => {
     const module = await loadWebPluginModule();
     const fetchMock = vi.fn(

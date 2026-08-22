@@ -454,11 +454,17 @@ Then add `"web-tools"` to `plugins.enabled` and restart Forge. Its own
 selection and implemented controls.
 
 The example treats web access as external I/O, so both tools use `network` risk
-and require approval on every call. `web_fetch` validates every initial and
-redirect URL, blocks local/private/reserved destinations, restricts ports and
-MIME types, and bounds redirects, time, downloads, characters, entries, and
+and require approval on every call. Forge's shared HTTP transport honors
+`HTTP_PROXY`, `HTTPS_PROXY`, and `NO_PROXY` (including lowercase aliases), so
+plugins using the global `fetch` work with ordinary HTTP(S) proxy setups.
+`web_fetch` validates every initial and redirect URL, blocks local hostnames and
+private IP literals, and resolves direct destinations before connection. For a
+proxied destination, the explicitly configured proxy owns DNS resolution;
+`NO_PROXY` destinations retain direct-DNS validation. It also restricts ports
+and MIME types and bounds redirects, time, downloads, characters, entries, and
 serialized output. These controls reduce accidental SSRF and runaway output;
-they are not a network sandbox.
+they are not a network sandbox, and a configured proxy is part of the trust
+boundary.
 
 ## Instructions for a model author
 

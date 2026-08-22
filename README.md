@@ -179,6 +179,20 @@ export DEEPSEEK_API_KEY="your-api-key"
 pnpm forge
 ```
 
+Forge also honors standard HTTP proxy variables for model providers and plugins
+that use the global `fetch` implementation:
+
+```bash
+export HTTP_PROXY="http://127.0.0.1:7890"
+export HTTPS_PROXY="$HTTP_PROXY"
+export NO_PROXY="localhost,127.0.0.1"
+pnpm forge
+```
+
+Lowercase aliases are supported. Proxy URLs must use `http://` or `https://`;
+for local proxy applications, select their HTTP or mixed port rather than a
+SOCKS-only port.
+
 The interactive prompt persists completed user/assistant turns under
 `$FORGE_HOME/sessions/`. Continue one after restart with `forge resume <id>`,
 `forge resume --last`, or the interactive `/resume` picker. Each prompt remains

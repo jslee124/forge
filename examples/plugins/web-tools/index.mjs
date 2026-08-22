@@ -75,6 +75,7 @@ export function createWebTools(api, dependencies = {}) {
           return failure("invalid_input", "Invalid input for web_fetch.");
         }
         return executeWebFetch(parsed.data, context, {
+          environment,
           fetchImplementation,
           lookupAll,
         });
@@ -130,6 +131,7 @@ async function searchBrave(input, apiKey, context, dependencies) {
     },
     lookupAll: dependencies.lookupAll,
     maxRedirects: 1,
+    environment: dependencies.environment,
     signal: context.signal,
     timeoutMs: DEFAULT_TIMEOUT_MS,
   });
@@ -185,6 +187,7 @@ async function searchDuckDuckGo(input, context, dependencies) {
     },
     lookupAll: dependencies.lookupAll,
     maxRedirects: 2,
+    environment: dependencies.environment,
     signal: context.signal,
     timeoutMs: DEFAULT_TIMEOUT_MS,
   });
@@ -221,6 +224,7 @@ async function executeWebFetch(input, context, dependencies) {
       },
       lookupAll: dependencies.lookupAll,
       maxRedirects: MAX_REDIRECTS,
+      environment: dependencies.environment,
       signal: context.signal,
       timeoutMs: input.timeoutMs,
     });
@@ -268,7 +272,7 @@ async function executeWebFetch(input, context, dependencies) {
 async function requestWithRedirects(initialUrl, options) {
   let url = parsePublicHttpUrl(initialUrl.href);
   for (let redirectCount = 0; ; redirectCount += 1) {
-    await assertPublicHostname(url.hostname, options.lookupAll);
+    await assertSafeDestination(url, options.lookupAll, options.environment);
     const response = await fetchWithTimeout(
       options.fetchImplementation,
       url,
@@ -396,8 +400,8 @@ function parsePublicHttpUrl(value) {
   return url;
 }
 
-async function assertPublicHostname(hostname, lookupAll) {
-  const normalized = hostname
+async function assertSafeDestination(url, lookupAll, environment) {
+  const normalized = url.hostname
     .replace(/^\[|\]$/gu, "")
     .replace(/\.$/u, "")
     .toLowerCase();
@@ -412,22 +416,71 @@ async function assertPublicHostname(hostname, lookupAll) {
     throw blockedAddressError();
   }
   const literalFamily = isIP(normalized);
-  const addresses = literalFamily
-    ? [{ address: normalized, family: literalFamily }]
-    : await lookupAll(normalized).catch((error) => {
-        throw new WebToolError(
-          "io_error",
-          "The destination hostname could not be resolved.",
-          true,
-          { cause: error },
-        );
-      });
+  if (literalFamily) {
+    if (isBlockedAddress(normalized)) throw blockedAddressError();
+    return;
+  }
+  if (usesHttpProxy(url, environment)) return;
+  const addresses = await lookupAll(normalized).catch((error) => {
+    throw new WebToolError(
+      "io_error",
+      "The destination hostname could not be resolved.",
+      true,
+      { cause: error },
+    );
+  });
   if (
     addresses.length === 0 ||
     addresses.some(({ address }) => isBlockedAddress(address))
   ) {
     throw blockedAddressError();
   }
+}
+
+function usesHttpProxy(url, environment) {
+  const httpProxy = environment.http_proxy ?? environment.HTTP_PROXY;
+  const httpsProxy = environment.https_proxy ?? environment.HTTPS_PROXY;
+  const proxy =
+    url.protocol === "https:"
+      ? httpsProxy || httpProxy
+      : url.protocol === "http:"
+        ? httpProxy
+        : undefined;
+  if (!isSupportedProxyUrl(proxy) || bypassesProxy(url, environment)) {
+    return false;
+  }
+  return true;
+}
+
+function isSupportedProxyUrl(value) {
+  if (!value) return false;
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function bypassesProxy(url, environment) {
+  const noProxy = environment.no_proxy ?? environment.NO_PROXY ?? "";
+  if (noProxy === "*") return true;
+  const hostname = url.hostname
+    .replace(/^\[|\]$/gu, "")
+    .replace(/\.$/u, "")
+    .toLowerCase();
+  const port =
+    Number.parseInt(url.port, 10) || (url.protocol === "https:" ? 443 : 80);
+  return noProxy.split(/[,\s]/u).some((entry) => {
+    if (!entry) return false;
+    const parsed = entry.match(/^(.+):(\d+)$/u);
+    const entryPort = parsed ? Number.parseInt(parsed[2], 10) : 0;
+    if (entryPort && entryPort !== port) return false;
+    const entryHostname = (parsed ? parsed[1] : entry)
+      .replace(/^\*?\./u, "")
+      .toLowerCase();
+    return hostname === entryHostname || hostname.endsWith(`.${entryHostname}`);
+  });
 }
 
 async function defaultLookupAll(hostname) {
