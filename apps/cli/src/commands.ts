@@ -7,7 +7,9 @@ export interface SlashCommand {
     | "/compact"
     | "/plugins"
     | "/login"
+    | "/logout"
     | "/model"
+    | "/delete-model"
     | "/effort"
     | "/resume"
     | "/exit";
@@ -25,7 +27,9 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
   { name: "/compact", description: "Create a safe conversation checkpoint" },
   { name: "/plugins", description: "Review and manage project plugins" },
   { name: "/login", description: "Configure a model provider" },
+  { name: "/logout", description: "Sign out of a model provider" },
   { name: "/model", description: "Choose a model" },
+  { name: "/delete-model", description: "Delete a configured provider model" },
   { name: "/effort", description: "Choose thinking effort" },
   { name: "/resume", description: "Resume a saved workspace session" },
   { name: "/exit", description: "Exit Forge" },

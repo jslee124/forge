@@ -1,4 +1,4 @@
-import { loadForgeConfig } from "@forge/config";
+import { loadForgeConfig, type ProviderProfile } from "@forge/config";
 import type {
   ModelConversationMessage,
   RunResult,
@@ -39,7 +39,11 @@ export interface InteractiveSessionPersistence {
   contextDetails?(): ContextStatus;
   contextStatus?(): string;
   compact?(dryRun: boolean): Promise<string>;
-  selectModel?(provider: string, modelId: string): void;
+  selectModel?(
+    provider: string,
+    modelId: string,
+    contextWindowTokens?: number,
+  ): void;
 }
 
 interface PersistentContextOptions {
@@ -266,12 +270,17 @@ export class PersistentInteractiveSession
     return `Compacted ${preview.eligibleMessageCount} completed messages into an untrusted conversation-memory checkpoint. Retained ${preview.retainedMessageCount} recent messages verbatim; the full canonical transcript is unchanged.`;
   }
 
-  selectModel(provider: string, modelId: string): void {
+  selectModel(
+    provider: string,
+    modelId: string,
+    contextWindowTokens?: number,
+  ): void {
     this.#context = {
       ...this.#context,
       provider,
       modelId,
-      contextWindowTokens: contextWindowFor(provider, modelId),
+      contextWindowTokens:
+        contextWindowTokens ?? contextWindowFor(provider, modelId),
     };
   }
 }
@@ -320,6 +329,7 @@ export async function createPersistentInteractiveSession(options: {
       contextWindowTokens: contextWindowFor(
         loaded.config.model.provider,
         loaded.config.model.id,
+        loaded.config.providers,
       ),
       secrets: configuredSecrets(options.env),
     },
@@ -414,11 +424,21 @@ function persistedReasoning(
     .join("\n");
 }
 
-function contextWindowFor(provider: string, modelId: string): number {
+function contextWindowFor(
+  provider: string,
+  modelId: string,
+  providers: Readonly<Record<string, ProviderProfile>> = {},
+): number {
+  const configured = providers[provider]?.models?.find(
+    (model) => model.id === modelId,
+  )?.contextWindow;
+  if (configured !== undefined) return configured;
   return (
     (provider === "deepseek"
       ? deepSeekModelContext(modelId)
-      : openAIModelContext(modelId)
+      : provider === "openai"
+        ? openAIModelContext(modelId)
+        : undefined
     )?.window ?? 32_768
   );
 }

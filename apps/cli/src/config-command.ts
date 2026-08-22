@@ -67,6 +67,7 @@ export function formatConfig(loaded: LoadedForgeConfig): string {
       (key) =>
         `${key} = ${JSON.stringify(values[key])}  [${loaded.provenance[key].label}]`,
     ),
+    `providers = ${JSON.stringify(Object.keys(loaded.config.providers).sort())}  [user configuration only]`,
     "",
   ].join("\n");
 }

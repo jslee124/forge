@@ -5,6 +5,8 @@
 Forge supports DeepSeek and OpenAI API-key authentication through
 `DEEPSEEK_API_KEY` and `OPENAI_API_KEY`, plus ChatGPT subscription
 authentication through the official Codex App Server.
+User-scoped provider routes additionally support an explicitly selected bearer
+credential or no authentication for local/self-hosted endpoints.
 Forge presents the login command and browser/device-code instructions, while
 Codex owns OAuth, credential persistence, refresh, and revocation.
 
@@ -14,6 +16,8 @@ Codex owns OAuth, credential persistence, refresh, and revocation.
 | --- | --- | --- |
 | DeepSeek API key | Local development and automation | Implemented |
 | OpenAI API key | Optional usage-based OpenAI API access | Implemented |
+| Provider route bearer key | OpenAI-compatible gateways | Implemented |
+| Provider route without authentication | Local Ollama/vLLM-style servers | Implemented |
 | Sign in with ChatGPT | OpenAI subscription access through Codex App Server | Implemented |
 | Codex access token | Trusted enterprise automation | Deferred |
 
@@ -55,6 +59,60 @@ credentials produce an actionable error without printing the key or a stack
 trace. Keys are never copied into Forge configuration, prompts, traces, plugin
 events, or repository files.
 
+## OpenAI-compatible provider routes
+
+Routes are declared under `providers` in `$FORGE_HOME/config.json`. They name a
+wire protocol, canonical endpoint, explicit authentication mode, and model
+profiles. Repository `.forge/config.json` files may not define routes because
+that would let untrusted project content decide where a user credential is
+sent.
+
+```json
+{
+  "schemaVersion": 1,
+  "providers": {
+    "my-gateway": {
+      "api": "openai-responses",
+      "baseUrl": "https://gateway.example/openai/v1",
+      "auth": { "type": "bearer", "apiKeyEnv": "GATEWAY_API_KEY" },
+      "models": [
+        {
+          "id": "reasoning-model",
+          "contextWindow": 128000,
+          "maxOutputTokens": 8192,
+          "reasoningGears": { "none": "none", "high": "high" }
+        }
+      ]
+    }
+  }
+}
+```
+
+`auth.type` is mandatory. `bearer` reads the declared variable, or derives
+`FORGE_<ROUTE>_API_KEY`, before consulting Forge's stored credential. `none`
+does not read or send any API key. Stored route credentials are bound to the
+canonical `baseUrl`; after an endpoint change Forge refuses the old key until a
+new one is saved.
+
+Remote endpoints require HTTPS. Plain HTTP is accepted only for loopback hosts.
+URLs containing credentials, query strings, or fragments are rejected. Model
+discovery does not follow redirects, remains bounded to 4 MiB and 15 seconds,
+and is optional because model IDs can be entered manually.
+
+Forge treats an omitted reasoning setting as **provider default**, which is not
+the same as disabling reasoning. Each `reasoningGears` entry maps a Forge UI
+level to the exact wire value sent to the provider, so an explicit
+`"none": "none"` is required when the endpoint supports disabling reasoning.
+Legacy version-1 `null` mappings are read as their canonical key to avoid
+silently turning `none` into provider default.
+
+Model discovery also accepts bounded optional reasoning metadata such as
+`reasoning_efforts`, `supported_reasoning_efforts`, or
+`capabilities.reasoning.efforts`. These fields are non-standard extensions:
+when they are absent Forge reports capabilities as unknown and keeps provider
+defaults instead of guessing or issuing paid probe requests. The setup screen
+prefills advertised levels and lets the user override them before saving.
+
 An OpenAI API key is optional and is billed independently of ChatGPT. A ChatGPT
 Plus, Pro, Business, or other subscription does not cause Forge to select the
 API path. Users who only want subscription access should keep
@@ -81,9 +139,21 @@ Forge must not:
 
 ## Credential storage
 
-Forge does not persist API credentials; it reads `DEEPSEEK_API_KEY` or
-`OPENAI_API_KEY` from the process environment for each invocation. If a later
-authentication method needs persistence, the preferred storage order is:
+The interactive `/login` flow can persist API keys in
+`$FORGE_HOME/auth.json`. The directory is mode `0700`, the file is mode `0600`,
+updates are atomic, and environment variables take precedence. This is a
+plaintext filesystem-protected fallback rather than an OS keychain. ChatGPT
+subscription credentials remain owned entirely by Codex App Server.
+The interactive `/logout` picker lists authenticated providers, removes the
+selected stored API credential, or asks Codex App Server to sign out the
+ChatGPT subscription. A logged-out third-party route remains visible as signed
+out in `/login`, where it can be authenticated again. The route management
+screen has a separate confirmed **Remove provider** action that deletes the
+route, its models, and its stored credential. It reports any provider
+environment variable that remains active; Forge cannot unset a variable in the
+parent shell.
+
+The preferred credential order is:
 
 1. Operating-system credential store
 2. Explicit file fallback outside the project with owner-only permissions

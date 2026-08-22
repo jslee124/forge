@@ -199,10 +199,11 @@ The interactive prompt persists completed user/assistant turns under
 a separate bounded run with fresh policy and approval state; pending tool calls,
 provider continuations, and command approvals are never restored.
 Available commands are `/help`, `/new`, `/clear`, `/context`, `/compact`,
-`/plugins`, `/login`, `/model`, `/effort`, `/resume`, and `/exit`. `/plugins`
+`/plugins`, `/login`, `/logout`, `/model`, `/delete-model`, `/effort`,
+`/resume`, and `/exit`. `/plugins`
 reviews, trusts, or untrusts project plugins without leaving the TUI. `/login`
-lets you choose ChatGPT subscription, DeepSeek
-API, or OpenAI API. API keys are entered through a masked field and stored in
+lets you choose ChatGPT subscription, DeepSeek API, OpenAI API, or a
+user-defined OpenAI-compatible provider route. API keys are entered through a masked field and stored in
 `$FORGE_HOME/auth.json`; the directory is mode `0700` and the file is mode
 `0600`. Like Pi and OpenCode's local auth files, this is plaintext protected by
 filesystem permissions rather than an OS keychain. ChatGPT credentials remain
@@ -214,6 +215,59 @@ selects the model once instead of repeating it for every effort level.
 `/effort` opens the active model's supported effort levels, `/effort high` sets
 a level directly, and Shift+Tab cycles levels from the prompt. Model and effort
 selections persist separately from credentials.
+`/logout` lists authenticated providers and removes a selected provider's
+stored credential while warning when an environment-variable credential
+remains active. `/delete-model` removes a user-configured third-party model
+after confirmation; it keeps the provider route and credential, and requires
+switching away from the active model first. The same action is available from
+the configured provider's `/login` management menu, so models can be removed
+and added again without logging out or recreating the route.
+
+Third-party routes can target gateways and local servers such as Ollama or
+vLLM. `/login` validates the endpoint, asks whether it uses a bearer key or no
+authentication, discovers `GET /models` with a bounded request, and falls back
+to manual model entry. Configured models appear in the existing fuzzy `/model`
+picker and expose their declared levels through `/effort`. Every configured
+third-party route appears directly in the `/login` provider picker with its
+full Base URL, API type, authentication mode, login status, and current model
+count. Selecting one opens provider management: add a model (and enter a
+replacement key when signed out), log out, or remove the provider. Logout keeps
+the route and its models visible as signed out. Remove provider is the explicit
+destructive action: after confirmation it deletes the route, all of its
+configured models, and its stored credential. Forge cannot remove an
+environment variable from the parent shell, and the active provider must be
+switched before removal.
+
+`/models` capability metadata is best-effort. Forge reads a small set of
+explicit reasoning-effort extensions when an endpoint advertises them, shows
+their source in setup, and allows a manual override. Missing metadata means
+**provider default**, not "non-reasoning"; Forge does not spend tokens probing
+unsupported effort values. Configured effort maps always send their explicit
+wire value, including `"none": "none"` when reasoning should be disabled.
+Provider management labels tool-loop compatibility as unverified until the
+endpoint's full agent continuation behavior is known.
+
+Routes live only in `$FORGE_HOME/config.json`; project `.forge/config.json`
+files may not define them because an endpoint decides where a credential is
+sent. Remote routes require HTTPS, while plaintext HTTP is accepted only for
+loopback hosts. A stored route credential is bound to the canonical endpoint,
+so changing a route cannot silently send an old key to a new address.
+
+Example auth-free local route:
+
+```json
+{
+  "schemaVersion": 1,
+  "providers": {
+    "ollama": {
+      "api": "openai-completions",
+      "baseUrl": "http://localhost:11434/v1",
+      "auth": { "type": "none" },
+      "models": [{ "id": "qwen3", "reasoningGears": false }]
+    }
+  }
+}
+```
 Ctrl+C cancels an active task and returns to the prompt; press it again to exit.
 
 The [interactive CLI UI](docs/CLI_UI.md) supports Shift+Enter, Meta+Enter
@@ -457,8 +511,10 @@ only the declared 60-second verification command, so Forge denied the action.
 
 ## Limitations
 
-- The native Forge runtime supports DeepSeek and OpenAI API providers; the
-  separate Codex Engine supports ChatGPT subscription access.
+- The native Forge runtime supports DeepSeek, OpenAI API, and configured
+  OpenAI-compatible routes; the separate Codex Engine supports ChatGPT
+  subscription access. Native Anthropic and Gemini protocols are not yet
+  implemented.
 - Model behavior is nondeterministic; runtime tests do not prove live task
   success.
 - Built-in file tools enforce a workspace boundary, but Forge is not an OS
@@ -504,6 +560,9 @@ Milestone 9 added OpenAI API and ChatGPT-subscription authentication boundaries.
 Milestone 10 added provider capability tables, conservative request preflight,
 safe conversation checkpoints, adapter-owned continuation pressure handling,
 Codex wrapper budgets, context inspection, and deterministic long-session gates.
+Milestone 11 added user-scoped OpenAI-compatible routes, explicit bearer/none
+authentication, endpoint-bound credentials, bounded model discovery, dynamic
+model/effort choices, and loopback end-to-end coverage.
 See the [Plugin authoring guide](docs/PLUGINS.md).
 
 ## License

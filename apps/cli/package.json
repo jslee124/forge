@@ -25,6 +25,7 @@
     "@forge/config": "workspace:*",
     "@forge/core": "workspace:*",
     "@forge/model-deepseek": "workspace:*",
+    "@forge/model-compat": "workspace:*",
     "@forge/model-openai": "workspace:*",
     "@forge/persistence": "workspace:*",
     "@forge/plugin-api": "workspace:*",

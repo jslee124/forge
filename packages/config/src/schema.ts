@@ -1,12 +1,19 @@
 import { z } from "zod";
 
+import {
+  PROVIDER_APIS,
+  ProviderEndpointError,
+  parseProviderBaseUrl,
+  RESERVED_PROVIDER_ROUTES,
+} from "./providers.js";
+
 export const permissionProfileSchema = z.enum(["safe", "workspace-write"]);
 export type PermissionProfile = z.infer<typeof permissionProfileSchema>;
 
 const modelSchema = z
   .object({
     engine: z.enum(["forge", "codex"]).optional(),
-    provider: z.enum(["deepseek", "openai"]).optional(),
+    provider: z.string().trim().min(1).optional(),
     id: z.string().trim().min(1).optional(),
     reasoningEffort: z
       .enum([
@@ -23,6 +30,101 @@ const modelSchema = z
     thinking: z.enum(["enabled", "disabled"]).optional(),
   })
   .strict();
+
+const reasoningEffortSchema = z.enum([
+  "none",
+  "minimal",
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max",
+  "ultra",
+]);
+
+const reasoningGearsSchema = z.partialRecord(
+  reasoningEffortSchema,
+  z.string().trim().nullable(),
+);
+
+const providerModelSchema = z
+  .object({
+    id: z.string().trim().min(1).max(512),
+    name: z.string().trim().min(1).max(128).optional(),
+    contextWindow: z.number().int().positive().max(20_000_000).optional(),
+    maxOutputTokens: z.number().int().positive().max(2_000_000).optional(),
+    reasoningGears: z
+      .union([z.literal(false), reasoningGearsSchema])
+      .optional(),
+    supportsImages: z.boolean().optional(),
+  })
+  .strict();
+
+const providerAuthenticationSchema = z.discriminatedUnion("type", [
+  z
+    .object({
+      type: z.literal("bearer"),
+      apiKeyEnv: z
+        .string()
+        .regex(/^[A-Z][A-Z0-9_]{0,63}$/u)
+        .optional(),
+    })
+    .strict(),
+  z.object({ type: z.literal("none") }).strict(),
+]);
+
+const providerSchema = z
+  .object({
+    api: z.enum(PROVIDER_APIS),
+    baseUrl: z
+      .string()
+      .trim()
+      .min(1)
+      .superRefine((value, context) => {
+        try {
+          parseProviderBaseUrl(value);
+        } catch (error) {
+          context.addIssue({
+            code: "custom",
+            message:
+              error instanceof ProviderEndpointError
+                ? error.message
+                : "invalid provider baseUrl",
+          });
+        }
+      }),
+    displayName: z.string().trim().min(1).max(64).optional(),
+    auth: providerAuthenticationSchema,
+    models: z.array(providerModelSchema).max(256).optional(),
+  })
+  .strict();
+
+const providersSchema = z
+  .record(z.string().regex(/^[a-z][a-z0-9-]{0,63}$/u), providerSchema)
+  .superRefine((table, context) => {
+    for (const route of Object.keys(table)) {
+      if (RESERVED_PROVIDER_ROUTES.includes(route)) {
+        context.addIssue({
+          code: "custom",
+          path: [route],
+          message: `provider route "${route}" is reserved for a built-in provider or engine`,
+        });
+      }
+    }
+    if (Object.keys(table).length > 64) {
+      context.addIssue({
+        code: "custom",
+        message: "at most 64 provider routes may be configured",
+      });
+    }
+  });
+
+export type ProviderProfile = z.infer<typeof providerSchema>;
+export type ProviderModelProfile = z.infer<typeof providerModelSchema>;
+export type ProviderAuthentication = z.infer<
+  typeof providerAuthenticationSchema
+>;
+export type ReasoningGears = z.infer<typeof reasoningGearsSchema>;
 
 const limitsSchema = z
   .object({
@@ -62,6 +164,7 @@ export const forgeConfigFileSchema = z
     trace: traceSchema.optional(),
     plugins: pluginsSchema.optional(),
     context: contextSchema.optional(),
+    providers: providersSchema.optional(),
   })
   .strict();
 
@@ -71,7 +174,7 @@ export interface EffectiveForgeConfig {
   readonly schemaVersion: 1;
   readonly model: {
     readonly engine: "forge" | "codex";
-    readonly provider: "deepseek" | "openai";
+    readonly provider: string;
     readonly id: string;
     readonly reasoningEffort:
       | "none"
@@ -100,6 +203,7 @@ export interface EffectiveForgeConfig {
     readonly recentTailTokens: number;
     readonly summaryTargetTokens: number;
   };
+  readonly providers: Readonly<Record<string, ProviderProfile>>;
 }
 
 export const DEFAULT_FORGE_CONFIG: EffectiveForgeConfig = {
@@ -127,4 +231,5 @@ export const DEFAULT_FORGE_CONFIG: EffectiveForgeConfig = {
     recentTailTokens: 12_000,
     summaryTargetTokens: 1_200,
   },
+  providers: {},
 };

@@ -16,6 +16,7 @@ import {
   type EffectiveForgeConfig,
   type ForgeConfigFile,
   forgeConfigFileSchema,
+  type ProviderProfile,
   permissionProfileSchema,
 } from "./schema.js";
 
@@ -96,10 +97,34 @@ export class ForgeConfigError extends Error {
 
 export interface PersistedModelSelection {
   readonly engine: "forge" | "codex";
-  readonly provider: "deepseek" | "openai";
+  readonly provider: string;
   readonly id: string;
   readonly reasoningEffort?: EffectiveForgeConfig["model"]["reasoningEffort"];
   readonly thinking?: EffectiveForgeConfig["model"]["thinking"];
+}
+
+async function writeUserConfig(
+  loaded: LoadedForgeConfig,
+  candidate: unknown,
+  description: string,
+): Promise<string> {
+  const next: ForgeConfigFile = forgeConfigFileSchema.parse(candidate);
+  await mkdir(loaded.forgeHome, { recursive: true, mode: 0o700 });
+  const temporaryPath = `${loaded.userConfigPath}.tmp-${process.pid}-${Date.now()}`;
+  try {
+    await writeFile(temporaryPath, `${JSON.stringify(next, null, 2)}\n`, {
+      encoding: "utf8",
+      mode: 0o600,
+    });
+    await rename(temporaryPath, loaded.userConfigPath);
+  } catch (error) {
+    throw new ForgeConfigError(
+      `Could not persist ${description} at ${loaded.userConfigPath}.`,
+      loaded.userConfigPath,
+      { cause: error },
+    );
+  }
+  return loaded.userConfigPath;
 }
 
 export async function saveUserModelSelection(options: {
@@ -112,29 +137,120 @@ export async function saveUserModelSelection(options: {
     ...(options.env ? { env: options.env } : {}),
   });
   const existing = await readConfigFile(loaded.userConfigPath);
-  const next: ForgeConfigFile = forgeConfigFileSchema.parse({
-    ...(existing ?? { schemaVersion: 1 }),
-    model: {
-      ...(existing?.model ?? {}),
-      ...options.selection,
+  return writeUserConfig(
+    loaded,
+    {
+      ...(existing ?? { schemaVersion: 1 }),
+      model: {
+        ...(existing?.model ?? {}),
+        ...options.selection,
+      },
     },
+    "model selection",
+  );
+}
+
+export async function saveUserProviderRoute(options: {
+  readonly cwd: string;
+  readonly env?: NodeJS.ProcessEnv;
+  readonly route: string;
+  readonly profile: ProviderProfile;
+}): Promise<string> {
+  const loaded = await loadForgeConfig({
+    cwd: options.cwd,
+    ...(options.env ? { env: options.env } : {}),
   });
-  await mkdir(loaded.forgeHome, { recursive: true, mode: 0o700 });
-  const temporaryPath = `${loaded.userConfigPath}.tmp-${process.pid}-${Date.now()}`;
-  try {
-    await writeFile(temporaryPath, `${JSON.stringify(next, null, 2)}\n`, {
-      encoding: "utf8",
-      mode: 0o600,
-    });
-    await rename(temporaryPath, loaded.userConfigPath);
-  } catch (error) {
+  const existing = await readConfigFile(loaded.userConfigPath);
+  return writeUserConfig(
+    loaded,
+    {
+      ...(existing ?? { schemaVersion: 1 }),
+      providers: {
+        ...(existing?.providers ?? {}),
+        [options.route]: options.profile,
+      },
+    },
+    `provider route "${options.route}"`,
+  );
+}
+
+export async function removeUserProviderRoute(options: {
+  readonly cwd: string;
+  readonly env?: NodeJS.ProcessEnv;
+  readonly route: string;
+}): Promise<{ readonly path: string; readonly removed: boolean }> {
+  const loaded = await loadForgeConfig({
+    cwd: options.cwd,
+    ...(options.env ? { env: options.env } : {}),
+  });
+  const existing = await readConfigFile(loaded.userConfigPath);
+  if (
+    existing?.providers === undefined ||
+    !Object.hasOwn(existing.providers, options.route)
+  ) {
+    return { path: loaded.userConfigPath, removed: false };
+  }
+  if (existing.model?.provider === options.route) {
     throw new ForgeConfigError(
-      `Could not persist model selection at ${loaded.userConfigPath}.`,
+      `Provider route "${options.route}" is selected. Choose another provider before removing it.`,
       loaded.userConfigPath,
-      { cause: error },
     );
   }
-  return loaded.userConfigPath;
+  const providers = { ...existing.providers };
+  delete providers[options.route];
+  const savedPath = await writeUserConfig(
+    loaded,
+    { ...existing, providers },
+    `provider route "${options.route}"`,
+  );
+  return { path: savedPath, removed: true };
+}
+
+export async function removeUserProviderModel(options: {
+  readonly cwd: string;
+  readonly env?: NodeJS.ProcessEnv;
+  readonly route: string;
+  readonly model: string;
+}): Promise<{ readonly path: string; readonly removed: boolean }> {
+  const loaded = await loadForgeConfig({
+    cwd: options.cwd,
+    ...(options.env ? { env: options.env } : {}),
+  });
+  const existing = await readConfigFile(loaded.userConfigPath);
+  if (existing === undefined) {
+    return { path: loaded.userConfigPath, removed: false };
+  }
+  const profile = existing.providers?.[options.route];
+  const models = profile?.models;
+  if (
+    profile === undefined ||
+    models === undefined ||
+    !models.some(({ id }) => id === options.model)
+  ) {
+    return { path: loaded.userConfigPath, removed: false };
+  }
+  if (
+    existing.model?.provider === options.route &&
+    existing.model.id === options.model
+  ) {
+    throw new ForgeConfigError(
+      `Model "${options.route}/${options.model}" is selected. Choose another model before removing it.`,
+      loaded.userConfigPath,
+    );
+  }
+  const providers = {
+    ...existing.providers,
+    [options.route]: {
+      ...profile,
+      models: models.filter(({ id }) => id !== options.model),
+    },
+  };
+  const savedPath = await writeUserConfig(
+    loaded,
+    { ...existing, providers },
+    `model "${options.route}/${options.model}"`,
+  );
+  return { path: savedPath, removed: true };
 }
 
 export async function loadForgeConfig(options: {
@@ -193,6 +309,12 @@ export async function loadForgeConfig(options: {
   config = applyEnvironment(config, provenance, env);
   config = applyCli(config, provenance, options.cli ?? {});
 
+  parseProvider(
+    config.model.provider,
+    provenance["model.provider"].label,
+    config.providers,
+  );
+
   return {
     config,
     provenance,
@@ -233,6 +355,7 @@ function cloneDefaults(): EffectiveForgeConfig {
     trace: { ...DEFAULT_FORGE_CONFIG.trace },
     plugins: { enabled: [...DEFAULT_FORGE_CONFIG.plugins.enabled] },
     context: { ...DEFAULT_FORGE_CONFIG.context },
+    providers: { ...DEFAULT_FORGE_CONFIG.providers },
   };
 }
 
@@ -330,6 +453,7 @@ function rejectProjectOnlyFields(
     config.permissionProfile === undefined ? undefined : "permissionProfile",
     config.trace === undefined ? undefined : "trace",
     config.plugins === undefined ? undefined : "plugins",
+    config.providers === undefined ? undefined : "providers",
   ].filter((value): value is string => value !== undefined);
   if (forbidden.length > 0) {
     throw new ForgeConfigError(
@@ -343,6 +467,7 @@ function mergeOrdinary(
   base: EffectiveForgeConfig,
   next: ForgeConfigFile,
 ): EffectiveForgeConfig {
+  const providers = next.providers ?? base.providers;
   const provider = next.model?.provider ?? base.model.provider;
   return {
     schemaVersion: 1,
@@ -352,7 +477,7 @@ function mergeOrdinary(
       id:
         next.model?.id ??
         (next.model?.provider && next.model.provider !== base.model.provider
-          ? defaultModelId(provider)
+          ? defaultModelId(provider, providers, "model.provider")
           : base.model.id),
       reasoningEffort:
         next.model?.reasoningEffort ?? base.model.reasoningEffort,
@@ -379,6 +504,7 @@ function mergeOrdinary(
       summaryTargetTokens:
         next.context?.summaryTargetTokens ?? base.context.summaryTargetTokens,
     },
+    providers,
   };
 }
 
@@ -426,13 +552,21 @@ function applyEnvironment(
 ): EffectiveForgeConfig {
   let config = base;
   if (env.FORGE_PROVIDER?.trim()) {
-    const provider = parseProvider(env.FORGE_PROVIDER, "FORGE_PROVIDER");
+    const provider = parseProvider(
+      env.FORGE_PROVIDER,
+      "FORGE_PROVIDER",
+      config.providers,
+    );
     config = {
       ...config,
       model: {
         ...config.model,
         provider,
-        ...(!env.FORGE_MODEL ? { id: defaultModelId(provider) } : {}),
+        ...(!env.FORGE_MODEL
+          ? {
+              id: defaultModelId(provider, config.providers, "FORGE_PROVIDER"),
+            }
+          : {}),
       },
     };
     provenance["model.provider"] = {
@@ -486,13 +620,21 @@ function applyCli(
     provenance["model.engine"] = cliSource;
   }
   if (cli.provider !== undefined) {
-    const provider = parseProvider(cli.provider, "--provider");
+    const provider = parseProvider(
+      cli.provider,
+      "--provider",
+      config.providers,
+    );
     config = {
       ...config,
       model: {
         ...config.model,
         provider,
-        ...(cli.model === undefined ? { id: defaultModelId(provider) } : {}),
+        ...(cli.model === undefined
+          ? {
+              id: defaultModelId(provider, config.providers, "--provider"),
+            }
+          : {}),
       },
     };
     provenance["model.provider"] = cliSource;
@@ -637,10 +779,20 @@ function parseThinking(value: string, source: string): "enabled" | "disabled" {
   );
 }
 
-function parseProvider(value: string, source: string): "deepseek" | "openai" {
+function parseProvider(
+  value: string,
+  source: string,
+  providers: Readonly<Record<string, ProviderProfile>>,
+): string {
   if (value === "deepseek" || value === "openai") return value;
+  if (Object.hasOwn(providers, value)) return value;
+  const routes = Object.keys(providers).sort();
   throw new ForgeConfigError(
-    `Invalid ${source} value "${value}". Use "deepseek" or "openai".`,
+    `Invalid ${source} value "${value}". Use "deepseek", "openai"${
+      routes.length === 0
+        ? ""
+        : `, or a configured provider route: ${routes.join(", ")}`
+    }.`,
   );
 }
 
@@ -665,8 +817,18 @@ function parseReasoningEffort(
   );
 }
 
-function defaultModelId(provider: "deepseek" | "openai"): string {
-  return provider === "openai" ? "gpt-5.4-mini" : "deepseek-v4-flash";
+function defaultModelId(
+  provider: string,
+  providers: Readonly<Record<string, ProviderProfile>>,
+  source: string,
+): string {
+  if (provider === "openai") return "gpt-5.4-mini";
+  if (provider === "deepseek") return "deepseek-v4-flash";
+  const first = providers[provider]?.models?.[0]?.id;
+  if (first !== undefined) return first;
+  throw new ForgeConfigError(
+    `Provider route "${provider}" (${source}) configures no models. Add a model or pass --model/FORGE_MODEL.`,
+  );
 }
 
 function formatIssuePath(parts: readonly PropertyKey[]): string {

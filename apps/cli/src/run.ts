@@ -102,11 +102,16 @@ export async function runTask(
     );
     if (
       images.length > 0 &&
-      (loaded.config.model.provider !== "deepseek" ||
-        loaded.config.model.id !== "deepseek-v4-flash-vision-exp")
+      !(
+        (loaded.config.model.provider === "deepseek" &&
+          loaded.config.model.id === "deepseek-v4-flash-vision-exp") ||
+        loaded.config.providers[loaded.config.model.provider]?.models?.find(
+          (entry) => entry.id === loaded.config.model.id,
+        )?.supportsImages === true
+      )
     ) {
       throw new ModelConfigurationError(
-        "Image attachments currently require DeepSeek model deepseek-v4-flash-vision-exp.",
+        "Image attachments require a model whose provider profile declares supportsImages: true.",
       );
     }
     const portableSkills = await discoverPortableSkills(loaded.workspaceRoot);
@@ -176,6 +181,7 @@ export async function runTask(
       model: loaded.config.model.id,
       thinking,
       reasoningEffort: loaded.config.model.reasoningEffort,
+      providers: loaded.config.providers,
     } satisfies CreateForgeModelAdapterOptions);
     const workspace = await resolveWorkspace(
       loaded.workspaceRoot,

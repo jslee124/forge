@@ -93,13 +93,35 @@ commands. Additional characters filter the list by command name.
 Each command is defined once with its name, description, and handler. The same
 registry drives completion and `/help`, preventing the two surfaces from
 drifting. The registry contains `/help`, `/new`, `/clear`, `/context`,
-`/compact`, `/plugins`, `/login`, `/model`, `/effort`, `/resume`, and `/exit`.
+`/compact`, `/plugins`, `/login`, `/logout`, `/model`, `/delete-model`,
+`/effort`, `/resume`, and `/exit`.
 `/plugins` opens the project-plugin trust review described above. `/model`
 opens a keyboard picker, discovers current
 ChatGPT/Codex models, includes configured API providers, and saves one model
 entry without multiplying it by effort level. `/effort` opens a separate
 model-specific effort picker; `/effort <level>` sets a supported level directly.
 Both selections are atomically saved to user configuration.
+`/logout` lists authenticated providers and removes a selected stored
+credential without pretending to unset a parent-shell environment variable.
+`/delete-model` shows only user-configured provider models, requires
+confirmation, retains the provider route and credential, and refuses to delete
+the active model until another is selected.
+The `/login` picker always lists configured third-party routes, including their
+full Base URL, API type, authentication mode, status, and model count. Selecting
+a route opens provider management: add or restore a model, delete one configured
+model, log out when a stored credential is active, or remove the provider.
+Deleting a model keeps the route and credential so it can be added again
+immediately. Logout leaves a signed-out
+route visible. Remove provider is a separate confirmed action that deletes the
+route, its models, and its stored credential; it refuses to remove the active
+provider and cannot unset a parent-shell environment variable.
+
+Model setup prefills reasoning levels only when `/models` returns recognized,
+bounded capability metadata. It labels the source as discovered or manual;
+with no metadata, Enter keeps the provider default. Forge does not infer that
+missing metadata means a non-reasoning model and does not make paid capability
+probe requests. Provider management separately labels the protocol-supported
+tool surface and the provider's end-to-end agent loop as unverified.
 
 - Up/Down changes the highlighted command.
 - Enter executes the highlighted command.

@@ -14,6 +14,7 @@
     { "path": "../../packages/config" },
     { "path": "../../packages/core" },
     { "path": "../../packages/model-deepseek" },
+    { "path": "../../packages/model-compat" },
     { "path": "../../packages/model-openai" },
     { "path": "../../packages/persistence" },
     { "path": "../../packages/plugin-api" },

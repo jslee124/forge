@@ -14,7 +14,9 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   loadForgeConfig,
   loadInstructions,
+  removeUserProviderModel,
   saveUserModelSelection,
+  saveUserProviderRoute,
 } from "./index.js";
 
 const temporaryDirectories: string[] = [];
@@ -249,6 +251,106 @@ describe("Forge configuration", () => {
     await expect(
       loadForgeConfig({ cwd: nested, env: { FORGE_HOME: forgeHome } }),
     ).rejects.toThrow(/plugins may only be set by the user/u);
+  });
+
+  it("loads and selects a user provider route but refuses project routes", async () => {
+    const { root, nested, forgeHome } = await fixture();
+    const profile = {
+      api: "openai-completions" as const,
+      baseUrl: "http://localhost:11434/v1",
+      auth: { type: "none" as const },
+      models: [{ id: "qwen3", reasoningGears: false as const }],
+    };
+    await saveUserProviderRoute({
+      cwd: nested,
+      env: { FORGE_HOME: forgeHome },
+      route: "ollama",
+      profile,
+    });
+    await saveUserModelSelection({
+      cwd: nested,
+      env: { FORGE_HOME: forgeHome },
+      selection: { engine: "forge", provider: "ollama", id: "qwen3" },
+    });
+
+    const loaded = await loadForgeConfig({
+      cwd: nested,
+      env: { FORGE_HOME: forgeHome },
+    });
+    expect(loaded.config.model).toMatchObject({
+      provider: "ollama",
+      id: "qwen3",
+    });
+    expect(loaded.config.providers["ollama"]).toEqual(profile);
+
+    await writeFile(
+      path.join(root, ".forge", "config.json"),
+      JSON.stringify({ schemaVersion: 1, providers: { ollama: profile } }),
+    );
+    await expect(
+      loadForgeConfig({ cwd: nested, env: { FORGE_HOME: forgeHome } }),
+    ).rejects.toThrow(/providers may only be set by the user/iu);
+  });
+
+  it("removes one configured provider model without removing its route", async () => {
+    const { nested, forgeHome } = await fixture();
+    await saveUserProviderRoute({
+      cwd: nested,
+      env: { FORGE_HOME: forgeHome },
+      route: "gateway",
+      profile: {
+        api: "openai-responses",
+        baseUrl: "https://gateway.example/v1",
+        auth: { type: "bearer" },
+        models: [{ id: "model-a" }, { id: "model-b" }],
+      },
+    });
+
+    await expect(
+      removeUserProviderModel({
+        cwd: nested,
+        env: { FORGE_HOME: forgeHome },
+        route: "gateway",
+        model: "model-a",
+      }),
+    ).resolves.toMatchObject({ removed: true });
+
+    const loaded = await loadForgeConfig({
+      cwd: nested,
+      env: { FORGE_HOME: forgeHome },
+    });
+    expect(loaded.config.providers["gateway"]?.models).toEqual([
+      { id: "model-b" },
+    ]);
+  });
+
+  it("refuses to remove the selected configured provider model", async () => {
+    const { nested, forgeHome } = await fixture();
+    await saveUserProviderRoute({
+      cwd: nested,
+      env: { FORGE_HOME: forgeHome },
+      route: "gateway",
+      profile: {
+        api: "openai-responses",
+        baseUrl: "https://gateway.example/v1",
+        auth: { type: "bearer" },
+        models: [{ id: "model-a" }],
+      },
+    });
+    await saveUserModelSelection({
+      cwd: nested,
+      env: { FORGE_HOME: forgeHome },
+      selection: { engine: "forge", provider: "gateway", id: "model-a" },
+    });
+
+    await expect(
+      removeUserProviderModel({
+        cwd: nested,
+        env: { FORGE_HOME: forgeHome },
+        route: "gateway",
+        model: "model-a",
+      }),
+    ).rejects.toThrow(/selected/iu);
   });
 
   it("loads user and root-to-leaf instructions with override preference", async () => {

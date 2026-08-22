@@ -1,6 +1,7 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { AuthenticationManager } from "@forge/auth";
 import type { ForgeTool, RunResult } from "@forge/core";
 import type { SessionSummary } from "@forge/persistence";
 import { renderToString } from "ink";
@@ -307,6 +308,81 @@ describe("Ink interactive terminal", () => {
     instance.unmount();
   });
 
+  it("adds a model to an existing provider route through /login", async () => {
+    const root = await createWorkspace();
+    let persistedProfile: unknown;
+    let persistedSelection: unknown;
+    const instance = render(
+      <InteractiveApp
+        options={{ provider: "deepseek", model: "deepseek-v4-flash" }}
+        env={{}}
+        cwd={root}
+        initialProviders={{
+          gateway: {
+            api: "openai-responses",
+            baseUrl: "https://gateway.example/v1",
+            auth: { type: "none" },
+            models: [{ id: "model-old" }],
+          },
+        }}
+        discoverProviderModels={async () => [
+          { id: "model-old" },
+          { id: "model-new" },
+        ]}
+        persistProviderRoute={async ({ profile }) => {
+          persistedProfile = profile;
+          return "/tmp/config.json";
+        }}
+        persistModelSelection={async ({ selection }) => {
+          persistedSelection = selection;
+          return "/tmp/config.json";
+        }}
+      />,
+    );
+
+    await settle();
+    instance.stdin.write("/login");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+    expect(instance.lastFrame()).toContain("gateway · ready · 1 model");
+    instance.stdin.write("\u001B[B\u001B[B\u001B[B\u001B[B");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+    expect(instance.lastFrame()).toContain("Manage provider · gateway");
+    expect(instance.lastFrame()).toContain("https://gateway.example/v1");
+    expect(instance.lastFrame()).toContain("Add model");
+    expect(instance.lastFrame()).toContain("agent loop: unverified");
+    instance.stdin.write("\r");
+    await settle();
+    expect(instance.lastFrame()).toContain("Add provider model");
+    expect(instance.lastFrame()).toContain("Route: gateway");
+    instance.stdin.write("\r");
+    await settle();
+    expect(instance.lastFrame()).toContain("Add provider model");
+    expect(instance.lastFrame()).toContain("model-new");
+    expect(instance.lastFrame()).toContain("Configure a provider model");
+    expect(instance.lastFrame()).not.toContain("Choose a saved session");
+    instance.stdin.write("\r");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+
+    expect(persistedProfile).toMatchObject({
+      baseUrl: "https://gateway.example/v1",
+      models: [{ id: "model-old" }, { id: "model-new" }],
+    });
+    expect(persistedSelection).toMatchObject({
+      provider: "gateway",
+      id: "model-new",
+    });
+    expect(instance.lastFrame()).toContain('Saved provider route "gateway"');
+    instance.unmount();
+  });
+
   it("routes ChatGPT subscription login through the Codex auth surface", async () => {
     const root = await createWorkspace();
     let invoked = false;
@@ -333,6 +409,239 @@ describe("Ink interactive terminal", () => {
     expect(invoked).toBe(true);
     expect(instance.lastFrame()).toContain(
       "ChatGPT subscription sign-in completed",
+    );
+    instance.unmount();
+  });
+
+  it("logs out a configured provider without deleting its model configuration", async () => {
+    const root = await createWorkspace();
+    const env = { FORGE_HOME: path.join(root, "forge-home") };
+    await new AuthenticationManager(env).storeApiKey(
+      "gateway",
+      "gateway-secret",
+      { endpoint: "https://gateway.example/v1" },
+    );
+    const instance = render(
+      <InteractiveApp
+        options={{}}
+        env={env}
+        cwd={root}
+        initialProviders={{
+          gateway: {
+            api: "openai-responses",
+            baseUrl: "https://gateway.example/v1",
+            auth: { type: "bearer" },
+            models: [{ id: "gateway-model" }],
+          },
+        }}
+      />,
+    );
+
+    await settle();
+    instance.stdin.write("/login");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+    expect(instance.lastFrame()).toContain("gateway · ready · 1 model");
+    instance.stdin.write("\u001B");
+    await settle();
+    instance.stdin.write("/logout");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+    expect(instance.lastFrame()).toContain("Log out provider");
+    instance.stdin.write("\u001B[B");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+
+    expect(instance.lastFrame()).toContain(
+      "Removed the stored credential for gateway",
+    );
+    instance.stdin.write("/login");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+    expect(instance.lastFrame()).toContain("gateway · signed out · 1 model");
+    expect(instance.lastFrame()).toContain("https://gateway.example/v1");
+    expect(instance.lastFrame()).toContain("Add third-party provider");
+    instance.unmount();
+  });
+
+  it("routes ChatGPT logout through the Codex auth surface", async () => {
+    const root = await createWorkspace();
+    let invoked = false;
+    const instance = render(
+      <InteractiveApp
+        options={{}}
+        env={{}}
+        cwd={root}
+        executeLogout={async () => {
+          invoked = true;
+          return 0;
+        }}
+      />,
+    );
+
+    await settle();
+    instance.stdin.write("/logout");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+
+    expect(invoked).toBe(true);
+    instance.unmount();
+  });
+
+  it("removes a configured provider from its management menu", async () => {
+    const root = await createWorkspace();
+    let removedRoute: string | undefined;
+    const instance = render(
+      <InteractiveApp
+        options={{ provider: "deepseek", model: "deepseek-v4-flash" }}
+        env={{}}
+        cwd={root}
+        initialProviders={{
+          gateway: {
+            api: "openai-responses",
+            baseUrl: "https://gateway.example/v1",
+            auth: { type: "none" },
+            models: [{ id: "gateway-model" }],
+          },
+        }}
+        removeProviderRoute={async ({ route }) => {
+          removedRoute = route;
+          return { path: "/tmp/config.json", removed: true };
+        }}
+      />,
+    );
+
+    await settle();
+    instance.stdin.write("/login");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+    instance.stdin.write("\u001B[B\u001B[B\u001B[B\u001B[B");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+    expect(instance.lastFrame()).toContain("Manage provider · gateway");
+    instance.stdin.write("\u001B[B\u001B[B");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+    expect(instance.lastFrame()).toContain('Remove provider "gateway"?');
+    instance.stdin.write("y");
+    await settle();
+
+    expect(removedRoute).toBe("gateway");
+    expect(instance.lastFrame()).toContain('Removed provider "gateway"');
+    instance.stdin.write("/login");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+    expect(instance.lastFrame()).not.toContain("gateway · ready");
+    instance.unmount();
+  });
+
+  it("deletes a model from its provider management menu", async () => {
+    const root = await createWorkspace();
+    let removed: { route: string; model: string } | undefined;
+    const instance = render(
+      <InteractiveApp
+        options={{ provider: "deepseek", model: "deepseek-v4-flash" }}
+        env={{}}
+        cwd={root}
+        initialProviders={{
+          gateway: {
+            api: "openai-responses",
+            baseUrl: "https://gateway.example/v1",
+            auth: { type: "none" },
+            models: [{ id: "gateway-model" }],
+          },
+        }}
+        removeProviderModel={async ({ route, model }) => {
+          removed = { route, model };
+          return { path: "/tmp/config.json", removed: true };
+        }}
+      />,
+    );
+
+    await settle();
+    instance.stdin.write("/login");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+    instance.stdin.write("\u001B[B\u001B[B\u001B[B\u001B[B");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+    expect(instance.lastFrame()).toContain("Manage provider · gateway");
+    expect(instance.lastFrame()).toContain("Delete model");
+    instance.stdin.write("\u001B[B");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+    expect(instance.lastFrame()).toContain("Delete configured provider model");
+    expect(instance.lastFrame()).toContain("gateway-model");
+    instance.stdin.write("\r");
+    await settle();
+    expect(instance.lastFrame()).toContain("Delete model configuration?");
+    instance.stdin.write("y");
+    await settle();
+
+    expect(removed).toEqual({ route: "gateway", model: "gateway-model" });
+    expect(instance.lastFrame()).toContain(
+      "Deleted model configuration gateway/gateway-model",
+    );
+    expect(instance.lastFrame()).toContain("Manage provider · gateway");
+    expect(instance.lastFrame()).toContain("0 models");
+    expect(instance.lastFrame()).not.toContain(
+      "Delete model · Remove one configured model",
+    );
+    instance.unmount();
+  });
+
+  it("confirms and deletes a configured provider model", async () => {
+    const root = await createWorkspace();
+    let removed: { route: string; model: string } | undefined;
+    const instance = render(
+      <InteractiveApp
+        options={{ provider: "deepseek", model: "deepseek-v4-flash" }}
+        env={{}}
+        cwd={root}
+        initialProviders={{
+          gateway: {
+            api: "openai-responses",
+            baseUrl: "https://gateway.example/v1",
+            auth: { type: "bearer" },
+            models: [{ id: "gateway-model" }],
+          },
+        }}
+        removeProviderModel={async ({ route, model }) => {
+          removed = { route, model };
+          return { path: "/tmp/config.json", removed: true };
+        }}
+      />,
+    );
+
+    await settle();
+    instance.stdin.write("/delete-model");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+    expect(instance.lastFrame()).toContain("Delete configured provider model");
+    instance.stdin.write("\r");
+    await settle();
+    expect(instance.lastFrame()).toContain("Delete model configuration?");
+    instance.stdin.write("y");
+    await settle();
+
+    expect(removed).toEqual({ route: "gateway", model: "gateway-model" });
+    expect(instance.lastFrame()).toContain(
+      "Deleted model configuration gateway/gateway-model",
     );
     instance.unmount();
   });

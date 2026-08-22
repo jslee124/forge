@@ -1,5 +1,7 @@
+import type { ProviderProfile } from "@forge/config";
 import type { ModelAdapter } from "@forge/core";
 import { ModelConfigurationError } from "@forge/core";
+import { createCompatModelAdapter } from "@forge/model-compat";
 import {
   createDeepSeekModelAdapter,
   type DeepSeekReasoningEffort,
@@ -12,10 +14,11 @@ import {
 
 export interface CreateForgeModelAdapterOptions {
   readonly env: NodeJS.ProcessEnv;
-  readonly provider: "deepseek" | "openai";
+  readonly provider: string;
   readonly model: string;
   readonly thinking: DeepSeekThinkingMode;
   readonly reasoningEffort: OpenAIReasoningEffort | "ultra";
+  readonly providers?: Readonly<Record<string, ProviderProfile>>;
 }
 
 export function createForgeModelAdapter(
@@ -33,15 +36,31 @@ export function createForgeModelAdapter(
       reasoningEffort: options.reasoningEffort,
     });
   }
-  if (options.reasoningEffort === "ultra") {
+  if (options.provider === "deepseek") {
+    if (options.reasoningEffort === "ultra") {
+      throw new ModelConfigurationError(
+        'DeepSeek reasoning effort "ultra" is not supported. Use none, minimal, low, medium, high, xhigh, or max.',
+      );
+    }
+    return createDeepSeekModelAdapter({
+      env: options.env,
+      model: options.model,
+      thinking: options.thinking,
+      reasoningEffort:
+        options.reasoningEffort satisfies DeepSeekReasoningEffort,
+    });
+  }
+  const profile = options.providers?.[options.provider];
+  if (profile === undefined) {
     throw new ModelConfigurationError(
-      'DeepSeek reasoning effort "ultra" is not supported. Use none, minimal, low, medium, high, xhigh, or max.',
+      `Unknown provider "${options.provider}". Configure it under providers in the user configuration.`,
     );
   }
-  return createDeepSeekModelAdapter({
+  return createCompatModelAdapter({
     env: options.env,
+    route: options.provider,
+    profile,
     model: options.model,
-    thinking: options.thinking,
-    reasoningEffort: options.reasoningEffort satisfies DeepSeekReasoningEffort,
+    reasoningEffort: options.reasoningEffort,
   });
 }

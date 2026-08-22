@@ -1,4 +1,9 @@
-import { ForgeConfigError, loadForgeConfig } from "@forge/config";
+import { AuthenticationStoreError } from "@forge/auth";
+import {
+  ForgeConfigError,
+  loadForgeConfig,
+  type ProviderProfile,
+} from "@forge/config";
 import {
   type ModelAdapter,
   ModelConfigurationError,
@@ -48,6 +53,7 @@ export interface AskDependencies {
   readonly createAdapter?: (
     options: CreateForgeModelAdapterOptions,
   ) => ModelAdapter;
+  readonly providers?: Readonly<Record<string, ProviderProfile>>;
 }
 
 export async function runAsk(
@@ -57,22 +63,35 @@ export async function runAsk(
 ): Promise<number> {
   try {
     const thinking = parseThinkingMode(options.thinking ?? "enabled");
-    const model = options.model?.trim() || DEFAULT_DEEPSEEK_MODEL;
+    const provider = options.provider?.trim() || "deepseek";
+    const model =
+      options.model?.trim() ||
+      (provider === "deepseek"
+        ? DEFAULT_DEEPSEEK_MODEL
+        : provider === "openai"
+          ? "gpt-5.4-mini"
+          : (dependencies.providers?.[provider]?.models?.[0]?.id ?? ""));
+    if (model === "") {
+      throw new ModelConfigurationError(
+        `No model was selected for provider "${provider}". Configure a model or pass --model.`,
+      );
+    }
     const adapterFactory =
       dependencies.createAdapter ?? createForgeModelAdapter;
     const images = await resolveImageInputs(
       options.image,
       dependencies.cwd ?? process.cwd(),
     );
-    assertImageModel(options.provider, model, images.length);
+    assertImageModel(provider, model, images.length, dependencies.providers);
     const adapter = adapterFactory({
       env: dependencies.env,
-      provider: options.provider === "openai" ? "openai" : "deepseek",
+      provider,
       model,
       thinking,
       reasoningEffort: parseReasoningEffort(
         options.reasoningEffort ?? "medium",
       ),
+      ...(dependencies.providers ? { providers: dependencies.providers } : {}),
     });
 
     return await consumeModelStream(
@@ -99,22 +118,34 @@ export async function runAsk(
       return 1;
     }
 
+    if (error instanceof AuthenticationStoreError) {
+      dependencies.stderr.write(`Credential error: ${error.message}\n`);
+      return 2;
+    }
+
     dependencies.stderr.write(
-      "Unexpected error while contacting DeepSeek. Run with debug logging after checking your configuration.\n",
+      "Unexpected error while contacting the model provider. Run with debug logging after checking your configuration.\n",
     );
     return 1;
   }
 }
 
 function assertImageModel(
-  provider: string | undefined,
+  provider: string,
   model: string,
   imageCount: number,
+  providers?: Readonly<Record<string, ProviderProfile>>,
 ): void {
   if (imageCount === 0) return;
-  if (provider === "openai" || model !== "deepseek-v4-flash-vision-exp") {
+  const routeSupportsImages = providers?.[provider]?.models?.find(
+    (entry) => entry.id === model,
+  )?.supportsImages;
+  if (
+    !(provider === "deepseek" && model === "deepseek-v4-flash-vision-exp") &&
+    routeSupportsImages !== true
+  ) {
     throw new ModelConfigurationError(
-      "Image attachments currently require DeepSeek model deepseek-v4-flash-vision-exp.",
+      "Image attachments require a model whose provider profile declares supportsImages: true.",
     );
   }
 }
@@ -147,6 +178,7 @@ export async function runAskFromCli(
         stderr: process.stderr,
         signal: cancellation.signal,
         cwd: process.cwd(),
+        providers: loaded.config.providers,
       },
     );
   } catch (error) {

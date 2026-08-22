@@ -2,9 +2,9 @@
 
 ## Current milestone
 
-**Milestone 10: Budgeted context management is complete.** Automatic
-checkpoint generation remains opt-in while live provider-quality gates are
-collected. No later milestone has started.
+**Milestone 11: OpenAI-compatible provider routes is complete.** Automatic
+context checkpoint generation remains opt-in while live provider-quality gates
+are collected.
 
 ## Working rules
 
@@ -464,12 +464,48 @@ Acceptance criteria:
 - Documentation distinguishes conversation compaction from repository
   retrieval and persistent semantic memory.
 
+## Milestone 11: OpenAI-compatible provider routes
+
+Goal: reach gateways and self-hosted servers without adding a compiled adapter
+for every vendor, while keeping credential destinations user-controlled.
+
+- [x] Add user-scoped provider route profiles for Chat Completions and Responses
+- [x] Reject provider routes from repository configuration
+- [x] Require HTTPS except for canonical loopback endpoints
+- [x] Add explicit bearer and no-auth modes
+- [x] Bind stored route credentials to their canonical endpoint
+- [x] Add bounded, redirect-free model discovery with manual fallback
+- [x] Read bounded optional reasoning-effort metadata without paid probing
+- [x] Add `@forge/model-compat` behind the provider-neutral adapter contract
+- [x] Feed route model capabilities into context budgets, images, `/model`, and
+  `/effort`
+- [x] Distinguish explicit `none` from an omitted provider-default effort
+- [x] Preserve replayable reasoning provider metadata in stateless continuation
+  and warn when a thinking tool call returns no replayable state
+- [x] Surface bounded, credential-redacted provider error details
+- [x] Keep model and effort selection separate in the current TUI
+- [x] Cover bearer, auth-free, missing-key, and no-downgrade paths without paid
+  calls
+
+Acceptance criteria:
+
+- A loopback OpenAI-compatible server completes a compiled CLI request through
+  both bearer and auth-free route configurations.
+- A project cannot define or redirect a provider route.
+- Changing a route endpoint cannot cause Forge to reuse its stored key.
+- A large discovered model catalog remains searchable instead of losing its
+  visible selection after a fixed number of rows.
+- Configured context/output capacities and reasoning gears reach the existing
+  context and effort surfaces.
+- Build, formatting, type checks, and the full default test suite pass without
+  paid model calls.
+
 ## Later extensions
 
 These items are intentionally unordered and are not part of v0.1:
 
 - Broader evaluation tasks and graders
-- Additional model providers
+- Native non-OpenAI wire protocols such as Anthropic Messages or Gemini
 - Narrow outside-workspace approvals
 - A clearly warned `full-access` profile
 - Optional shell-language execution

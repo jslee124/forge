@@ -1,16 +1,28 @@
 import { randomUUID } from "node:crypto";
-import { type ApiKeyProvider, AuthenticationManager } from "@forge/auth";
+import {
+  type ApiKeyProvider,
+  AuthenticationManager,
+  apiKeyEnvironmentVariable,
+} from "@forge/auth";
 import { CodexAppServerClient, type CodexModel } from "@forge/codex-app-server";
 import {
   loadForgeConfig,
   type PersistedModelSelection,
+  type ProviderProfile,
+  removeUserProviderModel,
+  removeUserProviderRoute,
   saveUserModelSelection,
+  saveUserProviderRoute,
 } from "@forge/config";
 import type {
   ModelConversationMessage,
   RunEvent,
   RunResult,
 } from "@forge/core";
+import {
+  type DiscoverModelsRequest,
+  discoverModels,
+} from "@forge/model-compat";
 import type { SessionReasoning, SessionSummary } from "@forge/persistence";
 import { Box, render, Text, useApp, useInput, usePaste } from "ink";
 import type React from "react";
@@ -55,6 +67,7 @@ import {
   createPersistentInteractiveSession,
   type InteractiveSessionPersistence,
 } from "./persistent-session.js";
+import { ProviderSetup, type ProviderSetupResult } from "./provider-setup.js";
 import {
   type CommandApprovalPreview,
   createApprovalChannel,
@@ -76,11 +89,17 @@ type Phase =
   | "approving"
   | "resuming"
   | "models"
+  | "delete-models"
+  | "delete-model-confirm"
   | "effort"
   | "plugins"
   | "plugin-trust"
   | "login-providers"
-  | "login-key";
+  | "login-key"
+  | "logout-providers"
+  | "provider-actions"
+  | "provider-remove-confirm"
+  | "provider-setup";
 type TranscriptKind =
   | "user"
   | "reasoning"
@@ -128,8 +147,33 @@ interface EffortChoice {
 interface LoginChoice {
   readonly label: string;
   readonly description: string;
-  readonly kind: "subscription" | "api-key";
+  readonly kind:
+    | "subscription"
+    | "api-key"
+    | "provider-route"
+    | "configured-provider";
   readonly provider?: ApiKeyProvider;
+  readonly route?: string;
+  readonly details?: string;
+}
+
+interface LogoutChoice {
+  readonly label: string;
+  readonly description: string;
+  readonly kind: "subscription" | "api-key";
+  readonly provider: string;
+  readonly environmentVariable?: string;
+}
+
+interface ProviderRouteState {
+  readonly ready: boolean;
+  readonly label: string;
+}
+
+interface ProviderActionChoice {
+  readonly kind: "add-model" | "delete-model" | "logout" | "remove";
+  readonly label: string;
+  readonly description: string;
 }
 
 const LOGIN_CHOICES: readonly LoginChoice[] = [
@@ -150,7 +194,207 @@ const LOGIN_CHOICES: readonly LoginChoice[] = [
     kind: "api-key",
     provider: "openai",
   },
+  {
+    label: "Add third-party provider",
+    description: "OpenAI-compatible endpoint or local server",
+    kind: "provider-route",
+  },
 ];
+
+function providerLoginChoices(
+  providers: Readonly<Record<string, ProviderProfile>>,
+  statusFor: (route: string, profile: ProviderProfile) => ProviderRouteState,
+): readonly LoginChoice[] {
+  return [
+    ...LOGIN_CHOICES,
+    ...Object.entries(providers).map(([route, profile]) => {
+      const modelCount = profile.models?.length ?? 0;
+      const status = statusFor(route, profile);
+      return {
+        label: profile.displayName ?? route,
+        description: `${status.label} · ${modelCount} ${modelCount === 1 ? "model" : "models"}`,
+        details: `${profile.baseUrl} · ${profile.api} · ${profile.auth.type === "bearer" ? "bearer" : "no auth"}`,
+        kind: "configured-provider" as const,
+        route,
+      };
+    }),
+  ];
+}
+
+function providerActions(
+  profile: ProviderProfile,
+  status: ProviderRouteState,
+): readonly ProviderActionChoice[] {
+  return [
+    {
+      kind: "add-model",
+      label: status.ready ? "Add model" : "Log in and add model",
+      description: status.ready
+        ? "Discover or enter another model"
+        : "Save a credential, then discover models",
+    },
+    ...((profile.models?.length ?? 0) > 0
+      ? [
+          {
+            kind: "delete-model" as const,
+            label: "Delete model",
+            description: "Remove one configured model",
+          },
+        ]
+      : []),
+    ...(profile.auth.type === "bearer" && status.ready
+      ? [
+          {
+            kind: "logout" as const,
+            label: "Log out",
+            description: "Remove the stored credential",
+          },
+        ]
+      : []),
+    {
+      kind: "remove",
+      label: "Remove provider",
+      description: "Delete the route, models, and stored credential",
+    },
+  ];
+}
+
+function providerCapabilitySummary(profile: ProviderProfile): string {
+  const efforts = [
+    ...new Set(
+      (profile.models ?? []).flatMap((model) =>
+        typeof model.reasoningGears === "object"
+          ? Object.keys(model.reasoningGears)
+          : [],
+      ),
+    ),
+  ];
+  return efforts.length > 0
+    ? `Declared reasoning: ${efforts.join(", ")} · tools: protocol-supported · agent loop: unverified`
+    : "Reasoning controls: provider default · tools: protocol-supported · agent loop: unverified";
+}
+
+function providerModelChoices(
+  providers: Readonly<Record<string, ProviderProfile>>,
+): readonly ModelChoice[] {
+  return Object.entries(providers).flatMap(([route, profile]) =>
+    (profile.models ?? []).map((model) => {
+      const declared = model.reasoningGears;
+      const supported =
+        declared === false || declared === undefined
+          ? [{ effort: "none" as const, description: "No reasoning" }]
+          : STANDARD_EFFORTS.filter(({ effort }) =>
+              Object.hasOwn(declared, effort),
+            );
+      return {
+        label: model.name ?? model.id,
+        description: `${profile.displayName ?? route} · ${profile.api}`,
+        selection: { engine: "forge" as const, provider: route, id: model.id },
+        supportedReasoningEfforts:
+          supported.length > 0
+            ? supported
+            : [{ effort: "none" as const, description: "No reasoning" }],
+        defaultReasoningEffort:
+          supported.find(({ effort }) => effort === "medium")?.effort ??
+          supported[0]?.effort ??
+          "none",
+      };
+    }),
+  );
+}
+
+function providerLogoutChoices(
+  providers: Readonly<Record<string, ProviderProfile>>,
+  env: NodeJS.ProcessEnv,
+): readonly LogoutChoice[] {
+  const authentication = new AuthenticationManager(env);
+  const isAuthenticated = (
+    provider: string,
+    options?: { endpoint?: string; environmentVariable?: string },
+  ): boolean => {
+    try {
+      return authentication.status(provider, options).authenticated;
+    } catch {
+      return false;
+    }
+  };
+  return [
+    {
+      label: "ChatGPT subscription",
+      description: "Codex account",
+      kind: "subscription" as const,
+      provider: "openai",
+    },
+    ...(isAuthenticated("deepseek")
+      ? [
+          {
+            label: "DeepSeek API",
+            description: "Stored or environment credential",
+            kind: "api-key" as const,
+            provider: "deepseek",
+          },
+        ]
+      : []),
+    ...(isAuthenticated("openai")
+      ? [
+          {
+            label: "OpenAI API",
+            description: "Stored or environment credential",
+            kind: "api-key" as const,
+            provider: "openai",
+          },
+        ]
+      : []),
+    ...Object.entries(providers)
+      .filter(
+        ([route, profile]) =>
+          profile.auth.type === "bearer" &&
+          isAuthenticated(route, {
+            endpoint: profile.baseUrl,
+            ...(profile.auth.apiKeyEnv
+              ? { environmentVariable: profile.auth.apiKeyEnv }
+              : {}),
+          }),
+      )
+      .map(([route, profile]) => ({
+        label: profile.displayName ?? route,
+        description: `Provider route · ${route}`,
+        kind: "api-key" as const,
+        provider: route,
+        ...(profile.auth.type === "bearer" && profile.auth.apiKeyEnv
+          ? { environmentVariable: profile.auth.apiKeyEnv }
+          : {}),
+      })),
+  ];
+}
+
+function providerRouteState(
+  route: string,
+  profile: ProviderProfile,
+  env: NodeJS.ProcessEnv,
+  loggedOut: ReadonlySet<string>,
+): ProviderRouteState {
+  if (profile.auth.type === "none") return { ready: true, label: "ready" };
+  if (loggedOut.has(route)) return { ready: false, label: "signed out" };
+  try {
+    const status = new AuthenticationManager(env).status(route, {
+      endpoint: profile.baseUrl,
+      ...(profile.auth.apiKeyEnv
+        ? { environmentVariable: profile.auth.apiKeyEnv }
+        : {}),
+    });
+    if (!status.authenticated) return { ready: false, label: "signed out" };
+    return {
+      ready: true,
+      label:
+        status.source === "environment"
+          ? `ready via ${status.environmentVariable}`
+          : "ready",
+    };
+  } catch {
+    return { ready: false, label: "credential unavailable" };
+  }
+}
 
 function modelChoiceKey(choice: ModelChoice): string {
   const { selection } = choice;
@@ -255,10 +499,14 @@ export interface InteractiveUiDependencies {
   readonly executeAuthentication?: (
     dependencies: CodexCommandDependencies,
   ) => Promise<number>;
+  readonly executeLogout?: (
+    dependencies: CodexCommandDependencies,
+  ) => Promise<number>;
   readonly saveApiKey?: (options: {
     readonly provider: ApiKeyProvider;
     readonly apiKey: string;
     readonly env: NodeJS.ProcessEnv;
+    readonly endpoint?: string;
   }) => Promise<string>;
   readonly sessionPersistence?: InteractiveSessionPersistence;
   readonly persistModelSelection?: (options: {
@@ -266,6 +514,30 @@ export interface InteractiveUiDependencies {
     readonly env: NodeJS.ProcessEnv;
     readonly selection: PersistedModelSelection;
   }) => Promise<string>;
+  readonly persistProviderRoute?: (options: {
+    readonly cwd: string;
+    readonly env: NodeJS.ProcessEnv;
+    readonly route: string;
+    readonly profile: ProviderProfile;
+  }) => Promise<string>;
+  readonly removeProviderRoute?: (options: {
+    readonly cwd: string;
+    readonly env: NodeJS.ProcessEnv;
+    readonly route: string;
+  }) => Promise<{ readonly path: string; readonly removed: boolean }>;
+  readonly removeProviderModel?: (options: {
+    readonly cwd: string;
+    readonly env: NodeJS.ProcessEnv;
+    readonly route: string;
+    readonly model: string;
+  }) => Promise<{ readonly path: string; readonly removed: boolean }>;
+  readonly removeApiKey?: (options: {
+    readonly provider: ApiKeyProvider;
+    readonly env: NodeJS.ProcessEnv;
+  }) => Promise<boolean>;
+  readonly discoverProviderModels?: (
+    request: DiscoverModelsRequest,
+  ) => Promise<readonly import("@forge/model-compat").DiscoveredModel[]>;
   readonly detectedResources?: DetectedStartupResources;
   readonly updateProjectPluginTrust?: (
     trusted: boolean,
@@ -274,6 +546,7 @@ export interface InteractiveUiDependencies {
 
 interface InteractiveAppProps extends InteractiveUiDependencies {
   readonly options: AskOptions;
+  readonly initialProviders?: Readonly<Record<string, ProviderProfile>>;
 }
 
 export const INK_INCREMENTAL_RENDERING = false as const;
@@ -310,6 +583,7 @@ export async function runInkInteractiveFromCli(
   let effectiveOptions = options;
   let detectedResources =
     dependencies.detectedResources ?? EMPTY_STARTUP_RESOURCES;
+  let initialProviders: Readonly<Record<string, ProviderProfile>> = {};
   try {
     const loaded = await loadForgeConfig({
       cwd: dependencies.cwd,
@@ -329,6 +603,7 @@ export async function runInkInteractiveFromCli(
       recentTailTokens: loaded.config.context.recentTailTokens,
       summaryTargetTokens: loaded.config.context.summaryTargetTokens,
     };
+    initialProviders = loaded.config.providers;
     if (!dependencies.detectedResources) {
       detectedResources = await detectStartupResources({
         forgeHome: loaded.forgeHome,
@@ -402,6 +677,7 @@ export async function runInkInteractiveFromCli(
         sessionPersistence={sessionPersistence}
         detectedResources={detectedResources}
         options={effectiveOptions}
+        initialProviders={initialProviders}
       />,
       {
         stdin: process.stdin,
@@ -443,10 +719,21 @@ export function InteractiveApp({
   discoverSubscriptionModels = discoverCodexModels,
   executeAuthentication = (dependencies) =>
     runCodexAuthCommand("login", "openai", {}, dependencies),
-  saveApiKey = ({ provider, apiKey, env: loginEnv }) =>
-    new AuthenticationManager(loginEnv).storeApiKey(provider, apiKey),
+  executeLogout = (dependencies) =>
+    runCodexAuthCommand("logout", "openai", {}, dependencies),
+  saveApiKey = ({ provider, apiKey, env: loginEnv, endpoint }) =>
+    new AuthenticationManager(loginEnv).storeApiKey(provider, apiKey, {
+      ...(endpoint ? { endpoint } : {}),
+    }),
   sessionPersistence,
   persistModelSelection = saveUserModelSelection,
+  persistProviderRoute = saveUserProviderRoute,
+  removeProviderRoute = removeUserProviderRoute,
+  removeProviderModel = removeUserProviderModel,
+  removeApiKey = ({ provider, env: loginEnv }) =>
+    new AuthenticationManager(loginEnv).removeStoredApiKey(provider),
+  discoverProviderModels = discoverModels,
+  initialProviders = {},
   detectedResources = EMPTY_STARTUP_RESOURCES,
   updateProjectPluginTrust = (trusted) =>
     changeProjectPluginTrust({ cwd, env, trusted }),
@@ -474,8 +761,15 @@ export function InteractiveApp({
     "trust" | "untrust"
   >();
   const [sessions, setSessions] = useState<readonly SessionSummary[]>([]);
-  const [modelChoices, setModelChoices] =
-    useState<readonly ModelChoice[]>(MODEL_CHOICES);
+  const [modelChoices, setModelChoices] = useState<readonly ModelChoice[]>(
+    () => [...providerModelChoices(initialProviders), ...MODEL_CHOICES],
+  );
+  const [providerProfiles, setProviderProfiles] =
+    useState<Readonly<Record<string, ProviderProfile>>>(initialProviders);
+  const baseModelChoices = useMemo(
+    () => [...providerModelChoices(providerProfiles), ...MODEL_CHOICES],
+    [providerProfiles],
+  );
   const [modelsLoading, setModelsLoading] = useState(false);
   const [modelQuery, setModelQuery] = useState("");
   const [effortChoices, setEffortChoices] =
@@ -483,6 +777,16 @@ export function InteractiveApp({
   const [loginKey, setLoginKey] = useState("");
   const [loginChoice, setLoginChoice] = useState<LoginChoice>();
   const [loginPrompt, setLoginPrompt] = useState<PendingSignIn>();
+  const [providerSetupRoute, setProviderSetupRoute] = useState<string>();
+  const [selectedProviderRoute, setSelectedProviderRoute] = useState<string>();
+  const [loggedOutProviderRoutes, setLoggedOutProviderRoutes] = useState<
+    ReadonlySet<string>
+  >(new Set());
+  const [pendingModelDeletion, setPendingModelDeletion] =
+    useState<ModelChoice>();
+  const [deleteModelReturnPhase, setDeleteModelReturnPhase] = useState<
+    "editing" | "provider-actions"
+  >("editing");
   const conversation = useRef<ModelConversationMessage[]>([...initialMessages]);
   const activeController = useRef<AbortController | undefined>(undefined);
   const idleExitArmed = useRef(false);
@@ -509,6 +813,30 @@ export function InteractiveApp({
       ),
     [modelChoices, modelQuery],
   );
+  const logoutChoices = providerLogoutChoices(providerProfiles, env);
+  const loginChoices = useMemo(
+    () =>
+      providerLoginChoices(providerProfiles, (route, profile) =>
+        providerRouteState(route, profile, env, loggedOutProviderRoutes),
+      ),
+    [env, loggedOutProviderRoutes, providerProfiles],
+  );
+  const selectedProviderProfile = selectedProviderRoute
+    ? providerProfiles[selectedProviderRoute]
+    : undefined;
+  const selectedProviderState =
+    selectedProviderRoute && selectedProviderProfile
+      ? providerRouteState(
+          selectedProviderRoute,
+          selectedProviderProfile,
+          env,
+          loggedOutProviderRoutes,
+        )
+      : undefined;
+  const providerActionChoices =
+    selectedProviderProfile && selectedProviderState
+      ? providerActions(selectedProviderProfile, selectedProviderState)
+      : [];
   const selectedModelIndex =
     visibleModelChoices.length === 0
       ? 0
@@ -549,6 +877,154 @@ export function InteractiveApp({
     [appendOutput],
   );
   const stderr = stdout;
+  const completeProviderSetup = useCallback(
+    async (result: ProviderSetupResult): Promise<void> => {
+      let routePersisted = false;
+      let keyStored = false;
+      const previousProfile = providerProfiles[result.route];
+      try {
+        const configPath = await persistProviderRoute({
+          cwd,
+          env,
+          route: result.route,
+          profile: result.profile,
+        });
+        routePersisted = true;
+        if (result.apiKey !== undefined) {
+          await saveApiKey({
+            provider: result.route,
+            apiKey: result.apiKey,
+            env,
+            endpoint: result.profile.baseUrl,
+          });
+          keyStored = true;
+        }
+        const choice = providerModelChoices({
+          [result.route]: result.profile,
+        }).find(({ selection }) => selection.id === result.model);
+        const reasoningEffort = choice?.defaultReasoningEffort ?? "none";
+        await persistModelSelection({
+          cwd,
+          env,
+          selection: {
+            engine: "forge",
+            provider: result.route,
+            id: result.model,
+            reasoningEffort,
+          },
+        });
+        const nextProviders = {
+          ...providerProfiles,
+          [result.route]: result.profile,
+        };
+        setProviderProfiles(nextProviders);
+        setLoggedOutProviderRoutes((current) => {
+          if (!current.has(result.route)) return current;
+          const next = new Set(current);
+          next.delete(result.route);
+          return next;
+        });
+        setModelChoices([
+          ...providerModelChoices(nextProviders),
+          ...MODEL_CHOICES,
+        ]);
+        setActiveOptions((current) => ({
+          ...current,
+          engine: "forge",
+          provider: result.route,
+          model: result.model,
+          reasoningEffort,
+          thinking: reasoningEffort === "none" ? "disabled" : "enabled",
+        }));
+        sessionPersistence?.selectModel?.(
+          result.route,
+          result.model,
+          result.profile.models?.find((model) => model.id === result.model)
+            ?.contextWindow,
+        );
+        appendEntry(
+          "system",
+          `Saved provider route "${result.route}" to ${configPath} and selected ${result.model}.`,
+        );
+      } catch (error) {
+        if (keyStored) {
+          await removeApiKey({ provider: result.route, env }).catch(
+            () => false,
+          );
+        }
+        if (routePersisted) {
+          if (previousProfile) {
+            await persistProviderRoute({
+              cwd,
+              env,
+              route: result.route,
+              profile: previousProfile,
+            }).catch(() => "");
+          } else {
+            await removeProviderRoute({ cwd, env, route: result.route }).catch(
+              () => ({ path: "", removed: false }),
+            );
+          }
+        }
+        appendEntry(
+          "error",
+          `Could not save provider route: ${error instanceof Error ? error.message : "unknown error"}`,
+        );
+      } finally {
+        setPhase("editing");
+      }
+    },
+    [
+      appendEntry,
+      cwd,
+      env,
+      persistModelSelection,
+      persistProviderRoute,
+      providerProfiles,
+      removeApiKey,
+      removeProviderRoute,
+      saveApiKey,
+      sessionPersistence,
+    ],
+  );
+  const logoutApiProvider = useCallback(
+    (selected: LogoutChoice): void => {
+      setPhase("running");
+      void removeApiKey({ provider: selected.provider, env }).then(
+        (removed) => {
+          const variable = apiKeyEnvironmentVariable(
+            selected.provider,
+            selected.environmentVariable,
+          );
+          appendEntry(
+            removed ? "system" : "warning",
+            removed
+              ? `Removed the stored credential for ${selected.label}.`
+              : `No stored credential was found for ${selected.label}.`,
+          );
+          if (env[variable]?.trim()) {
+            appendEntry(
+              "warning",
+              `${variable} is still set and continues to authenticate this provider. Unset it in your shell to fully log out.`,
+            );
+          } else if (providerProfiles[selected.provider]) {
+            setLoggedOutProviderRoutes((current) =>
+              new Set(current).add(selected.provider),
+            );
+          }
+          setPhase("editing");
+        },
+        (error: unknown) => {
+          appendEntry(
+            "error",
+            `Could not remove credential: ${error instanceof Error ? error.message : "unknown error"}`,
+          );
+          setPhase("editing");
+        },
+      );
+    },
+    [appendEntry, env, providerProfiles, removeApiKey],
+  );
   const handleCodexOutput = useCallback(
     (event: CodexOutputEvent): void => {
       if (event.type === "login") {
@@ -662,9 +1138,11 @@ export function InteractiveApp({
 
   const selectEffort = (effort: ReasoningEffort): void => {
     const engine = activeOptions.engine === "codex" ? "codex" : "forge";
-    const provider =
-      activeOptions.provider === "openai" ? "openai" : "deepseek";
-    const model = activeOptions.model?.trim() || "deepseek-v4-flash";
+    const provider = activeOptions.provider?.trim() || "deepseek";
+    const model =
+      activeOptions.model?.trim() ||
+      providerProfiles[provider]?.models?.[0]?.id ||
+      "deepseek-v4-flash";
     const thinking =
       provider === "deepseek"
         ? effort === "none"
@@ -740,7 +1218,7 @@ export function InteractiveApp({
         }).then(
           (models) => {
             const subscriptionChoices = subscriptionModelChoices(models);
-            setModelChoices([...subscriptionChoices, ...MODEL_CHOICES]);
+            setModelChoices([...subscriptionChoices, ...baseModelChoices]);
             const matching = modelChoiceFor(subscriptionChoices, activeOptions);
             if (!matching) {
               appendEntry(
@@ -877,8 +1355,15 @@ export function InteractiveApp({
         setEditor(createEditorState());
         setLoginKey("");
         setLoginChoice(undefined);
+        setProviderSetupRoute(undefined);
+        setSelectedProviderRoute(undefined);
         setSelectedIndex(0);
         setPhase("login-providers");
+        return;
+      case "/logout":
+        setEditor(createEditorState());
+        setSelectedIndex(0);
+        setPhase("logout-providers");
         return;
       case "/model":
         setEditor(createEditorState());
@@ -898,7 +1383,7 @@ export function InteractiveApp({
             const subscriptionChoices = subscriptionModelChoices(models);
             setModelChoices([
               ...subscriptionChoices.slice(0, 40),
-              ...MODEL_CHOICES,
+              ...baseModelChoices,
             ]);
             setModelsLoading(false);
           },
@@ -907,11 +1392,26 @@ export function InteractiveApp({
               "warning",
               `${error instanceof Error ? error.message : "Could not discover Codex models."} API models remain available.`,
             );
-            setModelChoices(MODEL_CHOICES);
+            setModelChoices(baseModelChoices);
             setModelsLoading(false);
           },
         );
         return;
+      case "/delete-model": {
+        setEditor(createEditorState());
+        setSelectedIndex(0);
+        setModelQuery("");
+        setPendingModelDeletion(undefined);
+        setDeleteModelReturnPhase("editing");
+        const configured = providerModelChoices(providerProfiles);
+        if (configured.length === 0) {
+          appendEntry("system", "No configured provider model can be deleted.");
+          return;
+        }
+        setModelChoices(configured);
+        setPhase("delete-models");
+        return;
+      }
       case "/effort": {
         setEditor(createEditorState());
         const knownModel = modelChoiceFor(modelChoices, activeOptions);
@@ -940,7 +1440,7 @@ export function InteractiveApp({
           }).then(
             (models) => {
               const subscriptionChoices = subscriptionModelChoices(models);
-              setModelChoices([...subscriptionChoices, ...MODEL_CHOICES]);
+              setModelChoices([...subscriptionChoices, ...baseModelChoices]);
               const matching = modelChoiceFor(
                 subscriptionChoices,
                 activeOptions,
@@ -1193,6 +1693,7 @@ export function InteractiveApp({
   });
 
   useInput((input, key) => {
+    if (phase === "provider-setup") return;
     const interruptCount = Array.from(input).filter(
       (character) => character === "\u0003",
     ).length;
@@ -1313,19 +1814,28 @@ export function InteractiveApp({
       if (key.upArrow || key.downArrow) {
         setSelectedIndex((current) => {
           const delta = key.upArrow ? -1 : 1;
-          return (
-            (current + delta + LOGIN_CHOICES.length) % LOGIN_CHOICES.length
-          );
+          return (current + delta + loginChoices.length) % loginChoices.length;
         });
         return;
       }
       if (key.return) {
-        const selected = LOGIN_CHOICES[selectedIndex];
+        const selected = loginChoices[selectedIndex];
         if (!selected) return;
         if (selected.kind === "api-key") {
           setLoginChoice(selected);
           setLoginKey("");
           setPhase("login-key");
+          return;
+        }
+        if (selected.kind === "provider-route") {
+          setProviderSetupRoute(undefined);
+          setPhase("provider-setup");
+          return;
+        }
+        if (selected.kind === "configured-provider" && selected.route) {
+          setSelectedProviderRoute(selected.route);
+          setSelectedIndex(0);
+          setPhase("provider-actions");
           return;
         }
         const controller = new AbortController();
@@ -1401,6 +1911,301 @@ export function InteractiveApp({
       }
       if (!key.ctrl && !key.meta && input !== "") {
         setLoginKey((current) => current + input);
+      }
+      return;
+    }
+    if (phase === "provider-actions") {
+      if (key.escape) {
+        setSelectedProviderRoute(undefined);
+        setSelectedIndex(0);
+        setPhase("login-providers");
+        return;
+      }
+      if (key.upArrow || key.downArrow) {
+        setSelectedIndex((current) => {
+          if (providerActionChoices.length === 0) return 0;
+          const delta = key.upArrow ? -1 : 1;
+          return (
+            (current + delta + providerActionChoices.length) %
+            providerActionChoices.length
+          );
+        });
+        return;
+      }
+      if (key.return) {
+        const action = providerActionChoices[selectedIndex];
+        const route = selectedProviderRoute;
+        const profile = route ? providerProfiles[route] : undefined;
+        if (!action || !route || !profile) return;
+        if (action.kind === "add-model") {
+          setProviderSetupRoute(route);
+          setPhase("provider-setup");
+          return;
+        }
+        if (action.kind === "delete-model") {
+          const configured = providerModelChoices({ [route]: profile });
+          if (configured.length === 0) return;
+          setDeleteModelReturnPhase("provider-actions");
+          setPendingModelDeletion(undefined);
+          setModelQuery("");
+          setSelectedIndex(0);
+          setModelChoices(configured);
+          setPhase("delete-models");
+          return;
+        }
+        if (action.kind === "logout") {
+          logoutApiProvider({
+            label: profile.displayName ?? route,
+            description: `Provider route · ${route}`,
+            kind: "api-key",
+            provider: route,
+            ...(profile.auth.type === "bearer" && profile.auth.apiKeyEnv
+              ? { environmentVariable: profile.auth.apiKeyEnv }
+              : {}),
+          });
+          return;
+        }
+        if (activeOptions.provider === route) {
+          appendEntry(
+            "warning",
+            `Choose a model from another provider before removing "${route}".`,
+          );
+          setSelectedProviderRoute(undefined);
+          setPhase("editing");
+          return;
+        }
+        setPhase("provider-remove-confirm");
+        return;
+      }
+      return;
+    }
+    if (phase === "provider-remove-confirm") {
+      if (key.escape || input.toLocaleLowerCase() === "n") {
+        setPhase("provider-actions");
+        return;
+      }
+      if (input.toLocaleLowerCase() === "y") {
+        const route = selectedProviderRoute;
+        const profile = route ? providerProfiles[route] : undefined;
+        if (!route || !profile) {
+          setPhase("editing");
+          return;
+        }
+        setPhase("running");
+        void removeProviderRoute({ cwd, env, route }).then(
+          async ({ path, removed }) => {
+            if (!removed) {
+              appendEntry(
+                "warning",
+                `Provider route "${route}" was not configured.`,
+              );
+            } else {
+              let credentialRemoved = false;
+              if (profile.auth.type === "bearer") {
+                credentialRemoved = await removeApiKey({
+                  provider: route,
+                  env,
+                }).catch(() => false);
+              }
+              const nextProviders = { ...providerProfiles };
+              delete nextProviders[route];
+              setProviderProfiles(nextProviders);
+              setModelChoices([
+                ...providerModelChoices(nextProviders),
+                ...MODEL_CHOICES,
+              ]);
+              setLoggedOutProviderRoutes((current) => {
+                const next = new Set(current);
+                next.delete(route);
+                return next;
+              });
+              appendEntry(
+                "system",
+                `Removed provider "${route}" and its model configuration from ${path}.${credentialRemoved ? " Removed its stored credential." : ""}`,
+              );
+            }
+            setSelectedProviderRoute(undefined);
+            setPhase("editing");
+          },
+          (error: unknown) => {
+            appendEntry(
+              "error",
+              `Could not remove provider: ${error instanceof Error ? error.message : "unknown error"}`,
+            );
+            setPhase("provider-actions");
+          },
+        );
+        return;
+      }
+      return;
+    }
+    if (phase === "logout-providers") {
+      if (key.escape) {
+        setPhase("editing");
+        return;
+      }
+      if (key.upArrow || key.downArrow) {
+        setSelectedIndex((current) => {
+          const delta = key.upArrow ? -1 : 1;
+          return (
+            (current + delta + logoutChoices.length) % logoutChoices.length
+          );
+        });
+        return;
+      }
+      if (key.return) {
+        const selected = logoutChoices[selectedIndex];
+        if (!selected) return;
+        setPhase("running");
+        if (selected.kind === "subscription") {
+          const controller = new AbortController();
+          activeController.current = controller;
+          void executeLogout({
+            env,
+            cwd,
+            stdout,
+            stderr,
+            onOutput: handleCodexOutput,
+            signal: controller.signal,
+            isTTY: true,
+          })
+            .then((code) => {
+              if (code !== 0) {
+                appendEntry("error", "ChatGPT subscription logout failed.");
+              }
+            })
+            .catch((error: unknown) =>
+              appendEntry(
+                "error",
+                `Could not log out: ${error instanceof Error ? error.message : "unknown error"}`,
+              ),
+            )
+            .finally(() => {
+              activeController.current = undefined;
+              setPhase("editing");
+            });
+          return;
+        }
+        logoutApiProvider(selected);
+        return;
+      }
+      return;
+    }
+    if (phase === "delete-models") {
+      if (key.escape) {
+        setModelQuery("");
+        setModelChoices(baseModelChoices);
+        setSelectedIndex(0);
+        setPhase(deleteModelReturnPhase);
+        return;
+      }
+      if (key.upArrow || key.downArrow) {
+        setSelectedIndex((current) => {
+          if (visibleModelChoices.length === 0) return 0;
+          const delta = key.upArrow ? -1 : 1;
+          return (
+            (current + delta + visibleModelChoices.length) %
+            visibleModelChoices.length
+          );
+        });
+        return;
+      }
+      if (key.return) {
+        const selected = visibleModelChoices[selectedModelIndex];
+        if (!selected) return;
+        if (
+          activeOptions.provider === selected.selection.provider &&
+          activeOptions.model === selected.selection.id
+        ) {
+          appendEntry(
+            "warning",
+            `Choose another model before deleting ${selected.selection.provider}/${selected.selection.id}.`,
+          );
+          setModelChoices(baseModelChoices);
+          setSelectedIndex(0);
+          setPhase(deleteModelReturnPhase);
+          return;
+        }
+        setPendingModelDeletion(selected);
+        setPhase("delete-model-confirm");
+        return;
+      }
+      if (key.backspace || key.delete) {
+        setModelQuery((current) => Array.from(current).slice(0, -1).join(""));
+        setSelectedIndex(0);
+        return;
+      }
+      if (!key.ctrl && !key.meta && input !== "") {
+        setModelQuery((current) => current + input);
+        setSelectedIndex(0);
+      }
+      return;
+    }
+    if (phase === "delete-model-confirm") {
+      if (key.escape || input.toLocaleLowerCase() === "n") {
+        setPendingModelDeletion(undefined);
+        setPhase("delete-models");
+        return;
+      }
+      if (input.toLocaleLowerCase() === "y") {
+        const selected = pendingModelDeletion;
+        if (!selected) {
+          setModelChoices(baseModelChoices);
+          setPhase(deleteModelReturnPhase);
+          return;
+        }
+        setPhase("running");
+        void removeProviderModel({
+          cwd,
+          env,
+          route: selected.selection.provider,
+          model: selected.selection.id,
+        }).then(
+          ({ path, removed }) => {
+            if (!removed) {
+              appendEntry(
+                "warning",
+                `Model ${selected.selection.provider}/${selected.selection.id} was not configured.`,
+              );
+              setModelChoices(baseModelChoices);
+            } else {
+              const profile = providerProfiles[selected.selection.provider];
+              const nextProviders = { ...providerProfiles };
+              if (profile) {
+                nextProviders[selected.selection.provider] = {
+                  ...profile,
+                  models: (profile.models ?? []).filter(
+                    ({ id }) => id !== selected.selection.id,
+                  ),
+                };
+              }
+              setProviderProfiles(nextProviders);
+              setModelChoices([
+                ...providerModelChoices(nextProviders),
+                ...MODEL_CHOICES,
+              ]);
+              appendEntry(
+                "system",
+                `Deleted model configuration ${selected.selection.provider}/${selected.selection.id} from ${path}.`,
+              );
+            }
+            setPendingModelDeletion(undefined);
+            setModelQuery("");
+            setSelectedIndex(0);
+            setPhase(deleteModelReturnPhase);
+          },
+          (error: unknown) => {
+            appendEntry(
+              "error",
+              `Could not delete model configuration: ${error instanceof Error ? error.message : "unknown error"}`,
+            );
+            setPendingModelDeletion(undefined);
+            setModelChoices(baseModelChoices);
+            setSelectedIndex(0);
+            setPhase(deleteModelReturnPhase);
+          },
+        );
+        return;
       }
       return;
     }
@@ -1480,6 +2285,9 @@ export function InteractiveApp({
         sessionPersistence?.selectModel?.(
           selected.selection.provider,
           selected.selection.id,
+          providerProfiles[selected.selection.provider]?.models?.find(
+            (model) => model.id === selected.selection.id,
+          )?.contextWindow,
         );
         setPhase("editing");
         void persistModelSelection({
@@ -1528,7 +2336,7 @@ export function InteractiveApp({
         }).then(
           (models) => {
             const subscriptionChoices = subscriptionModelChoices(models);
-            setModelChoices([...subscriptionChoices, ...MODEL_CHOICES]);
+            setModelChoices([...subscriptionChoices, ...baseModelChoices]);
             if (modelChoiceFor(subscriptionChoices, activeOptions)) {
               cycleEffort(subscriptionChoices);
             } else {
@@ -1807,6 +2615,66 @@ export function InteractiveApp({
         </Box>
       ) : null}
 
+      {phase === "delete-models" ? (
+        <Box
+          borderStyle="round"
+          borderColor="red"
+          flexDirection="column"
+          paddingX={1}
+        >
+          <Text bold color="red">
+            Delete configured provider model
+          </Text>
+          <Text>
+            Search models: <Text color="cyan">{modelQuery || "_"}</Text>
+          </Text>
+          {visibleModelChoices.length === 0 ? (
+            <Text dimColor>No matching configured models.</Text>
+          ) : null}
+          {visibleModelChoices.map((choice, index) => (
+            <Text
+              key={modelChoiceKey(choice)}
+              bold={index === selectedModelIndex}
+              {...(index === selectedModelIndex
+                ? { color: "red" as const }
+                : {})}
+            >
+              {index === selectedModelIndex ? "› " : "  "}
+              {choice.label} · {choice.description}
+            </Text>
+          ))}
+          <Text dimColor>
+            Type to fuzzy search · Enter review deletion · Esc cancel
+          </Text>
+        </Box>
+      ) : null}
+
+      {phase === "delete-model-confirm" && pendingModelDeletion ? (
+        <Box
+          borderStyle="round"
+          borderColor="red"
+          flexDirection="column"
+          paddingX={1}
+        >
+          <Text bold color="red">
+            Delete model configuration?
+          </Text>
+          <Text>
+            {pendingModelDeletion.selection.provider}/
+            {pendingModelDeletion.selection.id}
+          </Text>
+          <Text dimColor>
+            The provider route and stored credential will remain.
+          </Text>
+          <Text>
+            <Text bold color="red">
+              y
+            </Text>{" "}
+            delete · <Text bold>n</Text> cancel
+          </Text>
+        </Box>
+      ) : null}
+
       {phase === "effort" ? (
         <Box
           borderStyle="round"
@@ -1851,9 +2719,109 @@ export function InteractiveApp({
           <Text bold color="cyan">
             Choose model provider
           </Text>
-          {LOGIN_CHOICES.map((choice, index) => (
+          {loginChoices.map((choice, index) => (
+            <Box
+              key={`${choice.kind}:${choice.route ?? choice.provider ?? choice.label}`}
+              flexDirection="column"
+            >
+              <Text
+                bold={index === selectedIndex}
+                {...(index === selectedIndex ? { color: "cyan" as const } : {})}
+              >
+                {index === selectedIndex ? "› " : "  "}
+                {choice.label} · {choice.description}
+              </Text>
+              {choice.details ? (
+                <Text
+                  dimColor
+                  {...(index === selectedIndex
+                    ? { color: "cyan" as const }
+                    : {})}
+                >
+                  {"    "}
+                  {choice.details}
+                </Text>
+              ) : null}
+            </Box>
+          ))}
+          <Text dimColor>Enter continue · Esc cancel</Text>
+        </Box>
+      ) : null}
+
+      {phase === "provider-actions" &&
+      selectedProviderRoute &&
+      selectedProviderProfile &&
+      selectedProviderState ? (
+        <Box
+          borderStyle="round"
+          borderColor="cyan"
+          flexDirection="column"
+          paddingX={1}
+        >
+          <Text bold color="cyan">
+            Manage provider · {selectedProviderRoute}
+          </Text>
+          <Text>
+            {selectedProviderState.label} ·{" "}
+            {selectedProviderProfile.models?.length ?? 0} models
+          </Text>
+          <Text dimColor>{selectedProviderProfile.baseUrl}</Text>
+          <Text dimColor>
+            {providerCapabilitySummary(selectedProviderProfile)}
+          </Text>
+          {providerActionChoices.map((action, index) => (
             <Text
-              key={choice.label}
+              key={action.kind}
+              bold={index === selectedIndex}
+              {...(index === selectedIndex ? { color: "cyan" as const } : {})}
+            >
+              {index === selectedIndex ? "› " : "  "}
+              {action.label} · {action.description}
+            </Text>
+          ))}
+          <Text dimColor>Enter continue · Esc back</Text>
+        </Box>
+      ) : null}
+
+      {phase === "provider-remove-confirm" &&
+      selectedProviderRoute &&
+      selectedProviderProfile ? (
+        <Box
+          borderStyle="round"
+          borderColor="red"
+          flexDirection="column"
+          paddingX={1}
+        >
+          <Text bold color="red">
+            Remove provider "{selectedProviderRoute}"?
+          </Text>
+          <Text>{selectedProviderProfile.baseUrl}</Text>
+          <Text dimColor>
+            This deletes the route, all configured models, and its stored
+            credential. Environment variables cannot be removed by Forge.
+          </Text>
+          <Text>
+            <Text bold color="red">
+              y
+            </Text>{" "}
+            remove · <Text bold>n</Text> cancel
+          </Text>
+        </Box>
+      ) : null}
+
+      {phase === "logout-providers" ? (
+        <Box
+          borderStyle="round"
+          borderColor="cyan"
+          flexDirection="column"
+          paddingX={1}
+        >
+          <Text bold color="cyan">
+            Log out provider
+          </Text>
+          {logoutChoices.map((choice, index) => (
+            <Text
+              key={`${choice.kind}:${choice.provider}`}
               bold={index === selectedIndex}
               {...(index === selectedIndex ? { color: "cyan" as const } : {})}
             >
@@ -1861,7 +2829,10 @@ export function InteractiveApp({
               {choice.label} · {choice.description}
             </Text>
           ))}
-          <Text dimColor>Enter continue · Esc cancel</Text>
+          <Text dimColor>
+            Removes stored credentials only · environment variables remain ·
+            Enter log out · Esc cancel
+          </Text>
         </Box>
       ) : null}
 
@@ -1891,7 +2862,51 @@ export function InteractiveApp({
         </Box>
       ) : null}
 
-      {phase !== "login-providers" && phase !== "login-key" ? (
+      {phase === "provider-setup" ? (
+        <ProviderSetup
+          existingProviders={providerProfiles}
+          {...(providerSetupRoute ? { initialRoute: providerSetupRoute } : {})}
+          discover={discoverProviderModels}
+          hasExistingCredential={(route, profile) =>
+            profile.auth.type === "none" ||
+            new AuthenticationManager(env).status(route, {
+              endpoint: profile.baseUrl,
+              ...(profile.auth.type === "bearer" && profile.auth.apiKeyEnv
+                ? { environmentVariable: profile.auth.apiKeyEnv }
+                : {}),
+            }).authenticated
+          }
+          discoverExisting={async ({ route, profile, signal }) => {
+            const apiKey =
+              profile.auth.type === "bearer"
+                ? new AuthenticationManager(env).requireApiKey(route, {
+                    endpoint: profile.baseUrl,
+                    ...(profile.auth.apiKeyEnv
+                      ? { environmentVariable: profile.auth.apiKeyEnv }
+                      : {}),
+                  }).apiKey
+                : undefined;
+            return discoverProviderModels({
+              api: profile.api,
+              baseUrl: profile.baseUrl,
+              ...(apiKey === undefined ? {} : { apiKey }),
+              signal,
+            });
+          }}
+          onCancel={() => {
+            setProviderSetupRoute(undefined);
+            setPhase("editing");
+          }}
+          onComplete={(result) => {
+            setPhase("running");
+            void completeProviderSetup(result);
+          }}
+        />
+      ) : null}
+
+      {phase !== "login-providers" &&
+      phase !== "login-key" &&
+      phase !== "provider-setup" ? (
         <Box
           borderStyle="round"
           borderColor={phase === "editing" ? "green" : "gray"}
@@ -2224,23 +3239,36 @@ function PromptFooter({
     );
   }
 
-  return (
-    <Text dimColor>
-      {phase === "running"
-        ? "● Running · Ctrl+C cancel"
-        : phase === "approving"
-          ? "Waiting for approval"
-          : phase === "models"
-            ? "Choose a model"
-            : phase === "effort"
-              ? "Choose thinking effort"
-              : phase === "plugins"
-                ? "Review project plugins"
-                : phase === "plugin-trust"
-                  ? "Confirm project plugin trust"
-                  : "Choose a saved session"}
-    </Text>
-  );
+  const status =
+    phase === "running"
+      ? "● Running · Ctrl+C cancel"
+      : phase === "approving"
+        ? "Waiting for approval"
+        : phase === "models"
+          ? "Choose a model"
+          : phase === "delete-models"
+            ? "Choose a configured model to delete"
+            : phase === "delete-model-confirm"
+              ? "Confirm model deletion"
+              : phase === "effort"
+                ? "Choose thinking effort"
+                : phase === "plugins"
+                  ? "Review project plugins"
+                  : phase === "plugin-trust"
+                    ? "Confirm project plugin trust"
+                    : phase === "login-providers" || phase === "login-key"
+                      ? "Configure a model provider"
+                      : phase === "logout-providers"
+                        ? "Choose a provider to log out"
+                        : phase === "provider-actions"
+                          ? "Manage provider"
+                          : phase === "provider-remove-confirm"
+                            ? "Confirm provider removal"
+                            : phase === "provider-setup"
+                              ? "Configure a provider model"
+                              : "Choose a saved session";
+
+  return <Text dimColor>{status}</Text>;
 }
 
 function PromptWithCursor({

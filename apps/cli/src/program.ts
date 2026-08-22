@@ -128,7 +128,10 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
     .enablePositionalOptions()
     .version(FORGE_VERSION)
     .showHelpAfterError()
-    .option("--provider <provider>", "API provider: deepseek or openai")
+    .option(
+      "--provider <provider>",
+      "API provider: deepseek, openai, or a configured route",
+    )
     .option("--model <model>", "model ID")
     .option(
       "--reasoning-effort <effort>",
@@ -150,7 +153,7 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
     .option("--model <model>", "model ID", FORGE_MODEL)
     .option(
       "--provider <provider>",
-      "API provider: deepseek or openai",
+      "API provider: deepseek, openai, or a configured route",
       FORGE_PROVIDER,
     )
     .option(
@@ -177,7 +180,10 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
       "execution engine: forge or codex",
       parseEngine,
     )
-    .option("--provider <provider>", "Forge API provider: deepseek or openai")
+    .option(
+      "--provider <provider>",
+      "Forge API provider: deepseek, openai, or a configured route",
+    )
     .option("--model <model>", "model ID")
     .option(
       "--reasoning-effort <effort>",
@@ -318,7 +324,10 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
     .description("Resume a persisted interactive session")
     .argument("[session-id]", "session UUID")
     .option("--last", "resume the latest session in this workspace")
-    .option("--provider <provider>", "API provider: deepseek or openai")
+    .option(
+      "--provider <provider>",
+      "API provider: deepseek, openai, or a configured route",
+    )
     .option("--model <model>", "model ID")
     .option("--reasoning-effort <effort>", "OpenAI API reasoning effort")
     .option("--thinking <mode>", "thinking mode: enabled or disabled")

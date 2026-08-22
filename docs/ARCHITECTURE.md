@@ -43,6 +43,7 @@ packages/
 |-- core/                   # @forge/core: loop, events, policy contracts
 |-- codex-app-server/       # Official Codex JSON-RPC transport and auth boundary
 |-- model-deepseek/         # @forge/model-deepseek: AI SDK translation
+|-- model-compat/           # Configured OpenAI-compatible route translation
 |-- model-openai/           # @forge/model-openai: Responses API translation
 |-- auth/                   # provider-neutral API-key resolution
 |-- tools/                  # @forge/tools: built-in tool implementations
@@ -463,6 +464,13 @@ windows, estimation, overflow classification, and continuation projection;
 persistence owns session-v2 checkpoints; the CLI owns `/context`, `/compact`,
 Codex wrapper budgeting, and inspection rendering. The canonical transcript is
 never replaced by its active model view.
+
+Configured compatibility routes follow the same ownership rule. Core treats
+continuation as opaque adapter state; the protocol transport retains AI SDK
+reasoning parts and provider metadata for stateless replay instead of teaching
+the runtime vendor fields. Optional `/models` capability extensions are parsed
+conservatively, while missing metadata remains unknown. Provider-specific
+behavior is never selected by matching the user's route name.
 
 The core should not import CLI rendering, a specific provider implementation, a
 plugin implementation, or a future LangChain adapter.

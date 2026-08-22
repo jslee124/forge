@@ -13,8 +13,11 @@ import { homedir } from "node:os";
 import path from "node:path";
 import { ModelConfigurationError } from "@forge/core";
 
-export type ApiKeyProvider = "deepseek" | "openai";
+export type BuiltInApiKeyProvider = "deepseek" | "openai";
+export type ApiKeyProvider = string;
 export type ApiKeySource = "environment" | "stored";
+
+const ROUTE_NAME = /^[a-z][a-z0-9-]{0,63}$/u;
 
 export interface ApiKeyAuthentication {
   readonly kind: "api-key";
@@ -37,11 +40,13 @@ export interface AuthenticationStatus {
 interface StoredApiKey {
   readonly type: "api_key";
   readonly key: string;
+  /** Canonical endpoint this key may be sent to. Absent for built-ins. */
+  readonly endpoint?: string;
 }
 
 interface AuthenticationFile {
   readonly version: 1;
-  readonly credentials: Partial<Record<ApiKeyProvider, StoredApiKey>>;
+  readonly credentials: Readonly<Record<string, StoredApiKey>>;
 }
 
 interface ParsedRecord extends Record<string, unknown> {
@@ -54,7 +59,23 @@ interface ParsedRecord extends Record<string, unknown> {
 const API_KEY_ENVIRONMENT_VARIABLES = {
   deepseek: "DEEPSEEK_API_KEY",
   openai: "OPENAI_API_KEY",
-} as const satisfies Record<ApiKeyProvider, string>;
+} as const satisfies Record<BuiltInApiKeyProvider, string>;
+
+export interface ApiKeyLookupOptions {
+  readonly environmentVariable?: string;
+  readonly endpoint?: string;
+}
+
+export function apiKeyEnvironmentVariable(
+  provider: ApiKeyProvider,
+  declared?: string,
+): string {
+  if (declared !== undefined && declared !== "") return declared;
+  if (isBuiltInApiKeyProvider(provider)) {
+    return API_KEY_ENVIRONMENT_VARIABLES[provider];
+  }
+  return `FORGE_${provider.replaceAll("-", "_").toLocaleUpperCase()}_API_KEY`;
+}
 
 const EMPTY_AUTHENTICATION_FILE: AuthenticationFile = {
   version: 1,
@@ -70,6 +91,14 @@ export class AuthenticationStoreError extends Error {
   }
 }
 
+function assertCredentialOwner(provider: string): void {
+  if (!isApiKeyProvider(provider)) {
+    throw new AuthenticationStoreError(
+      `"${provider}" is not a usable credential name. Use lowercase letters, digits, and hyphens.`,
+    );
+  }
+}
+
 /** User-scoped, owner-readable credential storage inspired by Pi and OpenCode. */
 export class FileCredentialStore {
   readonly path: string;
@@ -80,12 +109,30 @@ export class FileCredentialStore {
     this.path = path.join(this.#directory, "auth.json");
   }
 
-  getApiKey(provider: ApiKeyProvider): string | undefined {
-    const key = this.#read().credentials[provider]?.key.trim();
+  getApiKey(provider: ApiKeyProvider, endpoint?: string): string | undefined {
+    if (!isApiKeyProvider(provider)) return undefined;
+    const credential = this.#read().credentials[provider];
+    if (
+      credential === undefined ||
+      (endpoint !== undefined && credential.endpoint !== endpoint)
+    ) {
+      return undefined;
+    }
+    const key = credential.key.trim();
     return key || undefined;
   }
 
-  async setApiKey(provider: ApiKeyProvider, apiKey: string): Promise<void> {
+  credentialEndpoint(provider: ApiKeyProvider): string | undefined {
+    if (!isApiKeyProvider(provider)) return undefined;
+    return this.#read().credentials[provider]?.endpoint;
+  }
+
+  async setApiKey(
+    provider: ApiKeyProvider,
+    apiKey: string,
+    endpoint?: string,
+  ): Promise<void> {
+    assertCredentialOwner(provider);
     const key = apiKey.trim();
     if (key === "")
       throw new AuthenticationStoreError("API key cannot be empty.");
@@ -93,12 +140,17 @@ export class FileCredentialStore {
       ...current,
       credentials: {
         ...current.credentials,
-        [provider]: { type: "api_key", key },
+        [provider]: {
+          type: "api_key",
+          key,
+          ...(endpoint === undefined ? {} : { endpoint }),
+        },
       },
     }));
   }
 
   async removeApiKey(provider: ApiKeyProvider): Promise<boolean> {
+    assertCredentialOwner(provider);
     let removed = false;
     await this.#mutate((current) => {
       if (!current.credentials[provider]) return current;
@@ -167,12 +219,21 @@ export class AuthenticationManager {
     this.#store = store;
   }
 
-  status(provider: ApiKeyProvider): AuthenticationStatus {
-    const environmentVariable = API_KEY_ENVIRONMENT_VARIABLES[provider];
+  status(
+    provider: ApiKeyProvider,
+    options: ApiKeyLookupOptions = {},
+  ): AuthenticationStatus & { readonly endpointMismatch?: boolean } {
+    const environmentVariable = apiKeyEnvironmentVariable(
+      provider,
+      options.environmentVariable,
+    );
     const environmentKey = this.#env[environmentVariable]?.trim();
     const storedKey = environmentKey
       ? undefined
-      : this.#store.getApiKey(provider);
+      : this.#store.getApiKey(provider, options.endpoint);
+    const storedEndpoint = environmentKey
+      ? undefined
+      : this.#store.credentialEndpoint(provider);
     const source = environmentKey
       ? ("environment" as const)
       : storedKey
@@ -185,16 +246,29 @@ export class AuthenticationManager {
       ...(source ? { source } : {}),
       environmentVariable,
       credentialPath: this.#store.path,
+      ...(options.endpoint !== undefined &&
+      storedEndpoint !== undefined &&
+      storedEndpoint !== options.endpoint
+        ? { endpointMismatch: true }
+        : {}),
     };
   }
 
-  requireApiKey(provider: ApiKeyProvider): ApiKeyAuthentication {
-    const status = this.status(provider);
+  requireApiKey(
+    provider: ApiKeyProvider,
+    options: ApiKeyLookupOptions = {},
+  ): ApiKeyAuthentication {
+    const status = this.status(provider, options);
     const apiKey =
       status.source === "environment"
         ? this.#env[status.environmentVariable]?.trim()
-        : this.#store.getApiKey(provider);
+        : this.#store.getApiKey(provider, options.endpoint);
     if (!apiKey) {
+      if (status.endpointMismatch) {
+        throw new ModelConfigurationError(
+          `The stored credential for provider route "${provider}" belongs to a different endpoint. Save a new key before using ${options.endpoint}.`,
+        );
+      }
       const distinction =
         provider === "openai"
           ? " ChatGPT subscriptions do not include OpenAI API usage; use `forge codex` for subscription access."
@@ -215,8 +289,12 @@ export class AuthenticationManager {
     };
   }
 
-  async storeApiKey(provider: ApiKeyProvider, apiKey: string): Promise<string> {
-    await this.#store.setApiKey(provider, apiKey);
+  async storeApiKey(
+    provider: ApiKeyProvider,
+    apiKey: string,
+    options: { readonly endpoint?: string } = {},
+  ): Promise<string> {
+    await this.#store.setApiKey(provider, apiKey, options.endpoint);
     return this.#store.path;
   }
 
@@ -232,8 +310,14 @@ export function resolveForgeHome(env: NodeJS.ProcessEnv = process.env): string {
   );
 }
 
-export function isApiKeyProvider(value: string): value is ApiKeyProvider {
+export function isBuiltInApiKeyProvider(
+  value: string,
+): value is BuiltInApiKeyProvider {
   return value === "deepseek" || value === "openai";
+}
+
+export function isApiKeyProvider(value: string): value is ApiKeyProvider {
+  return isBuiltInApiKeyProvider(value) || ROUTE_NAME.test(value);
 }
 
 async function acquireLock(
@@ -275,9 +359,11 @@ function validateAuthenticationFile(value: unknown): AuthenticationFile {
       "Credential file has an unsupported or invalid format.",
     );
   }
-  const credentials: Partial<Record<ApiKeyProvider, StoredApiKey>> = {};
-  for (const provider of ["deepseek", "openai"] as const) {
-    const credential = value.credentials[provider];
+  const credentials: Record<string, StoredApiKey> = Object.create(
+    null,
+  ) as Record<string, StoredApiKey>;
+  for (const [provider, credential] of Object.entries(value.credentials)) {
+    if (!isApiKeyProvider(provider)) continue;
     if (credential === undefined) continue;
     if (
       !isRecord(credential) ||
@@ -289,7 +375,20 @@ function validateAuthenticationFile(value: unknown): AuthenticationFile {
         `Credential file contains an invalid ${provider} entry.`,
       );
     }
-    credentials[provider] = { type: "api_key", key: credential.key };
+    const { endpoint } = credential;
+    if (
+      endpoint !== undefined &&
+      (typeof endpoint !== "string" || endpoint.trim() === "")
+    ) {
+      throw new AuthenticationStoreError(
+        `Credential file contains an invalid ${provider} entry.`,
+      );
+    }
+    credentials[provider] = {
+      type: "api_key",
+      key: credential.key,
+      ...(endpoint === undefined ? {} : { endpoint }),
+    };
   }
   return { version: 1, credentials };
 }

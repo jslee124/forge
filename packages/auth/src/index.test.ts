@@ -84,6 +84,42 @@ describe("AuthenticationManager", () => {
       ),
     ).toThrow(/forge codex.*subscription access/iu);
   });
+
+  it("binds a route credential to the endpoint it was saved for", async () => {
+    const forgeHome = await createForgeHome();
+    const manager = new AuthenticationManager({ FORGE_HOME: forgeHome });
+    await manager.storeApiKey("my-gateway", "route-secret", {
+      endpoint: "https://one.example/v1",
+    });
+
+    expect(
+      manager.requireApiKey("my-gateway", {
+        endpoint: "https://one.example/v1",
+      }).apiKey,
+    ).toBe("route-secret");
+    expect(() =>
+      manager.requireApiKey("my-gateway", {
+        endpoint: "https://two.example/v1",
+      }),
+    ).toThrow(/different endpoint/iu);
+  });
+
+  it("uses a route-specific environment variable before stored credentials", async () => {
+    const forgeHome = await createForgeHome();
+    const manager = new AuthenticationManager({
+      FORGE_HOME: forgeHome,
+      PRIVATE_GATEWAY_TOKEN: "environment-secret",
+    });
+    expect(
+      manager.requireApiKey("my-gateway", {
+        environmentVariable: "PRIVATE_GATEWAY_TOKEN",
+        endpoint: "https://gateway.example/v1",
+      }),
+    ).toMatchObject({
+      apiKey: "environment-secret",
+      source: "environment",
+    });
+  });
 });
 
 async function createForgeHome(): Promise<string> {
