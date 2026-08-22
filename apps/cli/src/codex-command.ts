@@ -80,6 +80,8 @@ export interface CodexCommandDependencies {
   readonly contextCheckpoint?: ContextCheckpoint;
   readonly signal: AbortSignal;
   readonly isTTY: boolean;
+  /** A session-owned client that command helpers must not close. */
+  readonly client?: CodexClient;
   readonly connect?: () => Promise<CodexClient>;
   readonly openUrl?: (url: string) => Promise<void>;
   readonly confirm?: (prompt: string) => Promise<boolean>;
@@ -254,13 +256,16 @@ export async function discoverCodexModels(
   dependencies: CodexCommandDependencies,
 ): Promise<readonly CodexModel[]> {
   let client: CodexClient | undefined;
+  const ownsClient = dependencies.client === undefined;
   try {
-    client = await (dependencies.connect
-      ? dependencies.connect()
-      : CodexAppServerClient.connect({
-          cwd: dependencies.cwd,
-          env: dependencies.env,
-        }));
+    client =
+      dependencies.client ??
+      (await (dependencies.connect
+        ? dependencies.connect()
+        : CodexAppServerClient.connect({
+            cwd: dependencies.cwd,
+            env: dependencies.env,
+          })));
     return await listModels(client);
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown error";
@@ -268,7 +273,7 @@ export async function discoverCodexModels(
       `Could not discover Codex models: ${redactCodexMessage(message)}`,
     );
   } finally {
-    client?.close();
+    if (ownsClient) client?.close();
   }
 }
 
@@ -278,7 +283,7 @@ export async function runCodexTask(
   dependencies: CodexCommandDependencies,
 ): Promise<number> {
   return withClient(dependencies, async (client) => {
-    const account = await readAccount(client, true);
+    const account = await readAccount(client, false);
     if (account.account?.type !== "chatgpt") {
       dependencies.stderr.write(
         "ChatGPT subscription sign-in is required. Run `forge auth login openai`.\n",
@@ -572,13 +577,16 @@ async function withClient(
   operation: (client: CodexClient) => Promise<number>,
 ): Promise<number> {
   let client: CodexClient | undefined;
+  const ownsClient = dependencies.client === undefined;
   try {
-    client = await (dependencies.connect
-      ? dependencies.connect()
-      : CodexAppServerClient.connect({
-          cwd: dependencies.cwd,
-          env: dependencies.env,
-        }));
+    client =
+      dependencies.client ??
+      (await (dependencies.connect
+        ? dependencies.connect()
+        : CodexAppServerClient.connect({
+            cwd: dependencies.cwd,
+            env: dependencies.env,
+          })));
     return await operation(client);
   } catch (error) {
     if (dependencies.signal.aborted) {
@@ -594,7 +602,7 @@ async function withClient(
     dependencies.stderr.write("Unexpected Codex App Server error.\n");
     return 1;
   } finally {
-    client?.close();
+    if (ownsClient) client?.close();
   }
 }
 

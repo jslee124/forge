@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { type ApiKeyProvider, AuthenticationManager } from "@forge/auth";
-import type { CodexModel } from "@forge/codex-app-server";
+import { CodexAppServerClient, type CodexModel } from "@forge/codex-app-server";
 import {
   loadForgeConfig,
   type PersistedModelSelection,
@@ -18,6 +18,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { AskOptions, WritableOutput } from "./ask.js";
 import {
+  type CodexClient,
   type CodexCommandDependencies,
   type CodexOutputEvent,
   discoverCodexModels,
@@ -323,30 +324,90 @@ export async function runInkInteractiveFromCli(
     return 2;
   }
 
-  const instance = render(
-    <InteractiveApp
-      {...dependencies}
-      sessionPersistence={sessionPersistence}
-      options={effectiveOptions}
-    />,
-    {
-      stdin: process.stdin,
-      stdout: process.stdout,
-      stderr: process.stderr,
-      exitOnCtrlC: false,
-      // Incremental line diffs can retain stale physical rows after the
-      // terminal rewraps content during a resize. Full-frame updates are more
-      // reliable for this bounded interactive UI.
-      incrementalRendering: INK_INCREMENTAL_RENDERING,
-      // Ink's auto-detection query is sent before raw mode is active. VS Code
-      // can echo that query as literal input, so use direct activation only
-      // for terminals known to support the protocol. Ctrl+J, Meta+Enter, and
-      // the legacy parser remain available for all other terminals.
-      kittyKeyboard: { mode: resolveInkKeyboardMode(dependencies.env) },
-    },
-  );
-  const result = await instance.waitUntilExit();
-  return typeof result === "number" ? result : 0;
+  let codexClientPromise: Promise<CodexClient> | undefined;
+  const sharedCodexClient = (): Promise<CodexClient> => {
+    codexClientPromise ??= CodexAppServerClient.connect({
+      cwd: dependencies.cwd,
+      env: dependencies.env,
+    }).catch((error: unknown) => {
+      codexClientPromise = undefined;
+      throw error;
+    });
+    return codexClientPromise;
+  };
+  const withSharedCodexClient = async <T,>(
+    operation: (client: CodexClient) => Promise<T>,
+  ): Promise<T> => operation(await sharedCodexClient());
+
+  const interactiveDependencies: InteractiveUiDependencies = {
+    ...dependencies,
+    executeCodexTask:
+      dependencies.executeCodexTask ??
+      ((prompt, taskOptions, taskDependencies) =>
+        withSharedCodexClient((client) =>
+          runCodexTask(prompt, taskOptions, {
+            ...taskDependencies,
+            client,
+          }),
+        )),
+    discoverSubscriptionModels:
+      dependencies.discoverSubscriptionModels ??
+      ((modelDependencies) =>
+        withSharedCodexClient((client) =>
+          discoverCodexModels({ ...modelDependencies, client }),
+        )),
+    executeAuthentication:
+      dependencies.executeAuthentication ??
+      ((authenticationDependencies) =>
+        withSharedCodexClient((client) =>
+          runCodexAuthCommand(
+            "login",
+            "openai",
+            {},
+            {
+              ...authenticationDependencies,
+              client,
+            },
+          ),
+        )),
+  };
+
+  try {
+    const instance = render(
+      <InteractiveApp
+        {...interactiveDependencies}
+        sessionPersistence={sessionPersistence}
+        options={effectiveOptions}
+      />,
+      {
+        stdin: process.stdin,
+        stdout: process.stdout,
+        stderr: process.stderr,
+        exitOnCtrlC: false,
+        // Incremental line diffs can retain stale physical rows after the
+        // terminal rewraps content during a resize. Full-frame updates are more
+        // reliable for this bounded interactive UI.
+        incrementalRendering: INK_INCREMENTAL_RENDERING,
+        // Ink's auto-detection query is sent before raw mode is active. VS Code
+        // can echo that query as literal input, so use direct activation only
+        // for terminals known to support the protocol. Ctrl+J, Meta+Enter, and
+        // the legacy parser remain available for all other terminals.
+        kittyKeyboard: { mode: resolveInkKeyboardMode(dependencies.env) },
+      },
+    );
+    const result = await instance.waitUntilExit();
+    return typeof result === "number" ? result : 0;
+  } finally {
+    const client = codexClientPromise;
+    codexClientPromise = undefined;
+    if (client) {
+      try {
+        (await client).close();
+      } catch {
+        // Connection failures are already rendered by the command surface.
+      }
+    }
+  }
 }
 
 export function InteractiveApp({

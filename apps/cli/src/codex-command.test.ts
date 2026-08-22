@@ -261,7 +261,7 @@ describe("Codex commands", () => {
     expect(stderr.value).toContain("[command] pwd\n");
     expect(client.requests).toContainEqual({
       method: "account/read",
-      params: { refreshToken: true },
+      params: { refreshToken: false },
     });
     expect(client.requests).toContainEqual({
       method: "thread/start",
@@ -286,6 +286,31 @@ describe("Codex commands", () => {
         summary: "detailed",
       },
     });
+  });
+
+  it("does not close a session-owned Codex client between tasks", async () => {
+    const client = new FakeClient();
+    const sharedDependencies = dependencies(
+      client,
+      new BufferOutput(),
+      new BufferOutput(),
+      { client },
+    );
+
+    expect(
+      await runCodexTask("first", { model: "gpt-test" }, sharedDependencies),
+    ).toBe(0);
+    expect(
+      await runCodexTask("second", { model: "gpt-test" }, sharedDependencies),
+    ).toBe(0);
+
+    expect(client.closed).toBe(false);
+    expect(
+      client.requests.filter(({ method }) => method === "account/read"),
+    ).toEqual([
+      { method: "account/read", params: { refreshToken: false } },
+      { method: "account/read", params: { refreshToken: false } },
+    ]);
   });
 
   it("emits structured interactive output without changing plain CLI output", async () => {
