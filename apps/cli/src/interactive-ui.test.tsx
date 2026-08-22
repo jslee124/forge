@@ -57,6 +57,17 @@ describe("Ink interactive terminal", () => {
     instance.unmount();
   });
 
+  it("renders the Forge wordmark and entry hints", () => {
+    const root = "/tmp/forge-header-test";
+    const frame = renderToString(
+      <InteractiveApp options={{}} env={{}} cwd={root} />,
+    );
+
+    expect(frame).toContain("████  ███  ███  ███  ████");
+    expect(frame).toContain("/login provider");
+    expect(frame).toContain("@ files");
+  });
+
   it("opens the slash command menu from keyboard input", async () => {
     const root = await createWorkspace();
     const instance = render(
@@ -988,8 +999,8 @@ describe("Ink interactive terminal", () => {
     const narrow = renderToString(app, { columns: 40 });
     const wide = renderToString(app, { columns: 100 });
 
-    expect(narrow).toContain("Forge");
-    expect(wide).toContain("Forge");
+    expect(narrow).toContain("████  ███  ███  ███  ████");
+    expect(wide).toContain("████  ███  ███  ███  ████");
     expect(narrow).not.toBe(wide);
   });
 

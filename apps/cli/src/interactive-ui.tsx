@@ -1479,14 +1479,7 @@ export function InteractiveApp({
 
   return (
     <Box flexDirection="column" paddingX={1}>
-      <Box borderStyle="round" borderColor="cyan" paddingX={1}>
-        <Text>
-          <Text bold color="cyan">
-            Forge
-          </Text>
-          <Text dimColor> coding agent · /login provider · @ files</Text>
-        </Text>
-      </Box>
+      <ForgeHeader />
 
       {transcript.length > 0 ? (
         <Box flexDirection="column" marginTop={1}>
@@ -1754,6 +1747,42 @@ export function InteractiveApp({
         filesLoading={filesLoading}
         phase={phase}
       />
+    </Box>
+  );
+}
+
+const FORGE_WORDMARK = [
+  "████  ███  ███  ███  ████",
+  "█     █ █  █ █  █    █",
+  "███   █ █  ███  █ ██  ███",
+  "█     █ █  █ █  █  █  █",
+  "█     ███  █ █  ███  ████",
+].join("\n");
+
+function ForgeHeader(): React.JSX.Element {
+  return (
+    <Box
+      borderStyle="round"
+      borderColor="cyan"
+      flexDirection="column"
+      alignItems="center"
+      paddingX={1}
+    >
+      <Box marginBottom={1}>
+        <Text bold color="cyan">
+          {FORGE_WORDMARK}
+        </Text>
+      </Box>
+      <Text>
+        <Text bold color="cyan">
+          /login
+        </Text>
+        <Text dimColor> provider · </Text>
+        <Text bold color="cyan">
+          @
+        </Text>
+        <Text dimColor> files</Text>
+      </Text>
     </Box>
   );
 }
