@@ -185,6 +185,28 @@ export default (api) => {
     });
   });
 
+  it("requires a declared network capability for network-risk tools", async () => {
+    const fixture = await createFixture();
+    await createPlugin(fixture.forgeHome, "user", "undeclared-network", {
+      capabilities: ["tools:register"],
+      source: `export default (api) => api.registerTool({
+  name: "network_probe",
+  description: "Test network tool",
+  risk: "network",
+  inputSchema: api.z.object({}).strict(),
+  execute: async () => ({ ok: true, output: {}, truncated: false })
+});\n`,
+    });
+
+    await expect(
+      loadPluginHost({
+        forgeHome: fixture.forgeHome,
+        workspaceRoot: fixture.root,
+        enabledUserPlugins: ["undeclared-network"],
+      }),
+    ).rejects.toThrow('capability "network:access"');
+  });
+
   it("discovers portable skills but selects only explicitly mentioned skills", async () => {
     const fixture = await createFixture();
     const skillDirectory = path.join(

@@ -30,6 +30,7 @@ must state which boundaries it enforces and which risks remain with the user.
 | First write inside the workspace | Confirm |
 | Later writes covered by the run approval | Allow |
 | Any process command | Confirm |
+| Any registered network tool | Confirm |
 | Built-in file operation outside the workspace | Deny in v0.1 |
 | Approval-required action without an approval channel | Deny |
 
@@ -41,14 +42,15 @@ asking the user for an exception.
 
 ### `safe`
 
-The default profile. Workspace reads are automatic. Workspace modifications and
-process commands require confirmation according to the table above.
+The default profile. Workspace reads are automatic. Workspace modifications,
+process commands, and registered network tools require confirmation according
+to the table above.
 
 ### `workspace-write`
 
 Workspace file tools may modify files automatically after the user selects this
-profile. Process commands still require confirmation, and outside-workspace
-file access remains denied in v0.1.
+profile. Process commands and registered network tools still require
+confirmation, and outside-workspace file access remains denied in v0.1.
 
 ### `full-access`
 
@@ -119,9 +121,23 @@ other processes or interpreting its own scripts.
 
 ## Network boundary
 
-The initial runtime does not enforce network isolation. An approved process
-command or trusted plugin may access the network with the permissions of the
-Forge process. The UI and documentation must not imply otherwise.
+The runtime distinguishes registered network tools from workspace reads. A
+plugin must declare `network:access` before registering a `network`-risk tool,
+and every such model call requires confirmation under both `safe` and
+`workspace-write`. Non-interactive runs deny it when no approval channel is
+available.
+
+The checked-in `web-tools` example additionally restricts protocols and ports,
+checks initial and redirect host addresses, blocks local/private/reserved
+ranges, accepts readable MIME types only, and bounds redirects, time,
+downloads, and retained output. Those checks reduce accidental SSRF and
+resource exhaustion, but they cannot provide OS-level network isolation or
+fully eliminate DNS rebinding between validation and connection.
+
+An approved process command or trusted plugin code may still access the network
+directly with the permissions of the Forge process. Manifest capabilities gate
+Forge registration APIs; they do not constrain arbitrary Node.js calls. The UI
+and documentation must not imply otherwise.
 
 ## Non-interactive operation
 

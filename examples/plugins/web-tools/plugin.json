@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "apiVersion": "1",
+  "name": "web-tools",
+  "version": "1.0.0",
+  "entry": "./index.mjs",
+  "capabilities": ["tools:register", "network:access"]
+}

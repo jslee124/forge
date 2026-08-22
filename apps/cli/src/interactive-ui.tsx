@@ -58,10 +58,17 @@ import {
 import {
   type CommandApprovalPreview,
   createApprovalChannel,
+  type NetworkApprovalPreview,
   type RunDependencies,
   type RunMetadata,
   runTask,
 } from "./run.js";
+import {
+  changeProjectPluginTrust,
+  type DetectedStartupResources,
+  detectStartupResources,
+  EMPTY_STARTUP_RESOURCES,
+} from "./startup-resources.js";
 
 type Phase =
   | "editing"
@@ -70,6 +77,8 @@ type Phase =
   | "resuming"
   | "models"
   | "effort"
+  | "plugins"
+  | "plugin-trust"
   | "login-providers"
   | "login-key";
 type TranscriptKind =
@@ -91,6 +100,7 @@ interface TranscriptEntry {
 interface PendingApproval {
   readonly prompt: string;
   readonly command?: CommandApprovalPreview;
+  readonly network?: NetworkApprovalPreview;
   readonly resolve: (answer: string | null) => void;
 }
 
@@ -256,6 +266,10 @@ export interface InteractiveUiDependencies {
     readonly env: NodeJS.ProcessEnv;
     readonly selection: PersistedModelSelection;
   }) => Promise<string>;
+  readonly detectedResources?: DetectedStartupResources;
+  readonly updateProjectPluginTrust?: (
+    trusted: boolean,
+  ) => Promise<DetectedStartupResources>;
 }
 
 interface InteractiveAppProps extends InteractiveUiDependencies {
@@ -294,6 +308,8 @@ export async function runInkInteractiveFromCli(
 
   let sessionPersistence = dependencies.sessionPersistence;
   let effectiveOptions = options;
+  let detectedResources =
+    dependencies.detectedResources ?? EMPTY_STARTUP_RESOURCES;
   try {
     const loaded = await loadForgeConfig({
       cwd: dependencies.cwd,
@@ -313,13 +329,20 @@ export async function runInkInteractiveFromCli(
       recentTailTokens: loaded.config.context.recentTailTokens,
       summaryTargetTokens: loaded.config.context.summaryTargetTokens,
     };
+    if (!dependencies.detectedResources) {
+      detectedResources = await detectStartupResources({
+        forgeHome: loaded.forgeHome,
+        workspaceRoot: loaded.workspaceRoot,
+        enabledUserPlugins: loaded.config.plugins.enabled,
+      });
+    }
     sessionPersistence ??= await createPersistentInteractiveSession({
       cwd: dependencies.cwd,
       env: dependencies.env,
     });
   } catch (error) {
     process.stderr.write(
-      `Could not initialize persistent sessions: ${error instanceof Error ? error.message : "unknown error"}\n`,
+      `Could not initialize the interactive session: ${error instanceof Error ? error.message : "unknown error"}\n`,
     );
     return 2;
   }
@@ -377,6 +400,7 @@ export async function runInkInteractiveFromCli(
       <InteractiveApp
         {...interactiveDependencies}
         sessionPersistence={sessionPersistence}
+        detectedResources={detectedResources}
         options={effectiveOptions}
       />,
       {
@@ -423,6 +447,9 @@ export function InteractiveApp({
     new AuthenticationManager(loginEnv).storeApiKey(provider, apiKey),
   sessionPersistence,
   persistModelSelection = saveUserModelSelection,
+  detectedResources = EMPTY_STARTUP_RESOURCES,
+  updateProjectPluginTrust = (trusted) =>
+    changeProjectPluginTrust({ cwd, env, trusted }),
 }: InteractiveAppProps): React.JSX.Element {
   const { exit } = useApp();
   const [editor, setEditor] = useState<EditorState>(() => createEditorState());
@@ -441,6 +468,11 @@ export function InteractiveApp({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [dismissedCompletion, setDismissedCompletion] = useState<string>();
   const [approval, setApproval] = useState<PendingApproval>();
+  const [resources, setResources] =
+    useState<DetectedStartupResources>(detectedResources);
+  const [pluginTrustIntent, setPluginTrustIntent] = useState<
+    "trust" | "untrust"
+  >();
   const [sessions, setSessions] = useState<readonly SessionSummary[]>([]);
   const [modelChoices, setModelChoices] =
     useState<readonly ModelChoice[]>(MODEL_CHOICES);
@@ -779,6 +811,12 @@ export function InteractiveApp({
           );
         }
         return;
+      case "/plugins":
+        setEditor(createEditorState());
+        setSelectedIndex(0);
+        setPluginTrustIntent(undefined);
+        setPhase("plugins");
+        return;
       case "/compact --dry-run":
       case "/compact": {
         setEditor(createEditorState());
@@ -977,6 +1015,7 @@ export function InteractiveApp({
     let metadata: RunMetadata | undefined;
     let codexExitCode: number | undefined;
     let commandPreview: CommandApprovalPreview | undefined;
+    let networkPreview: NetworkApprovalPreview | undefined;
 
     const approvalChannel = createApprovalChannel(
       (approvalPrompt, signal) =>
@@ -993,9 +1032,11 @@ export function InteractiveApp({
           setApproval({
             prompt: approvalPrompt,
             ...(commandPreview ? { command: commandPreview } : {}),
+            ...(networkPreview ? { network: networkPreview } : {}),
             resolve: settle,
           });
           commandPreview = undefined;
+          networkPreview = undefined;
           setPhase("approving");
         }),
       stderr,
@@ -1003,6 +1044,9 @@ export function InteractiveApp({
         color: !("NO_COLOR" in process.env),
         onCommandPreview: (preview) => {
           commandPreview = preview;
+        },
+        onNetworkPreview: (preview) => {
+          networkPreview = preview;
         },
       },
     );
@@ -1116,6 +1160,11 @@ export function InteractiveApp({
   };
 
   const cancelOrExit = (): void => {
+    if (phase === "plugins" || phase === "plugin-trust") {
+      setPluginTrustIntent(undefined);
+      setPhase("editing");
+      return;
+    }
     if (phase !== "editing") {
       finishApproval(null);
       activeController.current?.abort("SIGINT");
@@ -1157,6 +1206,60 @@ export function InteractiveApp({
       const answer = input.toLocaleLowerCase();
       if (answer === "y") finishApproval("y");
       else if (answer === "n" || key.escape || key.return) finishApproval("n");
+      return;
+    }
+    if (phase === "plugins") {
+      if (key.escape) {
+        setPhase("editing");
+        return;
+      }
+      const projectPlugins = resources.plugins.filter(
+        ({ scope }) => scope === "project",
+      );
+      const projectTrusted = projectPlugins.some(
+        ({ state }) => state === "trusted",
+      );
+      const answer = input.toLocaleLowerCase();
+      if (answer === "t" && projectPlugins.length > 0 && !projectTrusted) {
+        setPluginTrustIntent("trust");
+        setPhase("plugin-trust");
+      } else if (answer === "u" && projectTrusted) {
+        setPluginTrustIntent("untrust");
+        setPhase("plugin-trust");
+      }
+      return;
+    }
+    if (phase === "plugin-trust") {
+      const answer = input.toLocaleLowerCase();
+      if (answer === "n" || key.escape || key.return) {
+        setPluginTrustIntent(undefined);
+        setPhase("plugins");
+        return;
+      }
+      if (answer !== "y" || !pluginTrustIntent) return;
+      const trusted = pluginTrustIntent === "trust";
+      setPhase("running");
+      void updateProjectPluginTrust(trusted).then(
+        (nextResources) => {
+          setResources(nextResources);
+          appendEntry(
+            "system",
+            trusted
+              ? `Trusted project plugins for ${cwd}. They will load on the next Forge task.`
+              : `Removed project plugin trust for ${cwd}.`,
+          );
+          setPluginTrustIntent(undefined);
+          setPhase("editing");
+        },
+        (error: unknown) => {
+          appendEntry(
+            "error",
+            `Could not ${trusted ? "trust" : "untrust"} project plugins: ${error instanceof Error ? error.message : "unknown error"}`,
+          );
+          setPluginTrustIntent(undefined);
+          setPhase("plugins");
+        },
+      );
       return;
     }
     if (phase === "resuming") {
@@ -1556,7 +1659,7 @@ export function InteractiveApp({
 
   return (
     <Box flexDirection="column" paddingX={1}>
-      <ForgeHeader />
+      <ForgeHeader resources={resources} />
 
       {transcript.length > 0 ? (
         <Box flexDirection="column" marginTop={1}>
@@ -1567,6 +1670,16 @@ export function InteractiveApp({
       ) : null}
 
       {contextPanel ? <ContextPanel status={contextPanel} /> : null}
+
+      {phase === "plugins" ? <PluginsPanel resources={resources} /> : null}
+
+      {phase === "plugin-trust" && pluginTrustIntent ? (
+        <PluginTrustPanel
+          cwd={cwd}
+          intent={pluginTrustIntent}
+          resources={resources}
+        />
+      ) : null}
 
       {phase === "approving" && approval ? (
         <Box
@@ -1593,6 +1706,19 @@ export function InteractiveApp({
                 <Text dimColor>Timeout</Text>
                 {"            "}
                 {formatDuration(approval.command.timeoutMs)}
+              </Text>
+            </Box>
+          ) : null}
+          {approval.network ? (
+            <Box flexDirection="column" marginY={1}>
+              <Text bold>
+                <Text color="cyan">Network </Text>
+                {approval.network.tool}
+              </Text>
+              <Text>
+                <Text dimColor>{approval.network.label}</Text>
+                {"  "}
+                {approval.network.value}
               </Text>
             </Box>
           ) : null}
@@ -1836,7 +1962,132 @@ const FORGE_WORDMARK = [
   "█     ███  █ █  ███  ████",
 ].join("\n");
 
-function ForgeHeader(): React.JSX.Element {
+function PluginsPanel({
+  resources,
+}: {
+  readonly resources: DetectedStartupResources;
+}): React.JSX.Element {
+  const projectPlugins = resources.plugins.filter(
+    ({ scope }) => scope === "project",
+  );
+  const userPlugins = resources.plugins.filter(({ scope }) => scope === "user");
+  const projectTrusted = projectPlugins.some(
+    ({ state }) => state === "trusted",
+  );
+  return (
+    <Box
+      borderStyle="round"
+      borderColor="cyan"
+      flexDirection="column"
+      paddingX={1}
+      marginTop={1}
+    >
+      <Text bold color="cyan">
+        Plugins
+      </Text>
+      {projectPlugins.length === 0 ? (
+        <Text dimColor>No project plugins were discovered.</Text>
+      ) : (
+        projectPlugins.map((plugin) => (
+          <Box key={plugin.name} flexDirection="column" marginTop={1}>
+            <Text>
+              <Text bold>{plugin.name}</Text>
+              {` @ ${plugin.version} · ${plugin.state}`}
+            </Text>
+            <Text dimColor>
+              Capabilities: {plugin.capabilities.join(", ") || "none"}
+            </Text>
+          </Box>
+        ))
+      )}
+      {userPlugins.map((plugin) => (
+        <Text key={plugin.name} dimColor>
+          {plugin.name} @ {plugin.version} · user · {plugin.state}
+        </Text>
+      ))}
+      {projectPlugins.length > 0 ? (
+        <Text>
+          {projectTrusted ? (
+            <>
+              <Text bold color="red">
+                u
+              </Text>{" "}
+              revoke project trust
+            </>
+          ) : (
+            <>
+              <Text bold color="green">
+                t
+              </Text>{" "}
+              review and trust project plugins
+            </>
+          )}
+          <Text dimColor> · Esc close</Text>
+        </Text>
+      ) : (
+        <Text dimColor>Esc close</Text>
+      )}
+    </Box>
+  );
+}
+
+function PluginTrustPanel({
+  cwd,
+  intent,
+  resources,
+}: {
+  readonly cwd: string;
+  readonly intent: "trust" | "untrust";
+  readonly resources: DetectedStartupResources;
+}): React.JSX.Element {
+  const projectPlugins = resources.plugins.filter(
+    ({ scope }) => scope === "project",
+  );
+  const trusting = intent === "trust";
+  return (
+    <Box
+      borderStyle="round"
+      borderColor={trusting ? "yellow" : "red"}
+      flexDirection="column"
+      paddingX={1}
+      marginTop={1}
+    >
+      <Text bold color={trusting ? "yellow" : "red"}>
+        {trusting ? "Trust project plugins?" : "Revoke project plugin trust?"}
+      </Text>
+      <Text dimColor>Workspace: {cwd}</Text>
+      {projectPlugins.map((plugin) => (
+        <Text key={plugin.name}>
+          {plugin.name}@{plugin.version} · capabilities:{" "}
+          {plugin.capabilities.join(", ") || "none"}
+        </Text>
+      ))}
+      {trusting ? (
+        <Text color="yellow">
+          Warning: trusted plugins run in-process with the full local privileges
+          of Forge. Trust applies to this entire workspace, including future
+          plugin changes.
+        </Text>
+      ) : null}
+      <Text>
+        <Text bold color="green">
+          y
+        </Text>{" "}
+        {trusting ? "trust" : "revoke"}{" "}
+        <Text bold color="red">
+          n
+        </Text>{" "}
+        cancel
+      </Text>
+    </Box>
+  );
+}
+
+function ForgeHeader({
+  resources,
+}: {
+  readonly resources: DetectedStartupResources;
+}): React.JSX.Element {
   return (
     <Box
       borderStyle="round"
@@ -1850,11 +2101,40 @@ function ForgeHeader(): React.JSX.Element {
           {FORGE_WORDMARK}
         </Text>
       </Box>
+      {resources.plugins.length > 0 ? (
+        <Text>
+          <Text bold color="cyan">
+            Plugins
+          </Text>
+          <Text dimColor>
+            {"  "}
+            {resources.plugins.map(formatDetectedPlugin).join(" · ")}
+          </Text>
+        </Text>
+      ) : null}
+      {resources.skills.length > 0 ? (
+        <Text>
+          <Text bold color="cyan">
+            Skills
+          </Text>
+          <Text dimColor>
+            {"   "}
+            {resources.skills.map(({ name }) => `$${name}`).join(" · ")}
+          </Text>
+        </Text>
+      ) : null}
+      {resources.plugins.length > 0 || resources.skills.length > 0 ? (
+        <Box marginTop={1} />
+      ) : null}
       <Text>
         <Text bold color="cyan">
           /login
         </Text>
         <Text dimColor> provider · </Text>
+        <Text bold color="cyan">
+          /plugins
+        </Text>
+        <Text dimColor> trust · </Text>
         <Text bold color="cyan">
           @
         </Text>
@@ -1862,6 +2142,14 @@ function ForgeHeader(): React.JSX.Element {
       </Text>
     </Box>
   );
+}
+
+function formatDetectedPlugin(
+  plugin: DetectedStartupResources["plugins"][number],
+): string {
+  const state =
+    plugin.state === "untrusted" ? "untrusted, skipped" : plugin.state;
+  return `${plugin.name} (${plugin.scope}, ${state})`;
 }
 
 function conversationTranscript(
@@ -1945,7 +2233,11 @@ function PromptFooter({
             ? "Choose a model"
             : phase === "effort"
               ? "Choose thinking effort"
-              : "Choose a saved session"}
+              : phase === "plugins"
+                ? "Review project plugins"
+                : phase === "plugin-trust"
+                  ? "Confirm project plugin trust"
+                  : "Choose a saved session"}
     </Text>
   );
 }

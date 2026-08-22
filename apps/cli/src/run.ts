@@ -379,12 +379,19 @@ export interface CommandApprovalPreview {
   readonly timeoutMs: number;
 }
 
+export interface NetworkApprovalPreview {
+  readonly tool: string;
+  readonly label: "Destination" | "Query" | "Target";
+  readonly value: string;
+}
+
 export function createApprovalChannel(
   question: ApprovalQuestion,
   output: WritableOutput,
   options: {
     readonly color?: boolean;
     readonly onCommandPreview?: (preview: CommandApprovalPreview) => void;
+    readonly onNetworkPreview?: (preview: NetworkApprovalPreview) => void;
   } = {},
 ): ApprovalChannel {
   return {
@@ -453,6 +460,24 @@ export function createApprovalChannel(
         } else {
           output.write(formatCommandApprovalPreview(preview));
         }
+      } else if (action.tool.risk === "network") {
+        const input = action.input as {
+          readonly query?: unknown;
+          readonly url?: unknown;
+        };
+        const preview: NetworkApprovalPreview = {
+          tool: action.tool.name,
+          ...(typeof input.url === "string"
+            ? { label: "Destination", value: input.url }
+            : typeof input.query === "string"
+              ? { label: "Query", value: input.query }
+              : { label: "Target", value: "Plugin-defined external service" }),
+        };
+        if (options.onNetworkPreview) {
+          options.onNetworkPreview(preview);
+        } else {
+          output.write(formatNetworkApprovalPreview(preview));
+        }
       }
 
       const answer = await question("Approve? [y/N] ", signal);
@@ -465,6 +490,12 @@ export function formatCommandApprovalPreview(
   preview: CommandApprovalPreview,
 ): string {
   return `$ ${preview.command}\n  Working directory  ${preview.cwd}\n  Timeout            ${formatDuration(preview.timeoutMs)}\n`;
+}
+
+export function formatNetworkApprovalPreview(
+  preview: NetworkApprovalPreview,
+): string {
+  return `Network request\n  Tool         ${preview.tool}\n  ${preview.label.padEnd(13)}${preview.value}\n`;
 }
 
 function quoteShellArgument(value: string): string {

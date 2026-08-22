@@ -12,6 +12,7 @@ export const PLUGIN_API_VERSION = "1" as const;
 export type PluginCapability =
   | "commands:register"
   | "events:observe"
+  | "network:access"
   | "policy:restrict"
   | "prompt:contribute"
   | "tools:register";

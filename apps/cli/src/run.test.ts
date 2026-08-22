@@ -4,6 +4,7 @@ import path from "node:path";
 import { PassThrough } from "node:stream";
 
 import type {
+  ForgeTool,
   ModelAdapter,
   ModelRequest,
   ModelStreamEvent,
@@ -439,6 +440,45 @@ describe("forge run", () => {
     expect(rendered).toContain("--- /dev/null");
     expect(rendered).toContain("+++ b/hello.md");
     expect(rendered).toContain("+hello, world");
+    expect(rendered).toContain("Approve? [y/N]");
+  });
+
+  it("shows the external destination before network approval", async () => {
+    const input = new PassThrough();
+    const output = new PassThrough();
+    let rendered = "";
+    output.on("data", (chunk: Buffer) => {
+      rendered += chunk.toString("utf8");
+    });
+    input.end("y\n");
+    const controller = new AbortController();
+    const networkTool = {
+      name: "web_fetch",
+      risk: "network",
+    } as ForgeTool;
+
+    const approved = await createTerminalApprovalChannel(input, output).request(
+      {
+        call: {
+          id: "network-1",
+          name: "web_fetch",
+          input: { url: "https://example.com/docs" },
+        },
+        tool: networkTool,
+        input: { url: "https://example.com/docs" },
+      },
+      controller.signal,
+      {
+        workspace: { root: "/workspace", cwd: "/workspace" },
+        signal: controller.signal,
+        limits: { maxOutputBytes: 65_536, maxEntries: 200 },
+      },
+    );
+
+    expect(approved).toBe(true);
+    expect(rendered).toContain("Network request");
+    expect(rendered).toContain("Tool         web_fetch");
+    expect(rendered).toContain("Destination  https://example.com/docs");
     expect(rendered).toContain("Approve? [y/N]");
   });
 });

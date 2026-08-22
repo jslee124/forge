@@ -20,12 +20,33 @@ The terminal UI should provide:
   emphasis, and fenced code blocks
 - A readable diff review before file-write approval
 - Keyboard-only operation with predictable cancellation
+- A startup capability summary inside the blue Forge frame
 
 Ink is the renderer for the interactive CLI. Commander remains
 responsible for process-level command parsing. React and Ink must stay inside
 `apps/cli`; `@forge/core` must remain independent of the terminal framework.
 Forge uses full-frame Ink updates so terminal reflow during a resize cannot
 leave stale rows from the previous width.
+
+## Startup capability summary
+
+Before the first prompt, the blue Forge frame lists enabled user plugins,
+project plugins with `trusted` or `untrusted, skipped` state, and discovered
+project Skills. Compact category labels follow Pi's resource-list pattern while
+preserving Forge's explicit trust semantics.
+
+Startup detection reads plugin manifests and Skill metadata only. It must not
+import a project plugin merely to display its name. Actual plugin activation
+remains part of a native Forge Engine run, and Skills remain inactive until an
+explicit `$skill-name` prompt mention. The Codex Engine owns a separate tool
+runtime, so the listing describes Forge resources rather than Codex tools.
+
+`/plugins` opens a metadata-only review panel. It shows each project plugin's
+version, capabilities, and current workspace trust state. Trust requires a
+second `y` confirmation after an in-process privilege warning; revocation is
+available from the same panel. A successful decision refreshes the blue startup
+frame immediately, while plugin activation remains deferred until the next
+native Forge Engine task.
 
 ## Interaction states
 
@@ -71,8 +92,10 @@ commands. Additional characters filter the list by command name.
 
 Each command is defined once with its name, description, and handler. The same
 registry drives completion and `/help`, preventing the two surfaces from
-drifting. The registry contains `/help`, `/clear`, `/model`, `/effort`,
-`/resume`, and `/exit`. `/model` opens a keyboard picker, discovers current
+drifting. The registry contains `/help`, `/new`, `/clear`, `/context`,
+`/compact`, `/plugins`, `/login`, `/model`, `/effort`, `/resume`, and `/exit`.
+`/plugins` opens the project-plugin trust review described above. `/model`
+opens a keyboard picker, discovers current
 ChatGPT/Codex models, includes configured API providers, and saves one model
 entry without multiplying it by effort level. `/effort` opens a separate
 model-specific effort picker; `/effort <level>` sets a supported level directly.
@@ -163,6 +186,11 @@ Process-command approval uses the same dedicated panel. It renders a
 shell-readable `$ command` line followed by clearly labelled working-directory
 and timeout rows; these details must not appear as detached transcript text.
 
+Network-tool approval also uses the dedicated panel. It shows the registered
+tool name and the bounded URL or search query that will be sent externally.
+Plugin-specific secrets and arbitrary input objects are never rendered as an
+approval preview.
+
 ## Sign-in panel
 
 A pending browser sign-in is a dedicated panel, not transcript text. The Codex
@@ -202,6 +230,7 @@ Milestone 4.6 should include deterministic tests for:
 - Enter submission versus Shift+Enter, Meta+Enter, and Ctrl+J newline insertion
 - Multi-line editing, paste, Unicode, resize, and cancellation
 - State transitions between editing, completion, running, and approval
+- Startup plugin/Skill listing, trust labels, and metadata-only discovery
 - Diff rendering for create and modify operations, multiple hunks, no-color
   output, truncation, and approval scope
 

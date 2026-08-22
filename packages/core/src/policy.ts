@@ -44,6 +44,11 @@ export class WorkspaceWritePolicy implements ApprovalPolicy {
               kind: "confirm",
               reason: "The first workspace write requires approval.",
             };
+      case "network":
+        return {
+          kind: "confirm",
+          reason: "Every external network request requires approval.",
+        };
       case "process":
         return {
           kind: "confirm",
@@ -75,6 +80,11 @@ export class AutomaticWorkspaceWritePolicy implements ApprovalPolicy {
           kind: "allow",
           reason:
             "Workspace writes are allowed by the workspace-write profile.",
+        };
+      case "network":
+        return {
+          kind: "confirm",
+          reason: "Every external network request requires approval.",
         };
       case "process":
         return {

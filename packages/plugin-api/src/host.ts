@@ -354,13 +354,22 @@ function validateTool(tool: ForgeTool, plugin: DiscoveredPlugin): void {
     !tool ||
     !/^[a-z][a-z0-9_]{0,63}$/u.test(tool.name) ||
     typeof tool.description !== "string" ||
-    !["read", "write", "process"].includes(tool.risk) ||
+    !["network", "read", "write", "process"].includes(tool.risk) ||
     typeof tool.execute !== "function" ||
     !tool.inputSchema ||
     typeof tool.inputSchema.safeParse !== "function"
   ) {
     throw new PluginError(
       `Plugin "${plugin.manifest.name}" registered an invalid tool.`,
+      plugin.manifestPath,
+    );
+  }
+  if (
+    tool.risk === "network" &&
+    !plugin.manifest.capabilities.includes("network:access")
+  ) {
+    throw new PluginError(
+      `Plugin "${plugin.manifest.name}" registered a network tool without declaring capability "network:access".`,
       plugin.manifestPath,
     );
   }

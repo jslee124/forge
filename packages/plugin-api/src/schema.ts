@@ -5,6 +5,7 @@ import { PLUGIN_API_VERSION } from "./types.js";
 export const pluginCapabilitySchema = z.enum([
   "commands:register",
   "events:observe",
+  "network:access",
   "policy:restrict",
   "prompt:contribute",
   "tools:register",

@@ -1,6 +1,6 @@
 import type { z } from "zod";
 
-export type ToolRisk = "process" | "read" | "write";
+export type ToolRisk = "network" | "process" | "read" | "write";
 
 export interface WorkspaceContext {
   readonly root: string;

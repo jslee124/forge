@@ -240,6 +240,12 @@ plugins may:
 - Participate in selected lifecycle hooks
 - Make policy decisions stricter
 
+The manifest may also declare `network:access`. A registered tool whose risk is
+`network` requires that declaration and is confirmed on every call under both
+implemented permission profiles. This is an application-level review and
+approval boundary, not network isolation; trusted plugin code can still use
+Node.js directly.
+
 All custom tool calls still pass through the policy kernel and tool executor.
 Plugins cannot convert a core `deny` into `allow` or bypass an approval request.
 
@@ -269,6 +275,8 @@ The initial tools are planned as:
 | `create_file` | Exclusively create a new UTF-8 workspace file | Write |
 | `apply_patch` | Apply a structured file change | Write |
 | `run_command` | Spawn a program with structured arguments and limits | Variable |
+| `web_search` (example plugin) | Search through a configured or fallback public provider | Network |
+| `web_fetch` (example plugin) | Fetch bounded readable public HTTP(S) text | Network |
 
 Tools receive an explicit execution context instead of reading global process
 state. The context includes the workspace root, abort signal, limits, and event
@@ -300,6 +308,7 @@ The default policy is:
 | First write inside the workspace | Confirm |
 | Later workspace writes in the approved run scope | Allow |
 | Any process command | Confirm |
+| Any registered network tool | Confirm |
 | Built-in file operation outside the workspace | Deny in v0.1 |
 | Approval-required action without an approval channel | Deny |
 

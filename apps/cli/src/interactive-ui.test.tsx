@@ -68,6 +68,44 @@ describe("Ink interactive terminal", () => {
     expect(frame).toContain("@ files");
   });
 
+  it("lists detected plugins and skills inside the blue startup frame", () => {
+    const frame = renderToString(
+      <InteractiveApp
+        options={{}}
+        env={{}}
+        cwd="/tmp/forge-header-resources"
+        detectedResources={{
+          plugins: [
+            {
+              name: "web-tools",
+              version: "1.0.0",
+              scope: "project",
+              state: "trusted",
+              capabilities: ["tools:register", "network:access"],
+            },
+            {
+              name: "local-preview",
+              version: "0.1.0",
+              scope: "project",
+              state: "untrusted",
+              capabilities: ["tools:register"],
+            },
+          ],
+          skills: [{ name: "review", path: "/tmp/review/SKILL.md" }],
+        }}
+      />,
+    );
+    const compactFrame = frame.replace(/[│\s]+/gu, " ");
+
+    expect(frame).toContain("Plugins");
+    expect(frame).toContain("web-tools (project, trusted)");
+    expect(compactFrame).toContain(
+      "local-preview (project, untrusted, skipped)",
+    );
+    expect(frame).toContain("Skills");
+    expect(frame).toContain("$review");
+  });
+
   it("opens the slash command menu from keyboard input", async () => {
     const root = await createWorkspace();
     const instance = render(
@@ -84,6 +122,70 @@ describe("Ink interactive terminal", () => {
     );
     expect(instance.lastFrame()).toContain(
       "/login  Configure a model provider",
+    );
+    instance.unmount();
+  });
+
+  it("reviews and trusts project plugins inside the TUI", async () => {
+    const root = await createWorkspace();
+    const untrustedResources = {
+      plugins: [
+        {
+          name: "web-tools",
+          version: "1.0.0",
+          scope: "project" as const,
+          state: "untrusted" as const,
+          capabilities: ["tools:register", "network:access"] as const,
+        },
+      ],
+      skills: [],
+    };
+    let requestedTrust: boolean | undefined;
+    const instance = render(
+      <InteractiveApp
+        options={{}}
+        env={{}}
+        cwd={root}
+        detectedResources={untrustedResources}
+        updateProjectPluginTrust={async (trusted) => {
+          requestedTrust = trusted;
+          return {
+            ...untrustedResources,
+            plugins: untrustedResources.plugins.map((plugin) => ({
+              ...plugin,
+              state: "trusted" as const,
+            })),
+          };
+        }}
+      />,
+    );
+
+    await settle();
+    instance.stdin.write("/plugins");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+
+    expect(instance.lastFrame()).toContain("Plugins");
+    expect(instance.lastFrame()).toContain(
+      "Capabilities: tools:register, network:access",
+    );
+    expect(instance.lastFrame()).toContain(
+      "t review and trust project plugins",
+    );
+
+    instance.stdin.write("t");
+    await settle();
+    expect(instance.lastFrame()).toContain("Trust project plugins?");
+    expect(instance.lastFrame()).toContain("full local privileges of Forge");
+    expect(requestedTrust).toBeUndefined();
+
+    instance.stdin.write("y");
+    await settle();
+    expect(requestedTrust).toBe(true);
+    expect(instance.lastFrame()).toContain("web-tools (project, trusted)");
+    expect(instance.lastFrame()).toContain(
+      "They will load on the next Forge task",
     );
     instance.unmount();
   });
@@ -958,6 +1060,54 @@ describe("Ink interactive terminal", () => {
 
     expect(approved).toBe(true);
     expect(instance.lastFrame()).toContain("Enter submit");
+    instance.unmount();
+  });
+
+  it("shows the network tool and destination before approval", async () => {
+    const root = await createWorkspace();
+    let approved: boolean | undefined;
+    const networkTool = { name: "web_fetch", risk: "network" } as ForgeTool;
+    const instance = render(
+      <InteractiveApp
+        options={{}}
+        env={{}}
+        cwd={root}
+        executeTask={async (_prompt, _options, dependencies) => {
+          approved = await dependencies.approvalChannel?.request(
+            {
+              call: {
+                id: "network-1",
+                name: "web_fetch",
+                input: { url: "https://example.com/docs" },
+              },
+              tool: networkTool,
+              input: { url: "https://example.com/docs" },
+            },
+            dependencies.signal,
+            {
+              workspace: { root, cwd: root },
+              signal: dependencies.signal,
+              limits: { maxOutputBytes: 65_536, maxEntries: 200 },
+            },
+          );
+          dependencies.onResult?.(completed("done"));
+          return 0;
+        }}
+      />,
+    );
+
+    await settle();
+    instance.stdin.write("fetch docs");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+    expect(instance.lastFrame()).toContain("Approval required");
+    expect(instance.lastFrame()).toContain("Network web_fetch");
+    expect(instance.lastFrame()).toContain("https://example.com/docs");
+    instance.stdin.write("y");
+    await settle();
+
+    expect(approved).toBe(true);
     instance.unmount();
   });
 

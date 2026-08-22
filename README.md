@@ -10,7 +10,8 @@ traces, plugins, and reproducible evaluations.
 > Status: Milestones 8 through 10 are complete. Forge v0.2 includes the bounded coding runtime,
 > persistent sessions and traces, three reproducible evaluation tasks, external
 > graders, an opt-in DeepSeek runner, published live evidence, and an MIT
-> license. Trusted plugins and portable project skills are available in v0.2.
+> license. Trusted plugins and portable project skills are available in v0.2,
+> with a tested `web_search`/`web_fetch` example and explicit network approval.
 > Forge can also use ChatGPT subscription access through the official Codex App
 > Server without copying or parsing another application's credential file.
 > Long sessions now receive inspectable per-step context budgets, lossless v2
@@ -94,7 +95,7 @@ added later as optional adapters and evaluation baselines.
 - [Project context and local customization](docs/PROJECT_CONTEXT.md)
 - [Security model](docs/SECURITY.md)
 - [Persistent sessions and run traces](docs/SESSIONS.md)
-- [Plugin model](docs/PLUGINS.md)
+- [Plugin authoring guide](docs/PLUGINS.md)
 - [v0.1 acceptance and evaluation specification](docs/V0.1_SPEC.md)
 - [Evaluation commands, reports, and current evidence](docs/EVALUATION.md)
 - [Roadmap](docs/ROADMAP.md)
@@ -146,6 +147,31 @@ pnpm forge
 # Then enter /login and choose a provider.
 ```
 
+The blue startup frame lists enabled user plugins, trusted or skipped project
+plugins, and discovered project Skills before the first prompt. This is
+metadata-only discovery; project plugin code is still not imported before
+trust, and actual activation happens when the native Forge Engine starts a run.
+Use `/plugins` inside the TUI to review project plugin versions and capabilities,
+then press `t` and confirm with `y` to trust the workspace. The same panel can
+revoke trust without leaving the session.
+
+To exercise the plugin system with bounded network tools, copy the checked-in
+example into the user plugin directory and enable `web-tools` in
+`$FORGE_HOME/config.json`:
+
+```bash
+mkdir -p "${FORGE_HOME:-$HOME/.forge}/plugins"
+cp -R examples/plugins/web-tools "${FORGE_HOME:-$HOME/.forge}/plugins/web-tools"
+forge plugins list
+```
+
+The example's `web_search` uses Brave Search when `BRAVE_SEARCH_API_KEY` is set
+and otherwise falls back to DuckDuckGo HTML search. `web_fetch` accepts only
+bounded public HTTP(S) text resources. Both use the `network` risk and require
+approval on every model call. See the [plugin authoring guide](docs/PLUGINS.md)
+for the complete API, testing recipe, security boundary, and model-ready plugin
+authoring checklist.
+
 Environment-only setup remains available:
 
 ```bash
@@ -158,8 +184,10 @@ The interactive prompt persists completed user/assistant turns under
 `forge resume --last`, or the interactive `/resume` picker. Each prompt remains
 a separate bounded run with fresh policy and approval state; pending tool calls,
 provider continuations, and command approvals are never restored.
-Available commands are `/help`, `/clear`, `/login`, `/model`, `/effort`,
-`/resume`, and `/exit`. `/login` lets you choose ChatGPT subscription, DeepSeek
+Available commands are `/help`, `/new`, `/clear`, `/context`, `/compact`,
+`/plugins`, `/login`, `/model`, `/effort`, `/resume`, and `/exit`. `/plugins`
+reviews, trusts, or untrusts project plugins without leaving the TUI. `/login`
+lets you choose ChatGPT subscription, DeepSeek
 API, or OpenAI API. API keys are entered through a masked field and stored in
 `$FORGE_HOME/auth.json`; the directory is mode `0700` and the file is mode
 `0600`. Like Pi and OpenCode's local auth files, this is plaintext protected by
@@ -425,6 +453,8 @@ only the declared 60-second verification command, so Forge denied the action.
   approvals.
 - Plugins are trusted in-process code, not isolated extensions; Forge does not
   install plugin dependencies or enforce manifest capabilities at the OS level.
+  Registered network tools require approval, but trusted code can still call
+  Node.js network APIs directly.
 - Multi-agent orchestration, RAG, IDE integration, and cross-machine session
   synchronization are not implemented.
 
@@ -460,7 +490,7 @@ Milestone 9 added OpenAI API and ChatGPT-subscription authentication boundaries.
 Milestone 10 added provider capability tables, conservative request preflight,
 safe conversation checkpoints, adapter-owned continuation pressure handling,
 Codex wrapper budgets, context inspection, and deterministic long-session gates.
-See [Trusted Plugin API](docs/PLUGINS.md).
+See the [Plugin authoring guide](docs/PLUGINS.md).
 
 ## License
 
