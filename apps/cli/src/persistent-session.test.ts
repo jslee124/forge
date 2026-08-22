@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-
+import { FileSessionStore, JsonlTraceWriter } from "@forge/persistence";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
@@ -70,6 +70,90 @@ describe("persistent interactive session", () => {
       role: "assistant",
       content: "second answer",
     });
+  });
+
+  it("backfills reasoning from older run traces during resume", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "forge-session-trace-"));
+    temporaryDirectories.push(root);
+    await mkdir(path.join(root, ".git"));
+    const workspaceRoot = await realpath(root);
+    const forgeHome = path.join(root, "forge-home");
+    const env = { FORGE_HOME: forgeHome };
+    const sessionStore = new FileSessionStore(forgeHome);
+    const snapshot = sessionStore.create({
+      root: workspaceRoot,
+      cwd: workspaceRoot,
+    });
+    const runId = randomUUID();
+    await sessionStore.save({
+      ...snapshot,
+      messages: [
+        { role: "user", content: "old task" },
+        { role: "assistant", content: "old answer" },
+      ],
+      runIds: [runId],
+    });
+    const trace = new JsonlTraceWriter({
+      forgeHome,
+      runId,
+      sessionId: snapshot.id,
+    });
+    await trace.append({ type: "run.started", prompt: "old task" });
+    await trace.append({
+      type: "model.reasoning",
+      step: 1,
+      text: "old reasoning",
+    });
+    await trace.append({ type: "model.text", step: 1, text: "old answer" });
+    await trace.append({ type: "run.completed" });
+
+    const resumed = await createPersistentInteractiveSession({
+      cwd: root,
+      env,
+      sessionId: snapshot.id,
+    });
+
+    expect(resumed.reasoning).toEqual([
+      { assistantMessageIndex: 1, content: "old reasoning" },
+    ]);
+  });
+
+  it("persists the original unavailable-reasoning status for resume", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "forge-session-hidden-"));
+    temporaryDirectories.push(root);
+    await mkdir(path.join(root, ".git"));
+    const env = { FORGE_HOME: path.join(root, "forge-home") };
+    const session = await createPersistentInteractiveSession({
+      cwd: root,
+      env,
+    });
+
+    await session.recordRun(
+      "hidden reasoning task",
+      {
+        ...completed("hidden reasoning answer"),
+        events: [
+          {
+            type: "model.reasoning-unavailable",
+            step: 1,
+            reasoningTokens: 42,
+          },
+        ],
+      },
+      {
+        runId: randomUUID(),
+        sessionId: await session.prepareRun(),
+        tracePersisted: false,
+      },
+    );
+
+    expect(session.reasoning).toEqual([
+      {
+        assistantMessageIndex: 1,
+        content:
+          "Provider used 42 reasoning tokens but did not return reasoning text.",
+      },
+    ]);
   });
 });
 

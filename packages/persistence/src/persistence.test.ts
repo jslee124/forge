@@ -269,6 +269,11 @@ describe("JSONL run traces", () => {
           totalTokens: 14,
         },
       },
+      {
+        type: "model.reasoning-unavailable",
+        step: 1,
+        reasoningTokens: 2,
+      },
       { type: "run.completed" },
     ];
     for (const event of events) await writer.append(event);
@@ -281,7 +286,7 @@ describe("JSONL run traces", () => {
     expect(raw).toContain("[REDACTED]");
 
     const envelopes = await new FileTraceStore(home).read(runId);
-    expect(envelopes.map(({ sequence }) => sequence)).toEqual([0, 1, 2, 3]);
+    expect(envelopes.map(({ sequence }) => sequence)).toEqual([0, 1, 2, 3, 4]);
     expect(summarizeTrace(envelopes)).toMatchObject({
       runId,
       sessionId,

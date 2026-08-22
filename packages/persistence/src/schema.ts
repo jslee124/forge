@@ -357,6 +357,13 @@ export const runEventSchema = z.discriminatedUnion("type", [
     .strict(),
   z
     .object({
+      type: z.literal("model.reasoning-unavailable"),
+      step: z.number().int().positive(),
+      reasoningTokens: z.number().int().nonnegative(),
+    })
+    .strict(),
+  z
+    .object({
       type: z.literal("model.warning"),
       step: z.number().int().positive(),
       message: z.string(),

@@ -11,6 +11,7 @@ import {
   configuredSecrets,
   createForgeSummaryCheckpoint,
   FileSessionStore,
+  FileTraceStore,
   isCheckpointValid,
   previewSessionCompaction,
   recordRunInSession,
@@ -85,17 +86,20 @@ export class PersistentInteractiveSession
   implements InteractiveSessionPersistence
 {
   readonly #store: FileSessionStore;
+  readonly #traceStore: FileTraceStore;
   readonly #workspace: WorkspaceContext;
   #snapshot: SessionSnapshot | undefined;
   #context: PersistentContextOptions;
 
   constructor(options: {
     readonly store: FileSessionStore;
+    readonly traceStore: FileTraceStore;
     readonly workspace: WorkspaceContext;
     readonly snapshot?: SessionSnapshot;
     readonly context: PersistentContextOptions;
   }) {
     this.#store = options.store;
+    this.#traceStore = options.traceStore;
     this.#workspace = options.workspace;
     this.#snapshot = options.snapshot;
     this.#context = options.context;
@@ -150,11 +154,7 @@ export class PersistentInteractiveSession
     this.#snapshot = recordRunInSession(this.#snapshot, {
       prompt,
       finalText: result.finalText,
-      reasoning: result.events
-        .flatMap((event) =>
-          event.type === "model.reasoning" ? [event.text] : [],
-        )
-        .join(""),
+      reasoning: persistedReasoning(result.events),
       status: result.status,
       runId: metadata.runId,
     });
@@ -178,6 +178,14 @@ export class PersistentInteractiveSession
       sessionId,
       this.#workspace.root,
     );
+    const restored = await restoreReasoningFromTraces(
+      this.#snapshot,
+      this.#traceStore,
+    );
+    if (restored !== this.#snapshot) {
+      this.#snapshot = restored;
+      await this.#store.save(restored);
+    }
     return this.#snapshot.messages;
   }
 
@@ -282,14 +290,23 @@ export async function createPersistentInteractiveSession(options: {
   const store = new FileSessionStore(loaded.forgeHome, {
     secrets: configuredSecrets(options.env),
   });
+  const traceStore = new FileTraceStore(loaded.forgeHome);
   let snapshot: SessionSnapshot | undefined;
   if (options.sessionId) {
     snapshot = await store.loadForWorkspace(options.sessionId, workspace.root);
   } else if (options.last) {
     snapshot = await store.latest(workspace.root);
   }
+  if (snapshot) {
+    const restored = await restoreReasoningFromTraces(snapshot, traceStore);
+    if (restored !== snapshot) {
+      snapshot = restored;
+      await store.save(restored);
+    }
+  }
   return new PersistentInteractiveSession({
     store,
+    traceStore,
     workspace,
     ...(snapshot ? { snapshot } : {}),
     context: {
@@ -307,6 +324,94 @@ export async function createPersistentInteractiveSession(options: {
       secrets: configuredSecrets(options.env),
     },
   });
+}
+
+async function restoreReasoningFromTraces(
+  snapshot: SessionSnapshot,
+  traceStore: FileTraceStore,
+): Promise<SessionSnapshot> {
+  if (snapshot.runIds.length === 0 || snapshot.messages.length === 0) {
+    return snapshot;
+  }
+
+  const assistantMessageIndices = snapshot.messages.flatMap((message, index) =>
+    message.role === "assistant" ? [index] : [],
+  );
+  const reasoning = [...snapshot.reasoning];
+  const savedIndexes = new Set(
+    reasoning.map((entry) => entry.assistantMessageIndex),
+  );
+  let assistantCursor = 0;
+
+  for (const runId of snapshot.runIds) {
+    let events: Awaited<ReturnType<FileTraceStore["read"]>>;
+    try {
+      events = await traceStore.read(runId);
+    } catch {
+      // Traces are optional. A missing or old trace must not prevent resume.
+      continue;
+    }
+
+    const answer = events
+      .flatMap(({ event }) => (event.type === "model.text" ? [event.text] : []))
+      .join("");
+    if (answer === "") continue;
+    const completed = events.some(
+      ({ event }) =>
+        event.type === "run.completed" || event.type === "model.completed",
+    );
+    if (!completed) continue;
+
+    const assistantMessageIndex = assistantMessageIndices[assistantCursor];
+    assistantCursor += 1;
+    if (
+      assistantMessageIndex === undefined ||
+      savedIndexes.has(assistantMessageIndex)
+    ) {
+      continue;
+    }
+
+    const reasoningText = events
+      .flatMap(({ event }) =>
+        event.type === "model.reasoning" ? [event.text] : [],
+      )
+      .join("");
+    const unavailable = events
+      .flatMap(({ event }) =>
+        event.type === "model.reasoning-unavailable"
+          ? [
+              `Provider used ${event.reasoningTokens} reasoning tokens but did not return reasoning text.`,
+            ]
+          : [],
+      )
+      .join("\n");
+    const content = reasoningText || unavailable;
+    if (content === "") continue;
+    reasoning.push({ assistantMessageIndex, content });
+    savedIndexes.add(assistantMessageIndex);
+  }
+
+  return reasoning.length === snapshot.reasoning.length
+    ? snapshot
+    : { ...snapshot, reasoning };
+}
+
+function persistedReasoning(
+  events: readonly RunResult["events"][number][],
+): string {
+  const reasoningText = events
+    .flatMap((event) => (event.type === "model.reasoning" ? [event.text] : []))
+    .join("");
+  if (reasoningText !== "") return reasoningText;
+  return events
+    .flatMap((event) =>
+      event.type === "model.reasoning-unavailable"
+        ? [
+            `Provider used ${event.reasoningTokens} reasoning tokens but did not return reasoning text.`,
+          ]
+        : [],
+    )
+    .join("\n");
 }
 
 function contextWindowFor(provider: string, modelId: string): number {

@@ -34,6 +34,23 @@ const answer = 42;`}</TerminalMarkdown>,
     expect(output).toContain("┌");
   });
 
+  it("keeps list nesting and gives section markers their own treatment", () => {
+    const output = renderToString(
+      <TerminalMarkdown layout="answer">{`🔴 Headlines
+1. **First item**
+  - Nested detail
+---
+⚠️ Sources are time-sensitive`}</TerminalMarkdown>,
+      { columns: 80 },
+    );
+
+    expect(output).toContain("🔴 Headlines");
+    expect(output).toContain("1. First item");
+    expect(output).toContain("  ◦ Nested detail");
+    expect(output).toContain("─");
+    expect(output).toContain("⚠️ Sources are time-sensitive");
+  });
+
   it("removes model-supplied ANSI control sequences", () => {
     const output = renderToString(
       <TerminalMarkdown>{"safe \u001B[31mred\u001B[0m"}</TerminalMarkdown>,

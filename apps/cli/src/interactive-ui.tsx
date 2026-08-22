@@ -2486,16 +2486,18 @@ function TranscriptBlock({
     case "answer":
       return (
         <Box
-          borderStyle="round"
+          borderStyle="single"
           borderColor="green"
           flexDirection="column"
-          paddingX={1}
+          paddingX={2}
+          width="100%"
+          maxWidth={112}
           marginBottom={1}
         >
           <Text bold color="green">
             ● Answer
           </Text>
-          <TerminalMarkdown>{entry.text}</TerminalMarkdown>
+          <TerminalMarkdown layout="answer">{entry.text}</TerminalMarkdown>
         </Box>
       );
     case "tool":
@@ -2510,7 +2512,7 @@ function TranscriptBlock({
       // Codex Engine streams stdout/stderr chunks instead of structured
       // RunEvents. Render those chunks as Markdown so its answer keeps the
       // same terminal presentation as Forge model output.
-      return <TerminalMarkdown>{entry.text}</TerminalMarkdown>;
+      return <TerminalMarkdown layout="answer">{entry.text}</TerminalMarkdown>;
   }
 }
 
