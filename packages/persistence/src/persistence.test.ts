@@ -242,6 +242,44 @@ describe("persistent sessions", () => {
 });
 
 describe("JSONL run traces", () => {
+  it("persists and validates delegated-run linkage metadata", async () => {
+    const home = await forgeHome();
+    const runId = randomUUID();
+    const parentRunId = randomUUID();
+    const writer = new JsonlTraceWriter({
+      forgeHome: home,
+      runId,
+      parentRunId,
+      subagentName: "code-reviewer",
+    });
+    await writer.append({ type: "run.started", prompt: "Review target.ts" });
+
+    await expect(new FileTraceStore(home).read(runId)).resolves.toEqual([
+      expect.objectContaining({
+        runId,
+        parentRunId,
+        subagentName: "code-reviewer",
+        sequence: 0,
+      }),
+    ]);
+    expect(
+      () =>
+        new JsonlTraceWriter({
+          forgeHome: home,
+          runId: randomUUID(),
+          parentRunId: "not-a-uuid",
+        }),
+    ).toThrow("Invalid parent run ID");
+    expect(
+      () =>
+        new JsonlTraceWriter({
+          forgeHome: home,
+          runId: randomUUID(),
+          subagentName: "Not Valid",
+        }),
+    ).toThrow("Invalid subagent name");
+  });
+
   it("persists versioned events, redacts secrets, and summarizes the run", async () => {
     const home = await forgeHome();
     const runId = randomUUID();

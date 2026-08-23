@@ -111,7 +111,7 @@ and `pnpm unlink:global` when you no longer need it.
   checkpoints.
 - Load hierarchical `AGENTS.md` instructions and portable project Skills.
 - Load trusted plugins that contribute tools, commands, observers, prompts, or
-  stricter policy hooks.
+  stricter policy hooks, including bounded host-managed subagent roles.
 - Attach JPEG, PNG, GIF, or WebP input to supported vision models.
 - Record native-engine runs as inspectable, versioned JSONL traces.
 

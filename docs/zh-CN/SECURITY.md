@@ -19,6 +19,7 @@ Context checkpoint 是派生且不可信的 conversation memory，不能携带�
 | 被本次 run 审批覆盖的后续写入 | Allow |
 | 任意进程命令 | Confirm |
 | 任意注册网络工具 | Confirm |
+| 任意委派 subagent 模型运行 | Confirm |
 | 内置文件工具访问 workspace 外 | Deny |
 | 需要审批但无审批通道 | Deny |
 
@@ -26,11 +27,11 @@ Context checkpoint 是派生且不可信的 conversation memory，不能携带�
 
 ### `safe`
 
-默认 profile。workspace 读取自动执行；workspace 修改、进程命令和注册网络工具依照上表确认。
+默认 profile。workspace 读取自动执行；workspace 修改、进程命令、注册网络工具和委派 subagent 模型运行依照上表确认。
 
 ### `workspace-write`
 
-用户选择此 profile 后，workspace 文件工具可以自动修改文件；进程命令和网络工具仍需确认，v0.1 仍拒绝 workspace 外访问。
+用户选择此 profile 后，workspace 文件工具可以自动修改文件；进程命令、网络工具和委派 subagent 模型运行仍需确认，v0.1 仍拒绝 workspace 外访问。
 
 ### `full-access`
 
@@ -59,6 +60,12 @@ v0.1 `run_command` 接受 program 和 args 数组，以 Node.js `spawn`、`shell
 网络工具必须由插件声明 `network:access`，且在 `safe` 与 `workspace-write` 下每次调用都需确认。非交互且无审批通道时拒绝。仓库中的 `web-tools` 示例还限制协议/端口、校验初始和 redirect 地址、阻断本地/私有/保留范围，并限制 MIME、redirect、时间、下载和输出，但这些措施不能提供 OS 级网络隔离，也不能彻底消除 DNS rebinding。
 
 获批进程或受信任插件代码仍可直接访问网络；manifest capability 只约束 Forge 注册 API，不能约束任意 Node.js 调用。UI 和文档不得暗示更强的隔离。
+
+## 委派模型运行
+
+Subagent 工具使用独立的 `model` risk，在 `safe` 和 `workspace-write` 下每次调用都需确认，因为它会产生额外模型运行。审批界面显示生成的 tool 名和委派 task。宿主创建 child adapter，插件不会拿到 credential。
+
+Child 继承有效 policy/approval，只获得声明的非 subagent 工具，共享有界 run/step/tool 预算、workspace 和 abort signal，返回有界结果，且不能递归委派。启用 trace 时，child event 写入带 `parentRunId`/`subagentName` 的独立 trace，parent tool result 记录 child run ID。这是 runtime containment，不是 provider 或 OS 隔离。
 
 ## 非交互操作
 

@@ -15,6 +15,7 @@ export type PluginCapability =
   | "network:access"
   | "policy:restrict"
   | "prompt:contribute"
+  | "subagents:register"
   | "tools:register";
 
 export interface PluginManifest {
@@ -74,11 +75,29 @@ export interface PluginPolicyContribution {
   readonly reason: string;
 }
 
+export interface PluginSubagentDefinition {
+  readonly name: string;
+  readonly toolName: string;
+  readonly description: string;
+  readonly instructions: string;
+  readonly tools: readonly string[];
+  readonly limits?: {
+    readonly maxModelSteps?: number;
+    readonly maxToolCalls?: number;
+  };
+}
+
+export interface RegisteredPluginSubagent extends PluginSubagentDefinition {
+  readonly pluginName: string;
+  readonly sourcePath: string;
+}
+
 export interface ForgePluginApi {
   readonly apiVersion: typeof PLUGIN_API_VERSION;
   readonly z: typeof z;
   registerTool(tool: ForgeTool): void;
   registerCommand(command: PluginCommand): void;
+  registerSubagent(subagent: PluginSubagentDefinition): void;
   observeRunEvents(observer: (event: RunEvent) => void | Promise<void>): void;
   contributePrompt(
     hook: (

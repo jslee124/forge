@@ -10,6 +10,7 @@ import {
 import {
   type ApprovalChannel,
   AutomaticWorkspaceWritePolicy,
+  type ForgeTool,
   type ModelAdapter,
   ModelConfigurationError,
   type ModelConversationMessage,
@@ -17,6 +18,8 @@ import {
   type RunResult,
   runAgent,
   sha256,
+  type ToolContext,
+  type ToolResult,
   WorkspaceWritePolicy,
 } from "@forge/core";
 import type { DeepSeekThinkingMode } from "@forge/model-deepseek";
@@ -28,9 +31,12 @@ import {
   redactValue,
 } from "@forge/persistence";
 import {
+  createSubagentTools,
   discoverPortableSkills,
   loadPluginHost,
   PluginError,
+  type PluginSubagentRunner,
+  type RegisteredPluginSubagent,
   selectPortableSkills,
 } from "@forge/plugin-api";
 import {
@@ -175,17 +181,164 @@ export async function runTask(
           secrets,
         })
       : undefined;
-    const model = (dependencies.createAdapter ?? createForgeModelAdapter)({
+    const adapterOptions = {
       env: dependencies.env,
       provider: loaded.config.model.provider,
       model: loaded.config.model.id,
       thinking,
       reasoningEffort: loaded.config.model.reasoningEffort,
       providers: loaded.config.providers,
-    } satisfies CreateForgeModelAdapterOptions);
+    } satisfies CreateForgeModelAdapterOptions;
+    const createAdapter = (): ModelAdapter =>
+      (dependencies.createAdapter ?? createForgeModelAdapter)(adapterOptions);
+    const model = createAdapter();
     const workspace = await resolveWorkspace(
       loaded.workspaceRoot,
       loaded.workingDirectory,
+    );
+    const policy = pluginHost.extendPolicy(
+      loaded.config.permissionProfile === "workspace-write"
+        ? new AutomaticWorkspaceWritePolicy()
+        : new WorkspaceWritePolicy(),
+    );
+    const toolContext: ToolContext = {
+      workspace,
+      signal: dependencies.signal,
+      limits: {
+        maxOutputBytes: loaded.config.limits.maxToolOutputBytes,
+        maxEntries: 200,
+        commandTimeoutMs: loaded.config.limits.commandTimeoutMs,
+      },
+    };
+    const childTools = [...builtinTools, ...pluginHost.tools];
+    validateSubagentToolSelections(pluginHost.subagents, childTools);
+    const subagentBudget = {
+      remainingRuns: Math.min(4, loaded.config.limits.maxToolCalls),
+      remainingModelSteps: loaded.config.limits.maxSteps,
+      remainingToolCalls: loaded.config.limits.maxToolCalls,
+    };
+    const runSubagent: PluginSubagentRunner = async (
+      { subagent, task },
+      context,
+    ) => {
+      if (context.signal.aborted) {
+        return toolError("cancelled", "The subagent run was cancelled.");
+      }
+      if (
+        subagentBudget.remainingRuns <= 0 ||
+        subagentBudget.remainingModelSteps <= 0
+      ) {
+        return toolError(
+          "limit_reached",
+          "The shared subagent run or model-step budget was reached.",
+        );
+      }
+      const maxModelSteps = Math.min(
+        subagent.limits?.maxModelSteps ?? 4,
+        subagentBudget.remainingModelSteps,
+      );
+      const maxToolCalls = Math.min(
+        subagent.limits?.maxToolCalls ?? 8,
+        subagentBudget.remainingToolCalls,
+      );
+      subagentBudget.remainingRuns -= 1;
+      const childRunId = randomUUID();
+      const childTrace = loaded.config.trace.enabled
+        ? new JsonlTraceWriter({
+            forgeHome: loaded.forgeHome,
+            runId: childRunId,
+            parentRunId: runId,
+            subagentName: subagent.name,
+            ...(dependencies.sessionId
+              ? { sessionId: dependencies.sessionId }
+              : {}),
+            secrets,
+          })
+        : undefined;
+      try {
+        const childPluginPrompt = await pluginHost.promptContributions({
+          prompt: task,
+          workspaceRoot: loaded.workspaceRoot,
+          workingDirectory: loaded.workingDirectory,
+        });
+        const childInstructions = [
+          instructions.prompt,
+          childPluginPrompt.prompt,
+          `Subagent instructions from ${subagent.sourcePath}:\n${subagent.instructions}`,
+        ]
+          .filter((value) => value !== "")
+          .join("\n\n");
+        if (
+          Buffer.byteLength(childInstructions) > MAX_TOTAL_INSTRUCTION_BYTES
+        ) {
+          return toolError(
+            "output_limit",
+            `Instructions for subagent "${subagent.name}" exceed ${MAX_TOTAL_INSTRUCTION_BYTES} bytes.`,
+          );
+        }
+        const selectedTools = subagent.tools.map(
+          (name) => childTools.find((tool) => tool.name === name) as ForgeTool,
+        );
+        const childResult = await runAgent({
+          prompt: task,
+          context: {
+            workspaceRoot: loaded.workspaceRoot,
+            workingDirectory: loaded.workingDirectory,
+            modelId: loaded.config.model.id,
+            permissionProfile: loaded.config.permissionProfile,
+            instructionPaths: [
+              ...instructions.files.map(({ path }) => path),
+              ...childPluginPrompt.sourcePaths,
+              subagent.sourcePath,
+            ],
+          },
+          instructions: childInstructions,
+          model: createAdapter(),
+          tools: selectedTools,
+          policy,
+          ...(dependencies.approvalChannel
+            ? { approvalChannel: dependencies.approvalChannel }
+            : {}),
+          toolContext: context,
+          signal: context.signal,
+          limits: { maxModelSteps, maxToolCalls },
+          contextConfiguration: loaded.config.context,
+          onEvent: async (event) => {
+            await childTrace?.append(event);
+            const observerEvent = redactValue(event, secrets) as RunEvent;
+            for (const warning of await pluginHost.observe(observerEvent)) {
+              dependencies.stderr.write(
+                `Subagent plugin warning: ${warning}\n`,
+              );
+            }
+          },
+        });
+        subagentBudget.remainingModelSteps -= childResult.modelSteps;
+        subagentBudget.remainingToolCalls -= childResult.toolCalls;
+        if (context.signal.aborted || childResult.status === "cancelled") {
+          return toolError("cancelled", "The subagent run was cancelled.");
+        }
+        return boundedSubagentResult(
+          subagent,
+          childRunId,
+          loaded.config.trace.enabled,
+          childResult,
+          context.limits.maxOutputBytes,
+        );
+      } catch (error) {
+        if (context.signal.aborted) {
+          return toolError("cancelled", "The subagent run was cancelled.");
+        }
+        return toolError(
+          "io_error",
+          `Subagent "${subagent.name}" failed: ${safeSubagentError(error)}`,
+          true,
+        );
+      }
+    };
+    const subagentTools = createSubagentTools(
+      pluginHost.subagents,
+      runSubagent,
     );
     const render = createRunEventRenderer(
       dependencies.stdout,
@@ -211,24 +364,12 @@ export async function runTask(
         : {}),
       omittedConversationMessages: activeContext.omittedMessageCount,
       model,
-      tools: [...builtinTools, ...pluginHost.tools],
-      policy: pluginHost.extendPolicy(
-        loaded.config.permissionProfile === "workspace-write"
-          ? new AutomaticWorkspaceWritePolicy()
-          : new WorkspaceWritePolicy(),
-      ),
+      tools: [...childTools, ...subagentTools],
+      policy,
       ...(dependencies.approvalChannel
         ? { approvalChannel: dependencies.approvalChannel }
         : {}),
-      toolContext: {
-        workspace,
-        signal: dependencies.signal,
-        limits: {
-          maxOutputBytes: loaded.config.limits.maxToolOutputBytes,
-          maxEntries: 200,
-          commandTimeoutMs: loaded.config.limits.commandTimeoutMs,
-        },
-      },
+      toolContext,
       signal: dependencies.signal,
       limits: {
         maxModelSteps: loaded.config.limits.maxSteps,
@@ -316,6 +457,87 @@ function deriveActiveConversation(
   return { messages: conversation, memory: "", omittedMessageCount: 0 };
 }
 
+function validateSubagentToolSelections(
+  subagents: readonly RegisteredPluginSubagent[],
+  availableTools: readonly ForgeTool[],
+): void {
+  const available = new Set(availableTools.map(({ name }) => name));
+  for (const subagent of subagents) {
+    const unknown = subagent.tools.filter((name) => !available.has(name));
+    if (unknown.length > 0) {
+      throw new PluginError(
+        `Subagent "${subagent.name}" from plugin "${subagent.pluginName}" references unknown tool(s): ${unknown.join(", ")}.`,
+        subagent.sourcePath,
+      );
+    }
+  }
+}
+
+function boundedSubagentResult(
+  subagent: RegisteredPluginSubagent,
+  childRunId: string,
+  tracePersisted: boolean,
+  result: RunResult,
+  maxOutputBytes: number,
+): ToolResult {
+  let finalText = result.finalText;
+  let truncated = false;
+  const createOutput = () => ({
+    subagent: subagent.name,
+    runId: childRunId,
+    tracePersisted,
+    status: result.status,
+    finalText,
+    modelSteps: result.modelSteps,
+    toolCalls: result.toolCalls,
+    ...(result.message ? { message: result.message.slice(0, 1_000) } : {}),
+  });
+  let output = createOutput();
+  while (
+    Buffer.byteLength(JSON.stringify(output)) > maxOutputBytes &&
+    finalText.length > 0
+  ) {
+    truncated = true;
+    const currentBytes = Buffer.byteLength(JSON.stringify(output));
+    const ratio = Math.max(0, Math.min(0.95, maxOutputBytes / currentBytes));
+    const nextLength = Math.min(
+      finalText.length - 1,
+      Math.floor(finalText.length * ratio),
+    );
+    finalText = finalText.slice(0, Math.max(0, nextLength));
+    output = createOutput();
+  }
+  if (Buffer.byteLength(JSON.stringify(output)) > maxOutputBytes) {
+    return toolError(
+      "output_limit",
+      `Subagent metadata exceeds the ${maxOutputBytes}-byte tool output limit.`,
+    );
+  }
+  return { ok: true, output, truncated };
+}
+
+function toolError(
+  code: Extract<
+    import("@forge/core").ToolErrorCode,
+    "cancelled" | "io_error" | "limit_reached" | "output_limit"
+  >,
+  message: string,
+  retryable = false,
+): ToolResult {
+  return { ok: false, error: { code, message, retryable } };
+}
+
+function safeSubagentError(error: unknown): string {
+  if (
+    error instanceof PluginError ||
+    error instanceof ModelConfigurationError ||
+    error instanceof PersistenceError
+  ) {
+    return error.message.slice(0, 1_000);
+  }
+  return "The delegated model run failed unexpectedly.";
+}
+
 export async function runTaskFromCli(
   prompt: string,
   options: AskOptions,
@@ -391,6 +613,11 @@ export interface NetworkApprovalPreview {
   readonly value: string;
 }
 
+export interface SubagentApprovalPreview {
+  readonly tool: string;
+  readonly task: string;
+}
+
 export function createApprovalChannel(
   question: ApprovalQuestion,
   output: WritableOutput,
@@ -398,6 +625,7 @@ export function createApprovalChannel(
     readonly color?: boolean;
     readonly onCommandPreview?: (preview: CommandApprovalPreview) => void;
     readonly onNetworkPreview?: (preview: NetworkApprovalPreview) => void;
+    readonly onSubagentPreview?: (preview: SubagentApprovalPreview) => void;
   } = {},
 ): ApprovalChannel {
   return {
@@ -484,6 +712,20 @@ export function createApprovalChannel(
         } else {
           output.write(formatNetworkApprovalPreview(preview));
         }
+      } else if (action.tool.risk === "model") {
+        const input = action.input as { readonly task?: unknown };
+        const preview: SubagentApprovalPreview = {
+          tool: action.tool.name,
+          task:
+            typeof input.task === "string"
+              ? input.task.slice(0, 2_000)
+              : "Plugin-defined delegated task",
+        };
+        if (options.onSubagentPreview) {
+          options.onSubagentPreview(preview);
+        } else {
+          output.write(formatSubagentApprovalPreview(preview));
+        }
       }
 
       const answer = await question("Approve? [y/N] ", signal);
@@ -502,6 +744,12 @@ export function formatNetworkApprovalPreview(
   preview: NetworkApprovalPreview,
 ): string {
   return `Network request\n  Tool         ${preview.tool}\n  ${preview.label.padEnd(13)}${preview.value}\n`;
+}
+
+export function formatSubagentApprovalPreview(
+  preview: SubagentApprovalPreview,
+): string {
+  return `Delegated model run\n  Tool         ${preview.tool}\n  Task         ${preview.task}\n`;
 }
 
 function quoteShellArgument(value: string): string {

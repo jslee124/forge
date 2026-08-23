@@ -481,4 +481,45 @@ describe("forge run", () => {
     expect(rendered).toContain("Destination  https://example.com/docs");
     expect(rendered).toContain("Approve? [y/N]");
   });
+
+  it("shows the delegated task before model-run approval", async () => {
+    const input = new PassThrough();
+    const output = new PassThrough();
+    let rendered = "";
+    output.on("data", (chunk: Buffer) => {
+      rendered += chunk.toString("utf8");
+    });
+    input.end("y\n");
+    const controller = new AbortController();
+    const subagentTool = {
+      name: "delegate_code_review",
+      risk: "model",
+    } as ForgeTool;
+
+    const approved = await createTerminalApprovalChannel(input, output).request(
+      {
+        call: {
+          id: "subagent-1",
+          name: "delegate_code_review",
+          input: { task: "Review src/server.ts for race conditions." },
+        },
+        tool: subagentTool,
+        input: { task: "Review src/server.ts for race conditions." },
+      },
+      controller.signal,
+      {
+        workspace: { root: "/workspace", cwd: "/workspace" },
+        signal: controller.signal,
+        limits: { maxOutputBytes: 65_536, maxEntries: 200 },
+      },
+    );
+
+    expect(approved).toBe(true);
+    expect(rendered).toContain("Delegated model run");
+    expect(rendered).toContain("Tool         delegate_code_review");
+    expect(rendered).toContain(
+      "Task         Review src/server.ts for race conditions.",
+    );
+    expect(rendered).toContain("Approve? [y/N]");
+  });
 });

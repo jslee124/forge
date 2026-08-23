@@ -75,6 +75,7 @@ import {
   type RunDependencies,
   type RunMetadata,
   runTask,
+  type SubagentApprovalPreview,
 } from "./run.js";
 import {
   changeProjectPluginTrust,
@@ -120,6 +121,7 @@ interface PendingApproval {
   readonly prompt: string;
   readonly command?: CommandApprovalPreview;
   readonly network?: NetworkApprovalPreview;
+  readonly subagent?: SubagentApprovalPreview;
   readonly resolve: (answer: string | null) => void;
 }
 
@@ -1516,6 +1518,7 @@ export function InteractiveApp({
     let codexExitCode: number | undefined;
     let commandPreview: CommandApprovalPreview | undefined;
     let networkPreview: NetworkApprovalPreview | undefined;
+    let subagentPreview: SubagentApprovalPreview | undefined;
 
     const approvalChannel = createApprovalChannel(
       (approvalPrompt, signal) =>
@@ -1533,10 +1536,12 @@ export function InteractiveApp({
             prompt: approvalPrompt,
             ...(commandPreview ? { command: commandPreview } : {}),
             ...(networkPreview ? { network: networkPreview } : {}),
+            ...(subagentPreview ? { subagent: subagentPreview } : {}),
             resolve: settle,
           });
           commandPreview = undefined;
           networkPreview = undefined;
+          subagentPreview = undefined;
           setPhase("approving");
         }),
       stderr,
@@ -1547,6 +1552,9 @@ export function InteractiveApp({
         },
         onNetworkPreview: (preview) => {
           networkPreview = preview;
+        },
+        onSubagentPreview: (preview) => {
+          subagentPreview = preview;
         },
       },
     );
@@ -2527,6 +2535,19 @@ export function InteractiveApp({
                 <Text dimColor>{approval.network.label}</Text>
                 {"  "}
                 {approval.network.value}
+              </Text>
+            </Box>
+          ) : null}
+          {approval.subagent ? (
+            <Box flexDirection="column" marginY={1}>
+              <Text bold>
+                <Text color="cyan">Subagent </Text>
+                {approval.subagent.tool}
+              </Text>
+              <Text>
+                <Text dimColor>Task</Text>
+                {"  "}
+                {approval.subagent.task}
               </Text>
             </Box>
           ) : null}

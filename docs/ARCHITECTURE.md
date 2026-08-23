@@ -238,6 +238,7 @@ plugins may:
 
 - Register custom tools
 - Register user commands
+- Declare bounded host-managed subagent roles
 - Contribute prompt instructions
 - Observe immutable run events
 - Participate in selected lifecycle hooks
@@ -251,6 +252,13 @@ Node.js directly.
 
 All custom tool calls still pass through the policy kernel and tool executor.
 Plugins cannot convert a core `deny` into `allow` or bypass an approval request.
+
+A subagent declaration becomes a `model`-risk parent tool. The host—not the
+plugin—creates the child adapter, isolated conversation, inherited policy and
+approval channel, shared budgets, cancellation path, bounded result, and linked
+trace. Child tool selection excludes every subagent tool, so delegation depth
+is one. The active parent model is inherited; cross-model routing and resumable
+child sessions are not part of this contract.
 
 An in-process JavaScript plugin is trusted local code and can use Node.js APIs
 directly. API-level capability declarations do not create real isolation. Strong
@@ -280,6 +288,7 @@ The initial tools are planned as:
 | `run_command` | Spawn a program with structured arguments and limits | Variable |
 | `web_search` (example plugin) | Search through a configured or fallback public provider | Network |
 | `web_fetch` (example plugin) | Fetch bounded readable public HTTP(S) text | Network |
+| `delegate_code_review` (example plugin) | Run an isolated read-only review role | Model |
 
 Tools receive an explicit execution context instead of reading global process
 state. The context includes the workspace root, abort signal, limits, and event

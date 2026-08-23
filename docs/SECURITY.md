@@ -33,6 +33,7 @@ must state which boundaries it enforces and which risks remain with the user.
 | Later writes covered by the run approval | Allow |
 | Any process command | Confirm |
 | Any registered network tool | Confirm |
+| Any delegated subagent model run | Confirm |
 | Built-in file operation outside the workspace | Deny in v0.1 |
 | Approval-required action without an approval channel | Deny |
 
@@ -45,14 +46,15 @@ asking the user for an exception.
 ### `safe`
 
 The default profile. Workspace reads are automatic. Workspace modifications,
-process commands, and registered network tools require confirmation according
-to the table above.
+process commands, registered network tools, and delegated subagent model runs
+require confirmation according to the table above.
 
 ### `workspace-write`
 
 Workspace file tools may modify files automatically after the user selects this
-profile. Process commands and registered network tools still require
-confirmation, and outside-workspace file access remains denied in v0.1.
+profile. Process commands, registered network tools, and delegated subagent
+model runs still require confirmation, and outside-workspace file access
+remains denied in v0.1.
 
 ### `full-access`
 
@@ -140,6 +142,20 @@ An approved process command or trusted plugin code may still access the network
 directly with the permissions of the Forge process. Manifest capabilities gate
 Forge registration APIs; they do not constrain arbitrary Node.js calls. The UI
 and documentation must not imply otherwise.
+
+## Delegated model runs
+
+Subagent tools use the separate `model` risk and require confirmation on every
+call, including under `workspace-write`, because they incur another model run.
+The approval view shows the generated tool name and delegated task. The host
+creates the child adapter and never exposes credentials to the plugin.
+
+Children inherit the effective parent policy and approval channel, receive only
+declared non-subagent tools, share bounded run/step/tool budgets, use the same
+workspace and abort signal, and return bounded output. Recursive delegation is
+not available. With tracing enabled, child events are stored in a separate
+trace linked by `parentRunId` and `subagentName`; the parent tool result records
+the child run ID. This is runtime containment, not provider or OS isolation.
 
 ## Non-interactive operation
 

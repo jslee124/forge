@@ -10,6 +10,7 @@ import {
 const writeTool = fakeTool("apply_patch", "write");
 const processTool = fakeTool("run_command", "process");
 const networkTool = fakeTool("web_fetch", "network");
+const modelTool = fakeTool("delegate_review", "model");
 
 describe("permission profile safety floor", () => {
   it("requires safe-profile confirmation for writes and destructive processes", async () => {
@@ -32,6 +33,9 @@ describe("permission profile safety floor", () => {
         signal(),
       ),
     ).resolves.toMatchObject({ kind: "confirm" });
+    await expect(
+      policy.evaluate(action(modelTool, { task: "Review" }), signal()),
+    ).resolves.toMatchObject({ kind: "confirm" });
   });
 
   it("workspace-write never auto-allows process commands", async () => {
@@ -53,6 +57,9 @@ describe("permission profile safety floor", () => {
         action(networkTool, { url: "https://example.com" }),
         signal(),
       ),
+    ).resolves.toMatchObject({ kind: "confirm" });
+    await expect(
+      policy.evaluate(action(modelTool, { task: "Review" }), signal()),
     ).resolves.toMatchObject({ kind: "confirm" });
   });
 });

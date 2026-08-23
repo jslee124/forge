@@ -8,6 +8,7 @@ export const pluginCapabilitySchema = z.enum([
   "network:access",
   "policy:restrict",
   "prompt:contribute",
+  "subagents:register",
   "tools:register",
 ]);
 

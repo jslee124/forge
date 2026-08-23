@@ -13,6 +13,11 @@ export {
 } from "./host.js";
 export { pluginCapabilitySchema, pluginManifestSchema } from "./schema.js";
 export {
+  createSubagentTools,
+  type PluginSubagentRunner,
+  type PluginSubagentRunRequest,
+} from "./subagents.js";
+export {
   isProjectTrusted,
   loadPluginTrust,
   type PluginTrustStore,
@@ -32,6 +37,8 @@ export type {
   PluginPolicyAction,
   PluginPolicyContribution,
   PluginPromptContext,
+  PluginSubagentDefinition,
   PortableSkill,
+  RegisteredPluginSubagent,
 } from "./types.js";
 export { PLUGIN_API_VERSION } from "./types.js";

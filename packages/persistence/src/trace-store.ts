@@ -18,6 +18,8 @@ export class JsonlTraceWriter {
   readonly #target: string;
   readonly #runId: string;
   readonly #sessionId: string | undefined;
+  readonly #parentRunId: string | undefined;
+  readonly #subagentName: string | undefined;
   readonly #secrets: readonly string[];
   #sequence = 0;
 
@@ -25,6 +27,8 @@ export class JsonlTraceWriter {
     readonly forgeHome: string;
     readonly runId: string;
     readonly sessionId?: string;
+    readonly parentRunId?: string;
+    readonly subagentName?: string;
     readonly secrets?: readonly string[];
   }) {
     if (!traceEnvelopeSchema.shape.runId.safeParse(options.runId).success) {
@@ -37,6 +41,26 @@ export class JsonlTraceWriter {
     ) {
       throw new PersistenceError(`Invalid session ID: ${options.sessionId}`);
     }
+    if (
+      options.parentRunId !== undefined &&
+      !traceEnvelopeSchema.shape.parentRunId
+        .unwrap()
+        .safeParse(options.parentRunId).success
+    ) {
+      throw new PersistenceError(
+        `Invalid parent run ID: ${options.parentRunId}`,
+      );
+    }
+    if (
+      options.subagentName !== undefined &&
+      !traceEnvelopeSchema.shape.subagentName
+        .unwrap()
+        .safeParse(options.subagentName).success
+    ) {
+      throw new PersistenceError(
+        `Invalid subagent name: ${options.subagentName}`,
+      );
+    }
     this.#target = path.join(
       options.forgeHome,
       "runs",
@@ -44,6 +68,8 @@ export class JsonlTraceWriter {
     );
     this.#runId = options.runId;
     this.#sessionId = options.sessionId;
+    this.#parentRunId = options.parentRunId;
+    this.#subagentName = options.subagentName;
     this.#secrets = options.secrets ?? [];
   }
 
@@ -53,6 +79,8 @@ export class JsonlTraceWriter {
       schemaVersion: 1,
       runId: this.#runId,
       ...(this.#sessionId ? { sessionId: this.#sessionId } : {}),
+      ...(this.#parentRunId ? { parentRunId: this.#parentRunId } : {}),
+      ...(this.#subagentName ? { subagentName: this.#subagentName } : {}),
       sequence: this.#sequence,
       timestamp: new Date().toISOString(),
       event,

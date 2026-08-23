@@ -93,7 +93,7 @@ forge
 - 持久化会话，并按 ID 或最近使用顺序恢复已完成的对话轮次。
 - 检查上下文用量，并创建明确、可展示的对话 checkpoint。
 - 加载分层的 `AGENTS.md` 指令和可移植项目 Skills。
-- 加载能够贡献工具、命令、observer、prompt 或更严格策略 hook 的受信任插件。
+- 加载能够贡献工具、命令、observer、prompt、更严格策略 hook 或有界宿主管理 subagent 角色的受信任插件。
 - 为支持的 vision 模型附加 JPEG、PNG、GIF 或 WebP 输入。
 - 将 native-engine 运行记录为可检查的版本化 JSONL trace。
 

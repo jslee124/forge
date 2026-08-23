@@ -98,11 +98,13 @@ Loader 先解析 `FORGE_HOME`（默认用户 `~/.forge/`），校验配置，再
 
 ### Plugin host
 
-Plugin host 是扩展边界，不是安全 authority。受信任插件可注册 custom tool、user command、prompt、immutable event observer、特定 lifecycle hook，或让 policy 更严格。声明 `network:access` 的 network tool 每次调用都需确认；所有 custom tool 仍经过 policy kernel 和 executor。进程内 JavaScript plugin 是本地可信代码，API capability 不是隔离；强隔离需要子进程或 OS sandbox。
+Plugin host 是扩展边界，不是安全 authority。受信任插件可注册 custom tool、user command、prompt、immutable event observer、有界的宿主管理 subagent 角色、特定 lifecycle hook，或让 policy 更严格。声明 `network:access` 的 network tool 每次调用都需确认；所有 custom tool 仍经过 policy kernel 和 executor。进程内 JavaScript plugin 是本地可信代码，API capability 不是隔离；强隔离需要子进程或 OS sandbox。
+
+Subagent 声明会变成 `model` risk 的 parent tool。由宿主而非插件创建 child adapter、隔离对话、继承 policy/approval、共享预算、取消链路、有界结果和关联 trace。Child 工具集合排除所有 subagent tool，因此委派深度固定为一层。当前继承 parent model，不支持跨模型路由或可独立 resume 的 child session。
 
 ### Tools 与审批策略
 
-每个工具有唯一名称、model-facing 描述、Zod input schema、执行函数、risk 分类和结构化结果。初始工具包括 `list_files`、`read_file`、`search`、`create_file`、`apply_patch`、`run_command`，以及示例 plugin 的 `web_search`/`web_fetch`。
+每个工具有唯一名称、model-facing 描述、Zod input schema、执行函数、risk 分类和结构化结果。初始工具包括 `list_files`、`read_file`、`search`、`create_file`、`apply_patch`、`run_command`，以及示例 plugin 的 `web_search`/`web_fetch` 和 `delegate_code_review`。
 
 策略在执行前返回：
 
