@@ -211,6 +211,23 @@ pnpm check
 
 [`examples/plugins/web-tools`](../../examples/plugins/web-tools) 是无依赖的插件测试示例，注册 `web_search`（有 `BRAVE_SEARCH_API_KEY` 时使用 Brave，否则使用 DuckDuckGo 非 JS HTML）和 `web_fetch`（提取有界的公开 HTTP(S) 文本）。两者都是 `network` risk，每次调用需审批；共享 HTTP transport 遵循 `HTTP_PROXY`、`HTTPS_PROXY` 和 `NO_PROXY`。示例检查 redirect、local/private/reserved 地址、端口、MIME、时间、下载量、字符数和输出大小，但这些不是网络 sandbox，配置的 proxy 也属于 trust boundary。
 
+## MCP、to-dos 与 subagents
+
+| 能力 | 当前插件 API | 示例或限制 |
+| --- | --- | --- |
+| MCP server tools | 可以，但协议与生命周期有限 | [`mcp-stdio`](../../examples/plugins/mcp-stdio) 为一个配置的 stdio server 注册需审批的 `process` risk list/call bridge。 |
+| 轻量 to-dos | 可以 | [`todos`](../../examples/plugins/todos) 注册内存工具和有界 prompt contribution；目前没有持久化和自定义 TUI panel。 |
+| 真正 subagents | 暂无受支持实现 | 插件拿不到 model/runtime/session factory，也没有 child policy、budget、trace、cancel ownership。直接调用 provider 或递归启动 Forge CLI 会绕过或重复安全与持久化设计。 |
+
+MCP 示例固定演示基于 session、newline-delimited stdio 的 `2025-11-25`
+协议版本，只证明现有插件能够桥接 MCP tools，不代表 Forge 已具备完整 MCP host。
+Streamable HTTP、当前无握手协议、server reuse、prompts/resources/roots、
+sampling、tasks 和 lifecycle disposal 需要一等 host 或扩展后的插件合约。
+
+安全的 subagent seam 至少需要 host 提供 child-run factory，并明确 model、
+继承或更严格的 policy、workspace scope、budget、cancel、父子 event/trace、
+有界返回值和 session ownership。在此之前应诚实记录 core gap，不添加绕过边界的示例。
+
 ## 给模型作者的步骤
 
 写插件前阅读全文和当前 types/schema/host；按用户意图选择 user/project scope；只声明最小 capability；优先 plain ESM、`api.z` 和无依赖实现；在 execute 内再次校验；选择诚实 risk 并限制所有输入输出；activation 不做意外副作用；用 fake I/O 写确定性测试；运行 format、typecheck、目标测试和全量测试；记录安装方式、环境变量、外发数据、安全控制和限制，不声称有 sandbox。

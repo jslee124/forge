@@ -468,6 +468,29 @@ serialized output. These controls reduce accidental SSRF and runaway output;
 they are not a network sandbox, and a configured proxy is part of the trust
 boundary.
 
+## MCP, to-dos, and subagents
+
+The examples make the current extension boundary concrete:
+
+| Capability | Current plugin API | Example / limitation |
+| --- | --- | --- |
+| MCP server tools | Yes, with protocol and lifecycle limits | [`mcp-stdio`](../examples/plugins/mcp-stdio) registers approved `process`-risk list/call bridge tools for one configured stdio server. |
+| Lightweight to-dos | Yes | [`todos`](../examples/plugins/todos) registers an in-memory tool and bounded prompt contribution. Persistence and a custom TUI panel are not available. |
+| True subagents | No supported implementation | Plugins receive no model/runtime/session factory, child policy, budget, trace, or cancellation ownership API. Direct provider calls or recursive CLI spawning would bypass or duplicate Forge's safety and persistence design. |
+
+The MCP example intentionally targets session-based, newline-delimited stdio
+revision `2025-11-25`; it is evidence that a plugin can bridge MCP tools, not a
+claim that Forge has complete MCP host support. Streamable HTTP, current
+handshake-free protocol support, server reuse, prompts/resources/roots,
+sampling, tasks, and lifecycle disposal need a first-class host or expanded
+plugin contract.
+
+A safe subagent plugin seam would need a host-provided child-run factory with
+explicit model selection, inherited-or-stricter policy, workspace scope,
+budgets, cancellation, event/trace parenting, bounded return values, and clear
+session ownership. Until that exists, Forge should report subagents as a core
+gap rather than publish an unsafe example.
+
 ## Instructions for a model author
 
 When asked to write a Forge plugin, follow this sequence:
