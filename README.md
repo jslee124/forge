@@ -225,6 +225,7 @@ Both failures remain in the repository. A run counts as passing only when Forge
 finishes successfully and both fixture-owned tests and an external grader pass.
 Read the [evaluation guide](docs/EVALUATION.md), the
 [published report](evals/reports/v0.1/report.md), and the
+[v0.2.0 release notes](evals/reports/v0.2/RELEASE_NOTES.md), plus the
 [v0.2 context-management gate](evals/reports/v0.2/CONTEXT_MANAGEMENT.md).
 
 Live trials are explicit and opt-in because they make paid provider requests:
@@ -262,12 +263,12 @@ authentication, plugin API, and provider adapters.
 | Context budgets and compaction | [Context management](docs/CONTEXT_MANAGEMENT.md) |
 | Project instructions and configuration | [Project context](docs/PROJECT_CONTEXT.md) |
 | Plugin development and trust | [Plugins](docs/PLUGINS.md) |
-| Evaluations and release evidence | [Evaluation](docs/EVALUATION.md) · [v0.1 contract](docs/V0.1_SPEC.md) |
+| Evaluations and release evidence | [Evaluation](docs/EVALUATION.md) · [v0.2.0 release notes](evals/reports/v0.2/RELEASE_NOTES.md) · [v0.1 contract](docs/V0.1_SPEC.md) |
 
 ## Current status and limitations
 
-Forge is under active development. The current source version is `0.2.0`, while
-the latest Git tag is `v0.1.0`. Automatic context checkpoint generation remains
+Forge is under active development. The current source version and latest Git
+tag are `0.2.0`. Automatic context checkpoint generation remains
 opt-in while provider-quality evidence is collected.
 
 - The native runtime supports DeepSeek, OpenAI API, and configured

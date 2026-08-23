@@ -3,6 +3,11 @@
 This directory is reserved for reviewed release reports. Generated local
 artifacts are written to the ignored `evals/artifacts/` directory first.
 
-No live DeepSeek report has been published yet. The v0.1 report must contain all
-successful and failed trials required by `docs/V0.1_SPEC.md`, identify a clean
-Forge commit, and reference parseable redacted traces.
+- [v0.1 evaluation report](v0.1/report.md) and [release notes](v0.1/RELEASE_NOTES.md)
+- [v0.2.0 release notes](v0.2/RELEASE_NOTES.md)
+- [v0.2 context-management gate](v0.2/CONTEXT_MANAGEMENT.md)
+
+The v0.1 report contains the required successful and failed live trials and
+parseable redacted traces. The v0.2.0 release adds deterministic context
+evidence; provider-tokenizer accuracy, paid-provider latency, and live
+task-quality comparisons remain explicitly deferred.

@@ -181,7 +181,7 @@ pnpm eval:deterministic
 | `retry-cache` | 2/3 | 66.7% |
 | `validation-bug` | 2/3 | 66.7% |
 
-两次失败仍保留在仓库中。只有 Forge 成功完成，且 fixture 自有测试和外部 grader 都通过时，运行才计为通过。请阅读[评测指南](docs/zh-CN/EVALUATION.md)、[已发布报告](evals/reports/v0.1/report.md)以及 [v0.2 上下文 gate](evals/reports/v0.2/CONTEXT_MANAGEMENT.md)。
+两次失败仍保留在仓库中。只有 Forge 成功完成，且 fixture 自有测试和外部 grader 都通过时，运行才计为通过。请阅读[评测指南](docs/zh-CN/EVALUATION.md)、[已发布报告](evals/reports/v0.1/report.md)、[v0.2.0 发布说明](evals/reports/v0.2/RELEASE_NOTES.md)以及 [v0.2 上下文 gate](evals/reports/v0.2/CONTEXT_MANAGEMENT.md)。
 
 真实试验是显式 opt-in，因为会产生付费 provider 请求：
 
@@ -216,13 +216,13 @@ pnpm forge --help        # 构建并查看 CLI 帮助
 | 上下文预算与压缩 | [Context management](docs/CONTEXT_MANAGEMENT.md) | [上下文管理](docs/zh-CN/CONTEXT_MANAGEMENT.md) |
 | 项目指令与配置 | [Project context](docs/PROJECT_CONTEXT.md) | [项目上下文](docs/zh-CN/PROJECT_CONTEXT.md) |
 | 插件开发与信任 | [Plugins](docs/PLUGINS.md) | [插件](docs/zh-CN/PLUGINS.md) |
-| 评测与发布证据 | [Evaluation](docs/EVALUATION.md) · [v0.1 contract](docs/V0.1_SPEC.md) | [评测](docs/zh-CN/EVALUATION.md) · [v0.1 合约](docs/zh-CN/V0.1_SPEC.md) |
+| 评测与发布证据 | [Evaluation](docs/EVALUATION.md) · [v0.2.0 发布说明](evals/reports/v0.2/RELEASE_NOTES.md) · [v0.1 contract](docs/V0.1_SPEC.md) | [评测](docs/zh-CN/EVALUATION.md) · [v0.1 合约](docs/zh-CN/V0.1_SPEC.md) |
 
 也可以直接打开[中文文档目录](docs/zh-CN/README.md)。
 
 ## 当前状态与限制
 
-Forge 仍在积极开发中。当前源码版本为 `0.2.0`，最新 Git tag 为 `v0.1.0`。自动上下文 checkpoint 仍默认 opt-in，同时还在收集 provider 质量证据。
+Forge 仍在积极开发中。当前源码版本和最新 Git tag 都是 `0.2.0`。自动上下文 checkpoint 仍默认 opt-in，同时还在收集 provider 质量证据。
 
 - Native runtime 支持 DeepSeek、OpenAI API 和已配置的 OpenAI-compatible 路由；原生 Anthropic 与 Gemini 协议尚未实现。
 - 模型行为具有非确定性；运行时正确不保证真实任务成功。
