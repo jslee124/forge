@@ -1,503 +1,214 @@
-# Forge
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/forge-logo-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="docs/assets/forge-logo-light.svg">
+    <img src="docs/assets/forge-logo-light.svg" alt="Forge" width="760">
+  </picture>
+</p>
 
-Forge is a safe-by-default, observable, extensible, and evaluable coding agent
-built with TypeScript.
+<p align="center">
+  <strong>A coding agent you can inspect, constrain, and evaluate.</strong><br>
+  <sub>Forge owns the agent loop, keeps tool use behind explicit policy, and records evidence for every run.</sub>
+</p>
 
-It is a learning project and portfolio project focused on the engineering behind
-coding agents: model interaction, tool execution, safety boundaries, execution
-traces, plugins, and reproducible evaluations.
+<p align="center">
+  <a href="https://github.com/jslee124/forge/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/jslee124/forge/ci.yml?branch=main&amp;style=flat-square&amp;label=CI" alt="CI status"></a>
+  <img src="https://img.shields.io/badge/source-v0.2.0-0e7490?style=flat-square" alt="Source version 0.2.0">
+  <img src="https://img.shields.io/badge/Node.js-%3E%3D24-3c873a?style=flat-square&amp;logo=nodedotjs&amp;logoColor=white" alt="Node.js 24 or newer">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-7c3aed?style=flat-square" alt="MIT license"></a>
+</p>
 
-> Status: Milestones 8 through 10 are complete. Forge v0.2 includes the bounded coding runtime,
-> persistent sessions and traces, three reproducible evaluation tasks, external
-> graders, an opt-in DeepSeek runner, published live evidence, and an MIT
-> license. Trusted plugins and portable project skills are available in v0.2,
-> with a tested `web_search`/`web_fetch` example and explicit network approval.
-> Forge can also use ChatGPT subscription access through the official Codex App
-> Server without copying or parsing another application's credential file.
-> Long sessions now receive inspectable per-step context budgets, lossless v2
-> transcripts with opt-in checkpoints, bounded Codex wrappers, and explicit
-> context-limit stops.
+<p align="center">
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#why-forge">Why Forge?</a> ·
+  <a href="#safety-model">Safety</a> ·
+  <a href="#evaluation">Evaluation</a> ·
+  <a href="#documentation">Documentation</a>
+</p>
 
-## Vision
+Forge is an open-source TypeScript project for learning and demonstrating the
+engineering behind coding agents: model interaction, tool execution, approval
+boundaries, context management, persistence, plugins, and reproducible
+evaluations.
 
-Forge should eventually be able to accept a repository-level task such as:
+## Why Forge?
+
+Many coding-agent demos stop when a model emits a tool call. Forge focuses on
+everything that must happen around that call for the system to be understandable
+and testable.
+
+| Capability | What Forge proves |
+| --- | --- |
+| **Forge-owned loop** | The runtime controls model steps, tool execution, continuation, recovery, cancellation, and stop limits. |
+| **Explicit policy** | Every tool proposal receives an `allow`, `confirm`, or `deny` decision before execution. |
+| **Observable runs** | Structured terminal events and versioned JSONL traces show what the model proposed and what actually happened. |
+| **Persistent sessions** | Completed conversations survive restarts without restoring old approvals or pending tool calls. |
+| **Budgeted context** | `/context` exposes the active budget; optional checkpoints compact completed history without deleting the canonical transcript. |
+| **Reproducible evaluation** | Deterministic tests prove runtime behavior, while live-model trials retain both successes and failures. |
+| **Controlled extensibility** | Trusted plugins and portable project Skills extend Forge without bypassing the core policy pipeline. |
+
+## Quick start
+
+### Prerequisites
+
+- Node.js 24 or newer
+- pnpm 11.18.0
+- Codex CLI only when using ChatGPT subscription access
+
+Run Forge from source:
 
 ```bash
-forge run "Fix the failing tests"
+git clone https://github.com/jslee124/forge.git
+cd forge
+pnpm install
+pnpm forge
 ```
 
-It will inspect the workspace, use tools to read and modify code, run relevant
-commands, react to failures, and stop only after it has verified the result or
-reached a defined limit.
-
-Type `forge` to start an interactive session where you can ask the agent to
-perform tasks and inspect model-provided reasoning, actions, tool calls, and
-execution decisions.
-
-```bash
-forge
-```
-
-## Project goals
-
-- Build the core agent loop instead of hiding it behind a high-level framework.
-- Use Vercel AI SDK as the model integration layer.
-- Execute filesystem tools and child processes within explicit safety boundaries.
-- Show reasoning or thinking content when the model provider returns it.
-- Represent every model and tool action as a structured event.
-- Save complete execution traces for inspection and replay.
-- Evaluate behavior with reproducible coding tasks and automated graders.
-- Keep the core runtime independent from any single model provider.
-- Load user-wide settings and instructions from `~/.forge/`.
-- Load repository guidance from the standard `AGENTS.md` hierarchy.
-- Let trusted plugins extend Forge without weakening mandatory safeguards.
-
-## Non-goals for the first version
-
-- Multi-agent orchestration
-- IDE extensions
-- Browser automation
-- Cloud deployment
-- Long-term memory
-- Autonomous Git pushes or pull requests
-- Support for every model provider and agent framework
-
-## Planned architecture
+Inside the interactive terminal, enter `/login` and choose one of the available
+provider routes. Then ask Forge to inspect or change the current repository:
 
 ```text
-CLI
- |
- |-- Forge Engine
- |    `-- Model Adapter --> Vercel AI SDK --> DeepSeek / OpenAI API
- |
- `-- Codex Engine -------> Official Codex App Server --> ChatGPT subscription
-
-Forge Agent Runtime
- |-- Model Adapter ------> Vercel AI SDK ------> DeepSeek / OpenAI API
- |-- Context Loader -----> ~/.forge / AGENTS.md / .agents / project .forge
- |-- Plugin Host --------> Tools / Commands / Controlled Hooks
- |-- Policy Kernel ------> Allow / Confirm / Deny
- |-- Tool Executor ------> Filesystem / Search / Patch / Shell
- `-- Run Events ---------> Terminal Output + JSONL Trace
+Fix the failing tests. Inspect the relevant files first and verify the result.
 ```
 
-The Forge runtime will own the execution loop, state transitions, stop
-conditions, safety checks, and trace events. All built-in and plugin tools must
-pass through the policy kernel. Framework integrations such as LangChain may be
-added later as optional adapters and evaluation baselines.
+Useful interactive commands include:
 
-## Documentation
-
-- [Product definition](docs/PRODUCT.md)
-- [Architecture](docs/ARCHITECTURE.md)
-- [Interactive CLI UI](docs/CLI_UI.md)
-- [Authentication model](docs/AUTHENTICATION.md)
-- [Project context and local customization](docs/PROJECT_CONTEXT.md)
-- [Security model](docs/SECURITY.md)
-- [Persistent sessions and run traces](docs/SESSIONS.md)
-- [Plugin authoring guide](docs/PLUGINS.md)
-- [v0.1 acceptance and evaluation specification](docs/V0.1_SPEC.md)
-- [Evaluation commands, reports, and current evidence](docs/EVALUATION.md)
-- [Roadmap](docs/ROADMAP.md)
-
-## Initial technical baseline
-
-- Node.js 24 LTS
-- pnpm workspaces, pinned through the root `packageManager` field
-- ESM-only TypeScript monorepo
-- TypeScript project references and `tsc -b` for builds
-- Commander for CLI parsing
-- Ink and React for the interactive terminal UI
-- Zod for runtime schemas
-- Biome for formatting and linting
-- Vitest for tests
-- Vercel AI SDK with `@ai-sdk/deepseek` and `@ai-sdk/openai`
-- `deepseek-v4-flash` as the initial model, with thinking mode selected
-  explicitly rather than inherited from provider defaults
-
-The root package is private. Publishable package boundaries will only be added
-when a milestone needs them; the monorepo will not begin with empty placeholder
-packages.
-
-## Development
-
-Prerequisites:
-
-- Node.js 24 LTS
-- pnpm 11.18.0
-- Codex CLI for ChatGPT subscription access
-
-Install dependencies:
-
-```bash
-pnpm install
+```text
+/login      configure or manage a provider
+/model      choose the active model
+/effort     choose a supported reasoning effort
+/context    inspect the active context budget
+/plugins    review project plugin trust
+/resume     continue a persisted session
+/help       show the complete command list
 ```
 
-Run the CLI scaffold:
-
-```bash
-pnpm forge --version
-pnpm forge --help
-```
-
-Start an interactive session from the repository:
-
-```bash
-pnpm forge
-# Then enter /login and choose a provider.
-```
-
-The blue startup frame lists enabled user plugins, trusted or skipped project
-plugins, and discovered project Skills before the first prompt. This is
-metadata-only discovery; project plugin code is still not imported before
-trust, and actual activation happens when the native Forge Engine starts a run.
-Use `/plugins` inside the TUI to review project plugin versions and capabilities,
-then press `t` and confirm with `y` to trust the workspace. The same panel can
-revoke trust without leaving the session.
-
-To exercise the plugin system with bounded network tools, copy the checked-in
-example into the user plugin directory and enable `web-tools` in
-`$FORGE_HOME/config.json`:
-
-```bash
-mkdir -p "${FORGE_HOME:-$HOME/.forge}/plugins"
-cp -R examples/plugins/web-tools "${FORGE_HOME:-$HOME/.forge}/plugins/web-tools"
-forge plugins list
-```
-
-The example's `web_search` uses Brave Search when `BRAVE_SEARCH_API_KEY` is set
-and otherwise falls back to DuckDuckGo HTML search. `web_fetch` accepts only
-bounded public HTTP(S) text resources. Both use the `network` risk and require
-approval on every model call. See the [plugin authoring guide](docs/PLUGINS.md)
-for the complete API, testing recipe, security boundary, and model-ready plugin
-authoring checklist.
-
-Environment-only setup remains available:
-
-```bash
-export DEEPSEEK_API_KEY="your-api-key"
-pnpm forge
-```
-
-Forge also honors standard HTTP proxy variables for model providers and plugins
-that use the global `fetch` implementation:
-
-```bash
-export HTTP_PROXY="http://127.0.0.1:7890"
-export HTTPS_PROXY="$HTTP_PROXY"
-export NO_PROXY="localhost,127.0.0.1"
-pnpm forge
-```
-
-Lowercase aliases are supported. Proxy URLs must use `http://` or `https://`;
-for local proxy applications, select their HTTP or mixed port rather than a
-SOCKS-only port.
-
-The interactive prompt persists completed user/assistant turns under
-`$FORGE_HOME/sessions/`. Continue one after restart with `forge resume <id>`,
-`forge resume --last`, or the interactive `/resume` picker. Each prompt remains
-a separate bounded run with fresh policy and approval state; pending tool calls,
-provider continuations, and command approvals are never restored.
-Available commands are `/help`, `/new`, `/clear`, `/context`, `/compact`,
-`/plugins`, `/login`, `/logout`, `/model`, `/delete-model`, `/effort`,
-`/resume`, and `/exit`. `/plugins`
-reviews, trusts, or untrusts project plugins without leaving the TUI. `/login`
-lets you choose ChatGPT subscription, DeepSeek API, OpenAI API, or a
-user-defined OpenAI-compatible provider route. API keys are entered through a masked field and stored in
-`$FORGE_HOME/auth.json`; the directory is mode `0700` and the file is mode
-`0600`. Like Pi and OpenCode's local auth files, this is plaintext protected by
-filesystem permissions rather than an OS keychain. ChatGPT credentials remain
-owned by the official Codex App Server.
-`DEEPSEEK_API_KEY` and `OPENAI_API_KEY` remain supported and take precedence
-over stored credentials.
-`/model` discovers ChatGPT subscription models and also shows API models. It
-selects the model once instead of repeating it for every effort level.
-`/effort` opens the active model's supported effort levels, `/effort high` sets
-a level directly, and Shift+Tab cycles levels from the prompt. Model and effort
-selections persist separately from credentials.
-`/logout` lists authenticated providers and removes a selected provider's
-stored credential while warning when an environment-variable credential
-remains active. `/delete-model` removes a user-configured third-party model
-after confirmation; it keeps the provider route and credential, and requires
-switching away from the active model first. The same action is available from
-the configured provider's `/login` management menu, so models can be removed
-and added again without logging out or recreating the route.
-
-Third-party routes can target gateways and local servers such as Ollama or
-vLLM. `/login` validates the endpoint, asks whether it uses a bearer key or no
-authentication, discovers `GET /models` with a bounded request, and falls back
-to manual model entry. Configured models appear in the existing fuzzy `/model`
-picker and expose their declared levels through `/effort`. Every configured
-third-party route appears directly in the `/login` provider picker with its
-full Base URL, API type, authentication mode, login status, and current model
-count. Selecting one opens provider management: add a model (and enter a
-replacement key when signed out), log out, or remove the provider. Logout keeps
-the route and its models visible as signed out. Remove provider is the explicit
-destructive action: after confirmation it deletes the route, all of its
-configured models, and its stored credential. Forge cannot remove an
-environment variable from the parent shell, and the active provider must be
-switched before removal.
-
-`/models` capability metadata is best-effort. Forge reads a small set of
-explicit reasoning-effort extensions when an endpoint advertises them, shows
-their source in setup, and allows a manual override. Missing metadata means
-**provider default**, not "non-reasoning"; Forge does not spend tokens probing
-unsupported effort values. Configured effort maps always send their explicit
-wire value, including `"none": "none"` when reasoning should be disabled.
-Provider management labels tool-loop compatibility as unverified until the
-endpoint's full agent continuation behavior is known.
-
-Routes live only in `$FORGE_HOME/config.json`; project `.forge/config.json`
-files may not define them because an endpoint decides where a credential is
-sent. Remote routes require HTTPS, while plaintext HTTP is accepted only for
-loopback hosts. A stored route credential is bound to the canonical endpoint,
-so changing a route cannot silently send an old key to a new address.
-
-Example auth-free local route:
-
-```json
-{
-  "schemaVersion": 1,
-  "providers": {
-    "ollama": {
-      "api": "openai-completions",
-      "baseUrl": "http://localhost:11434/v1",
-      "auth": { "type": "none" },
-      "models": [{ "id": "qwen3", "reasoningGears": false }]
-    }
-  }
-}
-```
-Ctrl+C cancels an active task and returns to the prompt; press it again to exit.
-
-The [interactive CLI UI](docs/CLI_UI.md) supports Shift+Enter, Meta+Enter
-(`ESC+Enter`), or Ctrl+J for a newline, live `/` command completion, and
-bounded fuzzy `@` workspace-file selection. A selected path is sent to the
-model as an explicit reference; the model still reads its contents through the
-normal `read_file` tool. When the selected file is JPEG, PNG, GIF, or WebP and
-the active model is `deepseek-v4-flash-vision-exp`, Forge also sends it as an
-image attachment. Pasting or dragging an absolute image path—including a
-macOS clipboard helper's `/var/.../T/...png` path—creates a visible
-`[Image #N]` attachment instead of treating the leading slash as a command.
-File-write approval shows a colored, line-numbered diff with a no-color
-fallback.
-
-Forge directly enables the enhanced keyboard protocol in known-compatible
-terminals, including VS Code and Ghostty, without sending a startup capability
-query that can be echoed as input. Forge also accepts the common `ESC+Enter`
-encoding used by terminal coding agents. On other terminals, Ctrl+J remains
-the portable newline shortcut.
-
-To make the development build available as `forge` globally:
+To make the development checkout available globally:
 
 ```bash
 pnpm link:global
 forge
 ```
 
-The link points to this checkout. Run `pnpm build` after code changes, and use
-`pnpm unlink:global` to remove it.
+The link points to the current checkout. Run `pnpm build` after source changes
+and `pnpm unlink:global` when you no longer need it.
 
-Send one prompt to DeepSeek:
+## What Forge can do
+
+- Inspect a workspace with bounded file listing, reading, and search tools.
+- Create files and apply targeted patches after showing an exact diff.
+- Run structured process commands with explicit arguments, timeouts, output
+  limits, and approval.
+- React to failed verification and continue toward a corrected result.
+- Stream model text and provider-exposed reasoning as separate events.
+- Persist sessions and resume completed conversation turns by ID or recency.
+- Inspect context usage and create explicit, displayable conversation
+  checkpoints.
+- Load hierarchical `AGENTS.md` instructions and portable project Skills.
+- Load trusted plugins that contribute tools, commands, observers, prompts, or
+  stricter policy hooks.
+- Attach JPEG, PNG, GIF, or WebP input to supported vision models.
+- Record native-engine runs as inspectable, versioned JSONL traces.
+
+Run a one-shot native-engine task:
 
 ```bash
-export DEEPSEEK_API_KEY="your-api-key"
-pnpm forge ask "Explain what this repository is for"
+pnpm forge run "Inspect the repository and summarize its architecture"
 ```
 
-Optional OpenAI API-key access uses Forge's native runtime and is billed
-separately from ChatGPT subscriptions:
-
-```bash
-export OPENAI_API_KEY="your-api-key"
-pnpm forge run "Inspect this repository" \
-  --provider openai \
-  --model gpt-5.4-mini \
-  --reasoning-effort low
-```
-
-If you only have a ChatGPT subscription, skip this API-key setup and use the
-Codex commands below. Forge's default tests use mocked transports and never make
-paid OpenAI API requests.
-
-Inspect or remove saved API credentials with `forge auth status deepseek`,
-`forge auth logout deepseek`, `forge auth status openai-api`, and
-`forge auth logout openai-api`. Logout removes only Forge's stored key; it
-cannot unset an environment variable in your parent shell. Never commit
-`auth.json`, and do not set `FORGE_HOME` to a shared or repository directory.
-
-Use a ChatGPT subscription through the official Codex App Server:
+Run through the separate Codex Engine with ChatGPT subscription access:
 
 ```bash
 pnpm forge auth login openai
-pnpm forge auth status openai
-pnpm forge models list --provider openai
-pnpm forge codex "Inspect this repository and summarize it" \
-  --model gpt-5.6-luna \
-  --reasoning-effort medium
+pnpm forge codex "Inspect this repository and summarize it"
 ```
 
-Use `--method device-code` for a headless login. `forge models list` discovers
-the currently available models and their supported reasoning efforts from the
-running Codex version; Forge does not hard-code that catalog. The same Codex
-path is available through `forge run --engine codex`.
+See the [CLI UI guide](docs/CLI_UI.md) for keyboard shortcuts, image paste and
+drag-and-drop, slash commands, file mentions, diff review, and interactive
+provider management.
 
-The Codex Engine is intentionally separate from Forge's native agent runtime.
-It uses Codex's conversation, tool, sandbox, approval, and authentication
-implementation. Its default `safe` profile maps to Codex read-only mode. Pass
-`--permission-profile workspace-write` explicitly to permit Codex workspace
-writes and interactive approval requests. Codex Engine events are streamed to
-the terminal but are not yet stored in Forge's native JSONL run schema.
+## Safety model
 
-Forge starts the `codex` executable found on `PATH`; set `FORGE_CODEX_PATH` to
-an explicit executable path when needed. Codex owns credential persistence and
-refresh. Forge never reads `~/.codex/auth.json` or receives the access and
-refresh tokens. Because the account is shared with Codex, `forge auth logout
-openai` also signs that Codex account out for other local Codex clients.
+Forge is safe by default in a specific, inspectable sense:
 
-Run a repository coding task:
+| Action | Default `safe` decision |
+| --- | --- |
+| Read, list, or search inside the workspace | Allow |
+| First workspace write in a run | Confirm |
+| Later writes covered by that run approval | Allow |
+| Any process command | Confirm |
+| Any registered network tool | Confirm |
+| Built-in file access outside the workspace | Deny |
+| Approval-required action without an approval channel | Deny |
 
-```bash
-pnpm forge run "Inspect the README and package files, then summarize the project"
+Built-in file tools resolve canonical paths and symlinks before enforcing the
+workspace boundary. Process commands use structured `program + args[]` input
+with `shell: false`, a 60-second default timeout, and bounded output.
+
+> **Security boundary:** Approval is not isolation. Forge is **not an
+> operating-system sandbox**. An approved child process runs with the privileges
+> of the user who launched Forge, and trusted plugins are in-process code. Read
+> the [security model](docs/SECURITY.md) before using Forge on untrusted
+> repositories.
+
+## Providers and engines
+
+Forge keeps authentication method, provider protocol, and runtime ownership
+separate.
+
+| Access route | Runtime | Notes |
+| --- | --- | --- |
+| DeepSeek API key | Native Forge Engine | Chat, tool use, and supported experimental vision input |
+| OpenAI API key | Native Forge Engine | API usage is billed separately from ChatGPT subscriptions |
+| OpenAI-compatible route | Native Forge Engine | User-scoped HTTPS endpoints or auth-free loopback servers |
+| ChatGPT subscription | Codex Engine | Uses the official Codex App Server and its existing account boundary |
+
+API keys may be entered through the masked `/login` flow or supplied through
+environment variables. Environment credentials take precedence. Forge stores
+saved API keys in an owner-only local file; Codex continues to own ChatGPT
+credentials and refresh. See [Authentication](docs/AUTHENTICATION.md) for the
+complete boundary and third-party route configuration.
+
+## Architecture
+
+```text
+Interactive CLI
+ |
+ |-- Forge Engine
+ |   `-- Native runtime
+ |       |-- Models: DeepSeek / OpenAI / compatible APIs
+ |       |-- Context: ~/.forge / AGENTS.md / .agents
+ |       |-- Extensions: plugins / Skills
+ |       |-- Policy: allow / confirm / deny
+ |       |-- Tools: files / search / patch / process
+ |       `-- Output: terminal events / JSONL traces
+ |
+ `-- Codex Engine
+     `-- Official Codex App Server
 ```
 
-Forge uses the `safe` permission profile by default: reads are automatic, while
-the first workspace write and every process command require confirmation. To
-allow workspace file writes without per-run write approval, select
-`workspace-write`; process commands still require confirmation:
+The native runtime remains provider-neutral. Adapters translate provider
+requests and continuation metadata; the core owns lifecycle state, policy,
+limits, tools, and trace events. The Codex Engine is deliberately separate and
+uses Codex's conversation, sandbox, approval, and authentication behavior.
 
-```bash
-pnpm forge run "Fix the failing tests" --permission-profile workspace-write
-```
-
-`forge run` lets the model propose `list_files`, `read_file`, `search`,
-`create_file`, `apply_patch`, and `run_command` calls. Forge validates each
-call, records an `allow`, `confirm`, or `deny` policy decision, executes
-approved tools itself, and returns structured results to the next model step.
-File creation refuses to replace an existing path. The first workspace write
-shows a diff and requires confirmation; that approval covers later workspace
-writes only in the same run. Every process command is shown and confirmed
-separately. Commands use structured arguments with no shell, a 60-second
-maximum timeout, and a 65,536-byte result limit. The run stops after at most 12
-model steps or 40 tool calls.
-
-Forge uses `deepseek-v4-flash` with thinking enabled by default. Both settings
-are explicit and can be changed for one invocation:
-
-```bash
-pnpm forge ask "Answer briefly" \
-  --model deepseek-v4-flash \
-  --thinking disabled
-```
-
-`FORGE_MODEL` and `FORGE_THINKING` provide environment-level defaults. Command
-line flags take precedence. Valid thinking modes are `enabled` and `disabled`.
-Reasoning is labeled separately only when DeepSeek returns reasoning content;
-Forge does not synthesize it. Token usage is written to standard error when the
-provider reports it.
-
-DeepSeek image understanding uses the experimental
-`deepseek-v4-flash-vision-exp` model and its Responses API. Attach a local
-image, an HTTP(S) URL, or a base64 image data URL:
-
-```bash
-pnpm forge run "Inspect this screenshot and fix the UI bug" \
-  --model deepseek-v4-flash-vision-exp \
-  --reasoning-effort max \
-  --image screenshots/broken-layout.png
-```
-
-`forge ask` accepts the same `--image <source...>` option. Forge supports JPEG,
-PNG, GIF, and WebP, at most eight images, 20 MiB per local/data image, and 40
-MiB combined. Local paths are canonicalized and must remain inside the
-workspace when selected through the `@` workspace picker. Paths supplied
-explicitly with `--image`, paste, or drag-and-drop may point to another
-readable local directory. Text-only DeepSeek models reject attachments locally
-instead of letting the API replace them with placeholder text. DeepSeek's
-current vision model returns text and reasoning; it does not generate image
-output. Session history records the textual file reference, not base64 pixels,
-so re-attach an image when a later interactive turn must inspect it again.
-The vision Responses transport accepts reasoning efforts `none`, `minimal`,
-`low`, `medium`, `high`, `xhigh`, and `max`; disabling `--thinking` forces
-`none`. The experimental endpoint may report reasoning-token usage without
-returning reasoning text. In that case Forge shows the reported token count and
-states that the provider did not expose the reasoning instead of presenting a
-blank or invented reasoning block.
-
-Forge loads user defaults from `$FORGE_HOME/config.json` (or
-`~/.forge/config.json`) and project limits from `<workspace>/.forge/config.json`.
-Project configuration may only make safety limits stricter and cannot select a
-permission profile, model, or trace behavior. Inspect or validate the effective
-configuration without starting a model request:
-
-```bash
-pnpm forge config show
-pnpm forge config validate
-```
-
-Optional user instructions come from `$FORGE_HOME/AGENTS.md`. Project
-instructions are loaded once from the repository root to the current working
-directory, preferring `AGENTS.override.md` over `AGENTS.md` at each level. Each
-instruction retains its source path and remains prompt input only; it cannot
-approve tools or widen permissions.
-
-Every traced coding run prints its run ID and stores a versioned JSONL event
-stream under `$FORGE_HOME/runs/`. Inspect it without contacting the model or
-executing tools:
-
-```bash
-pnpm forge inspect <run-id>
-```
-
-Session snapshots and traces may contain repository text, diffs, commands, and
-model output. Forge redacts configured credentials, but these files should still
-be treated as sensitive local data.
-
-The API key is read from the process environment for each invocation and is not
-saved by Forge. A missing key exits with code `2`; provider and network failures
-exit with code `1`; Ctrl+C cancels an active request and exits with code `130`.
-
-Run the project checks:
-
-```bash
-pnpm build
-pnpm check
-pnpm test
-```
-
-`pnpm check` runs Biome and strict TypeScript checks. `pnpm test` builds the
-workspace and runs Vitest. The same commands run in GitHub Actions.
+Read the [architecture guide](docs/ARCHITECTURE.md) for package boundaries and
+the full call path.
 
 ## Evaluation
 
-Run the paid-call-free recovery and grader checks:
+Forge separates deterministic runtime correctness from nondeterministic model
+quality. Default tests use scripted models and mocked transports; they do not
+make paid model calls.
+
+Run the deterministic recovery and grader suite:
 
 ```bash
 pnpm eval:deterministic
 ```
 
-Forge includes three small TypeScript tasks: strict port validation, rejected
-promise cache recovery, and falsy configuration merging. Every task runs in a
-fresh temporary workspace and is checked by fixture-owned tests plus an external
-grader that the Agent cannot edit.
-
-Live trials are deliberately opt-in because they make paid DeepSeek requests:
-
-```bash
-export DEEPSEEK_API_KEY="your-api-key"
-FORGE_EVAL_LIVE=1 pnpm eval:live
-```
-
-The runner records all successes and failures, the exact commit and model
-settings, trace-derived duration/steps/tool calls/token usage, grader results,
-and redacted JSONL traces. See the [evaluation guide](docs/EVALUATION.md) before
-running or publishing live evidence.
-
-## Current results
-
-The deterministic evaluation passed 2 test files and 8 tests on 2026-08-19.
-The complete project suite passed 22 test files and 110 tests. Nine fresh
-`deepseek-v4-flash` trials with thinking enabled passed 7/9 overall:
+The published v0.1 DeepSeek evaluation ran three trials across each of three
+small TypeScript repair tasks. Seven of nine trials passed end to end:
 
 | Task | Passed | Pass rate |
 | --- | ---: | ---: |
@@ -505,66 +216,67 @@ The complete project suite passed 22 test files and 110 tests. Nine fresh
 | `retry-cache` | 2/3 | 66.7% |
 | `validation-bug` | 2/3 | 66.7% |
 
-Both failed runs are retained in the [v0.1 report](evals/reports/v0.1/report.md).
-They requested a 120-second command timeout while the evaluation policy allowed
-only the declared 60-second verification command, so Forge denied the action.
+Both failures remain in the repository. A run counts as passing only when Forge
+finishes successfully and both fixture-owned tests and an external grader pass.
+Read the [evaluation guide](docs/EVALUATION.md), the
+[published report](evals/reports/v0.1/report.md), and the
+[v0.2 context-management gate](evals/reports/v0.2/CONTEXT_MANAGEMENT.md).
 
-## Limitations
+Live trials are explicit and opt-in because they make paid provider requests:
 
-- The native Forge runtime supports DeepSeek, OpenAI API, and configured
-  OpenAI-compatible routes; the separate Codex Engine supports ChatGPT
-  subscription access. Native Anthropic and Gemini protocols are not yet
+```bash
+export DEEPSEEK_API_KEY="your-api-key"
+FORGE_EVAL_LIVE=1 pnpm eval:live
+```
+
+## Development
+
+```bash
+pnpm build               # compile TypeScript project references
+pnpm check               # run Biome and strict TypeScript checks
+pnpm test                # build and run the complete Vitest suite
+pnpm eval:deterministic  # run paid-call-free release evidence
+pnpm forge --help        # build and inspect the CLI
+```
+
+The root is a private pnpm workspace rather than a published package. The main
+packages separate the CLI, runtime, tools, configuration, persistence,
+authentication, plugin API, and provider adapters.
+
+## Documentation
+
+| Topic | Guide |
+| --- | --- |
+| Product scope and roadmap | [Product](docs/PRODUCT.md) · [Roadmap](docs/ROADMAP.md) |
+| Runtime and security boundaries | [Architecture](docs/ARCHITECTURE.md) · [Security](docs/SECURITY.md) |
+| Interactive terminal | [CLI UI](docs/CLI_UI.md) |
+| Providers and credentials | [Authentication](docs/AUTHENTICATION.md) |
+| Sessions and traces | [Persistence](docs/SESSIONS.md) |
+| Context budgets and compaction | [Context management](docs/CONTEXT_MANAGEMENT.md) |
+| Project instructions and configuration | [Project context](docs/PROJECT_CONTEXT.md) |
+| Plugin development and trust | [Plugins](docs/PLUGINS.md) |
+| Evaluations and release evidence | [Evaluation](docs/EVALUATION.md) · [v0.1 contract](docs/V0.1_SPEC.md) |
+
+## Current status and limitations
+
+Forge is under active development. The current source version is `0.2.0`, while
+the latest Git tag is `v0.1.0`. Automatic context checkpoint generation remains
+opt-in while provider-quality evidence is collected.
+
+- The native runtime supports DeepSeek, OpenAI API, and configured
+  OpenAI-compatible routes. Native Anthropic and Gemini protocols are not yet
   implemented.
-- Model behavior is nondeterministic; runtime tests do not prove live task
-  success.
-- Built-in file tools enforce a workspace boundary, but Forge is not an OS
-  sandbox and approved commands run with the user's process privileges.
-- Resume restores completed conversation text, not active tool calls or old
+- Model behavior is nondeterministic; runtime correctness does not guarantee
+  live task success.
+- Resume restores completed conversation text, not pending tool calls or old
   approvals.
-- Plugins are trusted in-process code, not isolated extensions; Forge does not
-  install plugin dependencies or enforce manifest capabilities at the OS level.
-  Registered network tools require approval, but trusted code can still call
-  Node.js network APIs directly.
-- Multi-agent orchestration, RAG, IDE integration, and cross-machine session
-  synchronization are not implemented.
+- Plugins are trusted local code, not isolated extensions.
+- Multi-agent orchestration, RAG, IDE integration, cloud execution, autonomous
+  Git pushes, and cross-machine session synchronization are out of scope.
 
-## Development approach
-
-Development is organized into small, testable milestones. Each milestone must
-produce a runnable behavior and meet its acceptance criteria before the next one
-begins.
-
-Milestone 0 established the workspace, CLI scaffold, and local quality checks.
-Milestone 1 added the provider-neutral model contract, DeepSeek adapter,
-one-turn streaming command, error mapping, usage reporting, and cancellation.
-Milestone 2 added canonical workspace resolution, bounded `list_files`,
-`read_file`, and `search` tools, untrusted tool-call validation, and AI SDK
-schema translation without execution callbacks. Milestone 3 connected these
-pieces through a Forge-owned multi-step loop, provider continuation records,
-policy gateway, lifecycle events, cancellation, and deterministic limits. The
-Milestone 4 added the safe patch/command vertical slice and deterministic
-failure recovery. Milestone 4.5 added the bare `forge` multi-turn session,
-slash commands, task cancellation, and a global development-link workflow.
-Milestone 4.6 added the interactive TUI, multi-line editing, command and file
-completion, and readable diff review. Milestone 5 added versioned configuration
-with provenance, hierarchical repository instructions, enforced limits, and
-the `safe` and `workspace-write` permission profiles. Milestone 6 added
-versioned JSONL traces, run inspection, persistent workspace-scoped sessions,
-restart-safe resume by ID or recency, and fresh security state for every resumed
-run. Milestone 7 added reproducible fixture manifests, external graders, an
-opt-in live runner, trace-derived reports, published live evidence, and the
-first v0.1 release. Milestone 8 added the versioned trusted-plugin API, explicit
-project trust, custom tools and commands, immutable observers, prompt and
-strictness-only policy hooks, and explicitly selected portable project skills.
-Milestone 9 added OpenAI API and ChatGPT-subscription authentication boundaries.
-Milestone 10 added provider capability tables, conservative request preflight,
-safe conversation checkpoints, adapter-owned continuation pressure handling,
-Codex wrapper budgets, context inspection, and deterministic long-session gates.
-Milestone 11 added user-scoped OpenAI-compatible routes, explicit bearer/none
-authentication, endpoint-bound credentials, bounded model discovery, dynamic
-model/effort choices, and loopback end-to-end coverage.
-See the [Plugin authoring guide](docs/PLUGINS.md).
+See the [roadmap](docs/ROADMAP.md) for completed acceptance criteria and future
+work.
 
 ## License
 
-[MIT](LICENSE)
+Forge is available under the [MIT License](LICENSE).

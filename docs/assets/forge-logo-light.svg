@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 260" role="img" aria-labelledby="title desc" shape-rendering="crispEdges">
+  <title id="title">Forge pixel wordmark for light backgrounds</title>
+  <desc id="desc">A terminal prompt, the word Forge in block letters, and a cursor.</desc>
+  <defs>
+    <g id="prompt">
+      <rect x="0" y="0" width="24" height="24"/>
+      <rect x="24" y="24" width="24" height="24"/>
+      <rect x="48" y="48" width="24" height="24"/>
+      <rect x="24" y="72" width="24" height="24"/>
+      <rect x="0" y="96" width="24" height="24"/>
+    </g>
+    <g id="word">
+      <rect x="0" y="0" width="120" height="24"/>
+      <rect x="0" y="0" width="24" height="168"/>
+      <rect x="0" y="72" width="96" height="24"/>
+      <rect x="176" y="0" width="72" height="24"/>
+      <rect x="152" y="24" width="24" height="120"/>
+      <rect x="248" y="24" width="24" height="120"/>
+      <rect x="176" y="144" width="72" height="24"/>
+      <rect x="304" y="0" width="24" height="168"/>
+      <rect x="304" y="0" width="96" height="24"/>
+      <rect x="400" y="24" width="24" height="48"/>
+      <rect x="304" y="72" width="96" height="24"/>
+      <rect x="352" y="96" width="24" height="24"/>
+      <rect x="376" y="120" width="24" height="24"/>
+      <rect x="400" y="144" width="24" height="24"/>
+      <rect x="480" y="0" width="72" height="24"/>
+      <rect x="456" y="24" width="24" height="120"/>
+      <rect x="480" y="144" width="72" height="24"/>
+      <rect x="528" y="72" width="48" height="24"/>
+      <rect x="552" y="96" width="24" height="48"/>
+      <rect x="608" y="0" width="120" height="24"/>
+      <rect x="608" y="0" width="24" height="168"/>
+      <rect x="608" y="72" width="96" height="24"/>
+      <rect x="608" y="144" width="120" height="24"/>
+    </g>
+  </defs>
+  <g transform="translate(61 78)" fill="#B8C4CE"><use href="#prompt"/></g>
+  <g transform="translate(52 69)" fill="#007E9E"><use href="#prompt"/></g>
+  <g transform="translate(189 49)" fill="#B8C4CE"><use href="#word"/></g>
+  <g transform="translate(180 40)" fill="#17202B"><use href="#word"/></g>
+  <rect x="944" y="184" width="48" height="24" fill="#B8C4CE"/>
+  <rect x="935" y="175" width="48" height="24" fill="#007E9E"/>
+</svg>
