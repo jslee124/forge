@@ -1,5 +1,7 @@
 # Interactive CLI UI
 
+[简体中文](zh-CN/CLI_UI.md) · [Documentation index](zh-CN/README.md)
+
 ## Status
 
 This document defines the implemented Milestone 4.6 terminal experience. Ink

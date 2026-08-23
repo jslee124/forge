@@ -1,5 +1,7 @@
 # Authentication Model
 
+[简体中文](zh-CN/AUTHENTICATION.md) · [Documentation index](zh-CN/README.md)
+
 ## Status
 
 Forge supports DeepSeek and OpenAI API-key authentication through

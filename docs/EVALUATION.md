@@ -1,5 +1,7 @@
 # Evaluation Guide
 
+[简体中文](zh-CN/EVALUATION.md) · [Documentation index](zh-CN/README.md)
+
 ## Purpose
 
 Forge separates deterministic runtime correctness from live-model capability.

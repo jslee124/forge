@@ -1,5 +1,7 @@
 # Product Definition
 
+[简体中文](zh-CN/PRODUCT.md) · [Documentation index](zh-CN/README.md)
+
 ## Summary
 
 Forge is a lightweight, safe-by-default terminal coding agent that can inspect a

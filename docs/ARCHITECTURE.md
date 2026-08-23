@@ -1,5 +1,7 @@
 # Architecture
 
+[简体中文](zh-CN/ARCHITECTURE.md) · [Documentation index](zh-CN/README.md)
+
 ## Status
 
 This document describes the initial design direction. It is expected to change

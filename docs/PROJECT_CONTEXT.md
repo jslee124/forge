@@ -1,5 +1,7 @@
 # Project Context and Local Customization
 
+[简体中文](zh-CN/PROJECT_CONTEXT.md) · [Documentation index](zh-CN/README.md)
+
 ## Goal
 
 Forge should understand repository-specific instructions and reusable Agent

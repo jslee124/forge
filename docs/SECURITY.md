@@ -1,5 +1,7 @@
 # Security Model
 
+[简体中文](zh-CN/SECURITY.md) · [Documentation index](zh-CN/README.md)
+
 ## Status
 
 This document defines Forge's implemented security model through Milestone 10.

@@ -1,5 +1,7 @@
 # Roadmap
 
+[简体中文](zh-CN/ROADMAP.md) · [Documentation index](zh-CN/README.md)
+
 ## Current milestone
 
 **Milestone 11: OpenAI-compatible provider routes is complete.** Automatic

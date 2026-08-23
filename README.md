@@ -26,6 +26,11 @@
   <a href="#documentation">Documentation</a>
 </p>
 
+<p align="center">
+  <a href="README.md">English</a> ·
+  <a href="README.zh-CN.md">简体中文</a>
+</p>
+
 Forge is an open-source TypeScript project for learning and demonstrating the
 engineering behind coding agents: model interaction, tool execution, approval
 boundaries, context management, persistence, plugins, and reproducible
@@ -244,6 +249,8 @@ packages separate the CLI, runtime, tools, configuration, persistence,
 authentication, plugin API, and provider adapters.
 
 ## Documentation
+
+中文读者可查看[简体中文文档](README.zh-CN.md)。每篇指南也提供对应的[中文镜像](docs/zh-CN/README.md)。
 
 | Topic | Guide |
 | --- | --- |
