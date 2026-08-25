@@ -1,10 +1,10 @@
 # Project Context and Local Customization
 
-[简体中文](zh-CN/PROJECT_CONTEXT.md) · [Documentation index](zh-CN/README.md)
+[简体中文](zh-CN/PROJECT_CONTEXT.md) · [Documentation index](README.md)
 
 ## Goal
 
-Forge should understand repository-specific instructions and reusable Agent
+Forge understands repository-specific instructions and reusable Agent
 resources without turning repository contents into an implicit permission grant.
 It uses three deliberately separate conventions:
 
@@ -19,18 +19,16 @@ Repository instructions may shape how the model approaches a task. They cannot
 weaken the policy kernel, approve an action, select `full-access`, or bypass a
 tool's normal approval and trace pipeline.
 
-Milestone 5 implements the version 1 configuration schema, user/project config
-merge, instruction discovery, provenance reporting, and the `safe` and
-`workspace-write` profiles. Milestone 6 persists versioned sessions and run
-traces under `FORGE_HOME` while reloading that context for every resumed run.
-Milestone 8 adds explicitly selected portable skills and trusted plugins.
-Milestone 10 adds strictness-merged context budgets and versioned checkpoints.
+The implemented system includes schema-versioned user/project configuration,
+instruction discovery and provenance, persistent sessions and traces,
+explicitly selected portable Skills, trusted plugins, and strictness-merged
+context budgets.
 
 ## `AGENTS.md`
 
-Forge will follow the established uppercase filename `AGENTS.md`. On
+Forge follows the established uppercase filename `AGENTS.md`. On
 case-sensitive filesystems, `agents.md` is a different file and is not an alias.
-It will also support `AGENTS.override.md` for a more specific replacement at a
+It also supports `AGENTS.override.md` for a more specific replacement at a
 directory level.
 
 For a run whose working directory is inside a Git repository, Forge will:
@@ -93,7 +91,7 @@ The user layout is:
 ```
 
 - `config.json` contains user-wide defaults such as provider, model, limits,
-  terminal presentation, trace behavior, and the default permission profile.
+  context behavior, trace behavior, and the default permission profile.
 - `AGENTS.md` contains optional user-wide instructions loaded before project
   instructions.
 - `plugins/` contains explicitly installed or enabled user plugins.
@@ -106,36 +104,24 @@ existing configuration file. API keys and OAuth tokens do not belong in
 `config.json`; Forge uses environment variables or the credential store defined
 in the authentication model.
 
-### Minimal v0.1 configuration schema
+### Configuration schema
 
-The Zod schema in `@forge/config` is the executable source of truth. This
-table defines the initial public fields so the implementation and documentation
-start from the same contract:
+The Zod schema in `@forge/config` is the executable source of truth. See the
+[Configuration reference](CONFIGURATION.md) for every field, default, accepted
+value, environment override, provider-route example, and merge rule.
 
-| Field | Default | Scope and merge rule |
+The security-relevant summary is:
+
+| Scope | May configure | Must not configure |
 | --- | --- | --- |
-| `schemaVersion` | `1` | Required when a config file exists; unknown versions fail |
-| `model.id` | `deepseek-v4-flash` | User, environment, or explicit CLI only |
-| `model.thinking` | `enabled` | User, environment, or explicit CLI only |
-| `permissionProfile` | `safe` | User configuration or explicit CLI only |
-| `limits.maxSteps` | `12` | Project may only choose a lower value |
-| `limits.maxToolCalls` | `40` | Project may only choose a lower value |
-| `limits.commandTimeoutMs` | `60000` | Project may only choose a lower value |
-| `limits.maxToolOutputBytes` | `65536` | Project may only choose a lower value |
-| `trace.enabled` | `true` | User configuration or explicit CLI only |
-| `plugins.enabled` | `[]` | User configuration only; names enabled user plugins |
-| `context.mode` | `warn` | Project may only select a stricter mode |
-| `context.reservedOutputTokens` | `4096` | Project may only choose a larger reserve |
-| `context.bufferTokens` | `8192` | Project may only choose a larger safety reserve |
-| `context.recentTailTokens` | `12000` | Project may only choose a lower budget |
-| `context.summaryTargetTokens` | `1200` | Project may only choose a lower budget |
+| User `$FORGE_HOME/config.json` | Model, engine, provider routes, permission profile, limits, traces, plugins, context | API keys or OAuth credentials |
+| Project `.forge/config.json` | Stricter `limits` and `context` values | Model/provider, permissions, traces, plugin enablement, routes, secrets |
+| Environment | `FORGE_PROVIDER`, `FORGE_MODEL`, `FORGE_REASONING_EFFORT`, `FORGE_THINKING`, and credential variables | Permission widening |
+| Explicit CLI | Supported command-scoped model, permission, limit, and context overrides | Repository trust or secret persistence through arguments |
 
-Unknown fields are errors rather than silently ignored. `DEEPSEEK_API_KEY` is a
-secret environment variable and is never represented as a configuration field.
-`FORGE_HOME` changes discovery location before configuration is loaded.
-`FORGE_MODEL` and `FORGE_THINKING` are the only v0.1 environment overrides for
-ordinary model settings. There is intentionally no environment variable that
-widens the permission profile.
+Unknown fields are errors rather than silently ignored. `FORGE_HOME` changes
+discovery location before configuration is loaded. There is intentionally no
+environment variable that widens the permission profile.
 
 User configuration is loaded before repository configuration. Forge should
 provide `forge config show` to display the effective value and source of every

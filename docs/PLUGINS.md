@@ -3,7 +3,7 @@
 
 # Plugin authoring guide
 
-[简体中文](zh-CN/PLUGINS.md) · [Documentation index](zh-CN/README.md)
+[简体中文](zh-CN/PLUGINS.md) · [Documentation index](README.md)
 
 Forge v0.2 works without plugins. A plugin is an optional in-process JavaScript
 module that can register model-callable tools and explicit local commands,

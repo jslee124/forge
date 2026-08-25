@@ -4,7 +4,7 @@
 
 ## 目标
 
-Forge 应理解仓库特定指令和可复用 Agent 资源，但不能把仓库内容变成隐式权限授予。它刻意区分三类约定：
+Forge 能理解仓库特定指令和可复用 Agent 资源，但不会把仓库内容变成隐式权限授予。它刻意区分以下约定：
 
 | 位置 | 用途 | 是否可自行执行 |
 | --- | --- | --- |
@@ -57,7 +57,7 @@ Skill 是被发现的 metadata 和指令；仅仅存在不会执行它。Skill �
 `-- runs/
 ```
 
-- `config.json`：provider、model、limits、终端展示、trace 和默认 permission profile。
+- `config.json`：provider、model、limits、context、trace 和默认 permission profile。
 - `AGENTS.md`：在项目指令前加载的用户级指令。
 - `plugins/`：明确安装或启用的用户插件。
 - `state/`：不含 secret 的 Forge 状态，如项目信任决定。
@@ -66,29 +66,20 @@ Skill 是被发现的 metadata 和指令；仅仅存在不会执行它。Skill �
 
 Forge 可以创建缺少的运行时目录，但不能覆盖已有配置文件。API key 和 OAuth token 不属于 `config.json`，应使用环境变量或认证模型中的 credential store。
 
-### 最小 v0.1 配置 schema
+### 配置 schema
 
-`@forge/config` 中的 Zod schema 是可执行真相；下面是公开字段和合并规则：
+`@forge/config` 中的 Zod schema 是可执行真相。每个字段、默认值、有效范围、环境 override、provider route 示例与 merge rule 请看[配置参考](CONFIGURATION.md)。
 
-| 字段 | 默认值 | 范围与合并规则 |
+安全相关摘要如下：
+
+| Scope | 可以配置 | 不得配置 |
 | --- | --- | --- |
-| `schemaVersion` | `1` | 存在配置文件时必填；未知版本失败 |
-| `model.id` | `deepseek-v4-flash` | 仅 user、environment 或显式 CLI |
-| `model.thinking` | `enabled` | 仅 user、environment 或显式 CLI |
-| `permissionProfile` | `safe` | 仅 user config 或显式 CLI |
-| `limits.maxSteps` | `12` | project 只能更低 |
-| `limits.maxToolCalls` | `40` | project 只能更低 |
-| `limits.commandTimeoutMs` | `60000` | project 只能更低 |
-| `limits.maxToolOutputBytes` | `65536` | project 只能更低 |
-| `trace.enabled` | `true` | 仅 user config 或显式 CLI |
-| `plugins.enabled` | `[]` | 仅 user config；启用 user plugin 名称 |
-| `context.mode` | `warn` | project 只能选择更严格模式 |
-| `context.reservedOutputTokens` | `4096` | project 只能选择更大 reserve |
-| `context.bufferTokens` | `8192` | project 只能选择更大 reserve |
-| `context.recentTailTokens` | `12000` | project 只能选择更低预算 |
-| `context.summaryTargetTokens` | `1200` | project 只能选择更低预算 |
+| 用户 `$FORGE_HOME/config.json` | Model、engine、provider routes、permission profile、limits、trace、plugins、context | API key 或 OAuth credential |
+| 项目 `.forge/config.json` | 更严格的 `limits` 与 `context` | Model/provider、permissions、trace、plugin enablement、routes、secrets |
+| Environment | `FORGE_PROVIDER`、`FORGE_MODEL`、`FORGE_REASONING_EFFORT`、`FORGE_THINKING` 和 credential variables | Permission widening |
+| 显式 CLI | Command 支持的 model、permission、limit 与 context override | 通过参数持久化 repository trust 或 secret |
 
-未知字段会报错而不是忽略。`DEEPSEEK_API_KEY` 是 secret environment variable，不会成为 config 字段；`FORGE_HOME` 在加载配置前改变发现位置；普通 model 设置只有 `FORGE_MODEL` 和 `FORGE_THINKING` 两个 v0.1 环境覆盖，没有能扩大 permission profile 的环境变量。`forge config show` 应展示每个有效值及其来源；`forge config validate` 只报告错误，不启动 Agent run。
+未知字段会报错而不是忽略。`FORGE_HOME` 在加载配置前改变发现位置，不存在能扩大 permission profile 的环境变量。`forge config show` 展示每个有效值及来源；`forge config validate` 只做本地校验，不启动 Agent run。
 
 ## 项目级 `.forge/`
 

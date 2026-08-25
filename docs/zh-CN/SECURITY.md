@@ -39,7 +39,7 @@ v0.1 之后再考虑。未来的显式高级模式必须有清晰警告和用户
 
 ## 配置边界
 
-`~/.forge/config.json` 是用户控制的配置。项目 `.forge/config.json` 可以覆盖普通项目行为，但不能降低 permission profile、标记项目已信任、抑制强制审批、增加用户安全限制，或启用未信任项目中的插件。API key、OAuth credential 和其他 secret 在用户及项目配置中都无效；secret 值来自环境变量或 OS credential store。加载插件或开始 run 前必须先校验配置，并在适用平台提示不安全的文件权限。
+`~/.forge/config.json` 是用户控制的配置。项目 `.forge/config.json` 可以覆盖普通项目行为，但不能降低 permission profile、标记项目已信任、抑制强制审批、增加用户安全限制，或启用未信任项目中的插件。API key、OAuth credential 和其他 secret 在用户及项目配置中都无效；API key 来自环境变量或 Forge owner-only credential file，ChatGPT subscription credential 则留在 Codex App Server 边界内。加载插件或开始 run 前必须先校验配置，并在适用平台提示不安全的文件权限。
 
 ## 文件系统边界
 
@@ -85,6 +85,6 @@ Child 继承有效 policy/approval，只获得声明的非 subagent 工具，共
 
 ## Credential 处理
 
-API key、access/refresh token、authorization code 和 PKCE verifier 都是 secret，不能出现在 prompt、trace、终端 debug、plugin event、crash report 或仓库文件中。Forge 应优先使用 OS credential store；文件 fallback 必须在项目外、原子写入、owner-only，并明确说明是敏感明文。
+API key、access/refresh token、authorization code 和 PKCE verifier 都是 secret，不能出现在 prompt、trace、终端 debug、plugin event、crash report 或仓库文件中。Forge 当前先从进程环境变量解析 API key，再使用显式的 `$FORGE_HOME/auth.json` fallback。该文件位于项目外，原子写入，目录权限为 `0700`、文件为 `0600`，属于受文件权限保护的敏感明文，而不是 OS keychain；OS credential-store integration 仍是后续改进。
 
-API-key 方法使用进程环境变量且不持久化 key；provider/model/reasoning 选择是普通配置，可保存到 `FORGE_HOME`。OAuth refresh 应 single-flight；Forge 不得静默导入或修改其他应用的 credential 文件。ChatGPT 订阅的 OAuth 和刷新全部交给官方 Codex App Server，Forge 不读取 Codex credential 文件，也不接收 token。
+Provider/model/reasoning 选择是普通配置，可保存到 `FORGE_HOME`，credential 与普通配置分离。OAuth refresh 应 single-flight；Forge 不得静默导入或修改其他应用的 credential 文件。ChatGPT 订阅的 OAuth 和刷新全部交给官方 Codex App Server，Forge 不读取 Codex credential 文件，也不接收 token。

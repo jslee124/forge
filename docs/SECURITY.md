@@ -1,6 +1,6 @@
 # Security Model
 
-[简体中文](zh-CN/SECURITY.md) · [Documentation index](zh-CN/README.md)
+[简体中文](zh-CN/SECURITY.md) · [Documentation index](README.md)
 
 ## Status
 
@@ -74,7 +74,8 @@ from an untrusted project.
 API keys, OAuth credentials, and other secrets are invalid in both user and
 project configuration. User configuration may reference a provider or
 credential name, while the secret value comes from an environment variable or
-the operating-system credential store.
+Forge's owner-readable credential file. ChatGPT subscription credentials stay
+inside Codex App Server's credential boundary.
 
 Forge must validate configuration before loading plugins or starting a run. It
 should warn when user configuration or user-plugin directories have unsafe
@@ -225,14 +226,17 @@ and PKCE verifiers
 are secrets. They must never appear in prompts, traces, terminal debug output,
 plugin events, crash reports, or repository files.
 
-Forge should prefer the operating-system credential store. A file fallback must
-be explicit, stored outside the project, written atomically with owner-only
-permissions, and documented as sensitive plaintext storage.
+Forge currently resolves API keys from process environment variables first,
+then from the explicit `$FORGE_HOME/auth.json` fallback. The fallback is stored
+outside the project, written atomically, protected by directory mode `0700` and
+file mode `0600`, and documented as sensitive plaintext storage rather than an
+operating-system keychain. OS credential-store integration remains a preferred
+future improvement.
 
-The implemented API-key methods deliberately use process environment variables
-and never persist keys. Provider/model/reasoning selections are ordinary config
-and may be saved under `FORGE_HOME`; credential-shaped fields and known secret
-values are redacted before traces and plugin observers receive events.
+Provider/model/reasoning selections are ordinary configuration and may be
+saved under `FORGE_HOME`; credentials remain separate. Credential-shaped
+fields and known secret values are redacted before traces and plugin observers
+receive events.
 
 OAuth token refresh must be single-flight so concurrent model requests do not
 race to rotate the same refresh token. Logout clears Forge-owned credentials.

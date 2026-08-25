@@ -1,6 +1,6 @@
 # Context Management Improvement Plan
 
-[简体中文](zh-CN/CONTEXT_MANAGEMENT.md) · [Documentation index](zh-CN/README.md)
+[简体中文](zh-CN/CONTEXT_MANAGEMENT.md) · [Documentation index](README.md)
 
 ## Status
 

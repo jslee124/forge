@@ -1,6 +1,6 @@
 # Interactive CLI UI
 
-[简体中文](zh-CN/CLI_UI.md) · [Documentation index](zh-CN/README.md)
+[简体中文](zh-CN/CLI_UI.md) · [Documentation index](README.md)
 
 ## Status
 

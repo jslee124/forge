@@ -1,6 +1,6 @@
 # Authentication Model
 
-[简体中文](zh-CN/AUTHENTICATION.md) · [Documentation index](zh-CN/README.md)
+[简体中文](zh-CN/AUTHENTICATION.md) · [Documentation index](README.md)
 
 ## Status
 
@@ -55,11 +55,11 @@ complete agent runtime, including turns, tools, sandboxing, approvals, and
 history. Treating it as a raw model transport would obscure which runtime made
 security and execution decisions.
 
-The provider-neutral authentication manager resolves API keys only from the
-process environment and returns them to the selected adapter. Missing
-credentials produce an actionable error without printing the key or a stack
-trace. Keys are never copied into Forge configuration, prompts, traces, plugin
-events, or repository files.
+The provider-neutral authentication manager resolves API keys from an explicit
+environment variable first, then from Forge's owner-readable user credential
+store. Missing credentials produce an actionable error without printing the
+key or a stack trace. Keys are never copied into Forge configuration, prompts,
+traces, plugin events, or repository files.
 
 ## OpenAI-compatible provider routes
 
@@ -155,11 +155,14 @@ route, its models, and its stored credential. It reports any provider
 environment variable that remains active; Forge cannot unset a variable in the
 parent shell.
 
-The preferred credential order is:
+The current runtime lookup order is:
 
-1. Operating-system credential store
-2. Explicit file fallback outside the project with owner-only permissions
-3. Environment variables for API keys in automation
+1. The provider's explicit or conventional environment variable
+2. `$FORGE_HOME/auth.json`, outside the project with owner-only permissions
+
+An operating-system credential store would be preferable to plaintext file
+storage and remains a future improvement. Environment variables remain the
+recommended injection mechanism for automation.
 
 Credentials must be excluded from prompts, run events, JSONL traces, plugin
 events, telemetry, and ordinary error messages.
@@ -206,14 +209,16 @@ in, or `FORCE_HYPERLINK=0` to opt out.
 other local Codex clients out. Forge does not claim that these are Forge-owned
 credentials.
 
-`forge auth status openai-api` only checks whether `OPENAI_API_KEY` is present;
-it never validates the key with a paid request. `forge auth login openai-api`
-prints environment-variable guidance because Forge deliberately does not store
-API keys. The interactive `/model` picker discovers the current Codex catalog
+`forge auth status openai-api` reports whether an environment or stored
+credential is active; it never validates the key with a paid request.
+`forge auth login openai-api` directs the user to the masked interactive
+`/login` flow or `OPENAI_API_KEY` because the plain subcommand never reads a
+secret from command arguments. The interactive `/model` picker discovers the current Codex catalog
 and also shows native API adapters without duplicating models by reasoning
 effort. The separate `/effort` picker and Shift+Tab shortcut use the selected
 model's supported levels. Forge persists these ordinary
-engine/provider/model/reasoning settings under `$FORGE_HOME/config.json`, never
-credentials.
+engine/provider/model/reasoning settings under `$FORGE_HOME/config.json`;
+credentials remain separate in the environment, `$FORGE_HOME/auth.json`, or
+Codex-owned storage.
 Selecting a ChatGPT entry routes subsequent interactive prompts through Codex
 Engine.

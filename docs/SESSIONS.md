@@ -1,6 +1,6 @@
 # Persistent Sessions and Run Traces
 
-[简体中文](zh-CN/SESSIONS.md) · [Documentation index](zh-CN/README.md)
+[简体中文](zh-CN/SESSIONS.md) · [Documentation index](README.md)
 
 ## Goal
 

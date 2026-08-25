@@ -1,17 +1,18 @@
 # Architecture
 
-[简体中文](zh-CN/ARCHITECTURE.md) · [Documentation index](zh-CN/README.md)
+[简体中文](zh-CN/ARCHITECTURE.md) · [Documentation index](README.md)
 
 ## Status
 
-This document describes the initial design direction. It is expected to change
-as the first working milestones reveal better boundaries.
+This document describes the current architecture on the `dev` branch and the
+rationale behind its package boundaries. Simplified interface blocks are
+explanatory sketches, not a stable public SDK; checked-in TypeScript types and
+tests remain authoritative.
 
-## Initial implementation decisions
+## Implementation baseline
 
-These choices are fixed for the first implementation so development can begin.
-They may be revisited through a small architecture decision record when working
-code provides contrary evidence.
+These choices define the current implementation baseline. They may be revisited
+when measured behavior provides contrary evidence.
 
 | Area | Initial decision | Reason |
 | --- | --- | --- |
@@ -48,6 +49,8 @@ packages/
 |-- model-compat/           # Configured OpenAI-compatible route translation
 |-- model-openai/           # @forge/model-openai: Responses API translation
 |-- auth/                   # provider-neutral API-key resolution
+|-- persistence/            # session snapshots, JSONL traces, redaction
+|-- plugin-api/              # discovery, trust, host, and plugin API v1
 |-- tools/                  # @forge/tools: built-in tool implementations
 `-- config/                 # @forge/config: configuration and context loading
 fixtures/                   # Small repository tasks used by integration tests
@@ -61,9 +64,8 @@ narrow test approval channel, persists the normal run trace, and invokes the
 external grader only after the Agent stops. Generated artifacts are ignored
 until a reviewed report is selected for publication.
 
-Milestone 0 creates only `apps/cli` and `packages/core`. Later milestones add
-the provider, tools, configuration, fixtures, and evaluation workspaces. A
-generic `shared` package is intentionally avoided.
+A generic `shared` package is intentionally avoided; each cross-cutting contract
+belongs to the package that owns its behavior.
 
 ### CLI and process conventions
 
@@ -118,7 +120,7 @@ The CLI is responsible for:
 - Forwarding cancellation through an `AbortSignal`
 - Choosing an appropriate process exit code
 
-The CLI should not contain the agent loop or tool implementation logic.
+The CLI does not own the agent loop or tool implementation logic.
 Commander owns process-level commands, while Ink owns only the interactive
 terminal presentation. React and Ink remain dependencies of `apps/cli` and must
 not cross into `@forge/core`. File mentions carry workspace-relative paths to
@@ -147,8 +149,8 @@ The runtime owns:
 - Event emission
 - Final run status
 
-The runtime should depend on interfaces for model access, tools, approval, and
-trace persistence. This keeps it independently testable.
+The runtime depends on interfaces for model access, tools, approval, and trace
+persistence. This keeps it independently testable.
 
 ### Model adapter
 
@@ -174,9 +176,9 @@ policy kernel records a decision.
 DeepSeek thinking-mode tool calls require the provider-returned reasoning
 content to be preserved in subsequent tool-result turns. The adapter therefore
 returns an opaque continuation record alongside observable Forge events. The
-core may store and return that record to the same adapter, but it must not
+core stores and returns that record to the same adapter, but it must not
 reconstruct it from terminal text or discard provider metadata. An integration
-test will cover this round trip.
+test covers this round trip.
 
 When a provider returns reasoning or thinking content, the adapter preserves it
 as a typed response part. The runtime exposes that content to the terminal and
@@ -276,7 +278,7 @@ Every tool has:
 - A risk classification
 - A structured result
 
-The initial tools are planned as:
+The native tools and checked-in extension examples are:
 
 | Tool | Responsibility | Initial risk |
 | --- | --- | --- |
@@ -304,7 +306,7 @@ confirm  Ask the user before execution
 deny     Do not execute
 ```
 
-The first policy will consider:
+The policy considers:
 
 - The canonical target path and whether it remains inside the workspace
 - Whether an operation changes files
@@ -392,8 +394,8 @@ permission state as authority.
 
 ## Core interfaces
 
-The exact TypeScript types will be decided during implementation. The intended
-boundaries are:
+The following simplified sketches explain the implemented boundaries. They omit
+details and are not a stable public API:
 
 ```ts
 interface ModelAdapter {
@@ -483,32 +485,32 @@ the runtime vendor fields. Optional `/models` capability extensions are parsed
 conservatively, while missing metadata remains unknown. Provider-specific
 behavior is never selected by matching the user's route name.
 
-The core should not import CLI rendering, a specific provider implementation, a
+The core does not import CLI rendering, a specific provider implementation, a
 plugin implementation, or a future LangChain adapter.
 
-## Planned testing strategy
+## Testing strategy
 
-- Unit tests for path validation, stop conditions, policy rules, and event state
-- Policy tests for external paths, symlinks, missing UI, and decision precedence
-- Tool tests using temporary workspaces
-- Runtime tests using a deterministic fake model adapter
-- Integration tests for AI SDK message and tool-call translation
-- Authentication tests using fake credentials and refresh responses
-- Context-loader tests for hierarchy, overrides, case sensitivity, size limits,
+- Unit tests cover path validation, stop conditions, policy rules, and event state.
+- Policy tests cover external paths, symlinks, missing UI, and decision precedence.
+- Tool tests use temporary workspaces.
+- Runtime tests use deterministic fake model adapters.
+- Integration tests cover AI SDK message and tool-call translation.
+- Authentication tests use fake credentials and App Server transports.
+- Context-loader tests cover hierarchy, overrides, case sensitivity, size limits,
   canonical roots, and provenance
-- Plugin-contract tests proving that hooks cannot weaken core decisions
-- End-to-end tests on small fixture repositories
+- Plugin-contract tests prove that hooks cannot weaken core decisions.
+- End-to-end tests use small fixture repositories and external graders.
 
 Real model calls should not be required for the default test suite.
 
 ## Deferred decisions
 
-The following choices will be made only when a milestone needs them:
+The following choices remain deferred until a concrete milestone and acceptance
+gate need them:
 
 - SQLite schema and migration library
-- Terminal UI framework
 - HTTP server framework
 - LangChain or LangGraph integration shape
 - Operating-system-level sandboxing
 - Restricted plugin process and capability enforcement
-- Public support and compatibility requirements for ChatGPT subscription login
+- Cross-machine session synchronization and retention policy

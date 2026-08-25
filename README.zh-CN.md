@@ -19,11 +19,22 @@
 </p>
 
 <p align="center">
+  <a href="docs/zh-CN/GETTING_STARTED.md">快速上手</a> ·
+  <a href="#为什么是-forge">为什么是 Forge？</a> ·
+  <a href="#安全模型">安全</a> ·
+  <a href="#评测">评测</a> ·
+  <a href="docs/zh-CN/README.md">文档</a> ·
+  <a href="CONTRIBUTING.zh-CN.md">贡献</a>
+</p>
+
+<p align="center">
   <a href="README.md">English</a> ·
   <a href="README.zh-CN.md">简体中文</a>
 </p>
 
 Forge 是一个开源 TypeScript 项目，用于学习和展示编码 Agent 背后的工程：模型交互、工具执行、审批边界、上下文管理、持久化、插件，以及可复现评测。
+
+它最适合希望从头读懂一个小型 runtime、亲自实验并测量结果的开发者。Forge 当前从源码安装，不是已经发布到 npm 的 package，也不是 hardened coding environment 的开箱即用替代品。
 
 ## 为什么是 Forge？
 
@@ -41,26 +52,44 @@ Forge 是一个开源 TypeScript 项目，用于学习和展示编码 Agent 背�
 
 ## 快速开始
 
-### 前置条件
-
-- Node.js 24 或更高版本
-- pnpm 11.18.0
-- 只有使用 ChatGPT 订阅访问时才需要 Codex CLI
-
-从源码运行 Forge：
+你需要 Node.js 24 或更高版本、pnpm 11.18.0、Git，以及一种受支持的模型访问方式。先 clone、安装并验证 checkout：
 
 ```bash
 git clone https://github.com/jslee124/forge.git
 cd forge
-pnpm install
+pnpm install --frozen-lockfile
+pnpm build
+pnpm forge config validate
+```
+
+选择模型访问方式：
+
+| 访问方式 | Engine | 设置入口 |
+| --- | --- | --- |
+| DeepSeek API | Native Forge Engine | 启动 `pnpm forge`，再使用 `/login` |
+| OpenAI API | Native Forge Engine | 启动 `pnpm forge`，再使用 `/login` |
+| OpenAI-compatible endpoint | Native Forge Engine | 通过 `/login` 或用户配置添加 route |
+| ChatGPT 订阅 | 独立 Codex Engine | 安装 Codex CLI，再运行 `pnpm forge auth login openai` |
+
+OpenAI API 按用量计费，与 ChatGPT subscription 分开。API key 可以通过带掩码的 `/login` 输入，也可以通过环境变量提供；环境 credential 优先。
+
+启动交互终端，先做只读检查：
+
+```bash
 pnpm forge
 ```
 
-进入交互式终端后输入 `/login`，选择可用的 provider 路由。然后让 Forge 检查或修改当前仓库：
+```text
+检查这个仓库，总结 package 结构和验证命令。不要修改文件。
+```
+
+然后尝试一个有边界的 coding task：
 
 ```text
 修复失败的测试。先检查相关文件，然后验证结果。
 ```
+
+默认 `safe` profile 会在一次 run 的首次 workspace 写入和每一条进程命令前询问。批准前请检查完整 diff、command、working directory 与 timeout。
 
 常用交互命令：
 
@@ -82,6 +111,8 @@ forge
 ```
 
 该链接指向当前 checkout。修改源码后运行 `pnpm build`，不再需要时运行 `pnpm unlink:global`。
+
+[完整快速上手指南](docs/zh-CN/GETTING_STARTED.md)进一步解释每种认证方式、本地验证、首次审批、session 与 run inspection。
 
 ## Forge 能做什么
 
@@ -123,6 +154,7 @@ Forge 的“默认安全”是具体且可检查的：
 | 被该次运行审批覆盖的后续写入 | Allow（允许） |
 | 任意进程命令 | Confirm（确认） |
 | 任意已注册网络工具 | Confirm（确认） |
+| 任意委派 subagent 模型运行 | Confirm（确认） |
 | 内置文件工具访问 workspace 外部 | Deny（拒绝） |
 | 需要审批但没有审批通道的操作 | Deny（拒绝） |
 
@@ -204,21 +236,16 @@ pnpm forge --help        # 构建并查看 CLI 帮助
 
 ## 文档
 
-当前文档采用“英文原文 + 简体中文镜像”结构。每篇页面顶部都提供返回英文的链接。
+请从按读者任务组织的[中文文档目录](docs/zh-CN/README.md)开始。English 页面是规范详细版本；中文页面保持相同命令、配置名、limits 与安全边界，部分历史设计记录会有意压缩。
 
-| 主题 | English | 简体中文 |
-| --- | --- | --- |
-| 产品范围与路线图 | [Product](docs/PRODUCT.md) · [Roadmap](docs/ROADMAP.md) | [产品](docs/zh-CN/PRODUCT.md) · [路线图](docs/zh-CN/ROADMAP.md) |
-| Runtime 与安全边界 | [Architecture](docs/ARCHITECTURE.md) · [Security](docs/SECURITY.md) | [架构](docs/zh-CN/ARCHITECTURE.md) · [安全](docs/zh-CN/SECURITY.md) |
-| 交互式终端 | [CLI UI](docs/CLI_UI.md) | [CLI UI](docs/zh-CN/CLI_UI.md) |
-| Provider 与凭据 | [Authentication](docs/AUTHENTICATION.md) | [认证](docs/zh-CN/AUTHENTICATION.md) |
-| 会话与 trace | [Persistence](docs/SESSIONS.md) | [持久化](docs/zh-CN/SESSIONS.md) |
-| 上下文预算与压缩 | [Context management](docs/CONTEXT_MANAGEMENT.md) | [上下文管理](docs/zh-CN/CONTEXT_MANAGEMENT.md) |
-| 项目指令与配置 | [Project context](docs/PROJECT_CONTEXT.md) | [项目上下文](docs/zh-CN/PROJECT_CONTEXT.md) |
-| 插件开发与信任 | [Plugins](docs/PLUGINS.md) | [插件](docs/zh-CN/PLUGINS.md) |
-| 评测与发布证据 | [Evaluation](docs/EVALUATION.md) · [v0.2.0 发布说明](evals/reports/v0.2/RELEASE_NOTES.md) · [v0.1 contract](docs/V0.1_SPEC.md) | [评测](docs/zh-CN/EVALUATION.md) · [v0.1 合约](docs/zh-CN/V0.1_SPEC.md) |
-
-也可以直接打开[中文文档目录](docs/zh-CN/README.md)。
+| 主题 | 指南 |
+| --- | --- |
+| 安装与第一次任务 | [快速上手](docs/zh-CN/GETTING_STARTED.md) · [故障排查](docs/zh-CN/TROUBLESHOOTING.md) |
+| 日常使用 | [CLI UI](docs/zh-CN/CLI_UI.md) · [配置](docs/zh-CN/CONFIGURATION.md) · [认证](docs/zh-CN/AUTHENTICATION.md) · [会话](docs/zh-CN/SESSIONS.md) |
+| 边界与内部原理 | [架构](docs/zh-CN/ARCHITECTURE.md) · [安全](docs/zh-CN/SECURITY.md) · [上下文管理](docs/zh-CN/CONTEXT_MANAGEMENT.md) |
+| 定制与扩展 | [项目上下文](docs/zh-CN/PROJECT_CONTEXT.md) · [插件](docs/zh-CN/PLUGINS.md) · [示例](examples/plugins/) |
+| 证据与方向 | [评测](docs/zh-CN/EVALUATION.md) · [已发布报告](evals/reports/README.md) · [路线图](docs/zh-CN/ROADMAP.md) |
+| 贡献 | [贡献指南](CONTRIBUTING.zh-CN.md) |
 
 ## 当前状态与限制
 
@@ -228,7 +255,7 @@ Forge 仍在积极开发中。当前源码版本和最新 Git tag 都是 `0.2.0`
 - 模型行为具有非确定性；运行时正确不保证真实任务成功。
 - Resume 恢复已完成的对话文本，不恢复待执行工具调用或旧审批。
 - 插件是受信任的本地代码，不是隔离扩展。
-- 多 Agent 编排、RAG、IDE 集成、云端执行、自治 Git push 和跨机器会话同步不在范围内。
+- 除了有界的 plugin-declared subagent 之外，更通用的多 Agent 编排、RAG、IDE 集成、云端执行、自治 Git push 和跨机器会话同步不在范围内。
 
 已完成的验收标准和后续工作见[路线图](docs/zh-CN/ROADMAP.md)。
 

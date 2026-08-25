@@ -4,11 +4,11 @@
 
 ## 状态
 
-本文描述初始设计方向。随着可运行 milestone 暴露更好的边界，它会继续变化。
+本文描述 `dev` 分支当前架构与 package 边界依据。接口代码块是便于理解的简化草图，不是稳定 public SDK；checkout 中的 TypeScript types 与 tests 才是权威。
 
-## 初始实现决定
+## 实现基线
 
-| 领域 | 初始决定 | 原因 |
+| 领域 | 当前决定 | 原因 |
 | --- | --- | --- |
 | Runtime | Node.js 24 LTS | 使用受支持的 LTS 和当前平台 API |
 | Package manager | pnpm 11.18.0 | 快速、严格的依赖布局和 workspace 支持 |
@@ -38,6 +38,8 @@ packages/
 |-- model-compat/           # OpenAI-compatible route translation
 |-- model-openai/           # OpenAI Responses API translation
 |-- auth/                   # provider-neutral API-key resolution
+|-- persistence/            # session snapshots、JSONL traces、redaction
+|-- plugin-api/              # discovery、trust、host 与 plugin API v1
 |-- tools/                  # 内置工具实现
 `-- config/                 # 配置和 context loading
 fixtures/                   # integration test 的小型仓库任务
@@ -90,7 +92,7 @@ DeepSeek thinking tool call 要把 provider reasoning content 原样放入后续
 
 ### Authentication manager
 
-认证与 transport 分离。Native Forge Engine 通过一个 provider-neutral manager 解析 `DEEPSEEK_API_KEY`/`OPENAI_API_KEY`，再交给 provider adapter；Codex Engine 通过 stdio JSON-RPC 启动官方 Codex App Server。Forge 发起 managed browser/device-code login，但 Codex 拥有 OAuth client identity、callback、token、持久化、刷新和 logout。Forge 不复制其他应用 credentials，也不静默读取 `~/.codex/auth.json`。
+认证与 transport 分离。Native Forge Engine 通过 provider-neutral manager 先解析 `DEEPSEEK_API_KEY`/`OPENAI_API_KEY` 等环境变量，再读取 Forge owner-only credential store，然后交给 provider adapter；Codex Engine 通过 stdio JSON-RPC 启动官方 Codex App Server。Forge 发起 managed browser/device-code login，但 Codex 拥有 OAuth client identity、callback、token、持久化、刷新和 logout。Forge 不复制其他应用 credentials，也不静默读取 `~/.codex/auth.json`。
 
 ### Project context loader
 
