@@ -17,6 +17,7 @@ with the shortest path below instead of reading every page in order.
 | Build a plugin or study an extension example | [Plugin authoring](PLUGINS.md) | [Architecture](ARCHITECTURE.md) |
 | Reproduce the published evidence | [Evaluation](EVALUATION.md) | [v0.1 contract](V0.1_SPEC.md) |
 | Contribute to Forge | [Contributing](../CONTRIBUTING.md) | [Architecture](ARCHITECTURE.md) · [Roadmap](ROADMAP.md) |
+| Publish an npm release | [npm release guide](RELEASING.md) | [Evaluation](EVALUATION.md) · [Security](SECURITY.md) |
 | Diagnose a problem | [Troubleshooting](TROUBLESHOOTING.md) | The topic-specific guide linked from the symptom |
 
 ## Use Forge
@@ -29,6 +30,7 @@ with the shortest path below instead of reading every page in order.
 | [Authentication](AUTHENTICATION.md) | How do API keys, compatible endpoints, and ChatGPT subscription access differ? |
 | [Sessions and traces](SESSIONS.md) | What is persisted, what does resume restore, and how do I inspect a run? |
 | [Troubleshooting](TROUBLESHOOTING.md) | What should I check when startup, credentials, approvals, plugins, images, or the terminal misbehave? |
+| [npm release guide](RELEASING.md) | How is the single public CLI package built, verified, published, updated, and rolled back? |
 
 ## Understand Forge
 
@@ -67,8 +69,8 @@ source and tests are authoritative.
 ## Documentation conventions
 
 - Commands are written from the repository root unless a page says otherwise.
-- `pnpm forge ...` runs the development checkout; `forge ...` assumes
-  `pnpm link:global` has already linked that checkout.
+- `pnpm forge ...` runs the development checkout; `forge ...` uses either the
+  installed npm package or a checkout linked with `pnpm link:global`.
 - Default tests and deterministic evaluations make no paid model request.
   Live-provider commands are always marked as opt-in.
 - English pages are the canonical detailed guides. Chinese pages preserve the

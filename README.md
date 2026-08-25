@@ -13,7 +13,7 @@
 
 <p align="center">
   <a href="https://github.com/jslee124/forge/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/jslee124/forge/ci.yml?branch=main&amp;style=flat-square&amp;label=CI" alt="CI status"></a>
-  <img src="https://img.shields.io/badge/source-v0.2.0-0e7490?style=flat-square" alt="Source version 0.2.0">
+  <img src="https://img.shields.io/badge/source-v0.3.0-0e7490?style=flat-square" alt="Source version 0.3.0">
   <img src="https://img.shields.io/badge/Node.js-%3E%3D24-3c873a?style=flat-square&amp;logo=nodedotjs&amp;logoColor=white" alt="Node.js 24 or newer">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-7c3aed?style=flat-square" alt="MIT license"></a>
 </p>
@@ -38,9 +38,9 @@ boundaries, context management, persistence, plugins, and reproducible
 evaluations.
 
 It is best suited to developers who want a small runtime they can read end to
-end, experiment with, and measure. Forge is currently installed from source; it
-is not a published npm package or a turnkey replacement for a hardened coding
-environment.
+end, experiment with, and measure. Forge now has a single-package npm release
+path while retaining the source checkout for contributors. It is not a turnkey
+replacement for a hardened coding environment.
 
 ## Why Forge?
 
@@ -60,8 +60,16 @@ and testable.
 
 ## Quick start
 
-You need Node.js 24 or newer, pnpm 11.18.0, Git, and one supported model-access
-route. Clone, install, and validate the checkout:
+Released builds can be installed as a global CLI:
+
+```bash
+npm install --global @jslee124/forge
+forge config validate
+```
+
+Until `@jslee124/forge` appears on npm, use the source checkout below. Source
+development requires Node.js 24 or newer, pnpm 11.18.0, Git, and one supported
+model-access route:
 
 ```bash
 git clone https://github.com/jslee124/forge.git
@@ -279,9 +287,11 @@ pnpm eval:deterministic  # run paid-call-free release evidence
 pnpm forge --help        # build and inspect the CLI
 ```
 
-The root is a private pnpm workspace rather than a published package. The main
-packages separate the CLI, runtime, tools, configuration, persistence,
-authentication, plugin API, and provider adapters.
+The root remains a private pnpm workspace. Release automation bundles private
+`@forge/*` implementation code into the single public `@jslee124/forge` CLI;
+the plugin SDK is not separately published. The workspace packages still
+separate the CLI, runtime, tools, configuration, persistence, authentication,
+plugin API, and provider adapters for development.
 
 ## Documentation
 
@@ -299,9 +309,9 @@ Start at the [documentation hub](docs/README.md), which routes readers by task.
 
 ## Current status and limitations
 
-Forge is under active development. The current source version and latest Git
-tag are `0.2.0`. Automatic context checkpoint generation remains
-opt-in while provider-quality evidence is collected.
+Forge is under active development. The current source and npm release target is
+`0.3.0`. Automatic context checkpoint generation remains opt-in while
+provider-quality evidence is collected.
 
 - The native runtime supports DeepSeek, OpenAI API, and configured
   OpenAI-compatible routes. Native Anthropic and Gemini protocols are not yet

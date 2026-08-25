@@ -13,7 +13,7 @@
 
 <p align="center">
   <a href="https://github.com/jslee124/forge/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/jslee124/forge/ci.yml?branch=main&amp;style=flat-square&amp;label=CI" alt="CI 状态"></a>
-  <img src="https://img.shields.io/badge/source-v0.2.0-0e7490?style=flat-square" alt="源码版本 0.2.0">
+  <img src="https://img.shields.io/badge/source-v0.3.0-0e7490?style=flat-square" alt="源码版本 0.3.0">
   <img src="https://img.shields.io/badge/Node.js-%3E%3D24-3c873a?style=flat-square&amp;logo=nodedotjs&amp;logoColor=white" alt="Node.js 24 或更高版本">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-7c3aed?style=flat-square" alt="MIT 许可证"></a>
 </p>
@@ -34,7 +34,7 @@
 
 Forge 是一个开源 TypeScript 项目，用于学习和展示编码 Agent 背后的工程：模型交互、工具执行、审批边界、上下文管理、持久化、插件，以及可复现评测。
 
-它最适合希望从头读懂一个小型 runtime、亲自实验并测量结果的开发者。Forge 当前从源码安装，不是已经发布到 npm 的 package，也不是 hardened coding environment 的开箱即用替代品。
+它最适合希望从头读懂一个小型 runtime、亲自实验并测量结果的开发者。Forge 现在具备单 package 的 npm 发布路径，同时保留面向贡献者的源码 checkout；它仍不是 hardened coding environment 的开箱即用替代品。
 
 ## 为什么是 Forge？
 
@@ -52,7 +52,14 @@ Forge 是一个开源 TypeScript 项目，用于学习和展示编码 Agent 背�
 
 ## 快速开始
 
-你需要 Node.js 24 或更高版本、pnpm 11.18.0、Git，以及一种受支持的模型访问方式。先 clone、安装并验证 checkout：
+已发布版本可以作为全局 CLI 安装：
+
+```bash
+npm install --global @jslee124/forge
+forge config validate
+```
+
+在 `@jslee124/forge` 真正出现在 npm 之前，请使用下面的源码 checkout。源码开发需要 Node.js 24 或更高版本、pnpm 11.18.0、Git，以及一种受支持的模型访问方式：
 
 ```bash
 git clone https://github.com/jslee124/forge.git
@@ -232,7 +239,7 @@ pnpm eval:deterministic  # 运行不产生付费调用的 release 证据
 pnpm forge --help        # 构建并查看 CLI 帮助
 ```
 
-根目录是私有 pnpm workspace，而不是已发布 package。主要 package 分别负责 CLI、runtime、工具、配置、持久化、认证、插件 API 和 provider adapter。
+根目录继续作为私有 pnpm workspace。release 自动化会把私有 `@forge/*` 实现 bundle 到唯一的公共 `@jslee124/forge` CLI；插件 SDK 暂不独立发布。开发 workspace 中的主要 package 仍分别负责 CLI、runtime、工具、配置、持久化、认证、插件 API 和 provider adapter。
 
 ## 文档
 
@@ -249,7 +256,7 @@ pnpm forge --help        # 构建并查看 CLI 帮助
 
 ## 当前状态与限制
 
-Forge 仍在积极开发中。当前源码版本和最新 Git tag 都是 `0.2.0`。自动上下文 checkpoint 仍默认 opt-in，同时还在收集 provider 质量证据。
+Forge 仍在积极开发中。当前源码和 npm release 目标版本是 `0.3.0`。自动上下文 checkpoint 仍默认 opt-in，同时还在收集 provider 质量证据。
 
 - Native runtime 支持 DeepSeek、OpenAI API 和已配置的 OpenAI-compatible 路由；原生 Anthropic 与 Gemini 协议尚未实现。
 - 模型行为具有非确定性；运行时正确不保证真实任务成功。

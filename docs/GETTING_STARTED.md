@@ -25,8 +25,17 @@ a provider.
   - a configured OpenAI-compatible endpoint; or
   - Codex CLI with an eligible ChatGPT account for the separate Codex Engine.
 
-Forge is currently a private pnpm workspace, not a package published to npm.
-Run it from source or link the current checkout globally.
+Forge's development workspace remains private. Release automation produces one
+public CLI package, `@jslee124/forge`, while internal packages and the plugin
+SDK remain private. Until the first npm release is visible, run from source or
+link the current checkout globally.
+
+For a published build:
+
+```bash
+npm install --global @jslee124/forge
+forge --version
+```
 
 ## 1. Install the checkout
 
@@ -38,7 +47,7 @@ pnpm build
 pnpm forge --version
 ```
 
-The final command builds the workspace and should print `0.2.0` for the current
+The final command builds the workspace and should print `0.3.0` for the current
 source release. It does not contact a model provider.
 
 During development you can keep using `pnpm forge`. To expose the same checkout

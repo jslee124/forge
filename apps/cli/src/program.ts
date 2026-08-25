@@ -14,6 +14,7 @@ import { runPluginsCommand } from "./plugins-command.js";
 import { type ResumeOptions, runResumeFromCli } from "./resume.js";
 import { runTaskFromCli } from "./run.js";
 import { runInteractiveFromCli } from "./session.js";
+import { maybeNotifyUpdate, runUpdateCommand } from "./update.js";
 
 export interface ProgramDependencies {
   readonly env?: NodeJS.ProcessEnv;
@@ -69,6 +70,12 @@ export interface ProgramDependencies {
     },
     env: NodeJS.ProcessEnv,
   ) => Promise<number>;
+  readonly runUpdate?: (
+    mode: "check" | "install",
+    options: { readonly target?: string },
+    env: NodeJS.ProcessEnv,
+  ) => Promise<number>;
+  readonly notifyUpdate?: (env: NodeJS.ProcessEnv) => Promise<void>;
 }
 
 export function createProgram(dependencies: ProgramDependencies = {}): Command {
@@ -122,6 +129,21 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
           }
         },
       }));
+  const update =
+    dependencies.runUpdate ??
+    ((mode, options, updateEnv) =>
+      runUpdateCommand(mode, options, updateEnv, {
+        stdout: process.stdout,
+        stderr: process.stderr,
+      }));
+  const notifyUpdate =
+    dependencies.notifyUpdate ??
+    ((updateEnv) =>
+      maybeNotifyUpdate({
+        env: updateEnv,
+        stderr: process.stderr,
+        isTTY: process.stderr.isTTY === true,
+      }));
   const program = new Command()
     .name("forge")
     .description("A safe, observable, and evaluable coding agent")
@@ -143,6 +165,7 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
       "permission profile: safe or workspace-write",
     )
     .action(async (options: AskOptions) => {
+      await notifyUpdate(env);
       setExitCode(await interactive(options, env));
     });
 
@@ -365,6 +388,22 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
     .action(async (name: string, args: readonly string[]) =>
       setExitCode(await plugins("run", { name, args }, env)),
     );
+
+  program
+    .command("update")
+    .description("Check for or install Forge releases from npm")
+    .argument("[target]", "semantic version, dist-tag, or check", "latest")
+    .option("--check", "check without installing")
+    .action(async (target: string, options: { readonly check?: boolean }) => {
+      const checkOnly = options.check === true || target === "check";
+      setExitCode(
+        await update(
+          checkOnly ? "check" : "install",
+          { target: target === "check" ? "latest" : target },
+          env,
+        ),
+      );
+    });
 
   return program;
 }

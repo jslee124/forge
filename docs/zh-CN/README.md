@@ -16,6 +16,7 @@ Forge 文档按“读者想完成什么”组织。第一次接触项目时无�
 | 编写 plugin 或学习扩展示例 | [插件开发](PLUGINS.md) | [架构](ARCHITECTURE.md) |
 | 复现发布证据 | [评测指南](EVALUATION.md) | [v0.1 合约](V0.1_SPEC.md) |
 | 为 Forge 贡献代码或文档 | [贡献指南](../../CONTRIBUTING.zh-CN.md) | [架构](ARCHITECTURE.md) · [路线图](ROADMAP.md) |
+| 发布 npm release | [npm 发布指南](RELEASING.md) | [评测指南](EVALUATION.md) · [安全模型](SECURITY.md) |
 | 排查错误 | [故障排查](TROUBLESHOOTING.md) | 再阅读对应症状链接的专题页 |
 
 ## 使用 Forge
@@ -28,6 +29,7 @@ Forge 文档按“读者想完成什么”组织。第一次接触项目时无�
 | [认证模型](AUTHENTICATION.md) | API key、compatible endpoint 与 ChatGPT subscription 有什么区别？ |
 | [会话与 trace](SESSIONS.md) | 保存什么、resume 恢复什么、如何检查 run？ |
 | [故障排查](TROUBLESHOOTING.md) | 启动、credential、审批、plugin、图片或终端出问题时先检查什么？ |
+| [npm 发布指南](RELEASING.md) | 如何构建、验证、发布、更新和回滚单一公共 CLI package？ |
 
 ## 理解 Forge
 
@@ -62,7 +64,8 @@ Roadmap 与 acceptance 页面会保留历史决策。当前 CLI 行为、配置�
 ## 文档约定
 
 - 除非页面另有说明，命令都从仓库根目录执行。
-- `pnpm forge ...` 运行开发 checkout；`forge ...` 假设已经执行 `pnpm link:global`。
+- `pnpm forge ...` 运行开发 checkout；`forge ...` 使用已安装的 npm package，
+  或使用通过 `pnpm link:global` 链接的 checkout。
 - 默认 tests 和 deterministic evaluation 不产生付费模型请求；live provider 命令一定标为 opt-in。
 - English 页面是规范详细版本；中文页面保持相同命令、配置名、limits 和安全边界，部分历史设计记录会有意压缩。
 - 不要把 API key、token、完整本地 trace 或仓库敏感输出粘贴到文档与 issue。

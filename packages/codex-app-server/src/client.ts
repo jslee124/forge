@@ -1,6 +1,8 @@
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
 import { createInterface, type Interface } from "node:readline";
 
+import { FORGE_VERSION } from "@forge/core";
+
 import type {
   JsonRpcId,
   JsonRpcNotification,
@@ -105,7 +107,7 @@ export class CodexAppServerClient {
     );
     try {
       await client.request("initialize", {
-        clientInfo: { name: "forge", title: "Forge", version: "0.2.0" },
+        clientInfo: { name: "forge", title: "Forge", version: FORGE_VERSION },
         capabilities: null,
       });
       client.notify("initialized");

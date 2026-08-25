@@ -19,7 +19,14 @@
 - Git
 - 以下任意一种模型访问方式：DeepSeek API key、OpenAI API key、已配置的 OpenAI-compatible endpoint，或通过 Codex CLI 使用 ChatGPT 账号
 
-Forge 当前是私有 pnpm workspace，不是已经发布到 npm 的 package。请从源码运行，或把当前 checkout 链接为全局命令。
+Forge 的开发 workspace 继续保持 private。release 自动化会生成唯一的公共 CLI package `@jslee124/forge`，内部 packages 和插件 SDK 仍保持私有。在首次 npm release 可见前，请从源码运行或全局链接当前 checkout。
+
+对于已经发布的构建：
+
+```bash
+npm install --global @jslee124/forge
+forge --version
+```
 
 ## 1. 安装 checkout
 
@@ -31,7 +38,7 @@ pnpm build
 pnpm forge --version
 ```
 
-最后一条命令会构建 workspace；当前源码 release 应输出 `0.2.0`。它不会联系模型 provider。
+最后一条命令会构建 workspace；当前源码 release 应输出 `0.3.0`。它不会联系模型 provider。
 
 开发期间可以一直使用 `pnpm forge`。如果希望直接输入 `forge`：
 
