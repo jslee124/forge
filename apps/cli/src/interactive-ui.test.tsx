@@ -453,10 +453,12 @@ describe("Ink interactive terminal", () => {
     instance.stdin.write("\u001B[B");
     await settle();
     instance.stdin.write("\r");
-    await settle();
-
-    expect(instance.lastFrame()).toContain(
-      "Removed the stored credential for gateway",
+    await vi.waitFor(
+      () =>
+        expect(instance.lastFrame()).toContain(
+          "Removed the stored credential for gateway",
+        ),
+      { timeout: 2_000 },
     );
     instance.stdin.write("/login");
     await settle();
