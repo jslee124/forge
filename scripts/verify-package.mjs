@@ -9,6 +9,11 @@ const packageRoot = path.join(root, "dist", "npm", "forge");
 const expected = JSON.parse(
   await readFile(path.join(packageRoot, "package.json"), "utf8"),
 );
+if (expected.bin?.forge !== "dist/index.js") {
+  throw new Error(
+    'Published manifest must map bin.forge to "dist/index.js" without a leading "./".',
+  );
+}
 const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), "forge-package-"));
 
 try {
