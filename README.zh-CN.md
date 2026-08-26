@@ -59,7 +59,7 @@ npm install --global @jslee124/forge
 forge config validate
 ```
 
-在 `@jslee124/forge` 真正出现在 npm 之前，请使用下面的源码 checkout。源码开发需要 Node.js 24 或更高版本、pnpm 11.18.0、Git，以及一种受支持的模型访问方式：
+贡献者可以使用下面的源码 checkout。源码开发需要 Node.js 24 或更高版本、pnpm 11.18.0、Git，以及一种受支持的模型访问方式：
 
 ```bash
 git clone https://github.com/jslee124/forge.git
@@ -256,7 +256,7 @@ pnpm forge --help        # 构建并查看 CLI 帮助
 
 ## 当前状态与限制
 
-Forge 仍在积极开发中。当前源码和 npm release 目标版本是 `0.3.0`。自动上下文 checkpoint 仍默认 opt-in，同时还在收集 provider 质量证据。
+Forge 仍在积极开发中。当前稳定源码与 npm release 是 `0.3.0`，详见 [v0.3.0 发布说明](docs/zh-CN/releases/v0.3.0.md)。自动上下文 checkpoint 仍默认 opt-in，同时还在收集 provider 质量证据。
 
 - Native runtime 支持 DeepSeek、OpenAI API 和已配置的 OpenAI-compatible 路由；原生 Anthropic 与 Gemini 协议尚未实现。
 - 模型行为具有非确定性；运行时正确不保证真实任务成功。

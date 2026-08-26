@@ -17,6 +17,7 @@ Forge 文档按“读者想完成什么”组织。第一次接触项目时无�
 | 复现发布证据 | [评测指南](EVALUATION.md) | [v0.1 合约](V0.1_SPEC.md) |
 | 为 Forge 贡献代码或文档 | [贡献指南](../../CONTRIBUTING.zh-CN.md) | [架构](ARCHITECTURE.md) · [路线图](ROADMAP.md) |
 | 发布 npm release | [npm 发布指南](RELEASING.md) | [评测指南](EVALUATION.md) · [安全模型](SECURITY.md) |
+| 查看当前稳定版本 | [v0.3.0 发布说明](releases/v0.3.0.md) | [npm 发布指南](RELEASING.md) |
 | 排查错误 | [故障排查](TROUBLESHOOTING.md) | 再阅读对应症状链接的专题页 |
 
 ## 使用 Forge
@@ -57,6 +58,7 @@ Forge 文档按“读者想完成什么”组织。第一次接触项目时无�
 | [评测指南](EVALUATION.md) | 运行确定性证据与显式 opt-in live trials |
 | [已发布报告](../../evals/reports/README.md) | 经过检查的 release 证据，包括保留的失败 |
 | [路线图](ROADMAP.md) | 已完成 milestone 的验收标准与后续方向 |
+| [v0.3.0 发布说明](releases/v0.3.0.md) | 首个公共 npm 分发、显式更新和发布边界 |
 | [v0.1 验收合约](V0.1_SPEC.md) | 历史首发范围、limits 与 release gates |
 
 Roadmap 与 acceptance 页面会保留历史决策。当前 CLI 行为、配置默认值和 public TypeScript shape 以 checkout 中的源码与测试为准。

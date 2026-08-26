@@ -19,9 +19,9 @@
 - Git
 - 以下任意一种模型访问方式：DeepSeek API key、OpenAI API key、已配置的 OpenAI-compatible endpoint，或通过 Codex CLI 使用 ChatGPT 账号
 
-Forge 的开发 workspace 继续保持 private。release 自动化会生成唯一的公共 CLI package `@jslee124/forge`，内部 packages 和插件 SDK 仍保持私有。在首次 npm release 可见前，请从源码运行或全局链接当前 checkout。
+Forge 的开发 workspace 继续保持 private。release 自动化会生成唯一的公共 CLI package `@jslee124/forge`，内部 packages 和插件 SDK 仍保持私有。普通用户应安装已发布的 CLI；参与 Forge 开发时再从源码运行或全局链接当前 checkout。
 
-对于已经发布的构建：
+安装当前稳定版本：
 
 ```bash
 npm install --global @jslee124/forge

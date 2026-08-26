@@ -27,10 +27,10 @@ a provider.
 
 Forge's development workspace remains private. Release automation produces one
 public CLI package, `@jslee124/forge`, while internal packages and the plugin
-SDK remain private. Until the first npm release is visible, run from source or
-link the current checkout globally.
+SDK remain private. Install the published CLI for normal use; run from source
+or link the current checkout globally when contributing to Forge.
 
-For a published build:
+For the current stable build:
 
 ```bash
 npm install --global @jslee124/forge

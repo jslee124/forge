@@ -22,17 +22,18 @@ development-only files cannot enter the registry by accident.
 
 ## Prepare a release
 
-Start from a clean checkout and choose a semantic version:
+Start from a clean checkout and choose a semantic version. Replace `0.3.1`
+below with the release being prepared:
 
 ```bash
-pnpm version:set 0.3.0
+pnpm version:set 0.3.1
 pnpm install --frozen-lockfile
 pnpm check
 pnpm check:docs
 pnpm test
 pnpm eval:deterministic
 pnpm package:verify
-pnpm release:verify-tag v0.3.0
+pnpm release:verify-tag v0.3.1
 ```
 
 `package:verify` builds the public artifact, inspects the tarball, installs it
@@ -43,18 +44,19 @@ Review `npm pack --dry-run` output and release notes before tagging. Never
 include API keys, auth files, local traces, `.env` files, or evaluation
 artifacts that were not explicitly reviewed for publication.
 
-## First npm publication
+## One-time npm setup (completed)
 
-The npm account or organization must control the `@jslee124` scope and have 2FA
-enabled. npm requires a package to exist before a trusted publisher can be
-attached. Bootstrap the package with a reviewed prerelease such as
-`0.3.0-bootstrap.0` under a non-stable dist-tag, then configure the repository's
-`publish.yml` as the package's GitHub Actions trusted publisher. Do not assign
-the bootstrap build to `latest`.
+The first publication was completed for v0.3.0. The `@jslee124` scope is
+controlled by the maintainer, and `.github/workflows/publish.yml` is registered
+as the package's GitHub Actions trusted publisher. The one-time bootstrap used
+`0.3.0-bootstrap.0` under the `bootstrap` dist-tag; `latest` now points to the
+stable `0.3.0` release. Do not repeat the bootstrap procedure for later
+releases.
 
-After trusted publishing is configured, stable releases should come only from
-the tag workflow. It uses OIDC instead of a long-lived npm token and publishes
-the generated package after all release gates pass.
+Stable releases must come only from the tag workflow. It uses OIDC instead of a
+long-lived npm token and publishes the generated package after all release
+gates pass. If the trusted-publisher configuration is ever replaced, review the
+npm package settings and workflow identity together before creating a tag.
 
 ## Publish a stable release
 
@@ -62,8 +64,8 @@ Commit the version, release notes, and generated-input changes, then create an
 annotated immutable tag:
 
 ```bash
-git tag -a v0.3.0 -m "Forge v0.3.0"
-git push origin v0.3.0
+git tag -a v0.3.1 -m "Forge v0.3.1"
+git push origin v0.3.1
 ```
 
 The `Publish npm package` workflow verifies that the Git tag, root version,

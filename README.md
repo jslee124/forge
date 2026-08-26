@@ -67,9 +67,8 @@ npm install --global @jslee124/forge
 forge config validate
 ```
 
-Until `@jslee124/forge` appears on npm, use the source checkout below. Source
-development requires Node.js 24 or newer, pnpm 11.18.0, Git, and one supported
-model-access route:
+Contributors can use the source checkout below. Source development requires
+Node.js 24 or newer, pnpm 11.18.0, Git, and one supported model-access route:
 
 ```bash
 git clone https://github.com/jslee124/forge.git
@@ -309,8 +308,9 @@ Start at the [documentation hub](docs/README.md), which routes readers by task.
 
 ## Current status and limitations
 
-Forge is under active development. The current source and npm release target is
-`0.3.0`. Automatic context checkpoint generation remains opt-in while
+Forge is under active development. The current stable source and npm release is
+`0.3.0`; see the [v0.3.0 release notes](docs/releases/v0.3.0.md). Automatic
+context checkpoint generation remains opt-in while
 provider-quality evidence is collected.
 
 - The native runtime supports DeepSeek, OpenAI API, and configured
