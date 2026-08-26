@@ -4,9 +4,10 @@
 
 ## Current milestone
 
-**Milestone 11: OpenAI-compatible provider routes is complete.** Automatic
-context checkpoint generation remains opt-in while live provider-quality gates
-are collected.
+**Milestone 12: model-invocable Skills and versioned product knowledge is the
+current v0.3.1 milestone.** Milestone 11 is complete. Automatic context
+checkpoint generation remains opt-in while live provider-quality gates are
+collected.
 
 ## Working rules
 
@@ -501,6 +502,210 @@ Acceptance criteria:
   context and effort surfaces.
 - Build, formatting, type checks, and the full default test suite pass without
   paid model calls.
+
+## Milestone 12: Model-invocable Skills and versioned product knowledge (v0.3.1)
+
+Goal: let Forge recognize when a task needs specialized instructions or
+product documentation, load only the matching bounded resources, and continue
+through the existing model/tool/policy/trace loop. The first complete vertical
+slices are creating a Forge plugin and answering questions about the installed
+Forge version.
+
+This milestone extends the portable Skill convention; it does not turn Skills
+into executable plugins. Built-in, user, and project Skills are model-invocable
+by default. Repository Skill content remains untrusted prompt input: selecting
+a Skill grants no capability, approval, filesystem access, network access, or
+permission change, and every resulting tool action still passes through the
+normal policy, approval, execution, event, and trace pipeline.
+
+### 12.1 Resource model, discovery, and precedence
+
+- [ ] Add a dedicated resource boundary instead of growing executable plugin
+  activation around non-executable Skills and documentation
+- [ ] Parse bounded YAML frontmatter from `SKILL.md`, requiring a valid `name`
+  and task-oriented `description`; retain the body for lazy loading
+- [ ] Represent `builtin`, `user`, and `project` provenance, canonical path,
+  content size, model-invocation state, and diagnostics in typed descriptors
+- [ ] Discover bundled Skills, user Skills, and project
+  `.agents/skills/<name>/SKILL.md` resources without executing repository code
+- [ ] Make built-in, user, and project Skills visible to the model and eligible
+  for automatic invocation by default; `disable-model-invocation: true` makes a
+  Skill explicit-only
+- [ ] Preserve explicit `$skill-name` selection as the deterministic override
+  and compatibility path
+- [ ] Resolve name collisions deterministically with
+  `explicit selection > project > user > builtin`, report the shadowed sources,
+  and record the selected source
+- [ ] Include only escaped `name`, `description`, source, and stable identifier
+  in the initial model request rather than every Skill body
+- [ ] Apply per-file, catalog, description, and total instruction budgets before
+  any paid provider request
+
+Acceptance criteria:
+
+- A valid project Skill becomes model-invocable without a separate trust step
+  or an explicit `$name` mention.
+- A project Skill is parsed as data and never imported or executed during
+  discovery.
+- An explicit `$name` still selects the expected Skill when automatic routing
+  would choose another resource.
+- Invalid metadata, collisions, and size-limit failures produce bounded,
+  source-specific diagnostics.
+- A workspace with many Skills adds only bounded catalog metadata to the first
+  request.
+
+### 12.2 Safe lazy loading and runtime integration
+
+- [ ] Add a host-owned `load_skill` read tool that accepts a catalog identifier,
+  not a model-generated arbitrary path
+- [ ] Canonicalize every resource root and target; reject traversal, escaped
+  symlinks, non-regular files, changed identities, and files outside the
+  registered resource root
+- [ ] Return bounded content, provenance, base directory, and truncation state
+  so relative references can be resolved deliberately
+- [ ] Keep workspace `read_file` constrained to the selected workspace; do not
+  widen it to reach installed Forge resources or arbitrary user files
+- [ ] Tell the model to load a Skill before acting whenever the request matches
+  its description, while allowing an explicit-only Skill to be selected only
+  by the user
+- [ ] Allow at most a bounded number of Skill loads and deduplicate repeated
+  loads within one run
+- [ ] Re-run context preflight after resource results enter the conversation
+  and fail before a provider request when mandatory context cannot fit
+- [ ] Emit structured discovery, automatic-selection, explicit-selection,
+  load, rejection, and truncation events with no hidden chain-of-thought
+
+Acceptance criteria:
+
+- "Create a Forge plugin" can cause the native model loop to load the plugin
+  authoring Skill without the user naming it.
+- A hostile Skill cannot read outside its registered root through `load_skill`
+  or weaken the active approval policy through instructions.
+- A loaded Skill may recommend actions, but no write, process, or network action
+  executes outside the existing policy and approval path.
+- `forge inspect` can identify which Skill was selected, why it was eligible,
+  its source, and whether its content was truncated.
+
+### 12.3 Built-in Forge plugin authoring Skill
+
+- [ ] Ship a version-matched `forge-plugin-creator` Skill with the CLI package
+- [ ] Trigger it for plugin creation, modification, validation, capability,
+  lifecycle, trust, loading, tool, command, observer, prompt-hook, policy-hook,
+  and plugin-test requests
+- [ ] Keep workflow instructions in the Skill and current API facts in bundled
+  documentation or generated references instead of duplicating an entire
+  manual in the prompt
+- [ ] Include minimal manifest, entry, and test templates that use the current
+  plugin API version and package layout
+- [ ] Require inspection of the active manifest schema, TypeScript types, and
+  the nearest maintained example before generating code
+- [ ] Preserve the distinction between a non-executable Skill and trusted
+  in-process plugin code with local process privileges
+- [ ] Validate generated plugin names, entries, capabilities, reserved tool
+  names, and project trust behavior before reporting completion
+- [ ] Run build, typecheck, focused plugin tests, and documentation checks
+  without paid model calls
+
+Acceptance criteria:
+
+- A user can ask for a small Forge plugin in ordinary language and receive a
+  current manifest, implementation, tests, and activation instructions.
+- Generated examples do not bypass plugin trust, capability validation,
+  policy, approval, or trace handling.
+- The built-in Skill and templates are included in the packaged CLI and match
+  the runtime's plugin API version.
+
+### 12.4 Versioned Forge documentation retrieval
+
+- [ ] Package the canonical English documentation and maintained Chinese
+  mirrors needed for product help with the CLI release
+- [ ] Generate a deterministic index containing Forge version, locale,
+  document identifier, title, headings, keywords, path, and content hash
+- [ ] Split Markdown by headings and use bounded lexical ranking first; defer
+  embeddings or vector infrastructure until evaluation shows a measurable need
+- [ ] Add `search_forge_docs` for bounded ranked results and `read_forge_doc`
+  for an allowlisted document or section
+- [ ] Prefer the user's active locale, fall back to canonical English, and mark
+  the fallback instead of silently mixing translations
+- [ ] Add a built-in `forge-product-help` Skill for installation,
+  configuration, providers, models, authentication, plugins, Skills, sessions,
+  context, traces, security, release, and troubleshooting questions
+- [ ] Require documentation lookup before answering changeable or
+  implementation-specific Forge product questions; distinguish documented
+  facts, repository inspection, inference, and unsupported behavior
+- [ ] Return stable document and section references suitable for terminal
+  rendering and traces without exposing arbitrary package paths
+- [ ] Verify at package-build time that indexed paths exist, hashes match,
+  local Markdown links pass, and the index version equals `FORGE_VERSION`
+
+Acceptance criteria:
+
+- Asking whether project configuration may select a provider searches the
+  bundled documentation and answers from the current installed version.
+- Chinese product questions prefer a maintained Chinese page and visibly fall
+  back to English when no mirror exists.
+- Documentation tools cannot read an arbitrary workspace, home, credential,
+  or package file.
+- Product answers expose the document and section used, and say when the docs
+  do not establish an answer.
+
+### 12.5 CLI discovery and control surfaces
+
+- [ ] Extend startup resource reporting without importing executable project
+  plugins or eagerly reading Skill bodies
+- [ ] Add `forge resources list` and an interactive `/resources` view for
+  source, description, automatic/explicit-only status, shadowing, and
+  diagnostics
+- [ ] Keep `/plugins` focused on executable plugins and show a clear link to
+  Skills/resources rather than conflating the two lifecycles
+- [ ] Surface automatic Skill selection and documentation lookup as concise
+  run events without exposing private reasoning
+- [ ] Add a user-scoped way to disable a specific automatically invocable Skill
+  while keeping project Skills model-invocable by default
+- [ ] Keep non-interactive behavior deterministic and emit actionable warnings
+  instead of opening a trust or selection prompt
+
+Acceptance criteria:
+
+- A user can discover why a Skill is or is not model-invocable before starting
+  a paid run.
+- The UI identifies builtin, user, and project resources and never presents a
+  Skill as already-executed plugin code.
+- Disabling one automatic Skill does not disable explicit selection or mutate
+  repository files.
+
+### 12.6 Evaluation, compatibility, and release gates
+
+- [ ] Add scripted fake-model tests for matching, non-matching, ambiguous,
+  explicit, disabled, collision, repeated-load, and over-budget Skill cases
+- [ ] Add adversarial project Skills that attempt prompt injection, permission
+  widening, arbitrary path reads, secret access, and unapproved commands
+- [ ] Add product-question fixtures spanning plugin API, configuration,
+  authentication, sessions, context, security, and deliberate unknowns
+- [ ] Measure selection precision/recall, unnecessary resource loads, first-turn
+  catalog tokens, loaded-resource tokens, answer citation accuracy, latency,
+  and task completion
+- [ ] Keep all default tests deterministic and offline; make live provider
+  quality trials explicit and opt-in
+- [ ] Preserve sessions and traces created before resource events existed, and
+  keep the old explicit `$name` flow working
+- [ ] Verify the packed artifact contains Skills, templates, docs, index, and no
+  development-only or secret files
+- [ ] Run `pnpm build`, `pnpm check`, `pnpm test`, `pnpm check:docs`, deterministic
+  evaluations, package verification, and version consistency for `0.3.1`
+
+Release criteria:
+
+- Plugin-creation and product-question vertical slices pass deterministic
+  end-to-end tests through the compiled CLI.
+- Project Skills are automatically model-invocable by default, but adversarial
+  Skills cannot expand capabilities or bypass policy and approval.
+- Resource selection and reads are bounded, provenance-visible, inspectable,
+  and included in context accounting.
+- The clean packaged `0.3.1` CLI answers from its own version-matched docs and
+  can scaffold a plugin matching its shipped API.
+- No release claim treats model-invocable Skills as trusted executable code or
+  claims OS sandboxing that Forge does not provide.
 
 ## Later extensions
 

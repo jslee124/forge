@@ -38,7 +38,7 @@ pnpm build
 pnpm forge --version
 ```
 
-最后一条命令会构建 workspace；当前源码 release 应输出 `0.3.0`。它不会联系模型 provider。
+最后一条命令会构建 workspace；当前源码 release 应输出 `0.3.1`。它不会联系模型 provider。
 
 开发期间可以一直使用 `pnpm forge`。如果希望直接输入 `forge`：
 

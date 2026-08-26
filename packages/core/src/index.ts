@@ -1,4 +1,4 @@
-export const FORGE_VERSION = "0.3.0";
+export const FORGE_VERSION = "0.3.1";
 
 export {
   type ActiveConversationView,
