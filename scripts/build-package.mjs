@@ -65,7 +65,7 @@ const packageManifest = {
   description: "A safe, observable, and evaluable coding agent",
   license: "MIT",
   type: "module",
-  bin: { forge: "./dist/index.js" },
+  bin: { forge: "dist/index.js" },
   files: ["dist", "README.md", "LICENSE"],
   engines: { node: ">=24" },
   repository: {
