@@ -1,6 +1,6 @@
 # Evaluation Guide
 
-[简体中文](zh-CN/EVALUATION.md) · [Documentation index](zh-CN/README.md)
+[简体中文](zh-CN/EVALUATION.md) · [Documentation index](README.md)
 
 ## Purpose
 

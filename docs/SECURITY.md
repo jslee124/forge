@@ -1,6 +1,6 @@
 # Security Model
 
-[简体中文](zh-CN/SECURITY.md) · [Documentation index](zh-CN/README.md)
+[简体中文](zh-CN/SECURITY.md) · [Documentation index](README.md)
 
 ## Status
 
@@ -33,6 +33,7 @@ must state which boundaries it enforces and which risks remain with the user.
 | Later writes covered by the run approval | Allow |
 | Any process command | Confirm |
 | Any registered network tool | Confirm |
+| Any delegated subagent model run | Confirm |
 | Built-in file operation outside the workspace | Deny in v0.1 |
 | Approval-required action without an approval channel | Deny |
 
@@ -45,14 +46,15 @@ asking the user for an exception.
 ### `safe`
 
 The default profile. Workspace reads are automatic. Workspace modifications,
-process commands, and registered network tools require confirmation according
-to the table above.
+process commands, registered network tools, and delegated subagent model runs
+require confirmation according to the table above.
 
 ### `workspace-write`
 
 Workspace file tools may modify files automatically after the user selects this
-profile. Process commands and registered network tools still require
-confirmation, and outside-workspace file access remains denied in v0.1.
+profile. Process commands, registered network tools, and delegated subagent
+model runs still require confirmation, and outside-workspace file access
+remains denied in v0.1.
 
 ### `full-access`
 
@@ -72,7 +74,8 @@ from an untrusted project.
 API keys, OAuth credentials, and other secrets are invalid in both user and
 project configuration. User configuration may reference a provider or
 credential name, while the secret value comes from an environment variable or
-the operating-system credential store.
+Forge's owner-readable credential file. ChatGPT subscription credentials stay
+inside Codex App Server's credential boundary.
 
 Forge must validate configuration before loading plugins or starting a run. It
 should warn when user configuration or user-plugin directories have unsafe
@@ -140,6 +143,20 @@ An approved process command or trusted plugin code may still access the network
 directly with the permissions of the Forge process. Manifest capabilities gate
 Forge registration APIs; they do not constrain arbitrary Node.js calls. The UI
 and documentation must not imply otherwise.
+
+## Delegated model runs
+
+Subagent tools use the separate `model` risk and require confirmation on every
+call, including under `workspace-write`, because they incur another model run.
+The approval view shows the generated tool name and delegated task. The host
+creates the child adapter and never exposes credentials to the plugin.
+
+Children inherit the effective parent policy and approval channel, receive only
+declared non-subagent tools, share bounded run/step/tool budgets, use the same
+workspace and abort signal, and return bounded output. Recursive delegation is
+not available. With tracing enabled, child events are stored in a separate
+trace linked by `parentRunId` and `subagentName`; the parent tool result records
+the child run ID. This is runtime containment, not provider or OS isolation.
 
 ## Non-interactive operation
 
@@ -209,14 +226,17 @@ and PKCE verifiers
 are secrets. They must never appear in prompts, traces, terminal debug output,
 plugin events, crash reports, or repository files.
 
-Forge should prefer the operating-system credential store. A file fallback must
-be explicit, stored outside the project, written atomically with owner-only
-permissions, and documented as sensitive plaintext storage.
+Forge currently resolves API keys from process environment variables first,
+then from the explicit `$FORGE_HOME/auth.json` fallback. The fallback is stored
+outside the project, written atomically, protected by directory mode `0700` and
+file mode `0600`, and documented as sensitive plaintext storage rather than an
+operating-system keychain. OS credential-store integration remains a preferred
+future improvement.
 
-The implemented API-key methods deliberately use process environment variables
-and never persist keys. Provider/model/reasoning selections are ordinary config
-and may be saved under `FORGE_HOME`; credential-shaped fields and known secret
-values are redacted before traces and plugin observers receive events.
+Provider/model/reasoning selections are ordinary configuration and may be
+saved under `FORGE_HOME`; credentials remain separate. Credential-shaped
+fields and known secret values are redacted before traces and plugin observers
+receive events.
 
 OAuth token refresh must be single-flight so concurrent model requests do not
 race to rotate the same refresh token. Logout clears Forge-owned credentials.

@@ -30,7 +30,7 @@ $FORGE_HOME/
 
 Session snapshot 使用 `schemaVersion: 2`，读取时迁移 v1；trace envelope 使用 `schemaVersion: 1`。文件只能写入解析后的 Forge home。snapshot 原子替换，活跃 run 的 trace 追加写入。
 
-每个 session 保存 session ID、创建和更新时间、规范 workspace root、工作目录、已完成对话、provider 暴露的 reasoning 文本、run ID 顺序，以及可选的带来源和 hash 的 checkpoint。每行 trace 包含 run ID、可选 session ID、序号、时间戳和一个结构化 `RunEvent`。
+每个 session 保存 session ID、创建和更新时间、规范 workspace root、工作目录、已完成对话、provider 暴露的 reasoning 文本、run ID 顺序，以及可选的带来源和 hash 的 checkpoint。每行 trace 包含 run ID、可选 session ID、序号、时间戳和一个结构化 `RunEvent`。Subagent trace envelope 还包含 `parentRunId` 和 `subagentName`，parent trace 则通过完成的 delegation tool result 反向关联 child run。
 
 ## 恢复行为
 

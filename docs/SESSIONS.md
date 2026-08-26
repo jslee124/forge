@@ -1,6 +1,6 @@
 # Persistent Sessions and Run Traces
 
-[简体中文](zh-CN/SESSIONS.md) · [Documentation index](zh-CN/README.md)
+[简体中文](zh-CN/SESSIONS.md) · [Documentation index](README.md)
 
 ## Goal
 
@@ -52,7 +52,9 @@ Each session stores:
 - An optional versioned checkpoint with source/tail hashes and provenance
 
 Each trace line is a versioned envelope containing the run ID, optional session
-ID, sequence number, timestamp, and one structured `RunEvent`.
+ID, sequence number, timestamp, and one structured `RunEvent`. Subagent trace
+envelopes additionally carry `parentRunId` and `subagentName`; the parent trace
+links back through the completed delegation tool result.
 
 ## Resume behavior
 

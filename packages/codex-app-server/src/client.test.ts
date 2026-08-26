@@ -2,6 +2,7 @@ import type { ChildProcessWithoutNullStreams } from "node:child_process";
 import { EventEmitter } from "node:events";
 import { PassThrough } from "node:stream";
 
+import { FORGE_VERSION } from "@forge/core";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -89,6 +90,18 @@ describe("CodexAppServerClient", () => {
       result: { decision: "decline" },
     });
     expect(received).toContainEqual({ method: "initialized" });
+    expect(received).toContainEqual({
+      id: 1,
+      method: "initialize",
+      params: {
+        clientInfo: {
+          name: "forge",
+          title: "Forge",
+          version: FORGE_VERSION,
+        },
+        capabilities: null,
+      },
+    });
     client.close();
     expect(process.killed).toBe(true);
   });

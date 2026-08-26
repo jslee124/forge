@@ -3,7 +3,7 @@
 
 # Plugin authoring guide
 
-[简体中文](zh-CN/PLUGINS.md) · [Documentation index](zh-CN/README.md)
+[简体中文](zh-CN/PLUGINS.md) · [Documentation index](README.md)
 
 Forge v0.2 works without plugins. A plugin is an optional in-process JavaScript
 module that can register model-callable tools and explicit local commands,
@@ -181,6 +181,7 @@ Supported capabilities:
 | `tools:register` | Call `api.registerTool()` |
 | `commands:register` | Call `api.registerCommand()` |
 | `prompt:contribute` | Call `api.contributePrompt()` |
+| `subagents:register` | Call `api.registerSubagent()` to declare a host-run child role |
 | `events:observe` | Call `api.observeRunEvents()` |
 | `policy:restrict` | Call `api.restrictPolicy()` |
 | `network:access` | Declare that a registered `network`-risk tool performs external I/O |
@@ -211,6 +212,7 @@ The frozen `api` object contains:
 | `api.z` | Forge's Zod instance for input schemas; no plugin dependency needed |
 | `api.registerTool(tool)` | Register a model-callable tool |
 | `api.registerCommand(command)` | Register an explicit local command |
+| `api.registerSubagent(definition)` | Register an isolated, host-managed child role as a model tool |
 | `api.contributePrompt(hook)` | Add bounded instructions to a run |
 | `api.observeRunEvents(observer)` | Observe immutable event snapshots |
 | `api.restrictPolicy(hook)` | Change an effective decision only to `confirm` or `deny` |
@@ -228,7 +230,7 @@ interface ForgeTool {
   name: string;
   description: string;
   inputSchema: z.ZodType;
-  risk: "read" | "write" | "process" | "network";
+  risk: "read" | "write" | "process" | "network" | "model";
   execute(input: unknown, context: ToolContext): Promise<ToolResult>;
 }
 ```
@@ -245,6 +247,7 @@ model, so say exactly when the tool should be called and keep inputs bounded.
 | `write` | Workspace file changes | Confirm first write in `safe`; allow in `workspace-write` |
 | `process` | Starting any child process | Confirm every call |
 | `network` | Sending data to or fetching data from an external service | Confirm every call |
+| `model` | Starting an additional delegated model run | Confirm every call |
 
 Do not label a network or process action as `read` merely because it does not
 modify the repository. The risk describes the external effect, not only the
@@ -304,6 +307,45 @@ Use an existing Forge error code from `@forge/core` (`invalid_input`,
 credentials, authorization headers, or private response bodies in errors.
 
 ## Other extension points
+
+### Subagents
+
+`api.registerSubagent()` is declarative: the plugin defines a role, generated
+parent-tool name, instructions, allowed child tools, and tight limits. It never
+receives credentials or a callable model/runtime object.
+
+```js
+api.registerSubagent({
+  name: "code-reviewer",
+  toolName: "delegate_code_review",
+  description: "Delegate a focused read-only review.",
+  instructions: "Report concrete correctness and security findings.",
+  tools: ["list_files", "read_file", "search"],
+  limits: { maxModelSteps: 4, maxToolCalls: 8 }
+});
+```
+
+Declare `subagents:register`. Role names are kebab-case; generated tool names
+are lower snake case and share the normal built-in/plugin name namespace.
+Instructions are required and capped at 16 KiB. At most 32 unique, already
+registered non-subagent tools may be selected. Per-child limits are capped at
+8 model steps and 20 tool calls.
+
+The generated tool accepts `{ task: string }`, has `model` risk, and requires
+approval for every delegation. Forge creates a fresh adapter and isolated
+conversation, inherits project instructions, workspace, context settings,
+cancellation, approval channel, and the effective core-plus-plugin policy, and
+exposes only the declared tools. Subagent tools are never included in child
+tool sets, preventing recursive delegation.
+
+One parent run may start at most four children. All children also share budgets
+equal to the configured parent `maxSteps` and `maxToolCalls`; a plugin's limit
+can only reduce those ceilings. Results are bounded by `maxToolOutputBytes`.
+When tracing is enabled, each child gets a separate run trace whose envelopes
+carry `parentRunId` and `subagentName`; the parent tool result carries the child
+`runId`, status, step/tool counts, and final text.
+
+See [`examples/plugins/code-review-subagent`](../examples/plugins/code-review-subagent).
 
 ### Commands
 
@@ -426,7 +468,7 @@ enable only that plugin. A robust plugin test should cover:
 - Host activation and registered names/capabilities.
 - Invalid inputs and cancellation.
 - Output/entry/timeout limits and `truncated` accuracy.
-- Network/process/write policy decisions where relevant.
+- Model/network/process/write policy decisions where relevant.
 - Redaction: secrets never occur in a result, event, error, or test snapshot.
 - Recoverable provider failures without live network calls.
 
@@ -468,6 +510,30 @@ serialized output. These controls reduce accidental SSRF and runaway output;
 they are not a network sandbox, and a configured proxy is part of the trust
 boundary.
 
+## MCP, to-dos, and subagents
+
+The examples make the current extension boundary concrete:
+
+| Capability | Current plugin API | Example / limitation |
+| --- | --- | --- |
+| MCP server tools | Yes, with protocol and lifecycle limits | [`mcp-stdio`](../examples/plugins/mcp-stdio) registers approved `process`-risk list/call bridge tools for one configured stdio server. |
+| Lightweight to-dos | Yes | [`todos`](../examples/plugins/todos) registers an in-memory tool and bounded prompt contribution. Persistence and a custom TUI panel are not available. |
+| Host-managed subagents | Yes | [`code-review-subagent`](../examples/plugins/code-review-subagent) declares a read-only child role; Forge owns its adapter, policy, budgets, cancellation, and linked trace. |
+
+The MCP example intentionally targets session-based, newline-delimited stdio
+revision `2025-11-25`; it is evidence that a plugin can bridge MCP tools, not a
+claim that Forge has complete MCP host support. Streamable HTTP, current
+handshake-free protocol support, server reuse, prompts/resources/roots,
+sampling, tasks, and lifecycle disposal need a first-class host or expanded
+plugin contract.
+
+Subagents currently inherit the active parent model; plugins cannot select a
+different provider/model, pass parent conversation history, persist a child as
+an independently resumable session, stream child deltas into a dedicated TUI
+panel, or enable nested delegation. Those remain deliberate host limitations,
+not behaviors plugins should emulate with direct provider calls or recursive
+CLI spawning.
+
 ## Instructions for a model author
 
 When asked to write a Forge plugin, follow this sequence:
@@ -496,7 +562,7 @@ Before handing off, verify:
 - Directory name equals manifest `name`.
 - Manifest/API versions are exactly supported.
 - Entry stays inside the plugin directory and exports an activation function.
-- All used APIs and `network` tools declare their capabilities.
+- All used APIs, subagents, and `network` tools declare their capabilities.
 - Tool/command names do not collide and descriptions are model-readable.
 - Errors are actionable and contain no secrets.
 - Output sizes are measured after JSON serialization when that matters.
@@ -516,7 +582,7 @@ Forge enforces safety at its supported API boundaries:
 - Project entries are not imported before canonical workspace trust.
 - Manifest/API/capability/name/schema contracts are validated.
 - Model-called plugin tools follow core policy and approval.
-- `network`, `process`, and applicable write actions require confirmation.
+- `model`, `network`, `process`, and applicable write actions require confirmation.
 - Policy hooks can only make decisions stricter.
 - Prompt contributions and Skill content are bounded and attributed.
 - Observer input is cloned, frozen, and secret-redacted.

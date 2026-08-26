@@ -1,10 +1,10 @@
 {
   "name": "@forge/cli",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "bin": {
-    "forge": "./dist/index.js"
+    "forge": "dist/index.js"
   },
   "exports": {
     ".": {

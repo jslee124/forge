@@ -19,6 +19,7 @@ Context checkpoint 是派生且不可信的 conversation memory，不能携带�
 | 被本次 run 审批覆盖的后续写入 | Allow |
 | 任意进程命令 | Confirm |
 | 任意注册网络工具 | Confirm |
+| 任意委派 subagent 模型运行 | Confirm |
 | 内置文件工具访问 workspace 外 | Deny |
 | 需要审批但无审批通道 | Deny |
 
@@ -26,11 +27,11 @@ Context checkpoint 是派生且不可信的 conversation memory，不能携带�
 
 ### `safe`
 
-默认 profile。workspace 读取自动执行；workspace 修改、进程命令和注册网络工具依照上表确认。
+默认 profile。workspace 读取自动执行；workspace 修改、进程命令、注册网络工具和委派 subagent 模型运行依照上表确认。
 
 ### `workspace-write`
 
-用户选择此 profile 后，workspace 文件工具可以自动修改文件；进程命令和网络工具仍需确认，v0.1 仍拒绝 workspace 外访问。
+用户选择此 profile 后，workspace 文件工具可以自动修改文件；进程命令、网络工具和委派 subagent 模型运行仍需确认，v0.1 仍拒绝 workspace 外访问。
 
 ### `full-access`
 
@@ -38,7 +39,7 @@ v0.1 之后再考虑。未来的显式高级模式必须有清晰警告和用户
 
 ## 配置边界
 
-`~/.forge/config.json` 是用户控制的配置。项目 `.forge/config.json` 可以覆盖普通项目行为，但不能降低 permission profile、标记项目已信任、抑制强制审批、增加用户安全限制，或启用未信任项目中的插件。API key、OAuth credential 和其他 secret 在用户及项目配置中都无效；secret 值来自环境变量或 OS credential store。加载插件或开始 run 前必须先校验配置，并在适用平台提示不安全的文件权限。
+`~/.forge/config.json` 是用户控制的配置。项目 `.forge/config.json` 可以覆盖普通项目行为，但不能降低 permission profile、标记项目已信任、抑制强制审批、增加用户安全限制，或启用未信任项目中的插件。API key、OAuth credential 和其他 secret 在用户及项目配置中都无效；API key 来自环境变量或 Forge owner-only credential file，ChatGPT subscription credential 则留在 Codex App Server 边界内。加载插件或开始 run 前必须先校验配置，并在适用平台提示不安全的文件权限。
 
 ## 文件系统边界
 
@@ -60,6 +61,12 @@ v0.1 `run_command` 接受 program 和 args 数组，以 Node.js `spawn`、`shell
 
 获批进程或受信任插件代码仍可直接访问网络；manifest capability 只约束 Forge 注册 API，不能约束任意 Node.js 调用。UI 和文档不得暗示更强的隔离。
 
+## 委派模型运行
+
+Subagent 工具使用独立的 `model` risk，在 `safe` 和 `workspace-write` 下每次调用都需确认，因为它会产生额外模型运行。审批界面显示生成的 tool 名和委派 task。宿主创建 child adapter，插件不会拿到 credential。
+
+Child 继承有效 policy/approval，只获得声明的非 subagent 工具，共享有界 run/step/tool 预算、workspace 和 abort signal，返回有界结果，且不能递归委派。启用 trace 时，child event 写入带 `parentRunId`/`subagentName` 的独立 trace，parent tool result 记录 child run ID。这是 runtime containment，不是 provider 或 OS 隔离。
+
 ## 非交互操作
 
 没有审批通道时，除非用户在运行前提供了匹配的窄审批，否则需要审批的操作会被拒绝；沉默永远不解释为同意。评测 harness 的审批只允许 fixture 声明的精确 program、参数、工作目录和超时，是测试基础设施，不是通用绕过。
@@ -78,6 +85,6 @@ v0.1 `run_command` 接受 program 和 args 数组，以 Node.js `spawn`、`shell
 
 ## Credential 处理
 
-API key、access/refresh token、authorization code 和 PKCE verifier 都是 secret，不能出现在 prompt、trace、终端 debug、plugin event、crash report 或仓库文件中。Forge 应优先使用 OS credential store；文件 fallback 必须在项目外、原子写入、owner-only，并明确说明是敏感明文。
+API key、access/refresh token、authorization code 和 PKCE verifier 都是 secret，不能出现在 prompt、trace、终端 debug、plugin event、crash report 或仓库文件中。Forge 当前先从进程环境变量解析 API key，再使用显式的 `$FORGE_HOME/auth.json` fallback。该文件位于项目外，原子写入，目录权限为 `0700`、文件为 `0600`，属于受文件权限保护的敏感明文，而不是 OS keychain；OS credential-store integration 仍是后续改进。
 
-API-key 方法使用进程环境变量且不持久化 key；provider/model/reasoning 选择是普通配置，可保存到 `FORGE_HOME`。OAuth refresh 应 single-flight；Forge 不得静默导入或修改其他应用的 credential 文件。ChatGPT 订阅的 OAuth 和刷新全部交给官方 Codex App Server，Forge 不读取 Codex credential 文件，也不接收 token。
+Provider/model/reasoning 选择是普通配置，可保存到 `FORGE_HOME`，credential 与普通配置分离。OAuth refresh 应 single-flight；Forge 不得静默导入或修改其他应用的 credential 文件。ChatGPT 订阅的 OAuth 和刷新全部交给官方 Codex App Server，Forge 不读取 Codex credential 文件，也不接收 token。

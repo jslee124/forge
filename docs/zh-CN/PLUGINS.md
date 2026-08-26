@@ -101,7 +101,7 @@ Manifest 是 strict 的，未知 key 拒绝：
 | `entry` | 位于插件目录内的相对 `.js`/`.mjs`/`.cjs` 路径 |
 | `capabilities` | entry 计划使用的 capability 数组 |
 
-支持的 capability：`tools:register`、`commands:register`、`prompt:contribute`、`events:observe`、`policy:restrict`、`network:access`。未声明的 registration method 会拒绝；`network` risk 工具还必须声明 `network:access`。Capability 是 review/API gate，不是 OS sandbox；可信 JavaScript 在 activation 中仍能直接调用 Node.js。
+支持的 capability：`tools:register`、`commands:register`、`prompt:contribute`、`subagents:register`、`events:observe`、`policy:restrict`、`network:access`。未声明的 registration method 会拒绝；`network` risk 工具还必须声明 `network:access`。Capability 是 review/API gate，不是 OS sandbox；可信 JavaScript 在 activation 中仍能直接调用 Node.js。
 
 ## Activation 与 API
 
@@ -113,7 +113,7 @@ export async function activate(api) {
 }
 ```
 
-冻结的 `api` 包含：`api.apiVersion`、Forge 的 `api.z`、`api.registerTool`、`api.registerCommand`、`api.contributePrompt`、`api.observeRunEvents`、`api.restrictPolicy`。内置和加载插件之间的 registration name 必须唯一。Activation 只做 setup，不应因为 Forge 启动就产生意外写入、网络请求或长时间工作。
+冻结的 `api` 包含：`api.apiVersion`、Forge 的 `api.z`、`api.registerTool`、`api.registerCommand`、`api.registerSubagent`、`api.contributePrompt`、`api.observeRunEvents`、`api.restrictPolicy`。内置和加载插件之间的 registration name 必须唯一。Activation 只做 setup，不应因为 Forge 启动就产生意外写入、网络请求或长时间工作。
 
 ## 自定义工具
 
@@ -124,7 +124,7 @@ interface ForgeTool {
   name: string;
   description: string;
   inputSchema: z.ZodType;
-  risk: "read" | "write" | "process" | "network";
+  risk: "read" | "write" | "process" | "network" | "model";
   execute(input: unknown, context: ToolContext): Promise<ToolResult>;
 }
 ```
@@ -137,6 +137,7 @@ interface ForgeTool {
 | `write` | workspace 文件变化 | `safe` 首次 Confirm；`workspace-write` Allow |
 | `process` | 启动任意子进程 | 每次 Confirm |
 | `network` | 向外部服务发送或抓取数据 | 每次 Confirm |
+| `model` | 启动额外的委派模型运行 | 每次 Confirm |
 
 不能因为动作不修改仓库就把 network/process 标成 read。每个 plugin tool 都走：
 
@@ -149,6 +150,41 @@ model proposal -> schema validation -> core policy
 `ToolContext` 包含规范 workspace root/cwd、`AbortSignal` 和 `maxOutputBytes`、`maxEntries`、`commandTimeoutMs` 等严格 limits。及时响应取消，让配置限制优先于插件默认。使用 `invalid_input`、`cancelled`、`io_error`、`output_limit`、`timed_out` 等已有 error code；错误不能包含 credential、authorization header 或私有 response body。
 
 ## 其他扩展点
+
+### Subagents
+
+`api.registerSubagent()` 是声明式 API：插件只定义角色名、parent tool 名、
+instructions、允许的 child tools 和更严格 limits，不会获得 credential、
+model adapter、runtime、policy 或 trace writer。
+
+```js
+api.registerSubagent({
+  name: "code-reviewer",
+  toolName: "delegate_code_review",
+  description: "Delegate a focused read-only review.",
+  instructions: "Report concrete correctness and security findings.",
+  tools: ["list_files", "read_file", "search"],
+  limits: { maxModelSteps: 4, maxToolCalls: 8 }
+});
+```
+
+Manifest 必须声明 `subagents:register`。角色名使用 kebab-case，tool 名使用
+lower snake case，并与内置/插件工具共享名称空间。instructions 必填且最多
+16 KiB；最多选择 32 个不重复、已经注册的非 subagent 工具；单个 child
+最多 8 model steps 和 20 tool calls。
+
+宿主生成的工具接收 `{ task: string }`，属于 `model` risk，每次委派都需审批。
+Forge 创建新 adapter 和隔离对话，继承项目指令、workspace、context 设置、
+cancel、approval channel，以及 core + plugin restrictions 后的有效 policy，
+并且只暴露声明的工具。Child 永远看不到 subagent tools，因此不能递归委派。
+
+每个 parent run 最多启动四个 child；所有 child 还共享与 parent 配置
+`maxSteps`/`maxToolCalls` 相等的预算，插件 limits 只能进一步收紧。返回值受
+`maxToolOutputBytes` 约束。启用 trace 时，每个 child 使用独立 run trace，
+envelope 包含 `parentRunId`/`subagentName`；parent tool result 包含 child
+`runId`、status、step/tool 计数和 final text。
+
+示例见 [`examples/plugins/code-review-subagent`](../../examples/plugins/code-review-subagent)。
 
 ### Commands
 
@@ -211,6 +247,24 @@ pnpm check
 
 [`examples/plugins/web-tools`](../../examples/plugins/web-tools) 是无依赖的插件测试示例，注册 `web_search`（有 `BRAVE_SEARCH_API_KEY` 时使用 Brave，否则使用 DuckDuckGo 非 JS HTML）和 `web_fetch`（提取有界的公开 HTTP(S) 文本）。两者都是 `network` risk，每次调用需审批；共享 HTTP transport 遵循 `HTTP_PROXY`、`HTTPS_PROXY` 和 `NO_PROXY`。示例检查 redirect、local/private/reserved 地址、端口、MIME、时间、下载量、字符数和输出大小，但这些不是网络 sandbox，配置的 proxy 也属于 trust boundary。
 
+## MCP、to-dos 与 subagents
+
+| 能力 | 当前插件 API | 示例或限制 |
+| --- | --- | --- |
+| MCP server tools | 可以，但协议与生命周期有限 | [`mcp-stdio`](../../examples/plugins/mcp-stdio) 为一个配置的 stdio server 注册需审批的 `process` risk list/call bridge。 |
+| 轻量 to-dos | 可以 | [`todos`](../../examples/plugins/todos) 注册内存工具和有界 prompt contribution；目前没有持久化和自定义 TUI panel。 |
+| 宿主管理的 subagents | 可以 | [`code-review-subagent`](../../examples/plugins/code-review-subagent) 声明只读 child 角色；Forge 持有 adapter、policy、budget、cancel 和关联 trace。 |
+
+MCP 示例固定演示基于 session、newline-delimited stdio 的 `2025-11-25`
+协议版本，只证明现有插件能够桥接 MCP tools，不代表 Forge 已具备完整 MCP host。
+Streamable HTTP、当前无握手协议、server reuse、prompts/resources/roots、
+sampling、tasks 和 lifecycle disposal 需要一等 host 或扩展后的插件合约。
+
+Subagent 当前继承 parent model；插件不能选择不同 provider/model、传入 parent
+conversation、把 child 保存为可独立 resume 的 session、在专用 TUI panel
+流式显示 child delta，或开启嵌套委派。这些仍是明确的宿主限制，插件不应
+通过直接调用 provider 或递归启动 Forge CLI 来模拟。
+
 ## 给模型作者的步骤
 
 写插件前阅读全文和当前 types/schema/host；按用户意图选择 user/project scope；只声明最小 capability；优先 plain ESM、`api.z` 和无依赖实现；在 execute 内再次校验；选择诚实 risk 并限制所有输入输出；activation 不做意外副作用；用 fake I/O 写确定性测试；运行 format、typecheck、目标测试和全量测试；记录安装方式、环境变量、外发数据、安全控制和限制，不声称有 sandbox。
@@ -219,6 +273,6 @@ pnpm check
 
 ## 安全边界与限制
 
-加载插件会执行拥有 Forge 进程完整权限的本地代码；它可以直接 import Node、读任意文件、启动进程或联网。Forge 只在支持的 API 边界执行：trust 前不 import 项目 entry；校验 manifest/API/capability/name/schema；model 调用的 plugin tool 走 core policy/approval；network/process/相关 write 需确认；policy hook 只能更严格；prompt/Skill 有界且带来源；observer input clone/freeze/脱敏。
+加载插件会执行拥有 Forge 进程完整权限的本地代码；它可以直接 import Node、读任意文件、启动进程或联网。Forge 只在支持的 API 边界执行：trust 前不 import 项目 entry；校验 manifest/API/capability/name/schema；model 调用的 plugin tool 走 core policy/approval；model/network/process/相关 write 需确认；policy hook 只能更严格；prompt/Skill 有界且带来源；observer input clone/freeze/脱敏。
 
 这些保证不隔离恶意 trusted entry，强隔离需要受限进程或 OS sandbox。v0.2 没有插件安装器、依赖解析器、registry、hot reload、TypeScript entry 编译、custom interactive UI、provider registration、隔离进程或可强制执行的 filesystem/network capability；plugin command 只通过 `forge plugins run` 执行，不自动成为交互 slash command。

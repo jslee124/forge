@@ -32,6 +32,9 @@ describe("Forge CLI", () => {
     expect(program.commands.map((command) => command.name())).toContain(
       "codex",
     );
+    expect(program.commands.map((command) => command.name())).toContain(
+      "update",
+    );
   });
 
   it("passes model options and environment to the ask command", async () => {
@@ -271,5 +274,22 @@ describe("Forge CLI", () => {
 
     expect(received).toEqual(["inspect:run-id", "resume:last:true"]);
     expect(exitCode).toBe(0);
+  });
+
+  it("routes explicit npm update checks and installs", async () => {
+    const received: string[] = [];
+    const program = createProgram({
+      env: {},
+      runUpdate: async (mode, options) => {
+        received.push(`${mode}:${options.target}`);
+        return 0;
+      },
+      setExitCode: () => undefined,
+    });
+
+    await program.parseAsync(["node", "forge", "update", "check"]);
+    await program.parseAsync(["node", "forge", "update", "next"]);
+
+    expect(received).toEqual(["check:latest", "install:next"]);
   });
 });

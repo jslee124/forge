@@ -431,6 +431,11 @@ export const traceEnvelopeSchema = z
     schemaVersion: z.literal(1),
     runId: z.uuid(),
     sessionId: z.uuid().optional(),
+    parentRunId: z.uuid().optional(),
+    subagentName: z
+      .string()
+      .regex(/^[a-z][a-z0-9-]{0,63}$/u)
+      .optional(),
     sequence: z.number().int().nonnegative(),
     timestamp: z.iso.datetime(),
     event: runEventSchema,
@@ -441,6 +446,8 @@ export interface TraceEnvelope {
   readonly schemaVersion: 1;
   readonly runId: string;
   readonly sessionId?: string;
+  readonly parentRunId?: string;
+  readonly subagentName?: string;
   readonly sequence: number;
   readonly timestamp: string;
   readonly event: RunEvent;

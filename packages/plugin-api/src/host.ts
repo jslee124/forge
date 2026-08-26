@@ -25,6 +25,8 @@ import {
   type PluginPolicyAction,
   type PluginPolicyContribution,
   type PluginPromptContext,
+  type PluginSubagentDefinition,
+  type RegisteredPluginSubagent,
 } from "./types.js";
 
 interface RegisteredPromptHook {
@@ -59,6 +61,7 @@ export interface LoadPluginHostOptions {
 export class PluginHost {
   readonly tools: readonly ForgeTool[];
   readonly commands: readonly PluginCommand[];
+  readonly subagents: readonly RegisteredPluginSubagent[];
   readonly loadedPlugins: readonly DiscoveredPlugin[];
   readonly warnings: readonly string[];
   readonly #promptHooks: readonly RegisteredPromptHook[];
@@ -68,6 +71,7 @@ export class PluginHost {
   constructor(state: {
     tools: readonly ForgeTool[];
     commands: readonly PluginCommand[];
+    subagents: readonly RegisteredPluginSubagent[];
     plugins: readonly DiscoveredPlugin[];
     warnings: readonly string[];
     promptHooks: readonly RegisteredPromptHook[];
@@ -76,6 +80,7 @@ export class PluginHost {
   }) {
     this.tools = state.tools;
     this.commands = state.commands;
+    this.subagents = state.subagents;
     this.loadedPlugins = state.plugins;
     this.warnings = state.warnings;
     this.#promptHooks = state.promptHooks;
@@ -201,6 +206,7 @@ async function activatePlugins(
 ): Promise<PluginHost> {
   const tools: ForgeTool[] = [];
   const commands: PluginCommand[] = [];
+  const subagents: RegisteredPluginSubagent[] = [];
   const promptHooks: RegisteredPromptHook[] = [];
   const policyHooks: RegisteredPolicyHook[] = [];
   const observers: RegisteredObserver[] = [];
@@ -274,6 +280,28 @@ async function activatePlugins(
         commandNames.add(command.name);
         commands.push(Object.freeze(command));
       },
+      registerSubagent: (subagent: PluginSubagentDefinition) => {
+        requireCapability("subagents:register");
+        validateSubagent(subagent, plugin);
+        if (toolNames.has(subagent.toolName)) {
+          throw new PluginError(
+            `Plugin subagent tool name "${subagent.toolName}" is already registered.`,
+            plugin.manifestPath,
+          );
+        }
+        toolNames.add(subagent.toolName);
+        subagents.push(
+          Object.freeze({
+            ...subagent,
+            tools: Object.freeze([...subagent.tools]),
+            ...(subagent.limits
+              ? { limits: Object.freeze({ ...subagent.limits }) }
+              : {}),
+            pluginName: plugin.manifest.name,
+            sourcePath: entry,
+          }),
+        );
+      },
       observeRunEvents: (observer: RegisteredObserver["observer"]) => {
         requireCapability("events:observe");
         if (typeof observer !== "function")
@@ -317,6 +345,7 @@ async function activatePlugins(
   return new PluginHost({
     tools,
     commands,
+    subagents,
     plugins,
     warnings,
     promptHooks,
@@ -354,7 +383,7 @@ function validateTool(tool: ForgeTool, plugin: DiscoveredPlugin): void {
     !tool ||
     !/^[a-z][a-z0-9_]{0,63}$/u.test(tool.name) ||
     typeof tool.description !== "string" ||
-    !["network", "read", "write", "process"].includes(tool.risk) ||
+    !["model", "network", "read", "write", "process"].includes(tool.risk) ||
     typeof tool.execute !== "function" ||
     !tool.inputSchema ||
     typeof tool.inputSchema.safeParse !== "function"
@@ -370,6 +399,47 @@ function validateTool(tool: ForgeTool, plugin: DiscoveredPlugin): void {
   ) {
     throw new PluginError(
       `Plugin "${plugin.manifest.name}" registered a network tool without declaring capability "network:access".`,
+      plugin.manifestPath,
+    );
+  }
+}
+
+function validateSubagent(
+  subagent: PluginSubagentDefinition,
+  plugin: DiscoveredPlugin,
+): void {
+  const limits = subagent?.limits;
+  if (
+    !subagent ||
+    !/^[a-z][a-z0-9-]{0,63}$/u.test(subagent.name) ||
+    !/^[a-z][a-z0-9_]{0,63}$/u.test(subagent.toolName) ||
+    typeof subagent.description !== "string" ||
+    subagent.description.trim() === "" ||
+    subagent.description.length > 512 ||
+    typeof subagent.instructions !== "string" ||
+    subagent.instructions.trim() === "" ||
+    Buffer.byteLength(subagent.instructions) > 16_384 ||
+    !Array.isArray(subagent.tools) ||
+    subagent.tools.length > 32 ||
+    subagent.tools.some(
+      (name) =>
+        typeof name !== "string" || !/^[a-z][a-z0-9_]{0,63}$/u.test(name),
+    ) ||
+    new Set(subagent.tools).size !== subagent.tools.length ||
+    (limits !== undefined &&
+      (typeof limits !== "object" ||
+        limits === null ||
+        (limits.maxModelSteps !== undefined &&
+          (!Number.isInteger(limits.maxModelSteps) ||
+            limits.maxModelSteps < 1 ||
+            limits.maxModelSteps > 8)) ||
+        (limits.maxToolCalls !== undefined &&
+          (!Number.isInteger(limits.maxToolCalls) ||
+            limits.maxToolCalls < 0 ||
+            limits.maxToolCalls > 20))))
+  ) {
+    throw new PluginError(
+      `Plugin "${plugin.manifest.name}" registered an invalid subagent.`,
       plugin.manifestPath,
     );
   }

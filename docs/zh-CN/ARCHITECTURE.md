@@ -4,11 +4,11 @@
 
 ## 状态
 
-本文描述初始设计方向。随着可运行 milestone 暴露更好的边界，它会继续变化。
+本文描述 `dev` 分支当前架构与 package 边界依据。接口代码块是便于理解的简化草图，不是稳定 public SDK；checkout 中的 TypeScript types 与 tests 才是权威。
 
-## 初始实现决定
+## 实现基线
 
-| 领域 | 初始决定 | 原因 |
+| 领域 | 当前决定 | 原因 |
 | --- | --- | --- |
 | Runtime | Node.js 24 LTS | 使用受支持的 LTS 和当前平台 API |
 | Package manager | pnpm 11.18.0 | 快速、严格的依赖布局和 workspace 支持 |
@@ -38,6 +38,8 @@ packages/
 |-- model-compat/           # OpenAI-compatible route translation
 |-- model-openai/           # OpenAI Responses API translation
 |-- auth/                   # provider-neutral API-key resolution
+|-- persistence/            # session snapshots、JSONL traces、redaction
+|-- plugin-api/              # discovery、trust、host 与 plugin API v1
 |-- tools/                  # 内置工具实现
 `-- config/                 # 配置和 context loading
 fixtures/                   # integration test 的小型仓库任务
@@ -90,7 +92,7 @@ DeepSeek thinking tool call 要把 provider reasoning content 原样放入后续
 
 ### Authentication manager
 
-认证与 transport 分离。Native Forge Engine 通过一个 provider-neutral manager 解析 `DEEPSEEK_API_KEY`/`OPENAI_API_KEY`，再交给 provider adapter；Codex Engine 通过 stdio JSON-RPC 启动官方 Codex App Server。Forge 发起 managed browser/device-code login，但 Codex 拥有 OAuth client identity、callback、token、持久化、刷新和 logout。Forge 不复制其他应用 credentials，也不静默读取 `~/.codex/auth.json`。
+认证与 transport 分离。Native Forge Engine 通过 provider-neutral manager 先解析 `DEEPSEEK_API_KEY`/`OPENAI_API_KEY` 等环境变量，再读取 Forge owner-only credential store，然后交给 provider adapter；Codex Engine 通过 stdio JSON-RPC 启动官方 Codex App Server。Forge 发起 managed browser/device-code login，但 Codex 拥有 OAuth client identity、callback、token、持久化、刷新和 logout。Forge 不复制其他应用 credentials，也不静默读取 `~/.codex/auth.json`。
 
 ### Project context loader
 
@@ -98,11 +100,13 @@ Loader 先解析 `FORGE_HOME`（默认用户 `~/.forge/`），校验配置，再
 
 ### Plugin host
 
-Plugin host 是扩展边界，不是安全 authority。受信任插件可注册 custom tool、user command、prompt、immutable event observer、特定 lifecycle hook，或让 policy 更严格。声明 `network:access` 的 network tool 每次调用都需确认；所有 custom tool 仍经过 policy kernel 和 executor。进程内 JavaScript plugin 是本地可信代码，API capability 不是隔离；强隔离需要子进程或 OS sandbox。
+Plugin host 是扩展边界，不是安全 authority。受信任插件可注册 custom tool、user command、prompt、immutable event observer、有界的宿主管理 subagent 角色、特定 lifecycle hook，或让 policy 更严格。声明 `network:access` 的 network tool 每次调用都需确认；所有 custom tool 仍经过 policy kernel 和 executor。进程内 JavaScript plugin 是本地可信代码，API capability 不是隔离；强隔离需要子进程或 OS sandbox。
+
+Subagent 声明会变成 `model` risk 的 parent tool。由宿主而非插件创建 child adapter、隔离对话、继承 policy/approval、共享预算、取消链路、有界结果和关联 trace。Child 工具集合排除所有 subagent tool，因此委派深度固定为一层。当前继承 parent model，不支持跨模型路由或可独立 resume 的 child session。
 
 ### Tools 与审批策略
 
-每个工具有唯一名称、model-facing 描述、Zod input schema、执行函数、risk 分类和结构化结果。初始工具包括 `list_files`、`read_file`、`search`、`create_file`、`apply_patch`、`run_command`，以及示例 plugin 的 `web_search`/`web_fetch`。
+每个工具有唯一名称、model-facing 描述、Zod input schema、执行函数、risk 分类和结构化结果。初始工具包括 `list_files`、`read_file`、`search`、`create_file`、`apply_patch`、`run_command`，以及示例 plugin 的 `web_search`/`web_fetch` 和 `delegate_code_review`。
 
 策略在执行前返回：
 

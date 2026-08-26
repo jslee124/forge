@@ -54,6 +54,11 @@ export class WorkspaceWritePolicy implements ApprovalPolicy {
           kind: "confirm",
           reason: "Every process command requires approval.",
         };
+      case "model":
+        return {
+          kind: "confirm",
+          reason: "Every delegated model run requires approval.",
+        };
     }
   }
 
@@ -90,6 +95,11 @@ export class AutomaticWorkspaceWritePolicy implements ApprovalPolicy {
         return {
           kind: "confirm",
           reason: "Every process command requires approval.",
+        };
+      case "model":
+        return {
+          kind: "confirm",
+          reason: "Every delegated model run requires approval.",
         };
     }
   }

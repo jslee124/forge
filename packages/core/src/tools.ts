@@ -1,6 +1,6 @@
 import type { z } from "zod";
 
-export type ToolRisk = "network" | "process" | "read" | "write";
+export type ToolRisk = "model" | "network" | "process" | "read" | "write";
 
 export interface WorkspaceContext {
   readonly root: string;
@@ -51,6 +51,7 @@ export type ToolErrorCode =
   | "cancelled"
   | "invalid_input"
   | "io_error"
+  | "limit_reached"
   | "not_directory"
   | "not_file"
   | "not_found"

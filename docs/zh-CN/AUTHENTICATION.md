@@ -25,7 +25,7 @@ Forge Engine: Forge Runtime -> Model Adapter -> DeepSeek 或 OpenAI API
 Codex Engine: Forge CLI -> Codex App Server -> ChatGPT 订阅
 ```
 
-Codex Engine 不是 Forge `ModelAdapter` 的包装：App Server 自己拥有完整 agent runtime、turn、tools、sandbox、审批和 history。provider-neutral authentication manager 只从进程环境解析 API key，再交给选定 adapter。缺失凭据时给出可操作错误，但不打印 key 或 stack trace。凭据不会复制到 Forge 配置、prompt、trace、plugin event 或仓库文件。
+Codex Engine 不是 Forge `ModelAdapter` 的包装：App Server 自己拥有完整 agent runtime、turn、tools、sandbox、审批和 history。Provider-neutral authentication manager 会先读取显式环境变量，再读取 Forge 的用户级 owner-only credential store，最后把 key 交给选定 adapter。缺失凭据时给出可操作错误，但不打印 key 或 stack trace。凭据不会复制到 Forge 配置、prompt、trace、plugin event 或仓库文件。
 
 ## OpenAI-compatible provider route
 
@@ -73,7 +73,7 @@ Forge 不得复制其他应用的 client secret、把逆向 endpoint 当永久 A
 
 交互式 `/login` 可以把 API key 保存到 `$FORGE_HOME/auth.json`。目录权限为 `0700`，文件为 `0600`，更新是原子的，环境变量优先。这是受文件权限保护的明文 fallback，不是 OS keychain；ChatGPT 订阅 credential 完全由 Codex App Server 所有。`/logout` 会移除选择的 Forge credential，或请求 Codex 注销 ChatGPT 订阅。移除第三方 route 是单独的确认操作，会删除 route、models 和保存的 credential；无法替父 shell 取消环境变量。
 
-首选顺序是：OS credential store；项目外、仅 owner 可读的文件 fallback；自动化中的 API key 环境变量。凭据不得进入 prompt、run event、JSONL trace、plugin event、telemetry 或普通错误信息。
+当前 runtime 查找顺序是：provider 的显式/约定环境变量；项目外、仅 owner 可读的 `$FORGE_HOME/auth.json`。OS credential store 比明文 file storage 更理想，但目前仍是后续改进；自动化推荐使用环境变量注入。凭据不得进入 prompt、run event、JSONL trace、plugin event、telemetry 或普通错误信息。
 
 ## 刷新与并发
 
@@ -91,6 +91,6 @@ forge codex "Inspect this repository" --model <id> --reasoning-effort <effort>
 forge run "Inspect this repository" --provider openai --model gpt-5.4-mini --reasoning-effort low
 ```
 
-无头环境使用 `forge auth login openai --method device-code`。Forge 展示官方 verification URL 和 code，并等待 App Server 完成通知；browser callback 校验和 PKCE 由 Codex 负责。`forge auth status openai-api` 只检查 `OPENAI_API_KEY` 是否存在，不发起付费验证请求；`forge auth login openai-api` 只打印环境变量指引，因为 Forge 不保存 API key。
+无头环境使用 `forge auth login openai --method device-code`。Forge 展示官方 verification URL 和 code，并等待 App Server 完成通知；browser callback 校验和 PKCE 由 Codex 负责。`forge auth status openai-api` 会报告当前生效的是环境 credential 还是已保存 credential，但不发起付费验证请求；`forge auth login openai-api` 会引导用户使用带掩码的交互 `/login` 或 `OPENAI_API_KEY`，普通子命令不会从命令参数读取 secret。
 
-`/model` 会发现当前 Codex catalog，并展示不按 reasoning effort 重复的 native API models。独立的 `/effort` 和 Shift+Tab 使用当前模型支持的等级。普通 engine/provider/model/reasoning 设置保存到 `$FORGE_HOME/config.json`，credential 永不保存到这里。选择 ChatGPT 条目后，后续交互 prompt 通过 Codex Engine 路由。
+`/model` 会发现当前 Codex catalog，并展示不按 reasoning effort 重复的 native API models。独立的 `/effort` 和 Shift+Tab 使用当前模型支持的等级。普通 engine/provider/model/reasoning 设置保存到 `$FORGE_HOME/config.json`；credential 则独立存在环境变量、`$FORGE_HOME/auth.json` 或 Codex-owned storage。选择 ChatGPT 条目后，后续交互 prompt 通过 Codex Engine 路由。

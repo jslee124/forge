@@ -12,6 +12,7 @@ import {
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
+  createSubagentTools,
   discoverPortableSkills,
   loadPluginHost,
   selectPortableSkills,
@@ -79,9 +80,11 @@ export default (api) => {
     inputSchema: api.z.object({ value: api.z.string() }).strict(),
     execute: async ({ value }) => ({ ok: true, output: { value }, truncated: false })
   });
+
   api.observeRunEvents((event) => {
     if (!Object.isFrozen(event)) throw new Error("event was mutable");
   });
+
   api.registerCommand({
     name: "hello",
     description: "Say hello",
@@ -144,6 +147,83 @@ export default (api) => {
       ok: true,
       output: { value: "from-plugin" },
     });
+  });
+
+  it("registers bounded host-run subagents behind a model-risk tool", async () => {
+    const fixture = await createFixture();
+    await createPlugin(fixture.forgeHome, "user", "review-agent", {
+      capabilities: ["subagents:register"],
+      source: `
+export default (api) => api.registerSubagent({
+  name: "reviewer",
+  toolName: "delegate_review",
+  description: "Delegate a focused code review.",
+  instructions: "Review correctness and safety.",
+  tools: ["read_file", "search"],
+  limits: { maxModelSteps: 3, maxToolCalls: 4 }
+});
+`,
+    });
+    const host = await loadPluginHost({
+      forgeHome: fixture.forgeHome,
+      workspaceRoot: fixture.root,
+      enabledUserPlugins: ["review-agent"],
+      reservedToolNames: ["read_file", "search"],
+    });
+
+    expect(host.subagents).toEqual([
+      expect.objectContaining({
+        name: "reviewer",
+        toolName: "delegate_review",
+        pluginName: "review-agent",
+        tools: ["read_file", "search"],
+      }),
+    ]);
+    const calls: unknown[] = [];
+    const tools = createSubagentTools(host.subagents, async (request) => {
+      calls.push(request);
+      return { ok: true, output: { answer: "reviewed" }, truncated: false };
+    });
+    expect(tools.map(({ name, risk }) => ({ name, risk }))).toEqual([
+      { name: "delegate_review", risk: "model" },
+    ]);
+    const result = await tools[0]?.execute(
+      { task: "Review src/server.ts" },
+      {
+        workspace: { root: fixture.root, cwd: fixture.root },
+        signal: new AbortController().signal,
+        limits: { maxEntries: 10, maxOutputBytes: 1024 },
+      },
+    );
+    expect(result).toMatchObject({ ok: true, output: { answer: "reviewed" } });
+    expect(calls).toEqual([
+      expect.objectContaining({
+        task: "Review src/server.ts",
+        subagent: expect.objectContaining({ name: "reviewer" }),
+      }),
+    ]);
+  });
+
+  it("rejects subagent registration without its declared capability", async () => {
+    const fixture = await createFixture();
+    await createPlugin(fixture.forgeHome, "user", "undeclared-subagent", {
+      capabilities: [],
+      source: `export default (api) => api.registerSubagent({
+  name: "reviewer",
+  toolName: "delegate_review",
+  description: "Review",
+  instructions: "Review carefully.",
+  tools: []
+});`,
+    });
+
+    await expect(
+      loadPluginHost({
+        forgeHome: fixture.forgeHome,
+        workspaceRoot: fixture.root,
+        enabledUserPlugins: ["undeclared-subagent"],
+      }),
+    ).rejects.toThrow('capability "subagents:register"');
   });
 
   it("combines policy contributions using the strictest decision", async () => {

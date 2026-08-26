@@ -13,17 +13,18 @@
 
 <p align="center">
   <a href="https://github.com/jslee124/forge/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/jslee124/forge/ci.yml?branch=main&amp;style=flat-square&amp;label=CI" alt="CI status"></a>
-  <img src="https://img.shields.io/badge/source-v0.2.0-0e7490?style=flat-square" alt="Source version 0.2.0">
+  <img src="https://img.shields.io/badge/source-v0.3.0-0e7490?style=flat-square" alt="Source version 0.3.0">
   <img src="https://img.shields.io/badge/Node.js-%3E%3D24-3c873a?style=flat-square&amp;logo=nodedotjs&amp;logoColor=white" alt="Node.js 24 or newer">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-7c3aed?style=flat-square" alt="MIT license"></a>
 </p>
 
 <p align="center">
-  <a href="#quick-start">Quick start</a> ·
+  <a href="docs/GETTING_STARTED.md">Getting started</a> ·
   <a href="#why-forge">Why Forge?</a> ·
   <a href="#safety-model">Safety</a> ·
   <a href="#evaluation">Evaluation</a> ·
-  <a href="#documentation">Documentation</a>
+  <a href="docs/README.md">Documentation</a> ·
+  <a href="CONTRIBUTING.md">Contributing</a>
 </p>
 
 <p align="center">
@@ -35,6 +36,11 @@ Forge is an open-source TypeScript project for learning and demonstrating the
 engineering behind coding agents: model interaction, tool execution, approval
 boundaries, context management, persistence, plugins, and reproducible
 evaluations.
+
+It is best suited to developers who want a small runtime they can read end to
+end, experiment with, and measure. Forge now has a single-package npm release
+path while retaining the source checkout for contributors. It is not a turnkey
+replacement for a hardened coding environment.
 
 ## Why Forge?
 
@@ -54,27 +60,58 @@ and testable.
 
 ## Quick start
 
-### Prerequisites
+Released builds can be installed as a global CLI:
 
-- Node.js 24 or newer
-- pnpm 11.18.0
-- Codex CLI only when using ChatGPT subscription access
+```bash
+npm install --global @jslee124/forge
+forge config validate
+```
 
-Run Forge from source:
+Until `@jslee124/forge` appears on npm, use the source checkout below. Source
+development requires Node.js 24 or newer, pnpm 11.18.0, Git, and one supported
+model-access route:
 
 ```bash
 git clone https://github.com/jslee124/forge.git
 cd forge
-pnpm install
+pnpm install --frozen-lockfile
+pnpm build
+pnpm forge config validate
+```
+
+Choose how the model should be accessed:
+
+| Access route | Engine | Setup |
+| --- | --- | --- |
+| DeepSeek API | Native Forge Engine | Start `pnpm forge`, then use `/login` |
+| OpenAI API | Native Forge Engine | Start `pnpm forge`, then use `/login` |
+| OpenAI-compatible endpoint | Native Forge Engine | Add a user-scoped route through `/login` or configuration |
+| ChatGPT subscription | Separate Codex Engine | Install Codex CLI, then run `pnpm forge auth login openai` |
+
+OpenAI API usage is billed separately from ChatGPT subscriptions. API keys may
+be entered through the masked `/login` flow or supplied through environment
+variables; environment credentials take precedence.
+
+Start the interactive terminal and begin with a read-only request:
+
+```bash
 pnpm forge
 ```
 
-Inside the interactive terminal, enter `/login` and choose one of the available
-provider routes. Then ask Forge to inspect or change the current repository:
+```text
+Inspect this repository. Summarize its package structure and verification
+commands. Do not modify files.
+```
+
+Then try a bounded coding task:
 
 ```text
 Fix the failing tests. Inspect the relevant files first and verify the result.
 ```
+
+Under the default `safe` profile, Forge asks before the first workspace write
+in a run and before every process command. Review the exact diff, command,
+working directory, and timeout before approving.
 
 Useful interactive commands include:
 
@@ -98,6 +135,10 @@ forge
 The link points to the current checkout. Run `pnpm build` after source changes
 and `pnpm unlink:global` when you no longer need it.
 
+The [complete getting-started guide](docs/GETTING_STARTED.md) explains each
+authentication route, local validation, first-run approvals, sessions, and run
+inspection.
+
 ## What Forge can do
 
 - Inspect a workspace with bounded file listing, reading, and search tools.
@@ -111,7 +152,7 @@ and `pnpm unlink:global` when you no longer need it.
   checkpoints.
 - Load hierarchical `AGENTS.md` instructions and portable project Skills.
 - Load trusted plugins that contribute tools, commands, observers, prompts, or
-  stricter policy hooks.
+  stricter policy hooks, including bounded host-managed subagent roles.
 - Attach JPEG, PNG, GIF, or WebP input to supported vision models.
 - Record native-engine runs as inspectable, versioned JSONL traces.
 
@@ -143,6 +184,7 @@ Forge is safe by default in a specific, inspectable sense:
 | Later writes covered by that run approval | Allow |
 | Any process command | Confirm |
 | Any registered network tool | Confirm |
+| Any delegated subagent model run | Confirm |
 | Built-in file access outside the workspace | Deny |
 | Approval-required action without an approval channel | Deny |
 
@@ -245,31 +287,31 @@ pnpm eval:deterministic  # run paid-call-free release evidence
 pnpm forge --help        # build and inspect the CLI
 ```
 
-The root is a private pnpm workspace rather than a published package. The main
-packages separate the CLI, runtime, tools, configuration, persistence,
-authentication, plugin API, and provider adapters.
+The root remains a private pnpm workspace. Release automation bundles private
+`@forge/*` implementation code into the single public `@jslee124/forge` CLI;
+the plugin SDK is not separately published. The workspace packages still
+separate the CLI, runtime, tools, configuration, persistence, authentication,
+plugin API, and provider adapters for development.
 
 ## Documentation
 
-中文读者可查看[简体中文文档](README.zh-CN.md)。每篇指南也提供对应的[中文镜像](docs/zh-CN/README.md)。
+Start at the [documentation hub](docs/README.md), which routes readers by task.
+中文读者可查看[简体中文 README](README.zh-CN.md)和[中文文档目录](docs/zh-CN/README.md)。
 
 | Topic | Guide |
 | --- | --- |
-| Product scope and roadmap | [Product](docs/PRODUCT.md) · [Roadmap](docs/ROADMAP.md) |
-| Runtime and security boundaries | [Architecture](docs/ARCHITECTURE.md) · [Security](docs/SECURITY.md) |
-| Interactive terminal | [CLI UI](docs/CLI_UI.md) |
-| Providers and credentials | [Authentication](docs/AUTHENTICATION.md) |
-| Sessions and traces | [Persistence](docs/SESSIONS.md) |
-| Context budgets and compaction | [Context management](docs/CONTEXT_MANAGEMENT.md) |
-| Project instructions and configuration | [Project context](docs/PROJECT_CONTEXT.md) |
-| Plugin development and trust | [Plugins](docs/PLUGINS.md) |
-| Evaluations and release evidence | [Evaluation](docs/EVALUATION.md) · [v0.2.0 release notes](evals/reports/v0.2/RELEASE_NOTES.md) · [v0.1 contract](docs/V0.1_SPEC.md) |
+| Install and first task | [Getting started](docs/GETTING_STARTED.md) · [Troubleshooting](docs/TROUBLESHOOTING.md) |
+| Daily use | [CLI UI](docs/CLI_UI.md) · [Configuration](docs/CONFIGURATION.md) · [Authentication](docs/AUTHENTICATION.md) · [Sessions](docs/SESSIONS.md) |
+| Boundaries and internals | [Architecture](docs/ARCHITECTURE.md) · [Security](docs/SECURITY.md) · [Context management](docs/CONTEXT_MANAGEMENT.md) |
+| Customization and extensions | [Project context](docs/PROJECT_CONTEXT.md) · [Plugins](docs/PLUGINS.md) · [examples](examples/plugins/) |
+| Evidence and direction | [Evaluation](docs/EVALUATION.md) · [published reports](evals/reports/README.md) · [Roadmap](docs/ROADMAP.md) |
+| Contributing | [Contribution guide](CONTRIBUTING.md) |
 
 ## Current status and limitations
 
-Forge is under active development. The current source version and latest Git
-tag are `0.2.0`. Automatic context checkpoint generation remains
-opt-in while provider-quality evidence is collected.
+Forge is under active development. The current source and npm release target is
+`0.3.0`. Automatic context checkpoint generation remains opt-in while
+provider-quality evidence is collected.
 
 - The native runtime supports DeepSeek, OpenAI API, and configured
   OpenAI-compatible routes. Native Anthropic and Gemini protocols are not yet
@@ -279,8 +321,9 @@ opt-in while provider-quality evidence is collected.
 - Resume restores completed conversation text, not pending tool calls or old
   approvals.
 - Plugins are trusted local code, not isolated extensions.
-- Multi-agent orchestration, RAG, IDE integration, cloud execution, autonomous
-  Git pushes, and cross-machine session synchronization are out of scope.
+- General multi-agent orchestration beyond bounded plugin-declared subagents,
+  RAG, IDE integration, cloud execution, autonomous Git pushes, and
+  cross-machine session synchronization are out of scope.
 
 See the [roadmap](docs/ROADMAP.md) for completed acceptance criteria and future
 work.

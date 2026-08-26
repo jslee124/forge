@@ -1,0 +1,56 @@
+name: Publish npm package
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: npm-publish-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == 'jslee124/forge'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@v7
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Set up Node.js and npm registry
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check source and documentation
+        run: |
+          pnpm check
+          pnpm check:docs
+
+      - name: Run tests and deterministic release evidence
+        run: |
+          pnpm test
+          pnpm eval:deterministic
+
+      - name: Build and install-test the npm artifact
+        run: pnpm package:verify
+
+      - name: Verify tag and package versions
+        run: pnpm release:verify-tag "$GITHUB_REF_NAME"
+
+      - name: Publish with npm trusted publishing
+        working-directory: dist/npm/forge
+        run: npm publish --access public

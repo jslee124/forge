@@ -1,6 +1,6 @@
 # Roadmap
 
-[简体中文](zh-CN/ROADMAP.md) · [Documentation index](zh-CN/README.md)
+[简体中文](zh-CN/ROADMAP.md) · [Documentation index](README.md)
 
 ## Current milestone
 

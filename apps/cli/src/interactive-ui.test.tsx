@@ -1434,6 +1434,57 @@ describe("Ink interactive terminal", () => {
     instance.unmount();
   });
 
+  it("shows the delegated subagent task before approval", async () => {
+    const root = await createWorkspace();
+    let approved: boolean | undefined;
+    const subagentTool = {
+      name: "delegate_code_review",
+      risk: "model",
+    } as ForgeTool;
+    const instance = render(
+      <InteractiveApp
+        options={{}}
+        env={{}}
+        cwd={root}
+        executeTask={async (_prompt, _options, dependencies) => {
+          approved = await dependencies.approvalChannel?.request(
+            {
+              call: {
+                id: "subagent-1",
+                name: "delegate_code_review",
+                input: { task: "Review src/server.ts" },
+              },
+              tool: subagentTool,
+              input: { task: "Review src/server.ts" },
+            },
+            dependencies.signal,
+            {
+              workspace: { root, cwd: root },
+              signal: dependencies.signal,
+              limits: { maxOutputBytes: 65_536, maxEntries: 200 },
+            },
+          );
+          dependencies.onResult?.(completed("done"));
+          return 0;
+        }}
+      />,
+    );
+
+    await settle();
+    instance.stdin.write("delegate review");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+    expect(instance.lastFrame()).toContain("Approval required");
+    expect(instance.lastFrame()).toContain("Subagent delegate_code_review");
+    expect(instance.lastFrame()).toContain("Review src/server.ts");
+    instance.stdin.write("y");
+    await settle();
+
+    expect(approved).toBe(true);
+    instance.unmount();
+  });
+
   it("renders reasoning and answers as distinct structured blocks", async () => {
     const root = await createWorkspace();
     let usedStructuredEvents = false;
