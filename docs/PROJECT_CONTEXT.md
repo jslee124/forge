@@ -143,7 +143,7 @@ starting an Agent run.
 ## Project-level `.forge/`
 
 The selected workspace root's `.forge/` is reserved for Forge-specific project
-customization. The v0.2 layout is:
+customization. The current 0.3.1 layout is:
 
 ```text
 .forge/
@@ -220,5 +220,6 @@ hooks, and their source must remain visible in the trace.
 
 - Configuration migrations beyond `schemaVersion: 1`
 - Additional environment-variable mappings beyond the v0.1 model settings
-- Skill manifest and compatibility rules beyond the v0.2 `SKILL.md` convention
+- Additional Skill manifest and compatibility rules beyond the current
+  `SKILL.md` convention
 - Whether restricted plugins run in a child process or an OS sandbox

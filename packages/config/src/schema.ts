@@ -144,6 +144,14 @@ const pluginsSchema = z
       .optional(),
   })
   .strict();
+const resourcesSchema = z
+  .object({
+    disabledModelInvocation: z
+      .array(z.string().regex(/^[a-z0-9][a-z0-9-]{0,63}$/u))
+      .max(64)
+      .optional(),
+  })
+  .strict();
 
 const contextSchema = z
   .object({
@@ -163,6 +171,7 @@ export const forgeConfigFileSchema = z
     limits: limitsSchema.optional(),
     trace: traceSchema.optional(),
     plugins: pluginsSchema.optional(),
+    resources: resourcesSchema.optional(),
     context: contextSchema.optional(),
     providers: providersSchema.optional(),
   })
@@ -196,6 +205,7 @@ export interface EffectiveForgeConfig {
   };
   readonly trace: { readonly enabled: boolean };
   readonly plugins: { readonly enabled: readonly string[] };
+  readonly resources: { readonly disabledModelInvocation: readonly string[] };
   readonly context: {
     readonly mode: "off" | "warn" | "compact";
     readonly reservedOutputTokens: number;
@@ -224,6 +234,7 @@ export const DEFAULT_FORGE_CONFIG: EffectiveForgeConfig = {
   },
   trace: { enabled: true },
   plugins: { enabled: [] },
+  resources: { disabledModelInvocation: [] },
   context: {
     mode: "warn",
     reservedOutputTokens: 4_096,

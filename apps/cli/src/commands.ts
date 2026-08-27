@@ -6,6 +6,7 @@ export interface SlashCommand {
     | "/context"
     | "/compact"
     | "/plugins"
+    | "/resources"
     | "/login"
     | "/logout"
     | "/model"
@@ -26,6 +27,7 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
   },
   { name: "/compact", description: "Create a safe conversation checkpoint" },
   { name: "/plugins", description: "Review and manage project plugins" },
+  { name: "/resources", description: "Review Skills and resource diagnostics" },
   { name: "/login", description: "Configure a model provider" },
   { name: "/logout", description: "Sign out of a model provider" },
   { name: "/model", description: "Choose a model" },

@@ -268,3 +268,5 @@ trace pipeline; the CLI labels this execution path rather than implying they do.
 - Treating another application's private OAuth integration as a stable public API
 - Built-in file access outside the selected workspace
 - Shell-language execution and compound shell commands
+
+Packaged product documentation uses a separate allowlisted resource catalog. Search returns opaque, versioned document/section references; reads revalidate the file, content hash, package version, and output budget. The documentation tools reject arbitrary paths and do not widen workspace file access. Skill and documentation text remains untrusted and cannot grant permissions, expose secrets, or authorize commands.

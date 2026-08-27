@@ -37,8 +37,10 @@ import {
   type RegisteredPluginSubagent,
 } from "@forge/plugin-api";
 import {
+  createForgeDocsTools,
   createLoadSkillTool,
   discoverSkillCatalog,
+  preferredForgeDocsLocale,
   type SkillSelection,
   selectSkills,
 } from "@forge/resources";
@@ -145,6 +147,7 @@ export async function runTask(
     const skillCatalog = await discoverSkillCatalog({
       forgeHome: loaded.forgeHome,
       workspaceRoot: loaded.workspaceRoot,
+      disabledModelInvocation: loaded.config.resources.disabledModelInvocation,
     });
     for (const diagnostic of skillCatalog.diagnostics) {
       dependencies.stderr.write(
@@ -157,13 +160,18 @@ export async function runTask(
         .filter(({ reason }) => reason === "explicit")
         .map(({ skill }) => skill.id),
     });
+    const forgeDocsTools = await createForgeDocsTools({
+      locale: preferredForgeDocsLocale(dependencies.env),
+    });
     const pluginHost = await loadPluginHost({
       forgeHome: loaded.forgeHome,
       workspaceRoot: loaded.workspaceRoot,
       enabledUserPlugins: loaded.config.plugins.enabled,
-      reservedToolNames: [...builtinTools, loadSkillTool].map(
-        ({ name }) => name,
-      ),
+      reservedToolNames: [
+        ...builtinTools,
+        loadSkillTool,
+        ...forgeDocsTools,
+      ].map(({ name }) => name),
     });
     for (const warning of pluginHost.warnings) {
       dependencies.stderr.write(`Plugin warning: ${warning}\n`);
@@ -241,7 +249,12 @@ export async function runTask(
         commandTimeoutMs: loaded.config.limits.commandTimeoutMs,
       },
     };
-    const childTools = [...builtinTools, loadSkillTool, ...pluginHost.tools];
+    const childTools = [
+      ...builtinTools,
+      loadSkillTool,
+      ...forgeDocsTools,
+      ...pluginHost.tools,
+    ];
     validateSubagentToolSelections(pluginHost.subagents, childTools);
     const subagentBudget = {
       remainingRuns: Math.min(4, loaded.config.limits.maxToolCalls),
@@ -863,6 +876,17 @@ function createRunEventRenderer(
         break;
       case "tool.completed":
         stderr.write(`[tool] completed ${event.call.name}\n`);
+        break;
+      case "docs.search":
+        stderr.write(
+          `[docs] ${event.resultCount} result(s) · ${event.locale}${event.fallback ? " · English fallback" : ""}\n`,
+        );
+        break;
+      case "docs.read":
+        stderr.write(`[docs] read ${event.reference}\n`);
+        break;
+      case "docs.rejected":
+        stderr.write(`[docs] rejected ${event.tool}: ${event.message}\n`);
         break;
       case "tool.failed":
         stderr.write(`[tool] failed ${event.call.name}`);

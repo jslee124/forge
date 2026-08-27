@@ -10,6 +10,14 @@ export {
   resolveBuiltinSkillsRoot,
   selectSkills,
 } from "./catalog.js";
+export type { ForgeDocSearchResult } from "./docs.js";
+export {
+  createForgeDocsTools,
+  MAX_DOC_SEARCH_RESULTS,
+  MAX_DOC_SECTION_BYTES,
+  preferredForgeDocsLocale,
+  resolveBuiltinDocsRoot,
+} from "./docs.js";
 export {
   createLoadSkillTool,
   MAX_SKILL_LOAD_BYTES,

@@ -31,6 +31,8 @@ export interface SkillDescriptor {
   readonly baseDirectory: string;
   readonly contentSize: number;
   readonly invocation: SkillInvocation;
+  readonly modelInvocationEnabled: boolean;
+  readonly disabledBy?: "user";
   readonly identity: SkillFileIdentity;
   readonly diagnostics: readonly ResourceDiagnostic[];
   readonly shadowedSources: readonly SkillSource[];
@@ -38,6 +40,7 @@ export interface SkillDescriptor {
 
 export interface SkillCatalog {
   readonly skills: readonly SkillDescriptor[];
+  readonly resources: readonly SkillDescriptor[];
   readonly diagnostics: readonly ResourceDiagnostic[];
   readonly prompt: string;
 }

@@ -108,3 +108,5 @@ CLI 可以把 runtime event 变成 message block、tool activity row、status in
 ## 测试策略
 
 确定性 UI 测试应覆盖斜杠菜单、文件过滤和 workspace escape、结构化 mention、Enter/Shift+Enter/Meta+Enter/Ctrl+J、多行/粘贴/Unicode/resize/取消、editing/completion/running/approval 状态、插件/Skill 启动列表和 trust label，以及 create/modify、多 hunk、无色、截断和审批范围的 diff。UI 测试不应发起付费请求；组件测试使用脚本化输入和 event，另用小型 pseudo-terminal 集成测试验证代表性终端的按键序列。
+
+`/resources` 显示每个已发现 Skill 的来源、描述、自动或仅显式调用状态、遮蔽关系与有界诊断；它不会导入插件 entry 或提前加载 Skill 正文。`/plugins` 仍只处理可执行插件，并引导用户通过 `/resources` 查看 Skills。

@@ -35,6 +35,9 @@ describe("Forge CLI", () => {
     expect(program.commands.map((command) => command.name())).toContain(
       "update",
     );
+    expect(program.commands.map((command) => command.name())).toContain(
+      "resources",
+    );
   });
 
   it("passes model options and environment to the ask command", async () => {

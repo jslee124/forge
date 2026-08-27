@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import {
   chmod,
   copyFile,
@@ -31,6 +32,28 @@ const workspacePackagePaths = [
 ];
 
 const rootPackage = await readJson(path.join(root, "package.json"));
+const linksCheck = spawnSync(process.execPath, ["scripts/check-docs.mjs"], {
+  cwd: root,
+  encoding: "utf8",
+});
+if (linksCheck.status !== 0) {
+  throw new Error(
+    `Documentation link verification failed.\n${linksCheck.stderr}`,
+  );
+}
+const docsCheck = spawnSync(
+  process.execPath,
+  ["scripts/build-doc-index.mjs", "--check"],
+  {
+    cwd: root,
+    encoding: "utf8",
+  },
+);
+if (docsCheck.status !== 0) {
+  throw new Error(
+    `Product documentation verification failed.\n${docsCheck.stderr}`,
+  );
+}
 await assertBundledPluginSkillVersion(rootPackage.version);
 const dependencies = await collectExternalDependencies();
 
@@ -93,6 +116,10 @@ await copyFile(path.join(root, "LICENSE"), path.join(outputRoot, "LICENSE"));
 await copyDirectory(
   path.join(root, "packages", "resources", "skills"),
   path.join(outputRoot, "resources", "skills"),
+);
+await copyDirectory(
+  path.join(root, "packages", "resources", "docs"),
+  path.join(outputRoot, "resources", "docs"),
 );
 
 console.log(`Prepared ${packageName}@${rootPackage.version} in ${outputRoot}`);

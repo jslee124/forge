@@ -69,7 +69,8 @@ export async function createLoadSkillTool(
       if (!resource)
         return failure("not_found", "Unknown Skill catalog identifier.");
       if (
-        resource.skill.invocation === "explicit-only" &&
+        (!resource.skill.modelInvocationEnabled ||
+          resource.skill.invocation === "explicit-only") &&
         !explicitlySelected.has(resource.skill.id)
       ) {
         return failure(

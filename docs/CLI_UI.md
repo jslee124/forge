@@ -262,3 +262,5 @@ Milestone 4.6 should include deterministic tests for:
 No UI test may require a paid model request. Component tests should consume
 scripted input and events, while a small pseudo-terminal integration test proves
 the supported key sequences in representative terminals.
+
+`/resources` shows every discovered Skill's source, description, automatic or explicit-only status, shadowing, and bounded diagnostics. It does not import plugin entries or eagerly load Skill bodies. `/plugins` remains limited to executable plugins and points users to `/resources` for Skills.

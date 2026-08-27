@@ -9,7 +9,6 @@ import {
   trustProject,
   untrustProject,
 } from "@forge/plugin-api";
-import { discoverSkillCatalog, type SkillDescriptor } from "@forge/resources";
 import { builtinTools } from "@forge/tools";
 
 import type { WritableOutput } from "./ask.js";
@@ -46,10 +45,6 @@ export async function runPluginsCommand(
         root: path.join(loaded.workspaceRoot, ".forge", "plugins"),
         scope: "project",
       });
-      const skills = await discoverSkillCatalog({
-        forgeHome: loaded.forgeHome,
-        workspaceRoot: loaded.workspaceRoot,
-      });
       const trusted = await isProjectTrusted(
         loaded.forgeHome,
         loaded.workspaceRoot,
@@ -58,7 +53,6 @@ export async function runPluginsCommand(
         formatPluginList({
           user,
           project,
-          skills: skills.skills,
           enabled: loaded.config.plugins.enabled,
           projectTrusted: trusted,
         }),
@@ -158,7 +152,6 @@ export async function runPluginsCommand(
 function formatPluginList(options: {
   readonly user: readonly import("@forge/plugin-api").DiscoveredPlugin[];
   readonly project: readonly import("@forge/plugin-api").DiscoveredPlugin[];
-  readonly skills: readonly SkillDescriptor[];
   readonly enabled: readonly string[];
   readonly projectTrusted: boolean;
 }): string {
@@ -178,13 +171,7 @@ function formatPluginList(options: {
             `  ${plugin.manifest.name}@${plugin.manifest.version}  ${options.projectTrusted ? "trusted" : "untrusted"}`,
         )
       : ["  (none)"]),
-    "Portable skills:",
-    ...(options.skills.length > 0
-      ? options.skills.map(
-          (skill) =>
-            `  $${skill.name}  ${skill.source}  ${skill.invocation === "model" ? "model-invocable" : "explicit-only"}  ${skill.canonicalPath}`,
-        )
-      : ["  (none)"]),
+    "Skills are non-executable resources. Use `forge resources list` to inspect them.",
     "",
   ].join("\n");
 }

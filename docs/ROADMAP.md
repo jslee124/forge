@@ -617,25 +617,25 @@ Acceptance criteria:
 
 ### 12.4 Versioned Forge documentation retrieval
 
-- [ ] Package the canonical English documentation and maintained Chinese
+- [x] Package the canonical English documentation and maintained Chinese
   mirrors needed for product help with the CLI release
-- [ ] Generate a deterministic index containing Forge version, locale,
+- [x] Generate a deterministic index containing Forge version, locale,
   document identifier, title, headings, keywords, path, and content hash
-- [ ] Split Markdown by headings and use bounded lexical ranking first; defer
+- [x] Split Markdown by headings and use bounded lexical ranking first; defer
   embeddings or vector infrastructure until evaluation shows a measurable need
-- [ ] Add `search_forge_docs` for bounded ranked results and `read_forge_doc`
+- [x] Add `search_forge_docs` for bounded ranked results and `read_forge_doc`
   for an allowlisted document or section
-- [ ] Prefer the user's active locale, fall back to canonical English, and mark
+- [x] Prefer the user's active locale, fall back to canonical English, and mark
   the fallback instead of silently mixing translations
-- [ ] Add a built-in `forge-product-help` Skill for installation,
+- [x] Add a built-in `forge-product-help` Skill for installation,
   configuration, providers, models, authentication, plugins, Skills, sessions,
   context, traces, security, release, and troubleshooting questions
-- [ ] Require documentation lookup before answering changeable or
+- [x] Require documentation lookup before answering changeable or
   implementation-specific Forge product questions; distinguish documented
   facts, repository inspection, inference, and unsupported behavior
-- [ ] Return stable document and section references suitable for terminal
+- [x] Return stable document and section references suitable for terminal
   rendering and traces without exposing arbitrary package paths
-- [ ] Verify at package-build time that indexed paths exist, hashes match,
+- [x] Verify at package-build time that indexed paths exist, hashes match,
   local Markdown links pass, and the index version equals `FORGE_VERSION`
 
 Acceptance criteria:
@@ -651,18 +651,18 @@ Acceptance criteria:
 
 ### 12.5 CLI discovery and control surfaces
 
-- [ ] Extend startup resource reporting without importing executable project
+- [x] Extend startup resource reporting without importing executable project
   plugins or eagerly reading Skill bodies
-- [ ] Add `forge resources list` and an interactive `/resources` view for
+- [x] Add `forge resources list` and an interactive `/resources` view for
   source, description, automatic/explicit-only status, shadowing, and
   diagnostics
-- [ ] Keep `/plugins` focused on executable plugins and show a clear link to
+- [x] Keep `/plugins` focused on executable plugins and show a clear link to
   Skills/resources rather than conflating the two lifecycles
-- [ ] Surface automatic Skill selection and documentation lookup as concise
+- [x] Surface automatic Skill selection and documentation lookup as concise
   run events without exposing private reasoning
-- [ ] Add a user-scoped way to disable a specific automatically invocable Skill
+- [x] Add a user-scoped way to disable a specific automatically invocable Skill
   while keeping project Skills model-invocable by default
-- [ ] Keep non-interactive behavior deterministic and emit actionable warnings
+- [x] Keep non-interactive behavior deterministic and emit actionable warnings
   instead of opening a trust or selection prompt
 
 Acceptance criteria:
@@ -676,22 +676,22 @@ Acceptance criteria:
 
 ### 12.6 Evaluation, compatibility, and release gates
 
-- [ ] Add scripted fake-model tests for matching, non-matching, ambiguous,
+- [x] Add scripted fake-model tests for matching, non-matching, ambiguous,
   explicit, disabled, collision, repeated-load, and over-budget Skill cases
-- [ ] Add adversarial project Skills that attempt prompt injection, permission
+- [x] Add adversarial project Skills that attempt prompt injection, permission
   widening, arbitrary path reads, secret access, and unapproved commands
-- [ ] Add product-question fixtures spanning plugin API, configuration,
+- [x] Add product-question fixtures spanning plugin API, configuration,
   authentication, sessions, context, security, and deliberate unknowns
-- [ ] Measure selection precision/recall, unnecessary resource loads, first-turn
+- [x] Measure selection precision/recall, unnecessary resource loads, first-turn
   catalog tokens, loaded-resource tokens, answer citation accuracy, latency,
   and task completion
-- [ ] Keep all default tests deterministic and offline; make live provider
+- [x] Keep all default tests deterministic and offline; make live provider
   quality trials explicit and opt-in
-- [ ] Preserve sessions and traces created before resource events existed, and
+- [x] Preserve sessions and traces created before resource events existed, and
   keep the old explicit `$name` flow working
-- [ ] Verify the packed artifact contains Skills, templates, docs, index, and no
+- [x] Verify the packed artifact contains Skills, templates, docs, index, and no
   development-only or secret files
-- [ ] Run `pnpm build`, `pnpm check`, `pnpm test`, `pnpm check:docs`, deterministic
+- [x] Run `pnpm build`, `pnpm check`, `pnpm test`, `pnpm check:docs`, deterministic
   evaluations, package verification, and version consistency for `0.3.1`
 
 Release criteria:

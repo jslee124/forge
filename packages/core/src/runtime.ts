@@ -73,6 +73,24 @@ export type RunEvent =
       readonly message: string;
     }
   | {
+      readonly type: "docs.search";
+      readonly query: string;
+      readonly resultCount: number;
+      readonly locale: "en" | "zh-CN";
+      readonly fallback: boolean;
+    }
+  | {
+      readonly type: "docs.read";
+      readonly reference: string;
+      readonly truncated: boolean;
+    }
+  | {
+      readonly type: "docs.rejected";
+      readonly tool: "search_forge_docs" | "read_forge_doc";
+      readonly code: string;
+      readonly message: string;
+    }
+  | {
       readonly type: "run.started";
       readonly prompt: string;
       readonly imageCount?: number;
@@ -614,6 +632,59 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
           await emit({
             type: "skill.rejected",
             ...(id ? { id } : {}),
+            code: result.error.code,
+            message: result.error.message,
+          });
+        }
+      }
+      if (call.name === "search_forge_docs") {
+        if (result.ok) {
+          const output = result.output as {
+            readonly query?: unknown;
+            readonly preferredLocale?: unknown;
+            readonly fallback?: unknown;
+            readonly results?: unknown;
+          };
+          if (
+            typeof output.query === "string" &&
+            (output.preferredLocale === "en" ||
+              output.preferredLocale === "zh-CN") &&
+            Array.isArray(output.results)
+          ) {
+            await emit({
+              type: "docs.search",
+              query: output.query,
+              resultCount: output.results.length,
+              locale: output.preferredLocale,
+              fallback: typeof output.fallback === "string",
+            });
+          }
+        } else {
+          await emit({
+            type: "docs.rejected",
+            tool: "search_forge_docs",
+            code: result.error.code,
+            message: result.error.message,
+          });
+        }
+      }
+      if (call.name === "read_forge_doc") {
+        if (result.ok) {
+          const output = result.output as {
+            readonly reference?: unknown;
+            readonly truncated?: unknown;
+          };
+          if (typeof output.reference === "string") {
+            await emit({
+              type: "docs.read",
+              reference: output.reference,
+              truncated: output.truncated === true,
+            });
+          }
+        } else {
+          await emit({
+            type: "docs.rejected",
+            tool: "read_forge_doc",
             code: result.error.code,
             message: result.error.message,
           });

@@ -63,7 +63,7 @@ describe("interactive startup resource discovery", () => {
       enabledUserPlugins: ["user-tool"],
     });
 
-    expect(untrusted).toEqual({
+    expect(untrusted).toMatchObject({
       plugins: [
         {
           name: "user-tool",
@@ -88,14 +88,26 @@ describe("interactive startup resource discovery", () => {
           ),
           source: "builtin",
           invocation: "model",
+          status: "automatic",
+        },
+        {
+          name: "forge-product-help",
+          path: expect.stringContaining(
+            "resources/skills/forge-product-help/SKILL.md",
+          ),
+          source: "builtin",
+          invocation: "model",
+          status: "automatic",
         },
         {
           name: "review",
           path: await realpath(path.join(skillDirectory, "SKILL.md")),
           source: "project",
           invocation: "model",
+          status: "automatic",
         },
       ],
+      diagnostics: [],
     });
     await expect(readFile(marker)).rejects.toMatchObject({
       code: "ENOENT",

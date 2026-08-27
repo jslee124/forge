@@ -31,6 +31,7 @@ export interface DiscoverSkillCatalogOptions {
   readonly forgeHome: string;
   readonly workspaceRoot: string;
   readonly builtinRoot?: string;
+  readonly disabledModelInvocation?: readonly string[];
 }
 
 export function resolveBuiltinSkillsRoot(moduleUrl: string): string {
@@ -62,8 +63,20 @@ export async function discoverSkillCatalog(
     diagnostics.push(...result.diagnostics);
   }
 
+  const disabled = new Set(options.disabledModelInvocation ?? []);
+  const resources = discovered
+    .map((descriptor) =>
+      disabled.has(descriptor.name)
+        ? {
+            ...descriptor,
+            modelInvocationEnabled: false,
+            disabledBy: "user" as const,
+          }
+        : descriptor,
+    )
+    .sort(compareDescriptors);
   const winners = new Map<string, SkillDescriptor>();
-  for (const descriptor of discovered.sort(compareDescriptors)) {
+  for (const descriptor of resources) {
     const existing = winners.get(descriptor.name);
     if (!existing) {
       winners.set(descriptor.name, descriptor);
@@ -118,6 +131,7 @@ export async function discoverSkillCatalog(
   const boundedDiagnostics = diagnostics.slice(0, MAX_SKILL_DIAGNOSTICS);
   return {
     skills: bounded,
+    resources,
     diagnostics: boundedDiagnostics,
     prompt: formatSkillCatalogPrompt(bounded),
   };
@@ -152,7 +166,9 @@ export function selectSkills(
   if (explicit.length > 0) return explicit;
 
   const candidates = skills
-    .filter((skill) => skill.invocation === "model")
+    .filter(
+      (skill) => skill.invocation === "model" && skill.modelInvocationEnabled,
+    )
     .map((skill) => ({ skill, score: matchScore(prompt, skill) }))
     .filter(({ score }) => score >= 2)
     .sort(
@@ -160,9 +176,9 @@ export function selectSkills(
         right.score - left.score ||
         left.skill.name.localeCompare(right.skill.name),
     );
-  return candidates[0]
-    ? [{ skill: candidates[0].skill, reason: "automatic" }]
-    : [];
+  if (!candidates[0]) return [];
+  if (candidates[1]?.score === candidates[0].score) return [];
+  return [{ skill: candidates[0].skill, reason: "automatic" }];
 }
 
 function matchScore(prompt: string, skill: SkillDescriptor): number {
@@ -181,12 +197,19 @@ function matchScore(prompt: string, skill: SkillDescriptor): number {
 }
 
 function words(value: string): string[] {
-  return (
-    value
-      .toLocaleLowerCase()
-      .match(/[\p{L}\p{N}]+/gu)
-      ?.filter((word) => word.length >= 2) ?? []
-  );
+  const normalized = value.normalize("NFKC").toLocaleLowerCase();
+  const tokens =
+    normalized.match(/[\p{L}\p{N}]+/gu)?.filter((word) => word.length >= 2) ??
+    [];
+  const han = normalized.match(/[\p{Script=Han}]+/gu) ?? [];
+  return [
+    ...tokens,
+    ...han.flatMap((chunk) =>
+      [...chunk]
+        .slice(0, -1)
+        .map((character, index) => `${character}${[...chunk][index + 1]}`),
+    ),
+  ];
 }
 
 function catalogEntry(skill: SkillDescriptor): {
@@ -314,6 +337,7 @@ async function readSkillMetadata(
         baseDirectory: path.dirname(canonicalPath),
         contentSize: identity.size,
         invocation: metadata.disableModelInvocation ? "explicit-only" : "model",
+        modelInvocationEnabled: !metadata.disableModelInvocation,
         identity,
         diagnostics: [],
         shadowedSources: [],

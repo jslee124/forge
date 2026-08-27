@@ -309,7 +309,7 @@ Start at the [documentation hub](docs/README.md), which routes readers by task.
 
 ## Current status and limitations
 
-Forge is under active development. The current source and npm release target is
+Forge is under active development. The current source and release version is
 `0.3.1`. Automatic context checkpoint generation remains opt-in while
 provider-quality evidence is collected.
 

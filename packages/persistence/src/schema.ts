@@ -323,6 +323,30 @@ export const runEventSchema = z.discriminatedUnion("type", [
     .strict(),
   z
     .object({
+      type: z.literal("docs.search"),
+      query: z.string().max(500),
+      resultCount: z.number().int().nonnegative().max(8),
+      locale: z.enum(["en", "zh-CN"]),
+      fallback: z.boolean(),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("docs.read"),
+      reference: z.string().max(300),
+      truncated: z.boolean(),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("docs.rejected"),
+      tool: z.enum(["search_forge_docs", "read_forge_doc"]),
+      code: z.string().max(100),
+      message: z.string().max(1_000),
+    })
+    .strict(),
+  z
+    .object({
       type: z.literal("run.started"),
       prompt: z.string(),
       imageCount: z.number().int().positive().max(8).optional(),

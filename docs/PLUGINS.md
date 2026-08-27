@@ -5,7 +5,7 @@
 
 [简体中文](zh-CN/PLUGINS.md) · [Documentation index](README.md)
 
-Forge v0.2 works without plugins. A plugin is an optional in-process JavaScript
+Forge 0.3.1 works without plugins. A plugin is an optional in-process JavaScript
 module that can register model-callable tools and explicit local commands,
 contribute instructions, observe immutable run events, or make policy stricter.
 
@@ -608,9 +608,15 @@ would require a restricted process or OS sandbox.
 
 ## Deliberate limitations
 
-Forge v0.2 has no plugin installer, dependency resolver, package registry, hot
+Forge 0.3.1 has no plugin installer, dependency resolver, package registry, hot
 reload, TypeScript entry compilation, custom interactive UI, provider
 registration, isolated plugin process, or enforceable filesystem/network
 capabilities. Plugin commands run only through `forge plugins run`; they do not
 become interactive slash commands. These gaps are explicit so plugin authors
 can target the implemented contract instead of guessing at future APIs.
+
+## Skills and product documentation are resources
+
+Skills are non-executable, untrusted instruction resources discovered from built-in, user, and project scopes. `forge plugins list` reports executable plugins; `forge resources list` reports Skill source, invocation status, collision shadowing, and diagnostics. The interactive equivalents are `/plugins` and `/resources`.
+
+The built-in `forge-product-help` Skill requires a documentation lookup before implementation-specific product answers. `search_forge_docs` and `read_forge_doc` use a version-matched packaged allowlist and stable `forge-doc:<version>:<locale>:<document>#<section>` references. They reject filesystem paths and do not inherit `read_file` access.

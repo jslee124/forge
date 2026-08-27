@@ -11,7 +11,8 @@
   },
   "files": [
     "dist",
-    "skills"
+    "skills",
+    "docs"
   ],
   "dependencies": {
     "@forge/core": "workspace:*",

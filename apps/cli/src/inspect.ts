@@ -108,6 +108,12 @@ function describeEvent(event: TraceEnvelope["event"]): string {
       return `${event.type} $${event.name} id=${event.id} source=${event.source} resource=${event.relativePath} truncated=${event.truncated}`;
     case "skill.rejected":
       return `${event.type}${event.id ? ` id=${event.id}` : ""} code=${event.code} ${event.message}`;
+    case "docs.search":
+      return `${event.type} locale=${event.locale} results=${event.resultCount} fallback=${event.fallback} query=${JSON.stringify(event.query)}`;
+    case "docs.read":
+      return `${event.type} reference=${event.reference} truncated=${event.truncated}`;
+    case "docs.rejected":
+      return `${event.type} tool=${event.tool} code=${event.code} ${event.message}`;
     case "run.started":
       return `${event.type} ${JSON.stringify(event.prompt)}`;
     case "model.started":

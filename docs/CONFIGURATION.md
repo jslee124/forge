@@ -257,3 +257,7 @@ discovery limits, and reasoning metadata are documented in
   then use `/login` or an environment variable.
 - **Expecting Forge to unset the parent shell:** `/logout` removes stored
   credentials but cannot remove an exported environment variable.
+
+## Skill invocation preferences
+
+User configuration may set `resources.disabledModelInvocation` to a list of Skill names. `forge resources disable <name>` and `forge resources enable <name>` update this user-only setting. Disabling automatic invocation does not modify the Skill or repository and does not disable an explicit `$name` request. Project configuration cannot set `resources`.
