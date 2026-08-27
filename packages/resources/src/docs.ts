@@ -50,6 +50,9 @@ export function resolveBuiltinDocsRoot(moduleUrl: string): string {
   const workspaceCandidate = path.resolve(directory, "..", "docs");
   if (existsSync(path.join(workspaceCandidate, "index.json")))
     return workspaceCandidate;
+  const packageCandidate = path.resolve(directory, "..", "resources", "docs");
+  if (existsSync(path.join(packageCandidate, "index.json")))
+    return packageCandidate;
   return path.resolve(directory, "..", "..", "resources", "docs");
 }
 

@@ -3,7 +3,12 @@ import {
   loadForgeConfig,
   setUserSkillModelInvocation,
 } from "@forge/config";
-import { discoverSkillCatalog } from "@forge/resources";
+import { FORGE_VERSION } from "@forge/core";
+import {
+  createForgeDocsTools,
+  discoverSkillCatalog,
+  preferredForgeDocsLocale,
+} from "@forge/resources";
 
 import type { WritableOutput } from "./ask.js";
 
@@ -30,6 +35,9 @@ export async function runResourcesCommand(
       disabledModelInvocation: loaded.config.resources.disabledModelInvocation,
     });
     if (mode === "list") {
+      await createForgeDocsTools({
+        locale: preferredForgeDocsLocale(dependencies.env),
+      });
       dependencies.stdout.write(formatResourceList(catalog));
       return 0;
     }
@@ -92,6 +100,9 @@ function formatResourceList(
         `  [${diagnostic.code}/${diagnostic.source}] ${diagnostic.message}`,
       );
   }
+  lines.push(
+    `Product docs: ${FORGE_VERSION} · en, zh-CN · search_forge_docs/read_forge_doc`,
+  );
   lines.push("");
   return lines.join("\n");
 }

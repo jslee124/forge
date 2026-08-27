@@ -105,7 +105,24 @@ try {
   }
   run(binPath, ["--help"], temporaryRoot, smokeEnv);
   run(binPath, ["config", "validate"], temporaryRoot, smokeEnv);
-  run(binPath, ["resources", "list"], temporaryRoot, smokeEnv);
+  const resourcesOutput = run(
+    binPath,
+    ["resources", "list"],
+    temporaryRoot,
+    smokeEnv,
+  );
+  for (const builtinSkill of ["forge-plugin-creator", "forge-product-help"]) {
+    if (!resourcesOutput.includes(`$${builtinSkill} · builtin · automatic`)) {
+      throw new Error(
+        `Installed CLI did not discover bundled Skill ${builtinSkill}.`,
+      );
+    }
+  }
+  if (!resourcesOutput.includes(`Product docs: ${expected.version}`)) {
+    throw new Error(
+      "Installed CLI could not load bundled product documentation.",
+    );
+  }
 
   console.log(
     `Verified packed install ${expected.name}@${expected.version} (${report.size} bytes).`,

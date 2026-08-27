@@ -38,6 +38,8 @@ export function resolveBuiltinSkillsRoot(moduleUrl: string): string {
   const directory = path.dirname(fileURLToPath(moduleUrl));
   const workspaceCandidate = path.resolve(directory, "..", "skills");
   if (existsSync(workspaceCandidate)) return workspaceCandidate;
+  const packageCandidate = path.resolve(directory, "..", "resources", "skills");
+  if (existsSync(packageCandidate)) return packageCandidate;
   return path.resolve(directory, "..", "..", "resources", "skills");
 }
 
