@@ -69,7 +69,7 @@ Summary 来自过去的 user/assistant text，必须标记为 conversation memor
 
 | 类别 | 示例 | 保留规则 |
 | --- | --- | --- |
-| Mandatory instructions | 当前 `AGENTS.md`、selected Skills、plugin prompt contribution | 每次 run reload，永不 summary |
+| Mandatory instructions | 当前 `AGENTS.md`、有界 Skill catalog/selection directive、plugin prompt contribution | 每次 run reload，永不 summary；加载的 Skill 正文作为有界 tool result 进入 |
 | Current request | active user prompt、引用路径 | 不 summary、不丢弃 |
 | Protocol state | pending assistant tool call、匹配 result、provider continuation | 按 adapter 要求精确保留 |
 | Recent conversation | 最近完成的 user/assistant turn | 在可配置 tail budget 内原样保留 |

@@ -106,7 +106,14 @@ describe("Ink interactive terminal", () => {
               capabilities: ["tools:register"],
             },
           ],
-          skills: [{ name: "review", path: "/tmp/review/SKILL.md" }],
+          skills: [
+            {
+              name: "review",
+              path: "/tmp/review/SKILL.md",
+              source: "project",
+              invocation: "model",
+            },
+          ],
         }}
       />,
     );

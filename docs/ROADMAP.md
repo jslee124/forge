@@ -520,25 +520,25 @@ normal policy, approval, execution, event, and trace pipeline.
 
 ### 12.1 Resource model, discovery, and precedence
 
-- [ ] Add a dedicated resource boundary instead of growing executable plugin
+- [x] Add a dedicated resource boundary instead of growing executable plugin
   activation around non-executable Skills and documentation
-- [ ] Parse bounded YAML frontmatter from `SKILL.md`, requiring a valid `name`
+- [x] Parse bounded YAML frontmatter from `SKILL.md`, requiring a valid `name`
   and task-oriented `description`; retain the body for lazy loading
-- [ ] Represent `builtin`, `user`, and `project` provenance, canonical path,
+- [x] Represent `builtin`, `user`, and `project` provenance, canonical path,
   content size, model-invocation state, and diagnostics in typed descriptors
-- [ ] Discover bundled Skills, user Skills, and project
+- [x] Discover bundled Skills, user Skills, and project
   `.agents/skills/<name>/SKILL.md` resources without executing repository code
-- [ ] Make built-in, user, and project Skills visible to the model and eligible
+- [x] Make built-in, user, and project Skills visible to the model and eligible
   for automatic invocation by default; `disable-model-invocation: true` makes a
   Skill explicit-only
-- [ ] Preserve explicit `$skill-name` selection as the deterministic override
+- [x] Preserve explicit `$skill-name` selection as the deterministic override
   and compatibility path
-- [ ] Resolve name collisions deterministically with
+- [x] Resolve name collisions deterministically with
   `explicit selection > project > user > builtin`, report the shadowed sources,
   and record the selected source
-- [ ] Include only escaped `name`, `description`, source, and stable identifier
+- [x] Include only escaped `name`, `description`, source, and stable identifier
   in the initial model request rather than every Skill body
-- [ ] Apply per-file, catalog, description, and total instruction budgets before
+- [x] Apply per-file, catalog, description, and total instruction budgets before
   any paid provider request
 
 Acceptance criteria:
@@ -556,23 +556,23 @@ Acceptance criteria:
 
 ### 12.2 Safe lazy loading and runtime integration
 
-- [ ] Add a host-owned `load_skill` read tool that accepts a catalog identifier,
+- [x] Add a host-owned `load_skill` read tool that accepts a catalog identifier,
   not a model-generated arbitrary path
-- [ ] Canonicalize every resource root and target; reject traversal, escaped
+- [x] Canonicalize every resource root and target; reject traversal, escaped
   symlinks, non-regular files, changed identities, and files outside the
   registered resource root
-- [ ] Return bounded content, provenance, base directory, and truncation state
+- [x] Return bounded content, provenance, base directory, and truncation state
   so relative references can be resolved deliberately
-- [ ] Keep workspace `read_file` constrained to the selected workspace; do not
+- [x] Keep workspace `read_file` constrained to the selected workspace; do not
   widen it to reach installed Forge resources or arbitrary user files
-- [ ] Tell the model to load a Skill before acting whenever the request matches
+- [x] Tell the model to load a Skill before acting whenever the request matches
   its description, while allowing an explicit-only Skill to be selected only
   by the user
-- [ ] Allow at most a bounded number of Skill loads and deduplicate repeated
+- [x] Allow at most a bounded number of Skill loads and deduplicate repeated
   loads within one run
-- [ ] Re-run context preflight after resource results enter the conversation
+- [x] Re-run context preflight after resource results enter the conversation
   and fail before a provider request when mandatory context cannot fit
-- [ ] Emit structured discovery, automatic-selection, explicit-selection,
+- [x] Emit structured discovery, automatic-selection, explicit-selection,
   load, rejection, and truncation events with no hidden chain-of-thought
 
 Acceptance criteria:
@@ -588,22 +588,22 @@ Acceptance criteria:
 
 ### 12.3 Built-in Forge plugin authoring Skill
 
-- [ ] Ship a version-matched `forge-plugin-creator` Skill with the CLI package
-- [ ] Trigger it for plugin creation, modification, validation, capability,
+- [x] Ship a version-matched `forge-plugin-creator` Skill with the CLI package
+- [x] Trigger it for plugin creation, modification, validation, capability,
   lifecycle, trust, loading, tool, command, observer, prompt-hook, policy-hook,
   and plugin-test requests
-- [ ] Keep workflow instructions in the Skill and current API facts in bundled
+- [x] Keep workflow instructions in the Skill and current API facts in bundled
   documentation or generated references instead of duplicating an entire
   manual in the prompt
-- [ ] Include minimal manifest, entry, and test templates that use the current
+- [x] Include minimal manifest, entry, and test templates that use the current
   plugin API version and package layout
-- [ ] Require inspection of the active manifest schema, TypeScript types, and
+- [x] Require inspection of the active manifest schema, TypeScript types, and
   the nearest maintained example before generating code
-- [ ] Preserve the distinction between a non-executable Skill and trusted
+- [x] Preserve the distinction between a non-executable Skill and trusted
   in-process plugin code with local process privileges
-- [ ] Validate generated plugin names, entries, capabilities, reserved tool
+- [x] Validate generated plugin names, entries, capabilities, reserved tool
   names, and project trust behavior before reporting completion
-- [ ] Run build, typecheck, focused plugin tests, and documentation checks
+- [x] Run build, typecheck, focused plugin tests, and documentation checks
   without paid model calls
 
 Acceptance criteria:

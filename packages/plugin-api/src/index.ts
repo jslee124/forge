@@ -1,9 +1,7 @@
 export {
   discoverPlugins,
-  discoverPortableSkills,
   PluginError,
   resolvePluginEntry,
-  selectPortableSkills,
 } from "./discovery.js";
 export {
   type LoadPluginHostOptions,
@@ -38,7 +36,6 @@ export type {
   PluginPolicyContribution,
   PluginPromptContext,
   PluginSubagentDefinition,
-  PortableSkill,
   RegisteredPluginSubagent,
 } from "./types.js";
 export { PLUGIN_API_VERSION } from "./types.js";

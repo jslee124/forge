@@ -26,10 +26,12 @@ const workspacePackagePaths = [
   "packages/model-openai/package.json",
   "packages/persistence/package.json",
   "packages/plugin-api/package.json",
+  "packages/resources/package.json",
   "packages/tools/package.json",
 ];
 
 const rootPackage = await readJson(path.join(root, "package.json"));
+await assertBundledPluginSkillVersion(rootPackage.version);
 const dependencies = await collectExternalDependencies();
 
 await rm(outputRoot, { recursive: true, force: true });
@@ -66,7 +68,7 @@ const packageManifest = {
   license: "MIT",
   type: "module",
   bin: { forge: "dist/index.js" },
-  files: ["dist", "README.md", "LICENSE"],
+  files: ["dist", "resources", "README.md", "LICENSE"],
   engines: { node: ">=24" },
   repository: {
     type: "git",
@@ -88,6 +90,10 @@ await copyFile(
   path.join(outputRoot, "README.md"),
 );
 await copyFile(path.join(root, "LICENSE"), path.join(outputRoot, "LICENSE"));
+await copyDirectory(
+  path.join(root, "packages", "resources", "skills"),
+  path.join(outputRoot, "resources", "skills"),
+);
 
 console.log(`Prepared ${packageName}@${rootPackage.version} in ${outputRoot}`);
 
@@ -160,4 +166,45 @@ function packageNameFromImport(specifier) {
 
 async function readJson(filePath) {
   return JSON.parse(await readFile(filePath, "utf8"));
+}
+
+async function assertBundledPluginSkillVersion(forgeVersion) {
+  const skillRoot = path.join(
+    root,
+    "packages",
+    "resources",
+    "skills",
+    "forge-plugin-creator",
+  );
+  const [reference, manifestTemplate, types] = await Promise.all([
+    readFile(path.join(skillRoot, "references", "plugin-api.md"), "utf8"),
+    readFile(path.join(skillRoot, "templates", "plugin.json"), "utf8"),
+    readFile(
+      path.join(root, "packages", "plugin-api", "src", "types.ts"),
+      "utf8",
+    ),
+  ]);
+  const apiVersion = /PLUGIN_API_VERSION = "([^"]+)"/u.exec(types)?.[1];
+  if (!apiVersion)
+    throw new Error("Could not determine the plugin API version.");
+  if (!reference.includes(`Forge ${forgeVersion}`)) {
+    throw new Error(
+      `forge-plugin-creator reference does not match Forge ${forgeVersion}.`,
+    );
+  }
+  if (
+    !reference.includes(
+      `plugin API version \`${JSON.stringify(apiVersion)}\``,
+    ) ||
+    JSON.parse(manifestTemplate).apiVersion !== apiVersion
+  ) {
+    throw new Error(
+      `forge-plugin-creator assets do not match plugin API version ${apiVersion}.`,
+    );
+  }
+}
+
+async function copyDirectory(source, target) {
+  const { cp } = await import("node:fs/promises");
+  await cp(source, target, { recursive: true });
 }

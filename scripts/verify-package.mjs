@@ -37,6 +37,11 @@ try {
     "dist/index.js",
     "README.md",
     "LICENSE",
+    "resources/skills/forge-plugin-creator/SKILL.md",
+    "resources/skills/forge-plugin-creator/references/plugin-api.md",
+    "resources/skills/forge-plugin-creator/templates/index.mjs",
+    "resources/skills/forge-plugin-creator/templates/plugin.json",
+    "resources/skills/forge-plugin-creator/templates/plugin.test-template.ts",
   ]);
   for (const required of allowedFiles) {
     if (!files.has(required))

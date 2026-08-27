@@ -18,6 +18,7 @@
     { "path": "../../packages/model-openai" },
     { "path": "../../packages/persistence" },
     { "path": "../../packages/plugin-api" },
+    { "path": "../../packages/resources" },
     { "path": "../../packages/tools" }
   ],
   "include": ["src/**/*.ts", "src/**/*.tsx"],

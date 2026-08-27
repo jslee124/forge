@@ -1,0 +1,20 @@
+{
+  "name": "@forge/resources",
+  "version": "0.3.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "skills"
+  ],
+  "dependencies": {
+    "@forge/core": "workspace:*",
+    "zod": "^4.4.3"
+  }
+}

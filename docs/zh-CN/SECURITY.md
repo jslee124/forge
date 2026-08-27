@@ -77,7 +77,7 @@ Child 继承有效 policy/approval，只获得声明的非 subagent 工具，共
 
 ## 仓库指令、Reasoning 与会话
 
-`AGENTS.md`、`.agents/` 和非可执行 `.forge/` 配置是仓库控制的输入，可能含 prompt injection，但不能审批工具、启用 `full-access` 或削弱核心策略。发现不等于执行，引用的脚本和动作仍走正常工具、审批和 trace 流程，并记录来源路径。
+`AGENTS.md`、`.agents/` 和非可执行 `.forge/` 配置是仓库控制的输入，可能含 prompt injection，但不能审批工具、启用 `full-access` 或削弱核心策略。Skill 发现只读取有界 metadata；`load_skill` 只接受登记的不透明 ID，会重新检查 canonical root、非 symlink 普通文件和发现时身份，并返回有界正文，且不扩大 workspace `read_file`。发现不等于执行，引用的脚本和动作仍走正常工具、审批和 trace 流程；Skill 来源、选择原因、加载拒绝和截断会写入 trace。
 
 模型实际返回的 reasoning/thinking 默认对用户可见，必须标记为 provider 提供；不能声称访问 provider 没有返回的 reasoning。reasoning 可能含仓库敏感信息，trace 和导出使用同一脱敏策略。
 

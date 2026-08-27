@@ -34,13 +34,14 @@ leave stale rows from the previous width.
 
 Before the first prompt, the blue Forge frame lists enabled user plugins,
 project plugins with `trusted` or `untrusted, skipped` state, and discovered
-project Skills. Compact category labels follow Pi's resource-list pattern while
+built-in, user, and project Skills. Compact category labels follow Pi's resource-list pattern while
 preserving Forge's explicit trust semantics.
 
 Startup detection reads plugin manifests and Skill metadata only. It must not
 import a project plugin merely to display its name. Actual plugin activation
-remains part of a native Forge Engine run, and Skills remain inactive until an
-explicit `$skill-name` prompt mention. The Codex Engine owns a separate tool
+remains part of a native Forge Engine run. Native runs advertise bounded Skill
+metadata and lazily load matching Skills; explicit `$skill-name` remains an
+override. The Codex Engine owns a separate tool
 runtime, so the listing describes Forge resources rather than Codex tools.
 
 `/plugins` opens a metadata-only review panel. It shows each project plugin's

@@ -23,7 +23,7 @@ Ink 只负责交互 renderer，Commander 负责进程级命令解析；React/Ink
 
 ## 启动能力摘要
 
-首个 prompt 前，蓝色 frame 列出启用的 user plugin、标记为 `trusted` 或 `untrusted, skipped` 的项目插件，以及发现的项目 Skills。这里只读取 manifest 和 Skill metadata，不为显示名称而 import 项目插件；实际 activation 只发生在 native Forge Engine run，Skill 只有用户显式写出 `$skill-name` 才激活。Codex Engine 有独立工具 runtime，因此列表描述的是 Forge 资源，不是 Codex 工具。
+首个 prompt 前，蓝色 frame 列出启用的 user plugin、标记为 `trusted` 或 `untrusted, skipped` 的项目插件，以及发现的内置、用户和项目 Skills。这里只读取 manifest 和 Skill metadata，不为显示名称而 import 项目插件；实际 plugin activation 只发生在 native Forge Engine run。Native run 会发布有界 Skill catalog 并延迟加载匹配正文，显式 `$skill-name` 保留为 override。Codex Engine 有独立工具 runtime，因此列表描述的是 Forge 资源，不是 Codex 工具。
 
 `/plugins` 打开 metadata-only 审查面板，显示项目插件版本、capability 和当前 workspace trust。信任需要在进程内权限警告后再次按 `y` 确认；同一面板可撤销。决定成功后立即刷新启动 frame，但插件 activation 延迟到下一次 native Forge Engine 任务。
 

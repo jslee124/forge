@@ -48,7 +48,7 @@ Forge 是一个开源 TypeScript 项目，用于学习和展示编码 Agent 背�
 | **持久化会话** | 已完成的对话可以跨进程恢复，但不会恢复旧审批或待执行工具调用。 |
 | **有预算的上下文** | `/context` 展示当前预算；可选 checkpoint 压缩已完成历史，但不删除规范 transcript。 |
 | **可复现评测** | 确定性测试验证运行时行为，真实模型试验同时保留成功和失败。 |
-| **受控扩展** | 受信任插件和可移植项目 Skills 可以扩展 Forge，但不能绕过核心策略流水线。 |
+| **受控扩展** | 受信任插件与非执行型内置、用户和项目 Skills 可以扩展 Forge，但不能绕过核心策略流水线。 |
 
 ## 快速开始
 
@@ -130,7 +130,7 @@ forge
 - 将模型文本和 provider 提供的 reasoning 作为独立事件流式输出。
 - 持久化会话，并按 ID 或最近使用顺序恢复已完成的对话轮次。
 - 检查上下文用量，并创建明确、可展示的对话 checkpoint。
-- 加载分层的 `AGENTS.md` 指令和可移植项目 Skills。
+- 加载分层的 `AGENTS.md` 指令，以及延迟调用的内置、用户和项目 Skills。
 - 加载能够贡献工具、命令、observer、prompt、更严格策略 hook 或有界宿主管理 subagent 角色的受信任插件。
 - 为支持的 vision 模型附加 JPEG、PNG、GIF 或 WebP 输入。
 - 将 native-engine 运行记录为可检查的版本化 JSONL trace。

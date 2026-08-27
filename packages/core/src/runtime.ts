@@ -40,6 +40,39 @@ export type RunStatus =
 
 export type RunEvent =
   | {
+      readonly type: "skill.discovery";
+      readonly catalogCount: number;
+      readonly diagnosticCount: number;
+      readonly diagnostics: readonly {
+        readonly code: string;
+        readonly source: "builtin" | "user" | "project";
+        readonly sourcePath: string;
+        readonly message: string;
+      }[];
+    }
+  | {
+      readonly type: "skill.selected";
+      readonly id: string;
+      readonly name: string;
+      readonly source: "builtin" | "user" | "project";
+      readonly reason: "automatic" | "explicit";
+      readonly invocation: "model" | "explicit-only";
+    }
+  | {
+      readonly type: "skill.loaded";
+      readonly id: string;
+      readonly name: string;
+      readonly source: "builtin" | "user" | "project";
+      readonly relativePath: string;
+      readonly truncated: boolean;
+    }
+  | {
+      readonly type: "skill.rejected";
+      readonly id?: string;
+      readonly code: string;
+      readonly message: string;
+    }
+  | {
       readonly type: "run.started";
       readonly prompt: string;
       readonly imageCount?: number;
@@ -167,6 +200,7 @@ export interface RunAgentOptions {
   readonly signal: AbortSignal;
   readonly limits?: Partial<RunLimits>;
   readonly onEvent?: (event: RunEvent) => void | Promise<void>;
+  readonly initialEvents?: readonly RunEvent[];
 }
 
 export interface RunResult {
@@ -204,8 +238,20 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
   let toolResults: readonly ModelToolResult[] | undefined;
   let finalText = "";
   let overflowRecoveryUsed = false;
+  const selectedSkillIds = new Set(
+    (options.initialEvents ?? [])
+      .filter(
+        (
+          event,
+        ): event is Extract<RunEvent, { readonly type: "skill.selected" }> =>
+          event.type === "skill.selected",
+      )
+      .map(({ id }) => id),
+  );
   const contextConfiguration =
     options.contextConfiguration ?? DEFAULT_CONTEXT_CONFIGURATION;
+
+  for (const event of options.initialEvents ?? []) await emit(event);
 
   await emit({
     type: "run.started",
@@ -443,6 +489,13 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
           toolName: call.name,
           result: proposed.result,
         });
+        if (call.name === "load_skill" && !proposed.result.ok) {
+          await emit({
+            type: "skill.rejected",
+            code: proposed.result.error.code,
+            message: proposed.result.error.message,
+          });
+        }
         continue;
       }
 
@@ -510,6 +563,62 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
         call,
         result,
       });
+      if (call.name === "load_skill") {
+        if (result.ok) {
+          const output = result.output as {
+            readonly id?: unknown;
+            readonly name?: unknown;
+            readonly source?: unknown;
+            readonly invocation?: unknown;
+            readonly relativePath?: unknown;
+            readonly truncated?: unknown;
+          };
+          if (
+            typeof output.id === "string" &&
+            typeof output.name === "string" &&
+            (output.source === "builtin" ||
+              output.source === "user" ||
+              output.source === "project") &&
+            typeof output.relativePath === "string" &&
+            (output.invocation === "model" ||
+              output.invocation === "explicit-only")
+          ) {
+            if (!selectedSkillIds.has(output.id)) {
+              selectedSkillIds.add(output.id);
+              await emit({
+                type: "skill.selected",
+                id: output.id,
+                name: output.name,
+                source: output.source,
+                reason: "automatic",
+                invocation: output.invocation,
+              });
+            }
+            await emit({
+              type: "skill.loaded",
+              id: output.id,
+              name: output.name,
+              source: output.source,
+              relativePath: output.relativePath,
+              truncated: output.truncated === true,
+            });
+          }
+        } else {
+          const id =
+            typeof call.input === "object" &&
+            call.input !== null &&
+            "id" in call.input &&
+            typeof call.input.id === "string"
+              ? call.input.id
+              : undefined;
+          await emit({
+            type: "skill.rejected",
+            ...(id ? { id } : {}),
+            code: result.error.code,
+            message: result.error.message,
+          });
+        }
+      }
       nextResults.push({
         callId: call.id,
         toolName: call.name,

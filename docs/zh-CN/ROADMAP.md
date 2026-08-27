@@ -98,15 +98,15 @@ checkpoint 与 canonical session transcript 分离；可用时支持 adapter-own
 
 ### 12.1 资源模型、发现与优先级
 
-- [ ] 建立独立资源边界，不用 executable plugin activation 承载非执行型 Skill 和文档
-- [ ] 解析有大小限制的 `SKILL.md` YAML frontmatter，要求合法 `name` 和面向任务的 `description`，正文延迟加载
-- [ ] 用 typed descriptor 表示 `builtin`、`user`、`project` 来源、canonical path、内容大小、模型调用状态和诊断
-- [ ] 发现内置 Skill、用户 Skill 和项目 `.agents/skills/<name>/SKILL.md`，发现过程不执行仓库代码
-- [ ] 内置、用户和项目 Skill 默认都对模型可见且可自动调用；`disable-model-invocation: true` 将单个 Skill 改为仅显式调用
-- [ ] 保留 `$skill-name` 作为确定性 override 和兼容路径
-- [ ] 名称冲突按 `显式选择 > project > user > builtin` 确定解析，报告被遮蔽来源并记录最终来源
-- [ ] 初始模型请求只放转义后的 `name`、`description`、来源和稳定标识，不注入所有 Skill 正文
-- [ ] 在任何付费 provider request 前执行单文件、catalog、description 和总 instruction budget
+- [x] 建立独立资源边界，不用 executable plugin activation 承载非执行型 Skill 和文档
+- [x] 解析有大小限制的 `SKILL.md` YAML frontmatter，要求合法 `name` 和面向任务的 `description`，正文延迟加载
+- [x] 用 typed descriptor 表示 `builtin`、`user`、`project` 来源、canonical path、内容大小、模型调用状态和诊断
+- [x] 发现内置 Skill、用户 Skill 和项目 `.agents/skills/<name>/SKILL.md`，发现过程不执行仓库代码
+- [x] 内置、用户和项目 Skill 默认都对模型可见且可自动调用；`disable-model-invocation: true` 将单个 Skill 改为仅显式调用
+- [x] 保留 `$skill-name` 作为确定性 override 和兼容路径
+- [x] 名称冲突按 `显式选择 > project > user > builtin` 确定解析，报告被遮蔽来源并记录最终来源
+- [x] 初始模型请求只放转义后的 `name`、`description`、来源和稳定标识，不注入所有 Skill 正文
+- [x] 在任何付费 provider request 前执行单文件、catalog、description 和总 instruction budget
 
 验收标准：
 
@@ -118,14 +118,14 @@ checkpoint 与 canonical session transcript 分离；可用时支持 adapter-own
 
 ### 12.2 安全延迟加载与 runtime 集成
 
-- [ ] 增加 host-owned `load_skill` read tool，只接受 catalog identifier，不接受模型生成的任意路径
-- [ ] canonicalize 每个资源 root 和 target，拒绝 traversal、逃逸 symlink、非普通文件、身份变化和已登记 root 外文件
-- [ ] 返回有界内容、来源、base directory 和截断状态，让相对引用被显式解析
-- [ ] 保持 workspace `read_file` 只能访问所选 workspace，不为已安装 Forge 资源或任意用户文件放宽边界
-- [ ] 当请求匹配 Skill description 时要求模型先加载 Skill；explicit-only Skill 只能由用户选择
-- [ ] 每个 run 限制 Skill 加载次数，并去重重复加载
-- [ ] 资源结果进入 conversation 后重新做 context preflight；mandatory context 放不下时在 provider request 前失败
-- [ ] 发出结构化 discovery、automatic-selection、explicit-selection、load、rejection 和 truncation event，不记录隐藏思维链
+- [x] 增加 host-owned `load_skill` read tool，只接受 catalog identifier，不接受模型生成的任意路径
+- [x] canonicalize 每个资源 root 和 target，拒绝 traversal、逃逸 symlink、非普通文件、身份变化和已登记 root 外文件
+- [x] 返回有界内容、来源、base directory 和截断状态，让相对引用被显式解析
+- [x] 保持 workspace `read_file` 只能访问所选 workspace，不为已安装 Forge 资源或任意用户文件放宽边界
+- [x] 当请求匹配 Skill description 时要求模型先加载 Skill；explicit-only Skill 只能由用户选择
+- [x] 每个 run 限制 Skill 加载次数，并去重重复加载
+- [x] 资源结果进入 conversation 后重新做 context preflight；mandatory context 放不下时在 provider request 前失败
+- [x] 发出结构化 discovery、automatic-selection、explicit-selection、load、rejection 和 truncation event，不记录隐藏思维链
 
 验收标准：
 
@@ -136,14 +136,14 @@ checkpoint 与 canonical session transcript 分离；可用时支持 adapter-own
 
 ### 12.3 内置 Forge 插件开发 Skill
 
-- [ ] 随 CLI package 发布版本匹配的 `forge-plugin-creator` Skill
-- [ ] 覆盖插件创建、修改、验证、capability、lifecycle、trust、加载、tool、command、observer、prompt hook、policy hook 和插件测试请求
-- [ ] Skill 保存工作流，当前 API 事实保存在随包文档或生成 reference 中，避免把整本手册重复放进 prompt
-- [ ] 提供使用当前 plugin API version 和 package layout 的最小 manifest、entry 和 test template
-- [ ] 生成代码前要求检查有效 manifest schema、TypeScript types 和最接近的维护中 example
-- [ ] 保持非执行型 Skill 与拥有本地进程权限的受信任 in-process plugin code 之间的区别
-- [ ] 报告完成前验证生成的 plugin name、entry、capability、reserved tool name 和项目 trust 行为
-- [ ] 无付费调用地运行 build、typecheck、focused plugin test 和文档检查
+- [x] 随 CLI package 发布版本匹配的 `forge-plugin-creator` Skill
+- [x] 覆盖插件创建、修改、验证、capability、lifecycle、trust、加载、tool、command、observer、prompt hook、policy hook 和插件测试请求
+- [x] Skill 保存工作流，当前 API 事实保存在随包文档或生成 reference 中，避免把整本手册重复放进 prompt
+- [x] 提供使用当前 plugin API version 和 package layout 的最小 manifest、entry 和 test template
+- [x] 生成代码前要求检查有效 manifest schema、TypeScript types 和最接近的维护中 example
+- [x] 保持非执行型 Skill 与拥有本地进程权限的受信任 in-process plugin code 之间的区别
+- [x] 报告完成前验证生成的 plugin name、entry、capability、reserved tool name 和项目 trust 行为
+- [x] 无付费调用地运行 build、typecheck、focused plugin test 和文档检查
 
 验收标准：
 

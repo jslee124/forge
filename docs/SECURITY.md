@@ -192,9 +192,13 @@ contain prompt injection, but they cannot approve tool calls, enable
 `full-access`, or weaken a core policy decision.
 
 Skills and configuration are not executed merely because they are discovered.
-Any referenced script or requested action still passes through the normal tool,
-approval, and trace pipeline. Forge records the source paths of loaded
-instructions and selected skills so the user can inspect the effective context.
+Skill discovery reads bounded metadata; `load_skill` accepts only registered
+opaque IDs, revalidates canonical roots, non-symlink regular files, and the
+discovered file identity, and returns bounded content. It does not widen the
+workspace `read_file` boundary. Any referenced script or requested action still
+passes through the normal tool, approval, and trace pipeline. Forge records
+Skill discovery, source, selection reason, load rejection, and truncation so
+the user can inspect the effective context.
 
 ## Reasoning visibility
 

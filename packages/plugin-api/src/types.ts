@@ -34,12 +34,6 @@ export interface DiscoveredPlugin {
   readonly manifest: PluginManifest;
 }
 
-export interface PortableSkill {
-  readonly name: string;
-  readonly path: string;
-  readonly content: string;
-}
-
 export interface PluginCommandContext {
   readonly cwd: string;
   readonly workspaceRoot: string;

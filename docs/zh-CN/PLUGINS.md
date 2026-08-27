@@ -56,7 +56,7 @@ export default function activate(api) {
 { "schemaVersion": 1, "plugins": { "enabled": ["count-text"] } }
 ```
 
-然后运行 `forge plugins list` 和 `forge`。蓝色启动 frame 会列出 user plugin、trusted/skipped 项目插件和项目 Skills；列表只读 manifest/metadata，不提前 import entry。
+然后运行 `forge plugins list` 和 `forge`。蓝色启动 frame 会列出 user plugin、trusted/skipped 项目插件，以及内置、用户和项目 Skills；列表只读 manifest/metadata，不提前 import entry 或 Skill 正文。
 
 ## 位置、启用与信任
 
@@ -222,13 +222,15 @@ undefined
 
 ## 发现与 run 生命周期
 
-Native Forge Engine 对每个 prompt：校验配置；加载有界 user/project 指令；发现并按 `$skill-name` 选择 Skill；发现 manifest；排除 disabled user plugin 和 untrusted project plugin；解析目录内 entry 并 import；activation 后校验 registration/capability/name conflict；收集有界 prompt contribution；构造 model request 和 tool registry；最后让每个工具经过 policy、审批、执行、event 和 trace。
+Native Forge Engine 对每个 prompt：校验配置；加载有界 user/project 指令；发现内置、用户和项目 Skill metadata、处理冲突并保留 `$skill-name` override；发现 manifest；排除 disabled user plugin 和 untrusted project plugin；解析目录内 entry 并 import；activation 后校验 registration/capability/name conflict；收集有界 prompt contribution；构造 model request 和 tool registry；最后让每个工具经过 policy、审批、执行、event 和 trace。
 
 交互启动 frame 只做到 metadata discovery；真正 import/activation 只在 Forge Engine 开始 run 时发生。Codex Engine 由 Codex App Server 拥有自己的 runtime，不加载 Forge plugin。
 
 ## Portable Skills 的区别
 
-Forge 只在 `<workspace-root>/.agents/skills/<skill-name>/SKILL.md` 发现 Markdown Skill。Skill 是指导而不是可执行插件；发现不会执行；只有 prompt 明确包含 `$skill-name` 才加入 run，内容最多 32 KiB 且记录路径。Skill 描述的脚本和动作仍需正常的 model tool、policy、approval 和 trace。
+Forge 在随包内置目录、`$FORGE_HOME/skills/<skill-name>/SKILL.md` 和 `<workspace-root>/.agents/skills/<skill-name>/SKILL.md` 发现 Markdown Skill。每个文件用有界 YAML frontmatter 声明与目录匹配的 `name`、面向任务的 `description`，可用 `disable-model-invocation: true` 设为仅显式调用。
+
+首个模型请求只包含有预算上限的 `id`、`name`、`description` 和 `source`；正文由宿主 `load_skill` 工具按登记的不透明 ID 延迟加载。工具限制并去重加载，重新校验 canonical path 与文件身份，拒绝 symlink 和登记 root 外文件。名称冲突按 `project > user > builtin` 解析，显式 `$skill-name` 覆盖自动路由。选择、加载、拒绝和截断都会进入 trace，并可由 `forge inspect` 查看。Skill 描述的动作仍需正常 model tool、policy、approval 和 trace；选择 Skill 不等于信任项目 plugin，也不会扩大 workspace `read_file`。
 
 ## 测试插件
 

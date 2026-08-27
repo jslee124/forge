@@ -40,7 +40,7 @@ Forge 使用大写文件名 `AGENTS.md`；大小写敏感文件系统上的 `age
         `-- SKILL.md
 ```
 
-Skill 是被发现的 metadata 和指令；仅仅存在不会执行它。Skill 引用脚本或提出工具动作时，仍走正常策略和审批。Forge 应在选中项目 Skill 时显示来源，并把选择写入 trace。v0.2 只有用户 prompt 包含 `$skill-name` 才选择 Skill；内容有界，来源路径进入 run context。
+Skill 是被发现的 metadata 和指令；仅仅存在不会执行它。Forge 解析有界 YAML frontmatter（`name`、面向任务的 `description` 和可选 `disable-model-invocation`），初始只发送转义后的 catalog metadata；匹配后由宿主按不透明 ID 延迟加载。项目 Skill 默认允许模型调用且无需 plugin trust；`disable-model-invocation: true` 只允许用户显式 `$skill-name` 选择。内置、`$FORGE_HOME/skills/` 用户 Skill 与项目 Skill 冲突时按 `project > user > builtin` 解析，并把来源、选择、加载、拒绝和截断写入 trace。
 
 ## 用户级 `~/.forge/`
 
@@ -50,6 +50,7 @@ Skill 是被发现的 metadata 和指令；仅仅存在不会执行它。Skill �
 ~/.forge/
 |-- config.json
 |-- AGENTS.md
+|-- skills/
 |-- plugin-trust.json
 |-- plugins/
 |-- state/
@@ -59,6 +60,7 @@ Skill 是被发现的 metadata 和指令；仅仅存在不会执行它。Skill �
 
 - `config.json`：provider、model、limits、context、trace 和默认 permission profile。
 - `AGENTS.md`：在项目指令前加载的用户级指令。
+- `skills/`：用户级非执行型 Skill，只发现有界 metadata，正文延迟加载。
 - `plugins/`：明确安装或启用的用户插件。
 - `state/`：不含 secret 的 Forge 状态，如项目信任决定。
 - `sessions/`：版本化完成对话 snapshot。
@@ -115,9 +117,11 @@ Forge 可以创建缺少的运行时目录，但不能覆盖已有配置文件�
 
 ```text
 安全决策：deny > confirm > allow（最严格的贡献获胜）
-指令：用户请求 > selected skill > 最近的 project AGENTS.md
+指令：用户请求 > loaded skill > 最近的 project AGENTS.md
       > project-root AGENTS.md > ~/.forge/AGENTS.md
 ```
+
+Skill 名称冲突使用独立资源顺序：`显式 $skill-name > project > user > builtin`。
 
 核心 policy 定义强制安全底线。CLI 和 user config 可以选择受支持 profile；项目内容和插件只能让动作更严格，不能降低强制决策。指令顺序只在不违反安全边界和更高层 runtime 约束时生效。
 

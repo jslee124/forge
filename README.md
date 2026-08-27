@@ -56,7 +56,7 @@ and testable.
 | **Persistent sessions** | Completed conversations survive restarts without restoring old approvals or pending tool calls. |
 | **Budgeted context** | `/context` exposes the active budget; optional checkpoints compact completed history without deleting the canonical transcript. |
 | **Reproducible evaluation** | Deterministic tests prove runtime behavior, while live-model trials retain both successes and failures. |
-| **Controlled extensibility** | Trusted plugins and portable project Skills extend Forge without bypassing the core policy pipeline. |
+| **Controlled extensibility** | Trusted plugins and non-executable built-in, user, and project Skills extend Forge without bypassing the core policy pipeline. |
 
 ## Quick start
 
@@ -150,7 +150,7 @@ inspection.
 - Persist sessions and resume completed conversation turns by ID or recency.
 - Inspect context usage and create explicit, displayable conversation
   checkpoints.
-- Load hierarchical `AGENTS.md` instructions and portable project Skills.
+- Load hierarchical `AGENTS.md` instructions and lazily invoked built-in, user, and project Skills.
 - Load trusted plugins that contribute tools, commands, observers, prompts, or
   stricter policy hooks, including bounded host-managed subagent roles.
 - Attach JPEG, PNG, GIF, or WebP input to supported vision models.

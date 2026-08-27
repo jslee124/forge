@@ -11,13 +11,7 @@ import {
 } from "@forge/core";
 import { afterEach, describe, expect, it } from "vitest";
 
-import {
-  createSubagentTools,
-  discoverPortableSkills,
-  loadPluginHost,
-  selectPortableSkills,
-  trustProject,
-} from "./index.js";
+import { createSubagentTools, loadPluginHost, trustProject } from "./index.js";
 
 const temporaryDirectories: string[] = [];
 
@@ -285,27 +279,6 @@ export default (api) => api.registerSubagent({
         enabledUserPlugins: ["undeclared-network"],
       }),
     ).rejects.toThrow('capability "network:access"');
-  });
-
-  it("discovers portable skills but selects only explicitly mentioned skills", async () => {
-    const fixture = await createFixture();
-    const skillDirectory = path.join(
-      fixture.root,
-      ".agents",
-      "skills",
-      "review",
-    );
-    await mkdir(skillDirectory, { recursive: true });
-    await writeFile(
-      path.join(skillDirectory, "SKILL.md"),
-      "Review changes carefully.\n",
-    );
-
-    const skills = await discoverPortableSkills(fixture.root);
-
-    expect(skills.map(({ name }) => name)).toEqual(["review"]);
-    expect(selectPortableSkills("please use $review", skills)).toEqual(skills);
-    expect(selectPortableSkills("ordinary prompt", skills)).toEqual([]);
   });
 });
 

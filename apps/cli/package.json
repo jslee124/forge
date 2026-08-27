@@ -29,6 +29,7 @@
     "@forge/model-openai": "workspace:*",
     "@forge/persistence": "workspace:*",
     "@forge/plugin-api": "workspace:*",
+    "@forge/resources": "workspace:*",
     "@forge/tools": "workspace:*",
     "commander": "^15.0.0",
     "ink": "^7.1.1",

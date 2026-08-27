@@ -50,7 +50,8 @@ packages/
 |-- model-openai/           # @forge/model-openai: Responses API translation
 |-- auth/                   # provider-neutral API-key resolution
 |-- persistence/            # session snapshots, JSONL traces, redaction
-|-- plugin-api/              # discovery, trust, host, and plugin API v1
+|-- plugin-api/             # executable plugin discovery, trust, host, and API v1
+|-- resources/              # non-executable Skill catalog and safe lazy loading
 |-- tools/                  # @forge/tools: built-in tool implementations
 `-- config/                 # @forge/config: configuration and context loading
 fixtures/                   # Small repository tasks used by integration tests
@@ -222,8 +223,10 @@ loads project `AGENTS.md` instructions from the repository root toward the
 working directory, preferring `AGENTS.override.md` at each level. It preserves
 all instruction paths in the run trace.
 
-It also discovers portable `.agents/` resources and Forge-specific `.forge/`
-configuration. Discovery does not execute a resource. Project-local executable
+The separate resource boundary discovers bundled, user, and portable `.agents/`
+Skills as bounded metadata, resolves precedence, and exposes registered content
+only through `load_skill`. Discovery does not execute a resource. It also
+discovers Forge-specific `.forge/` configuration. Project-local executable
 plugins under `.forge/plugins/` are handed to the plugin host only after the
 workspace has been explicitly trusted.
 

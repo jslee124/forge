@@ -4,12 +4,12 @@ import { loadForgeConfig } from "@forge/config";
 import type { PluginCapability } from "@forge/plugin-api";
 import {
   discoverPlugins,
-  discoverPortableSkills,
   isProjectTrusted,
   PluginError,
   trustProject,
   untrustProject,
 } from "@forge/plugin-api";
+import { discoverSkillCatalog } from "@forge/resources";
 
 export interface DetectedPluginResource {
   readonly name: string;
@@ -22,6 +22,8 @@ export interface DetectedPluginResource {
 export interface DetectedSkillResource {
   readonly name: string;
   readonly path: string;
+  readonly source: "builtin" | "user" | "project";
+  readonly invocation: "model" | "explicit-only";
 }
 
 export interface DetectedStartupResources {
@@ -49,7 +51,10 @@ export async function detectStartupResources(options: {
       root: path.join(options.workspaceRoot, ".forge", "plugins"),
       scope: "project",
     }),
-    discoverPortableSkills(options.workspaceRoot),
+    discoverSkillCatalog({
+      forgeHome: options.forgeHome,
+      workspaceRoot: options.workspaceRoot,
+    }),
   ]);
   const projectTrusted =
     projectPlugins.length > 0 &&
@@ -72,7 +77,12 @@ export async function detectStartupResources(options: {
         capabilities: plugin.manifest.capabilities,
       })),
     ],
-    skills: skills.map((skill) => ({ name: skill.name, path: skill.path })),
+    skills: skills.skills.map((skill) => ({
+      name: skill.name,
+      path: skill.canonicalPath,
+      source: skill.source,
+      invocation: skill.invocation,
+    })),
   };
 }
 

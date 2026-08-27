@@ -3,9 +3,10 @@
 [简体中文](zh-CN/RELEASING.md) · [Documentation index](README.md)
 
 Forge keeps its implementation packages private and publishes one user-facing
-package: `@jslee124/forge`. The generated package contains the CLI plus bundled
-`@forge/*` workspace code. Third-party libraries remain ordinary npm runtime
-dependencies. The plugin SDK is not a separately published package.
+package: `@jslee124/forge`. The generated package contains the CLI, bundled
+`@forge/*` workspace code, and reviewed version-matched built-in Skill assets.
+Third-party libraries remain ordinary npm runtime dependencies. The plugin SDK
+is not a separately published package.
 
 ## Distribution contract
 
@@ -36,7 +37,8 @@ pnpm release:verify-tag v0.3.0
 ```
 
 `package:verify` builds the public artifact, inspects the tarball, installs it
-into a fresh temporary prefix with lifecycle scripts disabled, and verifies
+into a fresh temporary prefix with lifecycle scripts disabled, verifies the
+exact built-in Skill/reference/template allowlist and API version, and checks
 `forge --version`, `forge --help`, and `forge config validate`.
 
 Review `npm pack --dry-run` output and release notes before tagging. Never
