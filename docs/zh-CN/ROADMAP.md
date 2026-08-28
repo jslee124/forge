@@ -4,7 +4,7 @@
 
 ## 当前 milestone
 
-**Milestone 12：模型可自动调用的 Skill 与版本化产品知识，是当前 v0.3.1 milestone。** Milestone 11 已完成。自动 context checkpoint 仍保持 opt-in，同时收集 live provider-quality gate。
+**Milestone 12：模型可自动调用的 Skill 与版本化产品知识，已在 v0.3.1 交付，并由 v0.3.2 修复打包资源。** Milestone 11 已完成。自动 context checkpoint 仍保持 opt-in，同时收集 live provider-quality gate。
 
 ## 工作规则
 
@@ -90,7 +90,7 @@ checkpoint 与 canonical session transcript 分离；可用时支持 adapter-own
 
 验收要求 loopback OpenAI-compatible server 可以通过 bearer 和 no-auth route 完成 compiled CLI 请求；项目不能定义或重定向 route；endpoint 变化不能复用旧 key；大型 model catalog 可搜索；context/output capacity 与 reasoning gears 到达既有 UI；build、format、typecheck 和无付费请求的全量 suite 通过。
 
-## Milestone 12：模型可自动调用的 Skill 与版本化产品知识（v0.3.1）
+## Milestone 12：模型可自动调用的 Skill 与版本化产品知识（v0.3.1 / v0.3.2 热修复）
 
 目标是让 Forge 识别任务何时需要专门指令或产品文档，只加载匹配且有界的资源，然后继续经过既有 model/tool/policy/trace loop。首批完整 vertical slice 是创建 Forge 插件，以及回答与当前安装版本一致的 Forge 产品问题。
 
@@ -153,15 +153,15 @@ checkpoint 与 canonical session transcript 分离；可用时支持 adapter-own
 
 ### 12.4 版本化 Forge 文档检索
 
-- [ ] 将产品问答所需的 canonical English 文档及持续维护的中文镜像随 CLI release 打包
-- [ ] 生成确定性 index，包含 Forge version、locale、document identifier、title、heading、keyword、path 和 content hash
-- [ ] 按 Markdown heading 分块并先用有界 lexical ranking；evaluation 证明必要前不引入 embedding/vector 基础设施
-- [ ] 增加返回有界排序结果的 `search_forge_docs`，以及读取 allowlisted 文档或 section 的 `read_forge_doc`
-- [ ] 优先用户当前 locale，缺少镜像时回退 canonical English，并明确标记而不是静默混合翻译
-- [ ] 增加内置 `forge-product-help` Skill，覆盖安装、配置、provider、model、认证、插件、Skill、session、context、trace、安全、release 和 troubleshooting
-- [ ] 回答易变化或与具体实现相关的 Forge 产品问题前必须查询文档，并区分文档事实、仓库检查、推断和不支持行为
-- [ ] 返回适合 terminal 和 trace 的稳定 document/section reference，不暴露任意 package path
-- [ ] package build 时验证 index path、hash、本地 Markdown link 以及 index version 与 `FORGE_VERSION` 一致
+- [x] 将产品问答所需的 canonical English 文档及持续维护的中文镜像随 CLI release 打包
+- [x] 生成确定性 index，包含 Forge version、locale、document identifier、title、heading、keyword、path 和 content hash
+- [x] 按 Markdown heading 分块并先用有界 lexical ranking；evaluation 证明必要前不引入 embedding/vector 基础设施
+- [x] 增加返回有界排序结果的 `search_forge_docs`，以及读取 allowlisted 文档或 section 的 `read_forge_doc`
+- [x] 优先用户当前 locale，缺少镜像时回退 canonical English，并明确标记而不是静默混合翻译
+- [x] 增加内置 `forge-product-help` Skill，覆盖安装、配置、provider、model、认证、插件、Skill、session、context、trace、安全、release 和 troubleshooting
+- [x] 回答易变化或与具体实现相关的 Forge 产品问题前必须查询文档，并区分文档事实、仓库检查、推断和不支持行为
+- [x] 返回适合 terminal 和 trace 的稳定 document/section reference，不暴露任意 package path
+- [x] package build 时验证 index path、hash、本地 Markdown link 以及 index version 与 `FORGE_VERSION` 一致
 
 验收标准：
 
@@ -172,12 +172,12 @@ checkpoint 与 canonical session transcript 分离；可用时支持 adapter-own
 
 ### 12.5 CLI 发现与控制界面
 
-- [ ] 扩展启动资源报告，但不 import executable project plugin，也不急切读取 Skill 正文
-- [ ] 增加 `forge resources list` 和交互 `/resources`，展示来源、描述、自动/仅显式状态、遮蔽关系和诊断
-- [ ] `/plugins` 继续专注 executable plugin，通过清晰入口关联 Skills/resources，而不混淆两套生命周期
-- [ ] 用简洁 run event 展示自动 Skill 选择和文档查询，不暴露私有推理
-- [ ] 提供用户级配置以禁用某个自动 Skill，同时保持“项目 Skill 默认允许模型自动调用”的默认值
-- [ ] non-interactive 行为保持确定性，输出可操作 warning，不弹 trust 或选择 prompt
+- [x] 扩展启动资源报告，但不 import executable project plugin，也不急切读取 Skill 正文
+- [x] 增加 `forge resources list` 和交互 `/resources`，展示来源、描述、自动/仅显式状态、遮蔽关系和诊断
+- [x] `/plugins` 继续专注 executable plugin，通过清晰入口关联 Skills/resources，而不混淆两套生命周期
+- [x] 用简洁 run event 展示自动 Skill 选择和文档查询，不暴露私有推理
+- [x] 提供用户级配置以禁用某个自动 Skill，同时保持“项目 Skill 默认允许模型自动调用”的默认值
+- [x] non-interactive 行为保持确定性，输出可操作 warning，不弹 trust 或选择 prompt
 
 验收标准：
 
@@ -187,21 +187,21 @@ checkpoint 与 canonical session transcript 分离；可用时支持 adapter-own
 
 ### 12.6 评测、兼容与 release gate
 
-- [ ] 用 scripted fake model 覆盖匹配、不匹配、歧义、显式、禁用、冲突、重复加载和超预算 Skill
-- [ ] 加入尝试 prompt injection、权限放宽、任意路径读取、secret 访问和未审批命令的对抗性项目 Skill
-- [ ] 增加 plugin API、配置、认证、session、context、安全和故意未知项的产品问答 fixture
-- [ ] 测量 selection precision/recall、不必要资源加载、首轮 catalog token、已加载资源 token、回答引用准确率、延迟和任务完成率
-- [ ] 默认测试保持确定性和离线；live provider quality trial 必须显式 opt-in
-- [ ] 兼容资源 event 出现前创建的 session/trace，并保留旧 `$name` 流程
-- [ ] 验证 packed artifact 包含 Skill、template、docs 和 index，且不包含开发期或 secret 文件
-- [ ] 为 `0.3.1` 运行 `pnpm build`、`pnpm check`、`pnpm test`、`pnpm check:docs`、确定性 evaluation、package verification 和版本一致性检查
+- [x] 用 scripted fake model 覆盖匹配、不匹配、歧义、显式、禁用、冲突、重复加载和超预算 Skill
+- [x] 加入尝试 prompt injection、权限放宽、任意路径读取、secret 访问和未审批命令的对抗性项目 Skill
+- [x] 增加 plugin API、配置、认证、session、context、安全和故意未知项的产品问答 fixture
+- [x] 测量 selection precision/recall、不必要资源加载、首轮 catalog token、已加载资源 token、回答引用准确率、延迟和任务完成率
+- [x] 默认测试保持确定性和离线；live provider quality trial 必须显式 opt-in
+- [x] 兼容资源 event 出现前创建的 session/trace，并保留旧 `$name` 流程
+- [x] 验证 packed artifact 包含 Skill、template、docs 和 index，且不包含开发期或 secret 文件
+- [x] 为 `0.3.2` 运行 `pnpm build`、`pnpm check`、`pnpm test`、`pnpm check:docs`、确定性 evaluation、package verification 和版本一致性检查
 
 Release criteria：
 
 - 插件创建和产品问答 vertical slice 通过 compiled CLI 的确定性端到端测试。
 - 项目 Skill 默认允许模型自动调用，但对抗性 Skill 无法扩大 capability 或绕过 policy/approval。
 - 资源选择与读取有界、来源可见、可 inspect，并计入 context budget。
-- 干净打包的 `0.3.1` CLI 能依据自身版本匹配文档答疑，并能 scaffold 与随包 API 匹配的插件。
+- 干净打包的 `0.3.2` CLI 能依据自身版本匹配文档答疑，并能 scaffold 与随包 API 匹配的插件。
 - release claim 不会把 model-invocable Skill 描述成受信任 executable code，也不声称 Forge 尚未提供的 OS sandboxing。
 
 ## 后续扩展

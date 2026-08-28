@@ -5,7 +5,7 @@
 
 简体中文 · Documentation index
 
-Forge 0.3.1 works without plugins. A plugin is an optional in-process JavaScript
+Forge 0.3.2 works without plugins. A plugin is an optional in-process JavaScript
 module that can register model-callable tools and explicit local commands,
 contribute instructions, observe immutable run events, or make policy stricter.
 
@@ -608,7 +608,7 @@ would require a restricted process or OS sandbox.
 
 ## Deliberate limitations
 
-Forge 0.3.1 has no plugin installer, dependency resolver, package registry, hot
+Forge 0.3.2 has no plugin installer, dependency resolver, package registry, hot
 reload, TypeScript entry compilation, custom interactive UI, provider
 registration, isolated plugin process, or enforceable filesystem/network
 capabilities. Plugin commands run only through `forge plugins run`; they do not

@@ -77,7 +77,7 @@ git push origin v0.3.0
 ```bash
 forge update check
 forge update
-forge update 0.3.1
+forge update 0.3.2
 ```
 
 交互启动最多每 24 小时在后台刷新一次提示性 npm 检查，并在后续启动显示缓存

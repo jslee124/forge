@@ -4,7 +4,7 @@
 
 English · 中文目录
 
-Forge 0.3.1 不依赖插件。插件是可选的进程内 JavaScript module，可以注册模型调用工具和显式本地命令、贡献指令、观察不可变 run event，或让策略更严格。实现中的类型、schema 和 host 才是最终合约：types.ts、schema.ts、host.ts。
+Forge 0.3.2 不依赖插件。插件是可选的进程内 JavaScript module，可以注册模型调用工具和显式本地命令、贡献指令、观察不可变 run event，或让策略更严格。实现中的类型、schema 和 host 才是最终合约：types.ts、schema.ts、host.ts。
 
 ## 快速开始
 
@@ -277,7 +277,7 @@ conversation、把 child 保存为可独立 resume 的 session、在专用 TUI p
 
 加载插件会执行拥有 Forge 进程完整权限的本地代码；它可以直接 import Node、读任意文件、启动进程或联网。Forge 只在支持的 API 边界执行：trust 前不 import 项目 entry；校验 manifest/API/capability/name/schema；model 调用的 plugin tool 走 core policy/approval；model/network/process/相关 write 需确认；policy hook 只能更严格；prompt/Skill 有界且带来源；observer input clone/freeze/脱敏。
 
-这些保证不隔离恶意 trusted entry，强隔离需要受限进程或 OS sandbox。Forge 0.3.1 没有插件安装器、依赖解析器、registry、hot reload、TypeScript entry 编译、custom interactive UI、provider registration、隔离进程或可强制执行的 filesystem/network capability；plugin command 只通过 `forge plugins run` 执行，不自动成为交互 slash command。
+这些保证不隔离恶意 trusted entry，强隔离需要受限进程或 OS sandbox。Forge 0.3.2 没有插件安装器、依赖解析器、registry、hot reload、TypeScript entry 编译、custom interactive UI、provider registration、隔离进程或可强制执行的 filesystem/network capability；plugin command 只通过 `forge plugins run` 执行，不自动成为交互 slash command。
 
 ## Skills 与产品文档属于资源
 

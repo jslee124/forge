@@ -1,6 +1,6 @@
 # Forge plugin API reference
 
-This reference is version-matched to Forge 0.3.1 and plugin API version `"1"`.
+This reference is version-matched to Forge 0.3.2 and plugin API version `"1"`.
 The runtime schema and types remain authoritative when they are present.
 
 ## Manifest

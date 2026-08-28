@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "forgeVersion": "0.3.1",
+  "forgeVersion": "0.3.2",
   "documents": [
     {
       "id": "getting-started",
@@ -1017,7 +1017,7 @@
         "you"
       ],
       "path": "en/GETTING_STARTED.md",
-      "sha256": "04997bbf596b2e26897a9fa7bf85160f9b6fda413eed77e9e3ef10048ab9fdfe"
+      "sha256": "c880f3ab8285e70a1f98b10b99fd2c390e99a6fad4a261027e55335c645f2d4b"
     },
     {
       "id": "configuration",
@@ -4583,7 +4583,7 @@
         "web"
       ],
       "path": "en/PLUGINS.md",
-      "sha256": "8484ae7c025fa31d35772d86ef4f2aff44c27d490725fd92c5d6b426d6b4e760"
+      "sha256": "4cf2e6962e68f5f1638edfd0d4275be5620ea854f9e67e26a9ba5e2e28d02268"
     },
     {
       "id": "project-context",
@@ -5291,7 +5291,7 @@
         "user-level"
       ],
       "path": "en/PROJECT_CONTEXT.md",
-      "sha256": "3639cd94160127fbcfe73bbe835555af887ad36f2ebf9eb1ce68d68a710016c3"
+      "sha256": "80b70e470895d92bd8981a4f549e9476740c697a0fab61b8bb508c39dafa5390"
     },
     {
       "id": "sessions",
@@ -10568,7 +10568,7 @@
         "user"
       ],
       "path": "en/RELEASING.md",
-      "sha256": "d85c4835355a262864acf6f2489e7110f5c5d7438d2c4336a019343a5c3f5c03"
+      "sha256": "1bd2a1ac2e4eecd1580c961557cc2385068461867f5e765792fc94e112058c8a"
     },
     {
       "id": "troubleshooting",
@@ -15934,7 +15934,7 @@
         "通过"
       ],
       "path": "zh-CN/GETTING_STARTED.md",
-      "sha256": "1f96744b2c02bea4a132dccf3ac0d6e1e346edd815bb97bcf9c822b67867a3fc"
+      "sha256": "034a552bd789496f8ab0c2ada56b413376bc4f31c925db90694e46191088ea1b"
     },
     {
       "id": "configuration",
@@ -18419,7 +18419,7 @@
         "自定义工具"
       ],
       "path": "zh-CN/PLUGINS.md",
-      "sha256": "0af2410c63ba8219592c778347d0f06437d47fca90e156196d32d8014aba9b0b"
+      "sha256": "3f6406b586102226a2ef55b0c898657735f32e2395d1f7cf22b310f2bdd6597e"
     },
     {
       "id": "project-context",
@@ -21408,7 +21408,7 @@
         "首次发布到"
       ],
       "path": "zh-CN/RELEASING.md",
-      "sha256": "8c244df5e16edccfd4e8871ff5021afae25c04273d8ba9c41b36d6d31f9810f2"
+      "sha256": "b155bffd6b123e09eeb9400fd005b9ca7a640354e50bb05bb670d5eb54a6971c"
     },
     {
       "id": "troubleshooting",

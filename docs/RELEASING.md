@@ -83,7 +83,7 @@ Installed users can check or update explicitly:
 ```bash
 forge update check
 forge update
-forge update 0.3.1
+forge update 0.3.2
 ```
 
 Interactive startup refreshes an advisory npm check in the background at most

@@ -4,10 +4,10 @@
 
 ## Current milestone
 
-**Milestone 12: model-invocable Skills and versioned product knowledge is the
-current v0.3.1 milestone.** Milestone 11 is complete. Automatic context
-checkpoint generation remains opt-in while live provider-quality gates are
-collected.
+**Milestone 12: model-invocable Skills and versioned product knowledge shipped
+in v0.3.1 and received a packaged-resource correction in v0.3.2.** Milestone 11
+is complete. Automatic context checkpoint generation remains opt-in while live
+provider-quality gates are collected.
 
 ## Working rules
 
@@ -503,7 +503,9 @@ Acceptance criteria:
 - Build, formatting, type checks, and the full default test suite pass without
   paid model calls.
 
-## Milestone 12: Model-invocable Skills and versioned product knowledge (v0.3.1)
+## Milestone 12: Model-invocable Skills and versioned product knowledge
+
+Versions: v0.3.1 feature release, v0.3.2 packaged-resource hotfix.
 
 Goal: let Forge recognize when a task needs specialized instructions or
 product documentation, load only the matching bounded resources, and continue
@@ -692,7 +694,7 @@ Acceptance criteria:
 - [x] Verify the packed artifact contains Skills, templates, docs, index, and no
   development-only or secret files
 - [x] Run `pnpm build`, `pnpm check`, `pnpm test`, `pnpm check:docs`, deterministic
-  evaluations, package verification, and version consistency for `0.3.1`
+  evaluations, package verification, and version consistency for `0.3.2`
 
 Release criteria:
 
@@ -702,7 +704,7 @@ Release criteria:
   Skills cannot expand capabilities or bypass policy and approval.
 - Resource selection and reads are bounded, provenance-visible, inspectable,
   and included in context accounting.
-- The clean packaged `0.3.1` CLI answers from its own version-matched docs and
+- The clean packaged `0.3.2` CLI answers from its own version-matched docs and
   can scaffold a plugin matching its shipped API.
 - No release claim treats model-invocable Skills as trusted executable code or
   claims OS sandboxing that Forge does not provide.
