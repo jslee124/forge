@@ -60,6 +60,7 @@ capabilities and per-tool approval are not an operating-system sandbox.
 | [Evaluation guide](EVALUATION.md) | Run deterministic evidence and explicit opt-in live trials |
 | [Published reports](../evals/reports/README.md) | Reviewed release evidence, including retained failures |
 | [Roadmap](ROADMAP.md) | Completed milestone acceptance criteria and later directions |
+| [v0.3.3 implementation plan](V0.3.3_IMPLEMENTATION_PLAN.md) | Planned long-session context, permissions, prompt cache, update UX, architecture, tests, and release gates; not shipped behavior |
 | [v0.1 acceptance contract](V0.1_SPEC.md) | Historical first-release scope, limits, and gates |
 
 Roadmap and acceptance pages preserve historical decisions. For current CLI

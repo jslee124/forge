@@ -4,10 +4,11 @@
 
 ## Current milestone
 
-**Milestone 12: model-invocable Skills and versioned product knowledge shipped
-in v0.3.1 and received a packaged-resource correction in v0.3.2.** Milestone 11
-is complete. Automatic context checkpoint generation remains opt-in while live
-provider-quality gates are collected.
+**Milestone 13: long-session efficiency and user control is planned for
+v0.3.3.** Milestone 12 shipped in v0.3.1 and received a packaged-resource
+correction in v0.3.2. The v0.3.3 work below is unchecked planning, not shipped
+behavior: pressure-driven context compaction, scoped permission grants, an
+in-TUI update experience, and measurable prompt-cache optimization.
 
 ## Working rules
 
@@ -708,6 +709,283 @@ Release criteria:
   can scaffold a plugin matching its shipped API.
 - No release claim treats model-invocable Skills as trusted executable code or
   claims OS sandboxing that Forge does not provide.
+
+## Milestone 13: Long-session efficiency and user control (v0.3.3, planned)
+
+Goal: let a user keep Forge running through long coding sessions with visible
+context pressure, fewer repetitive approval interruptions, non-disruptive
+update guidance, and provider prompt-cache behavior that can be measured and
+improved. Milestone 10 supplies the context-budget and checkpoint foundation;
+Milestone 13 turns that foundation into a discoverable, evaluation-gated
+default experience. The architecture, UI flows, proposed TypeScript contracts,
+module map, test matrix, and staged delivery sequence live in the
+[v0.3.3 implementation plan](V0.3.3_IMPLEMENTATION_PLAN.md).
+
+This milestone does not add persistent unrestricted permissions, silently run
+package-manager updates, delete canonical conversation history, promise cache
+support from an endpoint that does not report it, or treat an extractive
+checkpoint as production-quality semantic memory. Planned behavior remains
+unchecked until its implementation and release gates pass.
+
+### 13.0 Cross-cutting contracts and baseline
+
+- [ ] Record a reproducible v0.3.2 baseline for long-session task completion,
+  context estimates, provider input usage, cache read/write tokens, approval
+  count, time waiting for approval, compaction count, and startup/update-check
+  latency
+- [ ] Introduce versioned, provider-neutral runtime events for context-pressure
+  state, cache observations, scoped approval decisions, and update availability
+- [ ] Keep policy and context decisions in `@forge/core`; keep canonical
+  transcript and checkpoint integrity in persistence; keep terminal layout,
+  interactive menus, and notification dismissal in `apps/cli`
+- [ ] Add adapter capability descriptors for native compaction and prompt-cache
+  control without branching on provider names in core
+- [ ] Store hashes, token counts, scope identifiers, and provenance in traces,
+  but never raw credentials, hidden reasoning, provider cache contents, or
+  unredacted sensitive command input
+- [ ] Preserve compatibility with existing `safe` and `workspace-write`
+  configuration and with session-v2 snapshots and older trace events
+
+Acceptance criteria:
+
+- A trace reader can distinguish unavailable metrics from real zero values.
+- Offline fake adapters exercise every new event and decision state without a
+  paid provider request.
+- Project configuration, instructions, Skills, and plugins cannot enable a
+  weaker permission mode, persist a grant, disable a required context guard,
+  or select an update destination.
+
+### 13.1 Prompt-cache observability and stable request prefixes
+
+- [ ] Extend run summaries and `forge inspect` with per-step and aggregate
+  input, cache-read, cache-write, uncached-input, and cache-hit-ratio metrics
+- [ ] Report cache metrics only when the provider supplies them; render unknown
+  as unavailable instead of inferring a miss
+- [ ] Compute redacted stable-prefix, instruction, resource-catalog, and tool
+  schema hashes so a local trace can explain likely invalidation without
+  persisting prompt contents twice
+- [ ] Refactor request composition into a deterministic stable prefix followed
+  by dynamic turn content: core contract, current repository instructions,
+  stable Skill metadata, and stable tool definitions precede selected Skill
+  content, per-turn plugin contributions, checkpoint memory, conversation, and
+  the current request
+- [ ] Keep byte-for-byte-stable ordering for instructions, tools, JSON schemas,
+  and provider options when their semantics have not changed
+- [ ] Define explicit invalidation for provider/model changes, instruction
+  content or order, Forge prompt-schema version, enabled resources/plugins,
+  tool schema, and compaction checkpoint generation
+- [ ] Add a provider capability for automatic caching, keyed caching, explicit
+  breakpoints, or unsupported caching; pass a stable session/workspace cache key
+  only when the adapter and endpoint declare support
+- [ ] Preserve replayable provider continuation and append-only tool results so
+  a tool loop does not unnecessarily rewrite an earlier cacheable prefix
+- [ ] Keep the advertised tool set stable by default; evaluate dynamic allowed
+  tool subsets separately from removing or reordering tool definitions
+
+Acceptance criteria:
+
+- Repeating a deterministic tool loop with an unchanged prefix produces the
+  same local prefix hash on every step.
+- Changing one invalidation input changes the relevant hash and records the
+  reason; changing only the user request does not invalidate the stable prefix.
+- Providers that report cached tokens expose a correct per-run ratio; providers
+  that do not report them remain fully usable and show `unavailable`.
+- Compaction intentionally starts a new cache prefix and does not claim a cache
+  hit until the provider reports one.
+
+### 13.2 Pressure-driven auto compaction and context controls
+
+- [ ] Define the idle and next-request pressure ratio as projected input tokens
+  divided by available input tokens, where available input has already removed
+  the single effective output/safety reserve
+- [ ] Include instructions, Skill/resource metadata, tool schemas, the active
+  checkpoint, retained conversation, draft input, and attached-image estimates
+  in the projected numerator; mark conservative or unavailable estimates with
+  `~` or `?` rather than false precision
+- [ ] Add a persistent context indicator next to the editor using a segmented
+  ring plus an exact percentage: `○`, `◔`, `◑`, `◕`, and `●`, with semantic
+  normal, elevated, warning, and critical colors
+- [ ] Render `context · warn`, `context · auto`, `compact soon`, `compacting`,
+  `compacted`, and `auto paused` states; keep the percentage visible in narrow
+  terminals while progressively hiding labels
+- [ ] Split the editor footer into a model/context status row and a shortcut row
+  so the new indicator does not make existing input controls unreadable
+- [ ] Upgrade `/context` from a status-only panel into an interactive control
+  surface with pressure breakdown, mode, strategy, recent-tail budget, last
+  compaction, `/compact` preview, compact-now, enable-for-session, and
+  save-as-user-default actions
+- [ ] When `warn` first crosses the configured activation threshold, show one
+  non-blocking prompt offering compact once, enable auto for this session, or
+  dismiss; never require editing JSON to discover automatic compaction
+- [ ] Keep session-only auto mode in runtime state; persist a default only after
+  an explicit user action to user-level configuration outside the repository
+- [ ] Start with an evaluation-tuned pressure threshold rather than message
+  count alone; use 75-80% projected pressure as the initial experiment and
+  compact only completed history or safely projectable continuation state
+- [ ] Reclaim context in stages: bound or replace stale completed tool outputs,
+  use adapter-native opaque compaction when declared, otherwise generate a
+  validated Forge summary while retaining a recent verbatim tail
+- [ ] Keep the current deterministic extractive summary as a safe fallback and
+  test oracle, not the quality basis for enabling automatic compaction by
+  default
+- [ ] Persist strategy, source/tail hashes, token estimates, model, generation
+  time, safety labels, and whether summary generation incurred provider usage
+- [ ] Pause auto compaction after cancellation, invalid output, repeated
+  failure, or low reclamation; initially treat less than the larger of 8,000
+  tokens or 20% of projected input as low value, then tune from evaluations
+- [ ] Show a concise result such as `Context compacted · 86K -> 34K`, strategy,
+  retained recent turns, and any separately measured generation usage
+
+Acceptance criteria:
+
+- A new user can discover and enable auto compaction entirely from the TUI.
+- The indicator and `/context` panel use the same snapshot and never label a
+  history-only estimate as complete context-window usage.
+- Auto compaction triggers before a representative long session reaches a hard
+  provider overflow, but does not compact every turn or loop without progress.
+- Explicit goals, constraints, edited files, unresolved work, and historical
+  verification provenance survive compaction fixtures and resume.
+- No checkpoint restores approval, trust, permission profile, current
+  verification status, pending tool calls, or secret material.
+
+### 13.3 Scoped permission grants and approval UX
+
+- [ ] Replace the boolean approval response with a structured decision for
+  allow once, allow a displayed scope for the current session, or deny with
+  optional user feedback
+- [ ] Define normalized, inspectable scopes for workspace writes, an exact
+  command plus arguments/cwd/timeout ceiling, a network tool plus destination
+  host, and a named delegated-model tool; do not use shell strings, unresolved
+  globs, or model-authored descriptions as grant identities
+- [ ] Require each tool to supply a structured approval descriptor containing
+  effect, resource/destination, risk flags, preview, and the scopes core permits
+  the UI to offer
+- [ ] Present numbered TUI choices for allow once, allow similar actions in this
+  session, and deny; display exactly what a session grant will cover before the
+  user selects it
+- [ ] Add `/permissions` to show the effective profile, its configuration
+  provenance, active session grants, use count, and revoke controls
+- [ ] Keep grants scoped to the active canonical workspace and session by
+  default; do not restore them through `/resume` or write them to project files,
+  session snapshots, prompts, summaries, Skills, or plugin events
+- [ ] Re-confirm destructive, credential-sensitive, publish/install, broad
+  external-side-effect, or policy-designated actions even if a broader session
+  scope would otherwise match
+- [ ] Let deny-with-feedback return bounded user guidance to the active run as a
+  denial result, without turning that guidance into an approval
+- [ ] Preserve `deny > confirm > allow` across core and plugin policy hooks, and
+  keep trusted plugin code distinct from model-tool approval
+
+Acceptance criteria:
+
+- A normal inspect-edit-test loop can authorize a clearly displayed narrow
+  scope and finish without repeating an identical prompt for every action.
+- A changed command argument, cwd, destination host, canonical workspace, risk
+  classification, or timeout above the grant ceiling causes a fresh decision.
+- Session grants disappear on exit and resume; traces record scope identifiers
+  and decisions but not authority that can be replayed.
+- A malicious instruction, Skill, checkpoint, tool result, or plugin policy
+  hook cannot manufacture or widen a grant.
+
+### 13.4 In-TUI update experience
+
+- [ ] Refactor the existing rate-limited update check to publish structured
+  cached, refreshing, available, current, failed, and disabled states instead
+  of writing a startup notice outside the Ink tree
+- [ ] Preserve non-blocking startup, the 24-hour check interval, bounded network
+  timeout, `CI` behavior, and `FORGE_DISABLE_UPDATE_CHECK=1`
+- [ ] Let an update discovered after startup update the current TUI without
+  entering the transcript or model context
+- [ ] Render a compact update banner with current/latest version, `forge update`
+  guidance, release-notes destination, dismiss-this-version, and an accessible
+  narrow-terminal layout
+- [ ] Show each available version prominently at most once after dismissal while
+  keeping explicit `forge update check` authoritative and repeatable
+- [ ] Detect supported installation provenance before suggesting or executing a
+  package-manager command; when provenance is unknown, report the new version
+  and documentation without guessing an installer
+- [ ] Keep installation explicit, use argument-array process execution, report
+  that the running process still uses the old version, and require restart
+- [ ] Verify that check, dismissal, failed install, successful install, and
+  restart never modify credentials, config, sessions, traces, plugins, or other
+  user data under `FORGE_HOME`
+
+Acceptance criteria:
+
+- A fresh fake-registry result can appear in an already running TUI without
+  corrupting the editor, approval input, streaming output, or scrollback.
+- Offline, timeout, malformed registry data, CI, and disabled checks are silent
+  or bounded and never block interactive startup.
+- npm/pnpm or other explicitly supported provenance receives the correct safe
+  guidance; unknown provenance never triggers an automatic global install.
+- Update UI and the compiled `forge update` command agree on current version,
+  target version, and restart requirements.
+
+### 13.5 Evaluation matrix and release gates
+
+- [ ] Add deterministic long-session fixtures covering constraint recall,
+  edited-file tracking, unresolved work, changed instructions, tool-output
+  pressure, repeated compaction, cancellation, resume, and hostile historical
+  approval claims
+- [ ] Add permission fixtures for exact-match reuse, near-match rejection,
+  workspace changes, symlink/canonical-path changes, destructive actions,
+  revoke, deny-with-feedback, plugins, network destinations, and subagents
+- [ ] Add cache fixtures for stable prefixes, every invalidation input,
+  unavailable usage, tool continuation, compaction boundaries, and aggregate
+  accounting without asserting provider support the endpoint did not declare
+- [ ] Add update fixtures for cached and fresh results, late async delivery,
+  dismissal, malformed semver, timeout, disabled/CI mode, install provenance,
+  failed install, and protected `FORGE_HOME` data
+- [ ] Render the editor/footer, context controls, approval panels, and update
+  banner at representative narrow and wide terminal widths; preserve existing
+  Enter/newline/Ctrl+C behavior and readable semantic colors
+- [ ] Compare `warn` and session/default `compact` modes on the same tasks and
+  record task success, constraint retention, tokens before/after, reclamation,
+  latency, cache reads/writes, compaction count, and no-progress pauses
+- [ ] Run live provider trials only behind an explicit opt-in; store bounded,
+  redacted reports and never make paid calls part of the default suite
+- [ ] Update English and Chinese context, configuration, security, session,
+  CLI UI, releasing, troubleshooting, and product docs to match implemented
+  behavior and mark provider-specific limits honestly
+- [ ] Run build, format/lint, typecheck, full offline tests, documentation/link
+  checks, deterministic evaluations, packed-artifact verification, installed
+  CLI smoke tests, and version consistency for `0.3.3`
+
+Release criteria:
+
+- Every unchecked item claimed for v0.3.3 is implemented or explicitly moved
+  out of the release; planning language is not presented as shipped behavior.
+- Auto compaction has no deterministic fixture regression in explicit goals,
+  constraints, edited-file tracking, unresolved work, safety, or resume, and
+  its live quality report satisfies thresholds recorded before default rollout.
+- The context indicator stays responsive and truthful, and auto compaction can
+  be enabled, observed, paused, and reversed without editing repository files.
+- Scoped grants materially reduce duplicate approvals in the representative
+  coding flow while every near-match and high-risk fixture still re-prompts or
+  denies as designed.
+- Cache reports are arithmetically correct and provider-qualified; the release
+  makes no universal hit-rate promise.
+- Update discovery is non-blocking, install-aware, explicit, and proven not to
+  mutate existing `FORGE_HOME` user data.
+- Clean packed `0.3.3` behavior, docs, `FORGE_VERSION`, package manifests, tag,
+  and public installation smoke expectations agree before publication.
+
+### 13.6 Suggested delivery sequence
+
+1. Land event schemas, baseline reporting, cache telemetry, and stable-prefix
+   hashing before changing defaults.
+2. Land structured approval responses, scope matching, `/permissions`, and TUI
+   choices behind compatibility-preserving policy adapters.
+3. Land the persistent context ring and interactive `/context` controls, then
+   pressure-driven compaction and quality/no-progress gates.
+4. Land the structured update service, live TUI banner, dismissal, and install
+   provenance handling as an isolated vertical slice.
+5. Run the cross-feature matrix: compaction invalidates cache predictably,
+   update UI never steals approval/editor input, and resumed sessions restore
+   context checkpoints but never grants.
+6. Change the default from `warn` to automatic compaction only if the recorded
+   evaluation gate passes; otherwise ship the discoverable session opt-in and
+   keep the default honest.
 
 ## Later extensions
 

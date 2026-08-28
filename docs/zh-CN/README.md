@@ -57,6 +57,7 @@ Forge 文档按“读者想完成什么”组织。第一次接触项目时无�
 | [评测指南](EVALUATION.md) | 运行确定性证据与显式 opt-in live trials |
 | [已发布报告](../../evals/reports/README.md) | 经过检查的 release 证据，包括保留的失败 |
 | [路线图](ROADMAP.md) | 已完成 milestone 的验收标准与后续方向 |
+| [v0.3.3 详细实现方案](V0.3.3_IMPLEMENTATION_PLAN.md) | 计划中的长会话 context、permission、prompt cache、update UX、架构、测试与 release gate；不是已交付行为 |
 | [v0.1 验收合约](V0.1_SPEC.md) | 历史首发范围、limits 与 release gates |
 
 Roadmap 与 acceptance 页面会保留历史决策。当前 CLI 行为、配置默认值和 public TypeScript shape 以 checkout 中的源码与测试为准。
