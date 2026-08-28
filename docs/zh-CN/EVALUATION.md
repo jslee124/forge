@@ -61,4 +61,6 @@ JSON 报告记录 Forge commit、任务、trial、model、thinking、status、gr
 
 默认套件在同一份合成长 session transcript 上比较 `off`、`warn` 和 `compact`，不调用 provider。它记录任务成功、估算与 fake provider input、估算误差、本地延迟、压缩次数、保留轮次和 summary 重生成；另有 fixture 覆盖 mandatory overflow、一次性恢复、部分输出不重试、tool-result projection、恶意 history 和 resume 完整性。`warn` 在 paid-provider estimator 和任务质量 gate 发布前保持默认。
 
+Milestone 13 增加了已检入的 [v0.3.2 对比基线](../../evals/reports/v0.3.2/M13_BASELINE.md)、stable prefix/失效 fixture、unavailable 与零值 cache accounting、压力触发压缩、低回收暂停，以及 session/default mode 测试；它们都保持离线。自动压缩可在 TUI 中发现并显式启用，但该基线不会把 extractive oracle 提升为默认行为。
+
 资源评测默认同样确定性、离线运行。脚本化 fixtures 覆盖匹配、不匹配、歧义、显式调用、用户关闭自动调用、冲突、重复加载、超预算、对抗性 Skill、产品问题和未知问题。指标包括选择精确率/召回率、不必要加载、目录与已加载 token、引用准确率、延迟和任务完成率；真实供应商资源试验仍需显式启用。

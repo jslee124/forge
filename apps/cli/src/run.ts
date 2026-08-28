@@ -73,6 +73,7 @@ export interface RunDependencies {
   readonly approvalChannel?: ApprovalChannel;
   readonly conversation?: readonly ModelConversationMessage[];
   readonly contextCheckpoint?: ContextCheckpoint;
+  readonly contextPressureMode?: import("@forge/core").ContextPressureMode;
   readonly sessionId?: string;
   readonly runId?: string;
   readonly onResult?: (result: RunResult, metadata?: RunMetadata) => void;
@@ -401,6 +402,7 @@ export async function runTask(
           ...pluginPrompt.sourcePaths,
         ],
       },
+      ...(dependencies.sessionId ? { sessionId: dependencies.sessionId } : {}),
       ...(effectiveInstructions ? { instructions: effectiveInstructions } : {}),
       ...(activeContext.messages.length > 0
         ? { conversation: activeContext.messages }
@@ -418,7 +420,33 @@ export async function runTask(
         maxModelSteps: loaded.config.limits.maxSteps,
         maxToolCalls: loaded.config.limits.maxToolCalls,
       },
-      contextConfiguration: loaded.config.context,
+      contextConfiguration: {
+        ...loaded.config.context,
+        ...(dependencies.contextPressureMode === "auto-session" ||
+        dependencies.contextPressureMode === "auto-default"
+          ? { mode: "compact" as const }
+          : {}),
+      },
+      contextPressureMode:
+        dependencies.contextPressureMode ??
+        (loaded.config.context.mode === "compact"
+          ? "auto-default"
+          : loaded.config.context.mode),
+      promptPrefix: {
+        provider: loaded.config.model.provider,
+        modelId: loaded.config.model.id,
+        coreContract: "forge-agent-runtime-v1",
+        instructions: [instructions.prompt],
+        resourceCatalog: skillCatalog.prompt,
+        enabledResourceIds: skillCatalog.skills.map(({ id }) => id).sort(),
+        enabledPluginIds: [...loaded.config.plugins.enabled].sort(),
+        checkpointGeneration:
+          dependencies.contextCheckpoint?.sourceHash ?? "canonical-transcript",
+        providerOptions: {
+          thinking,
+          reasoningEffort: loaded.config.model.reasoningEffort,
+        },
+      },
       initialEvents: [
         {
           type: "skill.discovery",

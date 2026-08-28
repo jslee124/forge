@@ -5,6 +5,7 @@ import {
   budgetModelRequest,
   conservativeRequestEstimate,
   conservativeValueTokens,
+  contextPressureSnapshot,
   selectRecentConversation,
 } from "./index.js";
 
@@ -112,5 +113,25 @@ describe("context budgeting", () => {
 
     expect(estimate.tokens).toBeGreaterThanOrEqual(4_096);
     expect(estimate.tokens).toBeLessThan(5_000);
+  });
+
+  it("defines projected pressure against input capacity after one reserve", async () => {
+    const budget = await budgetModelRequest({
+      model: new ContextModel(),
+      request: { prompt: "hello" },
+      configuration: {
+        mode: "warn",
+        reservedOutputTokens: 100,
+        bufferTokens: 250,
+        recentTailTokens: 100,
+        summaryTargetTokens: 50,
+      },
+    });
+    const snapshot = contextPressureSnapshot(budget, "warn");
+    expect(snapshot.availableInputTokens).toBe(750);
+    expect(snapshot.ratio).toBe(
+      budget.estimatedInputTokens / budget.availableInputTokens,
+    );
+    expect(snapshot.confidence).toBe("estimated");
   });
 });

@@ -138,12 +138,17 @@ toggle. See [Plugin authoring and trust](PLUGINS.md).
 | `context.bufferTokens` | `8192` | 1–2,000,000 | A project may increase the safety buffer. |
 | `context.recentTailTokens` | `12000` | 0–2,000,000 | A project may reduce the verbatim recent-history budget. |
 | `context.summaryTargetTokens` | `1200` | 64–2,000,000 | A project may reduce the checkpoint target. |
+| `context.activationThreshold` | `0.78` | 0.5–0.95 | A project may lower the pressure threshold, never raise it. |
+| `context.minimumReclaimTokens` | `8000` | 0–2,000,000 | A project may lower the no-progress floor, never raise it. |
+| `context.minimumReclaimRatio` | `0.2` | 0–0.9 | A project may lower the no-progress ratio, never raise it. |
 
-`warn` measures pressure and reports it without automatically generating a
-checkpoint. `compact` enables automatic checkpoint behavior when required by
-the implemented budget rules. `/compact` remains available as an explicit
-interactive action. The canonical session transcript is retained separately in
-all modes. See [Context management](CONTEXT_MANAGEMENT.md).
+`warn` measures projected next-request pressure and offers non-blocking TUI
+controls at the activation threshold. `compact` permits pressure-driven
+checkpoint generation. `/context` can enable automatic compaction for only the
+current process, or explicitly save `compact` to user configuration;
+session-only state is never restored. `/compact` remains available in every
+mode. The canonical session transcript is retained separately. See
+[Context management](CONTEXT_MANAGEMENT.md).
 
 ## Safe project configuration
 

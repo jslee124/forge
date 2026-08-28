@@ -4,9 +4,11 @@
 
 ## 状态
 
-Roadmap Milestone 10 已实现。默认模式仍是 `warn`；自动生成 checkpoint 在 provider 质量 gate 发布前保持 opt-in。当前 checkpoint 使用确定性、脱敏的 extractive summarizer，因此默认测试和手动 `/compact` 不会产生付费模型调用。它在所有可用历史消息之间分配有界空间，移除类似 authority 的审批声明，并把验证文字标记为历史信息。
+Roadmap Milestone 10 与 Milestone 13.0-13.2 已实现。默认模式仍是 `warn`；自动生成 checkpoint 在 provider 质量 gate 发布前保持 opt-in。TUI 现在会预计完整的下一次请求输入、常驻显示分段压力 indicator，并通过 `/context` 提供仅当前 session 或明确持久化的自动模式。当前 checkpoint 使用确定性、脱敏的 extractive summarizer，因此默认测试和手动 `/compact` 不会产生付费模型调用。它在所有可用历史消息之间分配有界空间，移除类似 authority 的审批声明，并把验证文字标记为历史信息。
 
 Checkpoint schema 和 adapter capability contract 支持 provider-native opaque state；但当前 OpenAI AI SDK 和 DeepSeek adapter 因 transport 尚未提供安全的 compact-item round trip，声明 native compaction 不支持。
+
+初始 activation threshold 是 `0.78`。Input capacity 只扣除一次 `max(output reserve, safety buffer)`。压缩被取消、输出无效，或回收量小于 8,000 token 与 projected input 20% 两者的较大值时，auto mode 会暂停。Stable-prefix 与 cache observation 只把 hash metadata 写入 trace；provider 没有报告的 cache usage 保持 unavailable。
 
 ## 为什么要做
 

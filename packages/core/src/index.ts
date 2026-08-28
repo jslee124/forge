@@ -1,15 +1,27 @@
 export const FORGE_VERSION = "0.3.2";
 
 export {
+  FORGE_PROMPT_SCHEMA_VERSION,
+  observePromptPrefix,
+  type PromptCacheCapabilities,
+  type PromptCacheMode,
+  type PromptPrefixInputs,
+  type PromptPrefixInvalidation,
+  type PromptPrefixObservation,
+} from "./cache.js";
+export {
   type ActiveConversationView,
   budgetModelRequest,
   type ContextBudgetReport,
   type ContextConfiguration,
   type ContextMode,
+  type ContextPressureMode,
+  type ContextPressureSnapshot,
   type ContextTokenBreakdown,
   conservativeRequestEstimate,
   conservativeTextTokens,
   conservativeValueTokens,
+  contextPressureSnapshot,
   DEFAULT_CONTEXT_CONFIGURATION,
   type ModelContextCapabilities,
   modelContextCapabilities,

@@ -41,6 +41,15 @@ export const contextCheckpointSchema = z
     sourceMessageCount: z.number().int().positive(),
     createdAt: z.iso.datetime(),
     safetyLabels: checkpointSafetyLabels,
+    generation: z
+      .object({
+        incurredProviderUsage: z.boolean(),
+        durationMs: z.number().nonnegative(),
+        inputTokens: z.number().int().nonnegative().optional(),
+        outputTokens: z.number().int().nonnegative().optional(),
+      })
+      .strict()
+      .optional(),
   })
   .strict()
   .superRefine((checkpoint, context) => {
@@ -92,6 +101,12 @@ export interface ContextCheckpoint {
     "no-approval-state",
     "no-policy-authority",
   ];
+  readonly generation?: {
+    readonly incurredProviderUsage: boolean;
+    readonly durationMs: number;
+    readonly inputTokens?: number;
+    readonly outputTokens?: number;
+  };
 }
 
 const sessionSnapshotV1Schema = z
@@ -263,6 +278,67 @@ const contextBudgetSchema = z
   })
   .strict();
 
+const hashSchema = z.string().regex(/^[a-f0-9]{64}$/u);
+const contextPressureSchema = z
+  .object({
+    schemaVersion: z.literal(1),
+    provider: z.string(),
+    modelId: z.string(),
+    estimatedInputTokens: z.number().int().nonnegative(),
+    availableInputTokens: z.number().int().nonnegative(),
+    ratio: z.number().nonnegative(),
+    confidence: z.enum(["exact", "estimated", "unavailable"]),
+    mode: z.enum(["off", "warn", "auto-session", "auto-default", "paused"]),
+    state: z.enum([
+      "normal",
+      "elevated",
+      "compact-soon",
+      "compacting",
+      "compacted",
+      "critical",
+      "paused",
+    ]),
+    estimates: contextBudgetSchema.shape.estimates,
+  })
+  .strict();
+
+const promptPrefixObservationSchema = z
+  .object({
+    schemaVersion: z.literal(1),
+    promptSchemaVersion: z.number().int().positive(),
+    stablePrefixHash: hashSchema,
+    instructionHash: hashSchema,
+    resourceCatalogHash: hashSchema,
+    toolSchemaHash: hashSchema,
+    providerModelHash: hashSchema,
+    promptSchemaHash: hashSchema,
+    enabledResourceHash: hashSchema,
+    enabledPluginHash: hashSchema,
+    checkpointGenerationHash: hashSchema,
+    providerOptionsHash: hashSchema,
+    invalidatedBy: z.array(
+      z.enum([
+        "initial",
+        "provider-or-model",
+        "prompt-schema",
+        "instructions",
+        "resource-catalog",
+        "enabled-resources",
+        "enabled-plugins",
+        "tool-schema",
+        "checkpoint-generation",
+      ]),
+    ),
+    cacheMode: z.enum([
+      "automatic",
+      "keyed",
+      "explicit-breakpoints",
+      "unsupported",
+    ]),
+    cacheKey: hashSchema.optional(),
+  })
+  .strict();
+
 const terminalEvent = (
   type:
     | "run.completed"
@@ -373,6 +449,73 @@ export const runEventSchema = z.discriminatedUnion("type", [
       type: z.literal("context.budgeted"),
       step: z.number().int().positive(),
       budget: contextBudgetSchema,
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("context.pressure"),
+      step: z.number().int().positive(),
+      snapshot: contextPressureSchema,
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("cache.prefix"),
+      step: z.number().int().positive(),
+      observation: promptPrefixObservationSchema,
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("cache.observed"),
+      schemaVersion: z.literal(1),
+      step: z.number().int().positive(),
+      inputTokens: z.number().int().nonnegative().optional(),
+      cacheReadTokens: z.number().int().nonnegative().optional(),
+      cacheWriteTokens: z.number().int().nonnegative().optional(),
+      uncachedInputTokens: z.number().int().nonnegative().optional(),
+      hitRatio: z.number().min(0).max(1).optional(),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("approval.scope-decision"),
+      schemaVersion: z.literal(1),
+      actionId: z.string().min(1).max(200),
+      decision: z.enum(["allow-once", "allow-session", "deny"]),
+      scopeId: hashSchema.optional(),
+      provenance: z.enum(["user", "policy"]),
+      persisted: z.literal(false),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("update.availability"),
+      schemaVersion: z.literal(1),
+      state: z.enum([
+        "cached",
+        "refreshing",
+        "available",
+        "current",
+        "failed",
+        "disabled",
+      ]),
+      currentVersion: z.string().max(100),
+      latestVersion: z.string().max(100).optional(),
+      source: z.literal("npm-registry"),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("context.auto-paused"),
+      step: z.number().int().positive(),
+      reason: z.enum([
+        "cancelled",
+        "invalid-output",
+        "repeated-failure",
+        "low-reclamation",
+      ]),
+      message: z.string(),
     })
     .strict(),
   z

@@ -4,11 +4,12 @@
 
 ## Current milestone
 
-**Milestone 13: long-session efficiency and user control is planned for
-v0.3.3.** Milestone 12 shipped in v0.3.1 and received a packaged-resource
-correction in v0.3.2. The v0.3.3 work below is unchecked planning, not shipped
-behavior: pressure-driven context compaction, scoped permission grants, an
-in-TUI update experience, and measurable prompt-cache optimization.
+**Milestone 13: long-session efficiency and user control is in progress for
+v0.3.3.** Milestone 13.0-13.2 are implemented on the development branch:
+versioned cross-cutting contracts, prompt-cache observability and stable-prefix
+hashing, and pressure-driven context controls. Scoped permissions, the in-TUI
+update experience, and the full release matrix remain planned. None of this is
+a published v0.3.3 release claim yet.
 
 ## Working rules
 
@@ -724,26 +725,26 @@ module map, test matrix, and staged delivery sequence live in the
 This milestone does not add persistent unrestricted permissions, silently run
 package-manager updates, delete canonical conversation history, promise cache
 support from an endpoint that does not report it, or treat an extractive
-checkpoint as production-quality semantic memory. Planned behavior remains
-unchecked until its implementation and release gates pass.
+checkpoint as production-quality semantic memory. Remaining planned behavior
+stays unchecked until its implementation and release gates pass.
 
 ### 13.0 Cross-cutting contracts and baseline
 
-- [ ] Record a reproducible v0.3.2 baseline for long-session task completion,
+- [x] Record a reproducible v0.3.2 baseline for long-session task completion,
   context estimates, provider input usage, cache read/write tokens, approval
   count, time waiting for approval, compaction count, and startup/update-check
   latency
-- [ ] Introduce versioned, provider-neutral runtime events for context-pressure
+- [x] Introduce versioned, provider-neutral runtime events for context-pressure
   state, cache observations, scoped approval decisions, and update availability
-- [ ] Keep policy and context decisions in `@forge/core`; keep canonical
+- [x] Keep policy and context decisions in `@forge/core`; keep canonical
   transcript and checkpoint integrity in persistence; keep terminal layout,
   interactive menus, and notification dismissal in `apps/cli`
-- [ ] Add adapter capability descriptors for native compaction and prompt-cache
+- [x] Add adapter capability descriptors for native compaction and prompt-cache
   control without branching on provider names in core
-- [ ] Store hashes, token counts, scope identifiers, and provenance in traces,
+- [x] Store hashes, token counts, scope identifiers, and provenance in traces,
   but never raw credentials, hidden reasoning, provider cache contents, or
   unredacted sensitive command input
-- [ ] Preserve compatibility with existing `safe` and `workspace-write`
+- [x] Preserve compatibility with existing `safe` and `workspace-write`
   configuration and with session-v2 snapshots and older trace events
 
 Acceptance criteria:
@@ -757,29 +758,29 @@ Acceptance criteria:
 
 ### 13.1 Prompt-cache observability and stable request prefixes
 
-- [ ] Extend run summaries and `forge inspect` with per-step and aggregate
+- [x] Extend run summaries and `forge inspect` with per-step and aggregate
   input, cache-read, cache-write, uncached-input, and cache-hit-ratio metrics
-- [ ] Report cache metrics only when the provider supplies them; render unknown
+- [x] Report cache metrics only when the provider supplies them; render unknown
   as unavailable instead of inferring a miss
-- [ ] Compute redacted stable-prefix, instruction, resource-catalog, and tool
+- [x] Compute redacted stable-prefix, instruction, resource-catalog, and tool
   schema hashes so a local trace can explain likely invalidation without
   persisting prompt contents twice
-- [ ] Refactor request composition into a deterministic stable prefix followed
+- [x] Refactor request composition into a deterministic stable prefix followed
   by dynamic turn content: core contract, current repository instructions,
   stable Skill metadata, and stable tool definitions precede selected Skill
   content, per-turn plugin contributions, checkpoint memory, conversation, and
   the current request
-- [ ] Keep byte-for-byte-stable ordering for instructions, tools, JSON schemas,
+- [x] Keep byte-for-byte-stable ordering for instructions, tools, JSON schemas,
   and provider options when their semantics have not changed
-- [ ] Define explicit invalidation for provider/model changes, instruction
+- [x] Define explicit invalidation for provider/model changes, instruction
   content or order, Forge prompt-schema version, enabled resources/plugins,
   tool schema, and compaction checkpoint generation
-- [ ] Add a provider capability for automatic caching, keyed caching, explicit
+- [x] Add a provider capability for automatic caching, keyed caching, explicit
   breakpoints, or unsupported caching; pass a stable session/workspace cache key
   only when the adapter and endpoint declare support
-- [ ] Preserve replayable provider continuation and append-only tool results so
+- [x] Preserve replayable provider continuation and append-only tool results so
   a tool loop does not unnecessarily rewrite an earlier cacheable prefix
-- [ ] Keep the advertised tool set stable by default; evaluate dynamic allowed
+- [x] Keep the advertised tool set stable by default; evaluate dynamic allowed
   tool subsets separately from removing or reordering tool definitions
 
 Acceptance criteria:
@@ -795,45 +796,45 @@ Acceptance criteria:
 
 ### 13.2 Pressure-driven auto compaction and context controls
 
-- [ ] Define the idle and next-request pressure ratio as projected input tokens
+- [x] Define the idle and next-request pressure ratio as projected input tokens
   divided by available input tokens, where available input has already removed
   the single effective output/safety reserve
-- [ ] Include instructions, Skill/resource metadata, tool schemas, the active
+- [x] Include instructions, Skill/resource metadata, tool schemas, the active
   checkpoint, retained conversation, draft input, and attached-image estimates
   in the projected numerator; mark conservative or unavailable estimates with
   `~` or `?` rather than false precision
-- [ ] Add a persistent context indicator next to the editor using a segmented
+- [x] Add a persistent context indicator next to the editor using a segmented
   ring plus an exact percentage: `○`, `◔`, `◑`, `◕`, and `●`, with semantic
   normal, elevated, warning, and critical colors
-- [ ] Render `context · warn`, `context · auto`, `compact soon`, `compacting`,
+- [x] Render `context · warn`, `context · auto`, `compact soon`, `compacting`,
   `compacted`, and `auto paused` states; keep the percentage visible in narrow
   terminals while progressively hiding labels
-- [ ] Split the editor footer into a model/context status row and a shortcut row
+- [x] Split the editor footer into a model/context status row and a shortcut row
   so the new indicator does not make existing input controls unreadable
-- [ ] Upgrade `/context` from a status-only panel into an interactive control
+- [x] Upgrade `/context` from a status-only panel into an interactive control
   surface with pressure breakdown, mode, strategy, recent-tail budget, last
   compaction, `/compact` preview, compact-now, enable-for-session, and
   save-as-user-default actions
-- [ ] When `warn` first crosses the configured activation threshold, show one
+- [x] When `warn` first crosses the configured activation threshold, show one
   non-blocking prompt offering compact once, enable auto for this session, or
   dismiss; never require editing JSON to discover automatic compaction
-- [ ] Keep session-only auto mode in runtime state; persist a default only after
+- [x] Keep session-only auto mode in runtime state; persist a default only after
   an explicit user action to user-level configuration outside the repository
-- [ ] Start with an evaluation-tuned pressure threshold rather than message
+- [x] Start with an evaluation-tuned pressure threshold rather than message
   count alone; use 75-80% projected pressure as the initial experiment and
   compact only completed history or safely projectable continuation state
-- [ ] Reclaim context in stages: bound or replace stale completed tool outputs,
+- [x] Reclaim context in stages: bound or replace stale completed tool outputs,
   use adapter-native opaque compaction when declared, otherwise generate a
   validated Forge summary while retaining a recent verbatim tail
-- [ ] Keep the current deterministic extractive summary as a safe fallback and
+- [x] Keep the current deterministic extractive summary as a safe fallback and
   test oracle, not the quality basis for enabling automatic compaction by
   default
-- [ ] Persist strategy, source/tail hashes, token estimates, model, generation
+- [x] Persist strategy, source/tail hashes, token estimates, model, generation
   time, safety labels, and whether summary generation incurred provider usage
-- [ ] Pause auto compaction after cancellation, invalid output, repeated
+- [x] Pause auto compaction after cancellation, invalid output, repeated
   failure, or low reclamation; initially treat less than the larger of 8,000
   tokens or 20% of projected input as low value, then tune from evaluations
-- [ ] Show a concise result such as `Context compacted · 86K -> 34K`, strategy,
+- [x] Show a concise result such as `Context compacted · 86K -> 34K`, strategy,
   retained recent turns, and any separately measured generation usage
 
 Acceptance criteria:

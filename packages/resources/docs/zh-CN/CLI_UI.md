@@ -50,6 +50,14 @@ editing
 - 补全菜单打开时上下移动选项；菜单关闭时未来可用于 prompt history，但不是 Milestone 4.6 要求。
 - Shift+Tab 在当前模型支持的 thinking-effort 等级间循环。
 
+## Context 压力与控制
+
+输入区 footer 使用两行：第一行常驻 model/effort 与预计 context indicator，第二行保留现有键盘快捷键。Indicator 使用 `○`、`◔`、`◑`、`◕` 或 `●`，同时显示百分比和语义文字；估算值带 `~`，响应式渲染会先隐藏 label，再隐藏数字或圆环。
+
+`/context` 会打开使用同一 pressure snapshot 的键盘控制面板，展示 instruction、tool schema、active history、draft/image 估算、effective reserve、checkpoint 来源、阈值、strategy 和上次压缩。按 `p` 预览、`c` 立即压缩一次、`a` 只为当前进程启用自动压缩、`s` 明确保存为用户默认，Escape 关闭。`warn` 模式第一次越过阈值时会提供 compact once、session auto 或 dismiss，不会抢占正在运行的任务或审批输入。
+
+默认仍是 `warn`。自动压缩依据 projected pressure，而不是消息数量；取消、无效 projection 或低回收收益会让 auto 暂停。规范 transcript 始终无损保留。
+
 ## 斜杠命令补全
 
 当 `/` 是首个非空白字符时打开命令列表，后续字符按命令名过滤。同一个 registry 同时驱动补全和 `/help`，避免两处漂移。当前包括 `/help`、`/new`、`/clear`、`/context`、`/compact`、`/plugins`、`/login`、`/logout`、`/model`、`/delete-model`、`/effort`、`/resume` 和 `/exit`。

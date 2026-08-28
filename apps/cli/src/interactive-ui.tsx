@@ -755,6 +755,10 @@ export function InteractiveApp({
     ),
   );
   const [contextPanel, setContextPanel] = useState<ContextStatus>();
+  const [contextRevision, setContextRevision] = useState(0);
+  const [contextOfferDismissed, setContextOfferDismissed] = useState(false);
+  const [contextActivity, setContextActivity] =
+    useState<ContextStatus["pressure"]["state"]>();
   const [files, setFiles] = useState<readonly string[]>([]);
   const [filesLoading, setFilesLoading] = useState(true);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -796,6 +800,20 @@ export function InteractiveApp({
   const activeController = useRef<AbortController | undefined>(undefined);
   const idleExitArmed = useRef(false);
   const nextTranscriptId = useRef(initialMessages.length);
+  const contextStatus = useMemo(() => {
+    void contextRevision;
+    return sessionPersistence?.contextDetails?.(
+      editor.value,
+      editor.images.length,
+    );
+  }, [sessionPersistence, editor.value, editor.images.length, contextRevision]);
+  const contextOfferVisible =
+    phase === "editing" &&
+    !contextPanel &&
+    !contextOfferDismissed &&
+    contextStatus?.pressure.mode === "warn" &&
+    contextStatus.pressure.confidence !== "unavailable" &&
+    contextStatus.pressure.ratio >= contextStatus.activationThreshold;
 
   const completionSignature = `${editor.value}\u0000${editor.cursor}`;
   const mentionQuery = activeMentionQuery(editor.value, editor.cursor);
@@ -1070,6 +1088,13 @@ export function InteractiveApp({
         case "context.warning":
           appendEntry("warning", event.message);
           break;
+        case "context.pressure":
+          setContextActivity(event.snapshot.state);
+          break;
+        case "context.auto-paused":
+          setContextActivity("paused");
+          appendEntry("warning", event.message);
+          break;
         case "tool.proposed":
           appendEntry("tool", `○ Proposed ${event.call.name}`);
           break;
@@ -1281,6 +1306,8 @@ export function InteractiveApp({
         conversation.current = [];
         sessionPersistence?.clear();
         setContextPanel(undefined);
+        setContextOfferDismissed(false);
+        setContextActivity(undefined);
         setTranscript([]);
         nextTranscriptId.current = 0;
         setEditor(createEditorState());
@@ -1289,6 +1316,8 @@ export function InteractiveApp({
         conversation.current = [];
         sessionPersistence?.clear();
         setContextPanel(undefined);
+        setContextOfferDismissed(false);
+        setContextActivity(undefined);
         setTranscript([]);
         nextTranscriptId.current = 0;
         setEditor(createEditorState());
@@ -1579,7 +1608,10 @@ export function InteractiveApp({
     );
 
     void (async () => {
-      const sessionId = await sessionPersistence?.prepareRun();
+      const sessionId = await sessionPersistence?.prepareRun(
+        prompt,
+        imageSources.length,
+      );
       if (activeOptions.engine === "codex") {
         let finalText = "";
         let reasoningText = "";
@@ -1640,6 +1672,12 @@ export function InteractiveApp({
           conversation: [...conversation.current],
           ...(sessionPersistence?.contextCheckpoint
             ? { contextCheckpoint: sessionPersistence.contextCheckpoint }
+            : {}),
+          ...(sessionPersistence?.contextDetails
+            ? {
+                contextPressureMode:
+                  sessionPersistence.contextDetails().pressure.mode,
+              }
             : {}),
           ...(sessionId ? { sessionId } : {}),
           onEvent: handleRunEvent,
@@ -1731,6 +1769,80 @@ export function InteractiveApp({
     if ((key.ctrl && input.toLocaleLowerCase() === "c") || interruptCount > 0) {
       cancelOrExit();
       if (interruptCount > 1 && phase === "editing" && !completionKind) exit(0);
+      return;
+    }
+
+    if (phase === "editing" && contextPanel) {
+      const answer = input.toLocaleLowerCase();
+      if (key.escape) {
+        setContextPanel(undefined);
+      } else if (answer === "a") {
+        sessionPersistence?.enableAutoForSession?.();
+        setContextRevision((current) => current + 1);
+        setContextPanel(sessionPersistence?.contextDetails?.());
+      } else if (answer === "s" && sessionPersistence?.saveAutoDefault) {
+        void sessionPersistence.saveAutoDefault().then(
+          (savedPath) => {
+            appendEntry(
+              "system",
+              `Saved automatic compaction as the user default in ${savedPath}.`,
+            );
+            setContextRevision((current) => current + 1);
+            setContextPanel(sessionPersistence.contextDetails?.());
+          },
+          (error: unknown) =>
+            appendEntry(
+              "error",
+              `Could not save context default: ${error instanceof Error ? error.message : "unknown error"}`,
+            ),
+        );
+      } else if (
+        (answer === "c" || answer === "p") &&
+        sessionPersistence?.compact
+      ) {
+        if (answer === "c") setContextActivity("compacting");
+        void sessionPersistence.compact(answer === "p").then(
+          (message) => {
+            appendEntry("system", message);
+            setContextRevision((current) => current + 1);
+            setContextPanel(sessionPersistence.contextDetails?.());
+            if (answer === "c") setContextActivity("compacted");
+          },
+          (error: unknown) =>
+            appendEntry(
+              "error",
+              `Could not compact session: ${error instanceof Error ? error.message : "unknown error"}`,
+            ),
+        );
+      }
+      return;
+    }
+
+    if (contextOfferVisible) {
+      const answer = input.toLocaleLowerCase();
+      if (answer === "d" || key.escape) {
+        setContextOfferDismissed(true);
+      } else if (answer === "a") {
+        sessionPersistence?.enableAutoForSession?.();
+        setContextOfferDismissed(true);
+        setContextRevision((current) => current + 1);
+        appendEntry("system", "Automatic compaction enabled for this session.");
+      } else if (answer === "c" && sessionPersistence?.compact) {
+        setContextOfferDismissed(true);
+        setContextActivity("compacting");
+        void sessionPersistence.compact(false).then(
+          (message) => {
+            appendEntry("system", message);
+            setContextRevision((current) => current + 1);
+            setContextActivity("compacted");
+          },
+          (error: unknown) =>
+            appendEntry(
+              "error",
+              `Could not compact session: ${error instanceof Error ? error.message : "unknown error"}`,
+            ),
+        );
+      }
       return;
     }
 
@@ -1826,6 +1938,8 @@ export function InteractiveApp({
               setTranscript(restored);
               setSessions([]);
               setPhase("editing");
+              setContextOfferDismissed(false);
+              setContextActivity(undefined);
               appendEntry("system", `Resumed session ${selected.id}.`);
             },
             (error: unknown) => {
@@ -3010,10 +3124,27 @@ export function InteractiveApp({
         </Box>
       ) : null}
 
+      {contextOfferVisible ? (
+        <Box paddingX={1}>
+          <Text color="yellow">
+            Context is nearing its limit · <Text bold>c</Text> compact once ·{" "}
+            <Text bold>a</Text> auto for session · <Text bold>d</Text> dismiss
+          </Text>
+        </Box>
+      ) : null}
+
       <PromptFooter
         activeOptions={activeOptions}
         filesLoading={filesLoading}
         phase={phase}
+        {...(contextStatus ? { contextStatus } : {})}
+        {...(contextActivity ? { contextStateOverride: contextActivity } : {})}
+        terminalWidth={
+          typeof (stdout as { readonly columns?: unknown }).columns === "number"
+            ? ((stdout as unknown as { readonly columns: number }).columns ??
+              80)
+            : 80
+        }
       />
     </Box>
   );
@@ -3325,18 +3456,39 @@ function PromptFooter({
   activeOptions,
   filesLoading,
   phase,
+  contextStatus,
+  contextStateOverride,
+  terminalWidth,
 }: {
   readonly activeOptions: AskOptions;
   readonly filesLoading: boolean;
   readonly phase: Phase;
+  readonly contextStatus?: ContextStatus;
+  readonly contextStateOverride?: ContextStatus["pressure"]["state"];
+  readonly terminalWidth: number;
 }): React.JSX.Element {
   if (phase === "editing") {
+    const pressureLabel = contextStatus
+      ? formatContextIndicator(
+          contextStatus,
+          terminalWidth,
+          contextStateOverride,
+        )
+      : undefined;
     return (
-      <Box paddingX={1}>
-        <Text color="gray">
+      <Box paddingX={1} flexDirection="column">
+        <Box justifyContent="space-between">
           <Text color="blue">{formatCompactModelStatus(activeOptions)}</Text>
-          {"  ·  "}
-          {filesLoading ? "Indexing files  ·  " : ""}
+          {pressureLabel ? (
+            <Text
+              color={contextPressureColor(contextStatus?.pressure.ratio ?? 0)}
+            >
+              {pressureLabel}
+            </Text>
+          ) : null}
+        </Box>
+        <Text color="gray">
+          {filesLoading ? "Indexing files · " : ""}
           <Text color="yellow">Shift+Tab</Text> effort ·{" "}
           <Text color="green">Enter</Text> submit ·{" "}
           <Text color="cyan">Shift+Enter/Meta+Enter/Ctrl+J</Text> newline ·{" "}
@@ -3406,10 +3558,8 @@ function ContextPanel({
 }: {
   readonly status: ContextStatus;
 }): React.JSX.Element {
-  const inputBudget = status.availableInputTokens;
-  const usedTokens = Math.min(status.estimatedTranscriptTokens, inputBudget);
-  const usageRatio =
-    inputBudget === 0 ? (usedTokens > 0 ? 1 : 0) : usedTokens / inputBudget;
+  const inputBudget = status.pressure.availableInputTokens;
+  const usageRatio = status.pressure.ratio;
   const usagePercent = Math.round(usageRatio * 100);
   const reclaimedTokens = Math.max(
     0,
@@ -3434,24 +3584,46 @@ function ContextPanel({
     >
       <Text>
         <Text bold color="cyan">
-          Context window
+          Context management
         </Text>
-        <Text dimColor> · {status.mode} mode</Text>
+        <Text dimColor> · {contextModeLabel(status.pressure.mode)}</Text>
       </Text>
 
       <Box flexDirection="column" marginTop={1}>
         <Text>
           <Text bold color={contextUsageColor(usagePercent)}>
-            {usagePercent}% history
+            {contextRing(usageRatio)} ~{usagePercent}% projected
           </Text>
           <Text dimColor>
             {" "}
-            · ~{formatTokenCount(status.estimatedTranscriptTokens)} of{" "}
+            · ~{formatTokenCount(status.pressure.estimatedInputTokens)} of{" "}
             {formatTokenCount(inputBudget)} input tokens
           </Text>
         </Text>
         <Text color={contextUsageColor(usagePercent)}>
           {contextUsageBar(usageRatio)}
+        </Text>
+      </Box>
+
+      <Box flexDirection="column" marginTop={1}>
+        <Text bold color="gray">
+          Pressure breakdown
+        </Text>
+        <Text>
+          instructions{" "}
+          {formatTokenCount(status.pressure.estimates.instructions)} · tools{" "}
+          {formatTokenCount(status.pressure.estimates.toolSchemas)} · history{" "}
+          {formatTokenCount(status.pressure.estimates.conversationHistory)} ·
+          draft/images{" "}
+          {formatTokenCount(status.pressure.estimates.currentRequest)}
+        </Text>
+        <Text dimColor>
+          {status.pressure.confidence === "unavailable"
+            ? "? incomplete projection"
+            : status.pressure.confidence === "exact"
+              ? "exact projection"
+              : "~ estimated"}{" "}
+          · activation {Math.round(status.activationThreshold * 100)}%
         </Text>
       </Box>
 
@@ -3517,7 +3689,20 @@ function ContextPanel({
         <Text dimColor>
           Canonical transcript is retained · checkpoint is untrusted memory
         </Text>
+        {status.lastCompaction ? (
+          <Text dimColor>
+            Last compact:{" "}
+            {formatTokenCount(status.lastCompaction.estimatedBeforeTokens)} →{" "}
+            {formatTokenCount(status.lastCompaction.estimatedAfterTokens)} ·{" "}
+            {status.lastCompaction.strategy}
+          </Text>
+        ) : null}
       </Box>
+
+      <Text color="cyan">
+        a auto this session · s save user default · c compact now · p preview ·
+        Esc close
+      </Text>
     </Box>
   );
 }
@@ -3534,6 +3719,69 @@ function contextUsageColor(percent: number): "green" | "yellow" | "red" {
 
 function formatTokenCount(value: number): string {
   return new Intl.NumberFormat("en-US").format(value);
+}
+
+function contextRing(ratio: number): "○" | "◔" | "◑" | "◕" | "●" {
+  return ratio >= 0.9
+    ? "●"
+    : ratio >= 0.75
+      ? "◕"
+      : ratio >= 0.5
+        ? "◑"
+        : ratio >= 0.25
+          ? "◔"
+          : "○";
+}
+
+function formatContextIndicator(
+  status: ContextStatus,
+  width: number,
+  stateOverride?: ContextStatus["pressure"]["state"],
+): string {
+  const ratio = status.pressure.ratio;
+  const value =
+    status.pressure.confidence === "unavailable"
+      ? "?"
+      : `${status.pressure.confidence === "exact" ? "" : "~"}${Math.round(
+          ratio * 100,
+        )}%`;
+  const compact = `${contextRing(ratio)} ${value}`;
+  if (width < 48) return contextRing(ratio);
+  if (width < 72) return compact;
+  const effectiveState = stateOverride ?? status.pressure.state;
+  const state =
+    effectiveState === "compact-soon"
+      ? "compact soon"
+      : effectiveState === "compacting"
+        ? "compacting"
+        : effectiveState === "compacted"
+          ? "compacted"
+          : effectiveState === "paused"
+            ? "auto paused"
+            : status.pressure.mode === "auto-session" ||
+                status.pressure.mode === "auto-default"
+              ? "context · auto"
+              : "context · warn";
+  return `${compact} ${state}`;
+}
+
+function contextPressureColor(ratio: number): "green" | "yellow" | "red" {
+  return ratio >= 0.9 ? "red" : ratio >= 0.75 ? "yellow" : "green";
+}
+
+function contextModeLabel(mode: ContextStatus["pressure"]["mode"]): string {
+  switch (mode) {
+    case "auto-session":
+      return "automatic for this session";
+    case "auto-default":
+      return "automatic user default";
+    case "paused":
+      return "automatic paused";
+    case "off":
+      return "off";
+    default:
+      return "warn only";
+  }
 }
 
 /**

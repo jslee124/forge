@@ -4,7 +4,7 @@
 
 ## 当前 milestone
 
-**Milestone 13：长会话效率与用户控制，计划在 v0.3.3 交付。** Milestone 12 已在 v0.3.1 交付，并由 v0.3.2 修复打包资源。下方 v0.3.3 内容仍是未勾选的计划，不是已发布能力：按压力自动压缩 context、有作用域的 permission grant、TUI 内更新体验，以及可测量的 prompt cache 优化。
+**Milestone 13：长会话效率与用户控制，正在面向 v0.3.3 开发。** Milestone 13.0-13.2 已在开发分支实现：跨功能版本化 contract、prompt-cache 可观测性与稳定 prefix hash，以及按压力驱动的 context 控制。有作用域的 permission、TUI 内更新体验和完整 release matrix 仍是计划项；这还不是 v0.3.3 已发布声明。
 
 ## 工作规则
 
@@ -208,16 +208,16 @@ Release criteria：
 
 目标：让用户在长时间 coding session 中持续使用 Forge，同时看得见 context 压力，减少重复审批打断，以不干扰工作的方式获知新版本，并能测量和改进 provider prompt cache。Milestone 10 已提供 context budget 和 checkpoint 底座；Milestone 13 要把这套底座变成可发现、受评测 gate 约束的默认体验。架构、UI flow、建议 TypeScript contract、模块映射、测试矩阵与分阶段交付顺序详见 [v0.3.3 详细实现方案](V0.3.3_IMPLEMENTATION_PLAN.md)。
 
-本 milestone 不会加入持久化的无限制权限，不会静默运行包管理器更新，不会删除规范 conversation transcript，不会对不报告 cache 的 endpoint 声称支持，也不会把 extractive checkpoint 当作生产质量的 semantic memory。所有计划行为在实现并通过 release gate 前都保持未勾选。
+本 milestone 不会加入持久化的无限制权限，不会静默运行包管理器更新，不会删除规范 conversation transcript，不会对不报告 cache 的 endpoint 声称支持，也不会把 extractive checkpoint 当作生产质量的 semantic memory。尚未实现的计划行为在通过 release gate 前保持未勾选。
 
 ### 13.0 跨功能 contract 与基线
 
-- [ ] 为 v0.3.2 记录可复现基线：长会话任务完成率、context estimate、provider input usage、cache read/write token、审批次数、等待审批时间、压缩次数，以及启动/更新检查延迟
-- [ ] 为 context pressure、cache observation、scoped approval decision 和 update availability 增加 versioned、provider-neutral runtime event
-- [ ] Policy 与 context decision 归 `@forge/core`；规范 transcript 与 checkpoint 完整性归 persistence；终端布局、交互菜单和通知 dismiss 归 `apps/cli`
-- [ ] 为 native compaction 与 prompt-cache control 增加 adapter capability descriptor，避免 core 按 provider 名称分支
-- [ ] Trace 可以保存 hash、token count、scope identifier 和 provenance，但不能保存原始 credential、隐藏 reasoning、provider cache 内容或未脱敏的敏感 command input
-- [ ] 兼容现有 `safe`、`workspace-write` 配置，以及 session-v2 snapshot 和旧 trace event
+- [x] 为 v0.3.2 记录可复现基线：长会话任务完成率、context estimate、provider input usage、cache read/write token、审批次数、等待审批时间、压缩次数，以及启动/更新检查延迟
+- [x] 为 context pressure、cache observation、scoped approval decision 和 update availability 增加 versioned、provider-neutral runtime event
+- [x] Policy 与 context decision 归 `@forge/core`；规范 transcript 与 checkpoint 完整性归 persistence；终端布局、交互菜单和通知 dismiss 归 `apps/cli`
+- [x] 为 native compaction 与 prompt-cache control 增加 adapter capability descriptor，避免 core 按 provider 名称分支
+- [x] Trace 可以保存 hash、token count、scope identifier 和 provenance，但不能保存原始 credential、隐藏 reasoning、provider cache 内容或未脱敏的敏感 command input
+- [x] 兼容现有 `safe`、`workspace-write` 配置，以及 session-v2 snapshot 和旧 trace event
 
 验收标准：
 
@@ -227,15 +227,15 @@ Release criteria：
 
 ### 13.1 Prompt cache 可观测性与稳定 request prefix
 
-- [ ] 在 run summary 和 `forge inspect` 中增加每 step 与聚合的 input、cache-read、cache-write、uncached-input 和 cache-hit-ratio 指标
-- [ ] 只在 provider 返回数据时报告 cache metric；未知值显示 unavailable，不能推断为 miss
-- [ ] 计算脱敏的 stable-prefix、instruction、resource-catalog 和 tool-schema hash，让本地 trace 能解释可能的失效原因，同时避免重复持久化 prompt 正文
-- [ ] 把 request composition 重构为确定性的 stable prefix 加动态 turn 内容：core contract、当前仓库 instruction、稳定 Skill metadata 和稳定 tool definition 位于 selected Skill 正文、per-turn plugin contribution、checkpoint memory、conversation 和当前 request 之前
-- [ ] Instruction、tool、JSON schema 和 provider option 的语义未变化时，保持 byte-for-byte 稳定顺序
-- [ ] 明确定义失效条件：provider/model 变化、instruction 内容或顺序变化、Forge prompt-schema version、启用的 resource/plugin、tool schema 和 compaction checkpoint generation
-- [ ] 增加 automatic caching、keyed caching、explicit breakpoint 或 unsupported caching 的 provider capability；只有 adapter 与 endpoint 明确支持时才传递稳定的 session/workspace cache key
-- [ ] 保留可 replay 的 provider continuation，并以 append-only 方式加入 tool result，避免 tool loop 无意义地重写早期可缓存 prefix
-- [ ] 默认保持 advertised tool set 稳定；把 dynamic allowed-tool subset 与删除/重排 tool definition 分开评测
+- [x] 在 run summary 和 `forge inspect` 中增加每 step 与聚合的 input、cache-read、cache-write、uncached-input 和 cache-hit-ratio 指标
+- [x] 只在 provider 返回数据时报告 cache metric；未知值显示 unavailable，不能推断为 miss
+- [x] 计算脱敏的 stable-prefix、instruction、resource-catalog 和 tool-schema hash，让本地 trace 能解释可能的失效原因，同时避免重复持久化 prompt 正文
+- [x] 把 request composition 重构为确定性的 stable prefix 加动态 turn 内容：core contract、当前仓库 instruction、稳定 Skill metadata 和稳定 tool definition 位于 selected Skill 正文、per-turn plugin contribution、checkpoint memory、conversation 和当前 request 之前
+- [x] Instruction、tool、JSON schema 和 provider option 的语义未变化时，保持 byte-for-byte 稳定顺序
+- [x] 明确定义失效条件：provider/model 变化、instruction 内容或顺序变化、Forge prompt-schema version、启用的 resource/plugin、tool schema 和 compaction checkpoint generation
+- [x] 增加 automatic caching、keyed caching、explicit breakpoint 或 unsupported caching 的 provider capability；只有 adapter 与 endpoint 明确支持时才传递稳定的 session/workspace cache key
+- [x] 保留可 replay 的 provider continuation，并以 append-only 方式加入 tool result，避免 tool loop 无意义地重写早期可缓存 prefix
+- [x] 默认保持 advertised tool set 稳定；把 dynamic allowed-tool subset 与删除/重排 tool definition 分开评测
 
 验收标准：
 
@@ -246,20 +246,20 @@ Release criteria：
 
 ### 13.2 按压力自动 compact 与 context 控制
 
-- [ ] 将 idle 和 next-request pressure ratio 定义为 projected input token 除以 available input token；available input 已经只扣除一次 effective output/safety reserve
-- [ ] Projected numerator 包含 instruction、Skill/resource metadata、tool schema、active checkpoint、retained conversation、输入框草稿和附件图片估算；保守或不可用估算用 `~` 或 `?` 表示，避免伪精确
-- [ ] 在输入框附近常驻 context indicator，用分段圆环与精确百分比表示：`○`、`◔`、`◑`、`◕`、`●`，并采用 normal、elevated、warning、critical 的语义颜色
-- [ ] 展示 `context · warn`、`context · auto`、`compact soon`、`compacting`、`compacted` 和 `auto paused` 状态；窄终端逐步隐藏 label，但保留 percentage
-- [ ] 将输入区 footer 拆为 model/context 状态行与快捷键行，避免新增 indicator 让已有输入控制难以阅读
-- [ ] 将 `/context` 从只读状态面板升级为交互控制面板，展示 pressure breakdown、mode、strategy、recent-tail budget、last compaction，并提供 `/compact` preview、立即 compact、仅当前 session 启用和保存为用户默认值
-- [ ] `warn` 首次跨过配置的 activation threshold 时，显示一次非阻塞提示，提供 compact once、当前 session 开启 auto 或 dismiss；用户不应为了发现自动 compact 而编辑 JSON
-- [ ] Session-only auto mode 只保存在 runtime state；只有用户明确操作后才把默认值写入仓库外的 user-level config
-- [ ] 初始触发依据通过评测调整的 pressure threshold，而不是单纯 message count；先以 75-80% projected pressure 作为实验值，只压缩 completed history 或可安全 projection 的 continuation state
-- [ ] 分阶段回收 context：先限制或替换陈旧且已完成的 tool output；adapter 声明支持时使用 provider-native opaque compaction；否则生成经过校验的 Forge summary 并保留近期 verbatim tail
-- [ ] 当前 deterministic extractive summary 保留为安全 fallback 和测试 oracle，但不能作为默认启用自动 compact 的质量依据
-- [ ] 持久化 strategy、source/tail hash、token estimate、model、生成时间、safety label，以及 summary generation 是否产生 provider usage
-- [ ] 取消、输出无效、反复失败或回收收益过低时暂停 auto compaction；初始把低于 8,000 token 或 projected input 20% 两者较大值的回收视为低收益，再根据评测调整
-- [ ] 展示简洁结果，例如 `Context compacted · 86K -> 34K`、strategy、保留的 recent turn，以及单独测得的 generation usage
+- [x] 将 idle 和 next-request pressure ratio 定义为 projected input token 除以 available input token；available input 已经只扣除一次 effective output/safety reserve
+- [x] Projected numerator 包含 instruction、Skill/resource metadata、tool schema、active checkpoint、retained conversation、输入框草稿和附件图片估算；保守或不可用估算用 `~` 或 `?` 表示，避免伪精确
+- [x] 在输入框附近常驻 context indicator，用分段圆环与精确百分比表示：`○`、`◔`、`◑`、`◕`、`●`，并采用 normal、elevated、warning、critical 的语义颜色
+- [x] 展示 `context · warn`、`context · auto`、`compact soon`、`compacting`、`compacted` 和 `auto paused` 状态；窄终端逐步隐藏 label，但保留 percentage
+- [x] 将输入区 footer 拆为 model/context 状态行与快捷键行，避免新增 indicator 让已有输入控制难以阅读
+- [x] 将 `/context` 从只读状态面板升级为交互控制面板，展示 pressure breakdown、mode、strategy、recent-tail budget、last compaction，并提供 `/compact` preview、立即 compact、仅当前 session 启用和保存为用户默认值
+- [x] `warn` 首次跨过配置的 activation threshold 时，显示一次非阻塞提示，提供 compact once、当前 session 开启 auto 或 dismiss；用户不应为了发现自动 compact 而编辑 JSON
+- [x] Session-only auto mode 只保存在 runtime state；只有用户明确操作后才把默认值写入仓库外的 user-level config
+- [x] 初始触发依据通过评测调整的 pressure threshold，而不是单纯 message count；先以 75-80% projected pressure 作为实验值，只压缩 completed history 或可安全 projection 的 continuation state
+- [x] 分阶段回收 context：先限制或替换陈旧且已完成的 tool output；adapter 声明支持时使用 provider-native opaque compaction；否则生成经过校验的 Forge summary 并保留近期 verbatim tail
+- [x] 当前 deterministic extractive summary 保留为安全 fallback 和测试 oracle，但不能作为默认启用自动 compact 的质量依据
+- [x] 持久化 strategy、source/tail hash、token estimate、model、生成时间、safety label，以及 summary generation 是否产生 provider usage
+- [x] 取消、输出无效、反复失败或回收收益过低时暂停 auto compaction；初始把低于 8,000 token 或 projected input 20% 两者较大值的回收视为低收益，再根据评测调整
+- [x] 展示简洁结果，例如 `Context compacted · 86K -> 34K`、strategy、保留的 recent turn，以及单独测得的 generation usage
 
 验收标准：
 

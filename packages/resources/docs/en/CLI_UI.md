@@ -88,6 +88,26 @@ session-exit behavior when Forge is otherwise idle.
   later be used for prompt history; history is not required for Milestone 4.6.
 - Shift+Tab cycles through the active model's supported thinking-effort levels.
 
+## Context pressure and controls
+
+The editor footer uses two rows. The first keeps model/effort and a projected
+context indicator visible; the second preserves the existing keyboard
+shortcuts. The indicator uses `○`, `◔`, `◑`, `◕`, or `●` plus a percentage and
+semantic text. Estimated values carry `~`; responsive rendering drops labels
+before it drops the number or ring.
+
+`/context` opens a keyboard-owned panel backed by the same pressure snapshot.
+It shows instructions, tool schemas, active history, draft/image estimates,
+the effective reserve, checkpoint provenance, threshold, strategy, and last
+compaction. Press `p` to preview, `c` to compact once, `a` to enable automatic
+compaction for this process, `s` to explicitly save it as the user default, or
+Escape to close. A first `warn`-mode threshold crossing offers compact once,
+session auto, or dismiss without stealing an active run or approval prompt.
+
+The default remains `warn`. Automatic compaction uses projected pressure, not
+message count, and pauses after cancellation, invalid projection, or low
+reclamation. The canonical transcript remains lossless.
+
 ## Slash-command completion
 
 Typing `/` as the first non-whitespace character opens a list of available

@@ -25,6 +25,7 @@ export interface DeepSeekModelAdapterOptions {
 
 export class DeepSeekModelAdapter implements ModelAdapter {
   readonly context: ModelContextCapabilities;
+  readonly promptCache = { mode: "automatic" as const };
   readonly #apiKey: string;
   readonly #model: string;
   readonly #thinking: DeepSeekThinkingMode;

@@ -1,3 +1,4 @@
+import type { PromptCacheCapabilities } from "./cache.js";
 import type { ModelContextCapabilities } from "./context.js";
 import type { ModelToolDefinition, ToolCall, ToolResult } from "./tools.js";
 
@@ -41,6 +42,11 @@ export interface ModelRequest {
   readonly tools?: readonly ModelToolDefinition[];
   readonly continuation?: ModelContinuation;
   readonly toolResults?: readonly ModelToolResult[];
+  readonly cacheControl?: {
+    readonly mode: "automatic" | "keyed" | "explicit-breakpoints";
+    readonly key?: string;
+    readonly stablePrefixHash: string;
+  };
 }
 
 export interface ModelUsage {
@@ -91,6 +97,7 @@ export type ModelStreamEvent =
 
 export interface ModelAdapter {
   readonly context?: ModelContextCapabilities;
+  readonly promptCache?: PromptCacheCapabilities;
   stream(
     request: ModelRequest,
     signal: AbortSignal,

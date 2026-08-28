@@ -160,6 +160,14 @@ const contextSchema = z
     bufferTokens: z.number().int().positive().max(2_000_000).optional(),
     recentTailTokens: z.number().int().nonnegative().max(2_000_000).optional(),
     summaryTargetTokens: z.number().int().min(64).max(2_000_000).optional(),
+    activationThreshold: z.number().min(0.5).max(0.95).optional(),
+    minimumReclaimTokens: z
+      .number()
+      .int()
+      .nonnegative()
+      .max(2_000_000)
+      .optional(),
+    minimumReclaimRatio: z.number().min(0).max(0.9).optional(),
   })
   .strict();
 
@@ -212,6 +220,9 @@ export interface EffectiveForgeConfig {
     readonly bufferTokens: number;
     readonly recentTailTokens: number;
     readonly summaryTargetTokens: number;
+    readonly activationThreshold: number;
+    readonly minimumReclaimTokens: number;
+    readonly minimumReclaimRatio: number;
   };
   readonly providers: Readonly<Record<string, ProviderProfile>>;
 }
@@ -241,6 +252,9 @@ export const DEFAULT_FORGE_CONFIG: EffectiveForgeConfig = {
     bufferTokens: 8_192,
     recentTailTokens: 12_000,
     summaryTargetTokens: 1_200,
+    activationThreshold: 0.78,
+    minimumReclaimTokens: 8_000,
+    minimumReclaimRatio: 0.2,
   },
   providers: {},
 };

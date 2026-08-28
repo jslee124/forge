@@ -4,10 +4,11 @@
 
 ## Status
 
-Roadmap Milestone 10 is implemented. This document records the design,
-invariants, rollout decision, and follow-up live-evaluation gates. The default
-remains `warn`; automatic checkpoint generation is opt-in until the published
-provider-quality gates pass.
+Roadmap Milestone 10 and Milestone 13.0-13.2 are implemented. The default
+remains `warn`; automatic checkpoint generation is opt-in until published
+provider-quality gates pass. The TUI now projects the complete next-request
+input, keeps a segmented pressure indicator visible, and exposes session-only
+or explicitly persisted automatic mode through `/context`.
 
 The first shipped Forge checkpoint uses a deterministic, redacted extractive
 summarizer so default tests and manual `/compact` make no paid model call. It
@@ -17,6 +18,12 @@ The checkpoint schema and adapter capability contract support opaque
 provider-native state, but the current OpenAI AI SDK and DeepSeek adapters
 advertise native compaction as unsupported because their active transports do
 not yet expose a safe compact-item round trip.
+
+The initial activation threshold is `0.78`. Input capacity subtracts
+`max(output reserve, safety buffer)` exactly once. Auto mode pauses when a
+compaction is cancelled, invalid, or reclaims less than the larger of 8,000
+tokens or 20% of projected input. Stable-prefix and cache observations are
+hash-only trace metadata; missing provider cache usage remains unavailable.
 
 ## Why this work is next
 

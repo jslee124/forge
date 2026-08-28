@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, mkdtemp, realpath, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { FileSessionStore, JsonlTraceWriter } from "@forge/persistence";
@@ -154,6 +154,68 @@ describe("persistent interactive session", () => {
           "Provider used 42 reasoning tokens but did not return reasoning text.",
       },
     ]);
+  });
+
+  it("enables pressure-driven compaction for one session without restoring the mode", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "forge-session-auto-"));
+    temporaryDirectories.push(root);
+    await mkdir(path.join(root, ".git"));
+    const env = { FORGE_HOME: path.join(root, "forge-home") };
+    const session = await createPersistentInteractiveSession({
+      cwd: root,
+      env,
+    });
+    session.selectModel("fake", "fake-small", 20_000);
+    for (let turn = 0; turn < 10; turn += 1) {
+      await session.recordRun(
+        `Goal and constraints ${turn}: ${"repository context ".repeat(180)}`,
+        completed(
+          `Touched src/file-${turn}.ts. Unresolved work remains. ${"verification provenance ".repeat(180)}`,
+        ),
+        {
+          runId: randomUUID(),
+          sessionId: await session.prepareRun(),
+          tracePersisted: false,
+        },
+      );
+    }
+    expect(session.contextDetails("continue").pressure.ratio).toBeGreaterThan(
+      0.78,
+    );
+    session.enableAutoForSession();
+    expect(session.contextDetails().pressure.mode).toBe("auto-session");
+
+    const id = await session.prepareRun("continue");
+    expect(session.contextCheckpoint).toBeDefined();
+
+    const resumed = await createPersistentInteractiveSession({
+      cwd: root,
+      env,
+      sessionId: id,
+    });
+    expect(resumed.contextDetails().pressure.mode).toBe("warn");
+    expect(resumed.contextCheckpoint).toBeDefined();
+  });
+
+  it("persists automatic compaction only after an explicit user action", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "forge-session-default-"));
+    temporaryDirectories.push(root);
+    await mkdir(path.join(root, ".git"));
+    const forgeHome = path.join(root, "forge-home");
+    const env = { FORGE_HOME: forgeHome };
+    const session = await createPersistentInteractiveSession({
+      cwd: root,
+      env,
+    });
+    session.enableAutoForSession();
+    await expect(
+      readFile(path.join(forgeHome, "config.json"), "utf8"),
+    ).rejects.toThrow();
+    const savedPath = await session.saveAutoDefault();
+    expect(savedPath).toBe(path.join(forgeHome, "config.json"));
+    expect(JSON.parse(await readFile(savedPath, "utf8"))).toMatchObject({
+      context: { mode: "compact" },
+    });
   });
 });
 

@@ -16,6 +16,7 @@ import {
   previewSessionCompaction,
   recordRunInSession,
   redactValue,
+  runEventSchema,
   summarizeTrace,
 } from "./index.js";
 
@@ -242,6 +243,40 @@ describe("persistent sessions", () => {
 });
 
 describe("JSONL run traces", () => {
+  it("validates every cross-cutting scoped decision and update state offline", () => {
+    for (const decision of ["allow-once", "allow-session", "deny"] as const) {
+      expect(
+        runEventSchema.safeParse({
+          type: "approval.scope-decision",
+          schemaVersion: 1,
+          actionId: "action-1",
+          decision,
+          ...(decision === "allow-session" ? { scopeId: "a".repeat(64) } : {}),
+          provenance: "user",
+          persisted: false,
+        }).success,
+      ).toBe(true);
+    }
+    for (const state of [
+      "cached",
+      "refreshing",
+      "available",
+      "current",
+      "failed",
+      "disabled",
+    ] as const) {
+      expect(
+        runEventSchema.safeParse({
+          type: "update.availability",
+          schemaVersion: 1,
+          state,
+          currentVersion: "0.3.2",
+          ...(state === "available" ? { latestVersion: "0.3.3" } : {}),
+          source: "npm-registry",
+        }).success,
+      ).toBe(true);
+    }
+  });
   it("persists and validates delegated-run linkage metadata", async () => {
     const home = await forgeHome();
     const runId = randomUUID();
@@ -312,6 +347,16 @@ describe("JSONL run traces", () => {
         step: 1,
         reasoningTokens: 2,
       },
+      {
+        type: "cache.observed",
+        schemaVersion: 1,
+        step: 1,
+        inputTokens: 10,
+        cacheReadTokens: 1,
+        cacheWriteTokens: 0,
+        uncachedInputTokens: 9,
+        hitRatio: 0.1,
+      },
       { type: "run.completed" },
     ];
     for (const event of events) await writer.append(event);
@@ -324,7 +369,9 @@ describe("JSONL run traces", () => {
     expect(raw).toContain("[REDACTED]");
 
     const envelopes = await new FileTraceStore(home).read(runId);
-    expect(envelopes.map(({ sequence }) => sequence)).toEqual([0, 1, 2, 3, 4]);
+    expect(envelopes.map(({ sequence }) => sequence)).toEqual([
+      0, 1, 2, 3, 4, 5,
+    ]);
     expect(summarizeTrace(envelopes)).toMatchObject({
       runId,
       sessionId,
@@ -332,6 +379,13 @@ describe("JSONL run traces", () => {
       toolCalls: 0,
       status: "completed",
       usage: { inputTokens: 10, outputTokens: 4, totalTokens: 14 },
+      cache: {
+        inputTokens: 10,
+        cacheReadTokens: 1,
+        cacheWriteTokens: 0,
+        uncachedInputTokens: 9,
+        hitRatio: 0.1,
+      },
     });
   });
 

@@ -43,6 +43,9 @@ export interface ContextConfiguration {
   readonly bufferTokens: number;
   readonly recentTailTokens: number;
   readonly summaryTargetTokens: number;
+  readonly activationThreshold?: number;
+  readonly minimumReclaimTokens?: number;
+  readonly minimumReclaimRatio?: number;
 }
 
 export const DEFAULT_CONTEXT_CONFIGURATION: ContextConfiguration = {
@@ -51,7 +54,73 @@ export const DEFAULT_CONTEXT_CONFIGURATION: ContextConfiguration = {
   bufferTokens: 8_192,
   recentTailTokens: 12_000,
   summaryTargetTokens: 1_200,
+  activationThreshold: 0.78,
+  minimumReclaimTokens: 8_000,
+  minimumReclaimRatio: 0.2,
 };
+
+export type ContextPressureMode =
+  | "off"
+  | "warn"
+  | "auto-session"
+  | "auto-default"
+  | "paused";
+
+export interface ContextPressureSnapshot {
+  readonly schemaVersion: 1;
+  readonly provider: string;
+  readonly modelId: string;
+  readonly estimatedInputTokens: number;
+  readonly availableInputTokens: number;
+  readonly ratio: number;
+  readonly confidence: "exact" | "estimated" | "unavailable";
+  readonly mode: ContextPressureMode;
+  readonly state:
+    | "normal"
+    | "elevated"
+    | "compact-soon"
+    | "compacting"
+    | "compacted"
+    | "critical"
+    | "paused";
+  readonly estimates: ContextTokenBreakdown;
+}
+
+export function contextPressureSnapshot(
+  budget: ContextBudgetReport,
+  mode: ContextPressureMode,
+  stateOverride?: ContextPressureSnapshot["state"],
+): ContextPressureSnapshot {
+  const ratio =
+    budget.availableInputTokens === 0
+      ? budget.estimatedInputTokens > 0
+        ? 1
+        : 0
+      : budget.estimatedInputTokens / budget.availableInputTokens;
+  const state =
+    stateOverride ??
+    (mode === "paused"
+      ? "paused"
+      : ratio >= 0.9
+        ? "critical"
+        : ratio >= 0.75
+          ? "compact-soon"
+          : ratio >= 0.5
+            ? "elevated"
+            : "normal");
+  return {
+    schemaVersion: 1,
+    provider: budget.provider,
+    modelId: budget.modelId,
+    estimatedInputTokens: budget.estimatedInputTokens,
+    availableInputTokens: budget.availableInputTokens,
+    ratio,
+    confidence: budget.estimationConfidence,
+    mode,
+    state,
+    estimates: budget.estimates,
+  };
+}
 
 export interface ContextTokenBreakdown {
   readonly instructions: number;

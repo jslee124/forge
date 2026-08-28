@@ -18,7 +18,7 @@
     "check": "biome check . && pnpm typecheck",
     "check:docs": "node scripts/check-docs.mjs && node scripts/build-doc-index.mjs --check",
     "clean": "tsc -b --clean",
-    "eval:deterministic": "pnpm build && vitest run packages/tools/src/recovery.test.ts packages/core/src/context.test.ts packages/core/src/runtime.test.ts evals/src/resource-evaluation.test.ts evals/src/evaluation.test.ts evals/src/context-evaluation.test.ts",
+    "eval:deterministic": "pnpm build && vitest run packages/tools/src/recovery.test.ts packages/core/src/cache.test.ts packages/core/src/context.test.ts packages/core/src/runtime.test.ts evals/src/resource-evaluation.test.ts evals/src/evaluation.test.ts evals/src/context-evaluation.test.ts evals/src/m13-baseline.test.ts",
     "eval:live": "pnpm build && pnpm --filter @forge/evals live",
     "forge": "tsc -b && node apps/cli/dist/index.js",
     "format": "biome format --write .",

@@ -101,6 +101,56 @@ function fakeReadTool(executions: string[]): ForgeTool {
 }
 
 describe("native agent runtime", () => {
+  it("keeps unavailable cache telemetry distinct from provider-reported zero", async () => {
+    const unavailable = new ScriptedModel([
+      [
+        {
+          type: "finish",
+          finishReason: "stop",
+          usage: {
+            inputTokens: undefined,
+            outputTokens: 1,
+            reasoningTokens: undefined,
+            cachedInputTokens: undefined,
+            cacheWriteTokens: undefined,
+            totalTokens: 1,
+          },
+        },
+      ],
+    ]);
+    const result = await runAgent({
+      prompt: "cache",
+      model: unavailable,
+      tools: [],
+      policy: new ReadOnlyPolicy(),
+      toolContext,
+      signal: toolContext.signal,
+    });
+    expect(result.events).toContainEqual({
+      type: "cache.observed",
+      schemaVersion: 1,
+      step: 1,
+    });
+
+    const zero = await runAgent({
+      prompt: "cache",
+      model: new ScriptedModel([[finish("stop")]]),
+      tools: [],
+      policy: new ReadOnlyPolicy(),
+      toolContext,
+      signal: toolContext.signal,
+    });
+    expect(zero.events).toContainEqual(
+      expect.objectContaining({
+        type: "cache.observed",
+        inputTokens: 1,
+        cacheReadTokens: 0,
+        uncachedInputTokens: 1,
+        hitRatio: 0,
+      }),
+    );
+  });
+
   it("emits a preflight and stops mandatory overflow before a provider call", async () => {
     let calls = 0;
     const model: ModelAdapter = {
@@ -204,6 +254,80 @@ describe("native agent runtime", () => {
     expect(executions).toEqual(["a.ts"]);
     expect(requests).toHaveLength(3);
     expect(requests[2]?.continuation?.data).toEqual({ projected: true });
+  });
+
+  it("compacts at projected pressure before a hard overflow", async () => {
+    const requests: ModelRequest[] = [];
+    let step = 0;
+    const model: ModelAdapter = {
+      promptCache: { mode: "unsupported" },
+      context: {
+        provider: "fake",
+        modelId: "pressure",
+        contextWindowTokens: 12_000,
+        contextWindowSource: "adapter-table",
+        maxOutputTokens: 2_000,
+        nativeCompaction: "unsupported",
+        continuationProjection: "adapter-owned",
+        estimateRequestTokens: async (request) => ({
+          tokens:
+            request.continuation &&
+            (request.continuation.data as { projected?: boolean }).projected
+              ? 3_000
+              : request.continuation
+                ? 9_000
+                : 1_000,
+          method: "sdk",
+          confidence: "exact",
+        }),
+        projectContinuation: async (continuation) => ({
+          provider: continuation.provider,
+          data: { projected: true },
+        }),
+      },
+      stream: async function* (request) {
+        requests.push(request);
+        step += 1;
+        if (step === 1) {
+          yield toolCall("pressure-tool", "a.ts");
+          yield {
+            ...finish("tool-calls"),
+            continuation: { provider: "fake", data: { projected: false } },
+          };
+          return;
+        }
+        yield { type: "text.delta", text: "Compacted before overflow." };
+        yield finish("stop");
+      },
+    };
+    const result = await runAgent({
+      prompt: "pressure",
+      model,
+      tools: [fakeReadTool([])],
+      policy: new ReadOnlyPolicy(),
+      toolContext,
+      signal: toolContext.signal,
+      contextPressureMode: "auto-session",
+      contextConfiguration: {
+        mode: "compact",
+        reservedOutputTokens: 2_000,
+        bufferTokens: 1_000,
+        recentTailTokens: 1_000,
+        summaryTargetTokens: 500,
+        activationThreshold: 0.78,
+        minimumReclaimTokens: 100,
+        minimumReclaimRatio: 0.2,
+      },
+    });
+    expect(result.status).toBe("completed");
+    expect(requests[1]?.continuation?.data).toEqual({ projected: true });
+    expect(result.events).toContainEqual(
+      expect.objectContaining({
+        type: "context.compaction.completed",
+        estimatedBeforeTokens: 9_000,
+        estimatedAfterTokens: 3_000,
+      }),
+    );
   });
 
   it("does not retry an overflow after partial assistant output", async () => {

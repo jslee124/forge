@@ -1,9 +1,15 @@
-import { loadForgeConfig, type ProviderProfile } from "@forge/config";
+import {
+  loadForgeConfig,
+  type ProviderProfile,
+  saveUserContextMode,
+} from "@forge/config";
 import type {
+  ContextPressureSnapshot,
   ModelConversationMessage,
   RunResult,
   WorkspaceContext,
 } from "@forge/core";
+import { conservativeTextTokens } from "@forge/core";
 import { deepSeekModelContext } from "@forge/model-deepseek";
 import { openAIModelContext } from "@forge/model-openai";
 import {
@@ -27,7 +33,7 @@ export interface InteractiveSessionPersistence {
   readonly reasoning?: readonly SessionReasoning[];
   readonly sessionId: string | undefined;
   readonly contextCheckpoint?: ContextCheckpoint | undefined;
-  prepareRun(): Promise<string>;
+  prepareRun(prompt?: string, imageCount?: number): Promise<string>;
   recordRun(
     prompt: string,
     result: RunResult,
@@ -36,9 +42,12 @@ export interface InteractiveSessionPersistence {
   clear(): void;
   list(): Promise<readonly SessionSummary[]>;
   resume(sessionId: string): Promise<readonly ModelConversationMessage[]>;
-  contextDetails?(): ContextStatus;
+  contextDetails?(draft?: string, imageCount?: number): ContextStatus;
   contextStatus?(): string;
   compact?(dryRun: boolean): Promise<string>;
+  enableAutoForSession?(): void;
+  saveAutoDefault?(): Promise<string>;
+  pauseAuto?(): void;
   selectModel?(
     provider: string,
     modelId: string,
@@ -56,12 +65,17 @@ interface PersistentContextOptions {
   readonly bufferTokens: number;
   readonly contextWindowTokens: number;
   readonly secrets: readonly string[];
+  readonly activationThreshold: number;
+  readonly minimumReclaimTokens: number;
+  readonly minimumReclaimRatio: number;
 }
 
 export interface ContextStatus {
   readonly provider: string;
   readonly modelId: string;
   readonly mode: PersistentContextOptions["mode"];
+  readonly pressure: ContextPressureSnapshot;
+  readonly activationThreshold: number;
   readonly contextWindowTokens: number;
   readonly reservedOutputTokens: number;
   readonly bufferTokens: number;
@@ -74,6 +88,12 @@ export interface ContextStatus {
   readonly activeTailStartIndex: number;
   readonly estimatedTranscriptTokens: number;
   readonly projectedCompactedTokens: number;
+  readonly lastCompaction?: {
+    readonly estimatedBeforeTokens: number;
+    readonly estimatedAfterTokens: number;
+    readonly reclaimedTokens: number;
+    readonly strategy: string;
+  };
   readonly checkpoint:
     | {
         readonly status: "none";
@@ -94,6 +114,11 @@ export class PersistentInteractiveSession
   readonly #workspace: WorkspaceContext;
   #snapshot: SessionSnapshot | undefined;
   #context: PersistentContextOptions;
+  readonly #cwd: string;
+  readonly #env: NodeJS.ProcessEnv;
+  #sessionMode: ContextPressureSnapshot["mode"];
+  #lastPressure: ContextPressureSnapshot | undefined;
+  #lastCompaction: ContextStatus["lastCompaction"] | undefined;
 
   constructor(options: {
     readonly store: FileSessionStore;
@@ -101,12 +126,20 @@ export class PersistentInteractiveSession
     readonly workspace: WorkspaceContext;
     readonly snapshot?: SessionSnapshot;
     readonly context: PersistentContextOptions;
+    readonly cwd: string;
+    readonly env: NodeJS.ProcessEnv;
   }) {
     this.#store = options.store;
     this.#traceStore = options.traceStore;
     this.#workspace = options.workspace;
     this.#snapshot = options.snapshot;
     this.#context = options.context;
+    this.#cwd = options.cwd;
+    this.#env = options.env;
+    this.#sessionMode =
+      options.context.mode === "compact"
+        ? "auto-default"
+        : options.context.mode;
   }
 
   get messages(): readonly ModelConversationMessage[] {
@@ -125,23 +158,46 @@ export class PersistentInteractiveSession
     return this.#snapshot?.contextCheckpoint;
   }
 
-  async prepareRun(): Promise<string> {
+  async prepareRun(prompt = "", imageCount = 0): Promise<string> {
     if (!this.#snapshot) {
       this.#snapshot = this.#store.create(this.#workspace);
     }
+    const pressure = this.contextDetails(prompt, imageCount).pressure;
     if (
-      this.#context.mode === "compact" &&
+      (this.#sessionMode === "auto-session" ||
+        this.#sessionMode === "auto-default") &&
+      pressure.ratio >= this.#context.activationThreshold &&
       this.#snapshot.messages.length > 0 &&
       !isCheckpointValid(this.#snapshot)
     ) {
       const preview = previewSessionCompaction(this.#snapshot, this.#context);
       if (preview.eligibleMessageCount > 0) {
+        const reclaimed = Math.max(
+          0,
+          preview.estimatedBeforeTokens - preview.estimatedAfterTokens,
+        );
+        const minimumUseful = Math.max(
+          this.#context.minimumReclaimTokens,
+          Math.ceil(
+            pressure.estimatedInputTokens * this.#context.minimumReclaimRatio,
+          ),
+        );
+        if (reclaimed < minimumUseful) {
+          this.#sessionMode = "paused";
+          return this.#snapshot.id;
+        }
         const compacted = createForgeSummaryCheckpoint(
           this.#snapshot,
           this.#context,
         );
         await this.#store.save(compacted);
         this.#snapshot = compacted;
+        this.#lastCompaction = {
+          estimatedBeforeTokens: preview.estimatedBeforeTokens,
+          estimatedAfterTokens: preview.estimatedAfterTokens,
+          reclaimedTokens: reclaimed,
+          strategy: "forge-summary",
+        };
       }
     }
     return this.#snapshot.id;
@@ -162,6 +218,34 @@ export class PersistentInteractiveSession
       status: result.status,
       runId: metadata.runId,
     });
+    const lastPressure = [...result.events]
+      .reverse()
+      .find(
+        (
+          event,
+        ): event is Extract<
+          (typeof result.events)[number],
+          { readonly type: "context.pressure" }
+        > => event.type === "context.pressure",
+      );
+    if (lastPressure) this.#lastPressure = lastPressure.snapshot;
+    const lastCompaction = [...result.events]
+      .reverse()
+      .find(
+        (
+          event,
+        ): event is Extract<
+          (typeof result.events)[number],
+          { readonly type: "context.compaction.completed" }
+        > => event.type === "context.compaction.completed",
+      );
+    if (lastCompaction) this.#lastCompaction = lastCompaction;
+    if (
+      result.events.some(({ type }) => type === "context.auto-paused") ||
+      result.status === "cancelled"
+    ) {
+      this.#sessionMode = "paused";
+    }
     if (this.#snapshot.messages.length > 0) {
       await this.#store.save(this.#snapshot);
     }
@@ -169,6 +253,7 @@ export class PersistentInteractiveSession
 
   clear(): void {
     this.#snapshot = undefined;
+    this.#resetTransientContext();
   }
 
   list(): Promise<readonly SessionSummary[]> {
@@ -178,6 +263,7 @@ export class PersistentInteractiveSession
   async resume(
     sessionId: string,
   ): Promise<readonly ModelConversationMessage[]> {
+    this.#resetTransientContext();
     this.#snapshot = await this.#store.loadForWorkspace(
       sessionId,
       this.#workspace.root,
@@ -193,7 +279,7 @@ export class PersistentInteractiveSession
     return this.#snapshot.messages;
   }
 
-  contextDetails(): ContextStatus {
+  contextDetails(draft = "", imageCount = 0): ContextStatus {
     const effectiveReserveTokens = Math.max(
       this.#context.reservedOutputTokens,
       this.#context.bufferTokens,
@@ -207,11 +293,64 @@ export class PersistentInteractiveSession
       ? previewSessionCompaction(this.#snapshot, this.#context)
       : undefined;
     const checkpoint = this.#snapshot?.contextCheckpoint;
+    const activeTranscriptTokens =
+      checkpoint && this.#snapshot && isCheckpointValid(this.#snapshot)
+        ? (preview?.estimatedAfterTokens ?? 0)
+        : (preview?.estimatedBeforeTokens ?? 0);
+    const previousFixedTokens = this.#lastPressure
+      ? Math.max(
+          0,
+          this.#lastPressure.estimatedInputTokens -
+            this.#lastPressure.estimates.conversationHistory -
+            this.#lastPressure.estimates.currentRequest,
+        )
+      : 0;
+    const currentRequestTokens =
+      conservativeTextTokens(draft) + imageCount * 4_096;
+    const estimatedInputTokens =
+      previousFixedTokens + activeTranscriptTokens + currentRequestTokens;
+    const ratio =
+      availableInputTokens === 0
+        ? estimatedInputTokens > 0
+          ? 1
+          : 0
+        : estimatedInputTokens / availableInputTokens;
+    const pressureState =
+      this.#sessionMode === "paused"
+        ? "paused"
+        : ratio >= 0.9
+          ? "critical"
+          : ratio >= this.#context.activationThreshold
+            ? "compact-soon"
+            : ratio >= 0.5
+              ? "elevated"
+              : "normal";
+    const pressure: ContextPressureSnapshot = {
+      schemaVersion: 1,
+      provider: this.#context.provider,
+      modelId: this.#context.modelId,
+      estimatedInputTokens,
+      availableInputTokens,
+      ratio,
+      confidence: this.#lastPressure ? "estimated" : "unavailable",
+      mode: this.#sessionMode,
+      state: pressureState,
+      estimates: {
+        instructions: this.#lastPressure?.estimates.instructions ?? 0,
+        currentRequest: currentRequestTokens,
+        toolSchemas: this.#lastPressure?.estimates.toolSchemas ?? 0,
+        conversationHistory: activeTranscriptTokens,
+        continuation: 0,
+        toolResults: 0,
+      },
+    };
 
     return {
       provider: this.#context.provider,
       modelId: this.#context.modelId,
       mode: this.#context.mode,
+      pressure,
+      activationThreshold: this.#context.activationThreshold,
       contextWindowTokens: this.#context.contextWindowTokens,
       reservedOutputTokens: this.#context.reservedOutputTokens,
       bufferTokens: this.#context.bufferTokens,
@@ -224,6 +363,7 @@ export class PersistentInteractiveSession
       activeTailStartIndex: preview?.retainedTailStartIndex ?? 0,
       estimatedTranscriptTokens: preview?.estimatedBeforeTokens ?? 0,
       projectedCompactedTokens: preview?.estimatedAfterTokens ?? 0,
+      ...(this.#lastCompaction ? { lastCompaction: this.#lastCompaction } : {}),
       checkpoint: checkpoint
         ? {
             status:
@@ -267,7 +407,43 @@ export class PersistentInteractiveSession
     const next = createForgeSummaryCheckpoint(this.#snapshot, this.#context);
     await this.#store.save(next);
     this.#snapshot = next;
-    return `Compacted ${preview.eligibleMessageCount} completed messages into an untrusted conversation-memory checkpoint. Retained ${preview.retainedMessageCount} recent messages verbatim; the full canonical transcript is unchanged.`;
+    const reclaimed = Math.max(
+      0,
+      preview.estimatedBeforeTokens - preview.estimatedAfterTokens,
+    );
+    this.#lastCompaction = {
+      estimatedBeforeTokens: preview.estimatedBeforeTokens,
+      estimatedAfterTokens: preview.estimatedAfterTokens,
+      reclaimedTokens: reclaimed,
+      strategy: "forge-summary",
+    };
+    return `Context compacted · ${preview.estimatedBeforeTokens} -> ${preview.estimatedAfterTokens} tokens · Forge summary · retained ${preview.retainedMessageCount} recent messages. The full canonical transcript is unchanged.`;
+  }
+
+  enableAutoForSession(): void {
+    this.#sessionMode = "auto-session";
+  }
+
+  pauseAuto(): void {
+    this.#sessionMode = "paused";
+  }
+
+  async saveAutoDefault(): Promise<string> {
+    const saved = await saveUserContextMode({
+      cwd: this.#cwd,
+      env: this.#env,
+      mode: "compact",
+    });
+    this.#context = { ...this.#context, mode: "compact" };
+    this.#sessionMode = "auto-default";
+    return saved;
+  }
+
+  #resetTransientContext(): void {
+    this.#sessionMode =
+      this.#context.mode === "compact" ? "auto-default" : this.#context.mode;
+    this.#lastPressure = undefined;
+    this.#lastCompaction = undefined;
   }
 
   selectModel(
@@ -275,6 +451,7 @@ export class PersistentInteractiveSession
     modelId: string,
     contextWindowTokens?: number,
   ): void {
+    this.#lastPressure = undefined;
     this.#context = {
       ...this.#context,
       provider,
@@ -317,6 +494,8 @@ export async function createPersistentInteractiveSession(options: {
     store,
     traceStore,
     workspace,
+    cwd: options.cwd,
+    env: options.env,
     ...(snapshot ? { snapshot } : {}),
     context: {
       mode: loaded.config.context.mode,
@@ -332,6 +511,9 @@ export async function createPersistentInteractiveSession(options: {
         loaded.config.providers,
       ),
       secrets: configuredSecrets(options.env),
+      activationThreshold: loaded.config.context.activationThreshold,
+      minimumReclaimTokens: loaded.config.context.minimumReclaimTokens,
+      minimumReclaimRatio: loaded.config.context.minimumReclaimRatio,
     },
   });
 }

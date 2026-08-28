@@ -1,7 +1,15 @@
 import {
+  observePromptPrefix,
+  type PromptPrefixInputs,
+  type PromptPrefixObservation,
+} from "./cache.js";
+import {
   budgetModelRequest,
   type ContextBudgetReport,
   type ContextConfiguration,
+  type ContextPressureMode,
+  type ContextPressureSnapshot,
+  contextPressureSnapshot,
   DEFAULT_CONTEXT_CONFIGURATION,
 } from "./context.js";
 import type {
@@ -101,6 +109,59 @@ export type RunEvent =
       readonly type: "context.budgeted";
       readonly step: number;
       readonly budget: ContextBudgetReport;
+    }
+  | {
+      readonly type: "context.pressure";
+      readonly step: number;
+      readonly snapshot: ContextPressureSnapshot;
+    }
+  | {
+      readonly type: "cache.prefix";
+      readonly step: number;
+      readonly observation: PromptPrefixObservation;
+    }
+  | {
+      readonly type: "cache.observed";
+      readonly schemaVersion: 1;
+      readonly step: number;
+      readonly inputTokens?: number;
+      readonly cacheReadTokens?: number;
+      readonly cacheWriteTokens?: number;
+      readonly uncachedInputTokens?: number;
+      readonly hitRatio?: number;
+    }
+  | {
+      readonly type: "approval.scope-decision";
+      readonly schemaVersion: 1;
+      readonly actionId: string;
+      readonly decision: "allow-once" | "allow-session" | "deny";
+      readonly scopeId?: string;
+      readonly provenance: "user" | "policy";
+      readonly persisted: false;
+    }
+  | {
+      readonly type: "update.availability";
+      readonly schemaVersion: 1;
+      readonly state:
+        | "cached"
+        | "refreshing"
+        | "available"
+        | "current"
+        | "failed"
+        | "disabled";
+      readonly currentVersion: string;
+      readonly latestVersion?: string;
+      readonly source: "npm-registry";
+    }
+  | {
+      readonly type: "context.auto-paused";
+      readonly step: number;
+      readonly reason:
+        | "cancelled"
+        | "invalid-output"
+        | "repeated-failure"
+        | "low-reclamation";
+      readonly message: string;
     }
   | {
       readonly type: "context.warning" | "context.limit_reached";
@@ -206,10 +267,13 @@ export interface RunAgentOptions {
   readonly prompt: string;
   readonly images?: readonly ModelImageInput[];
   readonly context?: RunContextSnapshot;
+  readonly sessionId?: string;
   readonly instructions?: string;
   readonly conversation?: readonly ModelConversationMessage[];
   readonly omittedConversationMessages?: number;
   readonly contextConfiguration?: ContextConfiguration;
+  readonly contextPressureMode?: ContextPressureMode;
+  readonly promptPrefix?: PromptPrefixInputs;
   readonly model: ModelAdapter;
   readonly tools: readonly ForgeTool[];
   readonly policy: ApprovalPolicy;
@@ -256,6 +320,9 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
   let toolResults: readonly ModelToolResult[] | undefined;
   let finalText = "";
   let overflowRecoveryUsed = false;
+  let previousPrefix: PromptPrefixObservation | undefined;
+  let activePromptPrefix = options.promptPrefix;
+  let autoCompactionPaused = options.contextPressureMode === "paused";
   const selectedSkillIds = new Set(
     (options.initialEvents ?? [])
       .filter(
@@ -268,6 +335,11 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
   );
   const contextConfiguration =
     options.contextConfiguration ?? DEFAULT_CONTEXT_CONFIGURATION;
+  const pressureMode =
+    options.contextPressureMode ??
+    (contextConfiguration.mode === "compact"
+      ? "auto-default"
+      : contextConfiguration.mode);
 
   for (const event of options.initialEvents ?? []) await emit(event);
 
@@ -287,7 +359,7 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
     }
 
     const nextStep = modelSteps + 1;
-    let request = {
+    let request: import("./model.js").ModelRequest = {
       prompt: options.prompt,
       ...(options.images?.length ? { images: options.images } : {}),
       ...(options.instructions ? { instructions: options.instructions } : {}),
@@ -296,6 +368,30 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
       ...(continuation ? { continuation } : {}),
       ...(toolResults ? { toolResults } : {}),
     };
+    if (activePromptPrefix) {
+      const observation = observePromptPrefix({
+        request,
+        inputs: activePromptPrefix,
+        capabilities: options.model.promptCache ?? { mode: "unsupported" },
+        ...(previousPrefix ? { previous: previousPrefix } : {}),
+        ...(options.sessionId ? { sessionId: options.sessionId } : {}),
+        ...(options.context?.workspaceRoot
+          ? { workspaceRoot: options.context.workspaceRoot }
+          : {}),
+      });
+      previousPrefix = observation;
+      await emit({ type: "cache.prefix", step: nextStep, observation });
+      if (observation.cacheMode !== "unsupported") {
+        request = {
+          ...request,
+          cacheControl: {
+            mode: observation.cacheMode,
+            ...(observation.cacheKey ? { key: observation.cacheKey } : {}),
+            stablePrefixHash: observation.stablePrefixHash,
+          },
+        };
+      }
+    }
     let budget = await budgetModelRequest({
       model: options.model,
       request,
@@ -304,10 +400,22 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
         ? { omittedMessageCount: options.omittedConversationMessages }
         : {}),
     });
+    let pressure = contextPressureSnapshot(
+      budget,
+      autoCompactionPaused ? "paused" : pressureMode,
+    );
+    await emit({
+      type: "context.pressure",
+      step: nextStep,
+      snapshot: pressure,
+    });
     const capabilities = options.model.context;
+    const activationThreshold =
+      contextConfiguration.activationThreshold ?? 0.78;
     if (
       contextConfiguration.mode === "compact" &&
-      !budget.fits &&
+      !autoCompactionPaused &&
+      pressure.ratio >= activationThreshold &&
       continuation &&
       capabilities?.projectContinuation
     ) {
@@ -335,9 +443,52 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
           0,
           budget.estimatedInputTokens - projectedBudget.estimatedInputTokens,
         );
-        if (reclaimedTokens >= 128) {
+        const minimumUsefulReclamation = Math.max(
+          contextConfiguration.minimumReclaimTokens ?? 8_000,
+          Math.ceil(
+            budget.estimatedInputTokens *
+              (contextConfiguration.minimumReclaimRatio ?? 0.2),
+          ),
+        );
+        if (reclaimedTokens >= minimumUsefulReclamation) {
           request = projectedRequest;
           continuation = projected;
+          if (activePromptPrefix) {
+            activePromptPrefix = {
+              ...activePromptPrefix,
+              checkpointGeneration: `${activePromptPrefix.checkpointGeneration}:adapter-${nextStep}`,
+            };
+            const compactedPrefix = observePromptPrefix({
+              request,
+              inputs: activePromptPrefix,
+              capabilities: options.model.promptCache ?? {
+                mode: "unsupported",
+              },
+              ...(previousPrefix ? { previous: previousPrefix } : {}),
+              ...(options.sessionId ? { sessionId: options.sessionId } : {}),
+              ...(options.context?.workspaceRoot
+                ? { workspaceRoot: options.context.workspaceRoot }
+                : {}),
+            });
+            previousPrefix = compactedPrefix;
+            await emit({
+              type: "cache.prefix",
+              step: nextStep,
+              observation: compactedPrefix,
+            });
+            if (compactedPrefix.cacheMode !== "unsupported") {
+              request = {
+                ...request,
+                cacheControl: {
+                  mode: compactedPrefix.cacheMode,
+                  ...(compactedPrefix.cacheKey
+                    ? { key: compactedPrefix.cacheKey }
+                    : {}),
+                  stablePrefixHash: compactedPrefix.stablePrefixHash,
+                },
+              };
+            }
+          }
           await emit({
             type: "context.compaction.completed",
             step: nextStep,
@@ -347,12 +498,30 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
             reclaimedTokens,
           });
           budget = projectedBudget;
+          pressure = contextPressureSnapshot(
+            projectedBudget,
+            pressureMode,
+            "compacted",
+          );
+          await emit({
+            type: "context.pressure",
+            step: nextStep,
+            snapshot: pressure,
+          });
         } else {
           await emit({
             type: "context.compaction.failed",
             step: nextStep,
             strategy: "adapter-continuation",
-            message: `Continuation projection reclaimed only ${reclaimedTokens} tokens; minimum useful reclamation is 128.`,
+            message: `Continuation projection reclaimed only ${reclaimedTokens} tokens; minimum useful reclamation is ${minimumUsefulReclamation}.`,
+          });
+          autoCompactionPaused = true;
+          await emit({
+            type: "context.auto-paused",
+            step: nextStep,
+            reason: "low-reclamation",
+            message:
+              "Automatic compaction paused because projection reclaimed too little context.",
           });
         }
       } else {
@@ -361,6 +530,14 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
           step: nextStep,
           strategy: "adapter-continuation",
           message: "The adapter could not safely project its continuation.",
+        });
+        autoCompactionPaused = true;
+        await emit({
+          type: "context.auto-paused",
+          step: nextStep,
+          reason: "invalid-output",
+          message:
+            "Automatic compaction paused because the adapter returned no safe projection.",
         });
       }
     }
@@ -446,6 +623,7 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
       finishReason: step.finishReason,
       usage: step.usage,
     });
+    await emit(cacheObservation(modelSteps, step.usage));
     if (step.usage.inputTokens !== undefined) {
       const absoluteErrorTokens = Math.abs(
         step.usage.inputTokens - budget.estimatedInputTokens,
@@ -876,6 +1054,37 @@ function toModelToolDefinitions(
     description,
     inputSchema,
   }));
+}
+
+function cacheObservation(
+  step: number,
+  usage: ModelUsage,
+): Extract<RunEvent, { readonly type: "cache.observed" }> {
+  const inputTokens = usage.inputTokens;
+  const cacheReadTokens = usage.cachedInputTokens;
+  const cacheWriteTokens = usage.cacheWriteTokens;
+  const uncachedInputTokens =
+    inputTokens !== undefined && cacheReadTokens !== undefined
+      ? Math.max(0, inputTokens - cacheReadTokens)
+      : undefined;
+  const hitRatio =
+    inputTokens !== undefined &&
+    cacheReadTokens !== undefined &&
+    inputTokens > 0
+      ? Math.min(1, cacheReadTokens / inputTokens)
+      : inputTokens === 0 && cacheReadTokens === 0
+        ? 0
+        : undefined;
+  return {
+    type: "cache.observed",
+    schemaVersion: 1,
+    step,
+    ...(inputTokens !== undefined ? { inputTokens } : {}),
+    ...(cacheReadTokens !== undefined ? { cacheReadTokens } : {}),
+    ...(cacheWriteTokens !== undefined ? { cacheWriteTokens } : {}),
+    ...(uncachedInputTokens !== undefined ? { uncachedInputTokens } : {}),
+    ...(hitRatio !== undefined ? { hitRatio } : {}),
+  };
 }
 
 class RunCancellationError extends Error {}

@@ -218,6 +218,26 @@ describe("Ink interactive terminal", () => {
       provider: "deepseek",
       modelId: "deepseek-v4-flash",
       mode: "warn",
+      activationThreshold: 0.78,
+      pressure: {
+        schemaVersion: 1,
+        provider: "deepseek",
+        modelId: "deepseek-v4-flash",
+        estimatedInputTokens: 14_336,
+        availableInputTokens: 24_576,
+        ratio: 14_336 / 24_576,
+        confidence: "estimated",
+        mode: "warn",
+        state: "elevated",
+        estimates: {
+          instructions: 2_000,
+          currentRequest: 96,
+          toolSchemas: 2_000,
+          conversationHistory: 10_240,
+          continuation: 0,
+          toolResults: 0,
+        },
+      },
       contextWindowTokens: 32_768,
       reservedOutputTokens: 4_096,
       bufferTokens: 8_192,
@@ -237,6 +257,7 @@ describe("Ink interactive terminal", () => {
         estimatedTokens: 1_200,
       },
     };
+    let autoEnabled = false;
     const sessionPersistence: InteractiveSessionPersistence = {
       messages: [],
       sessionId: undefined,
@@ -245,7 +266,16 @@ describe("Ink interactive terminal", () => {
       clear: () => undefined,
       list: async () => [],
       resume: async () => [],
-      contextDetails: () => contextStatus,
+      contextDetails: () => ({
+        ...contextStatus,
+        pressure: {
+          ...contextStatus.pressure,
+          mode: autoEnabled ? "auto-session" : "warn",
+        },
+      }),
+      enableAutoForSession: () => {
+        autoEnabled = true;
+      },
     };
     const instance = render(
       <InteractiveApp
@@ -263,12 +293,18 @@ describe("Ink interactive terminal", () => {
     await settle();
 
     const frame = instance.lastFrame() ?? "";
-    expect(frame).toContain("Context window");
-    expect(frame).toContain("42% history");
+    expect(frame).toContain("Context management");
+    expect(frame).toContain("~58% projected");
+    expect(frame).toContain("Pressure breakdown");
     expect(frame).toContain("deepseek/deepseek-v4-flash");
     expect(frame).toContain("Conversation");
     expect(frame).toContain("forge-summary ready");
+    expect(frame).toContain("a auto this session");
+    expect(frame).toContain("◑ ~58% context · warn");
     expect(frame).not.toContain("Configured categories:");
+    instance.stdin.write("a");
+    await settle();
+    expect(instance.lastFrame()).toContain("automatic for this session");
     instance.unmount();
   });
 

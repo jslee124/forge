@@ -265,6 +265,10 @@ export function createForgeSummaryCheckpoint(
         "no-approval-state",
         "no-policy-authority",
       ],
+      generation: {
+        incurredProviderUsage: false,
+        durationMs: 0,
+      },
     },
   };
 }

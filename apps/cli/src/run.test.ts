@@ -339,6 +339,22 @@ describe("forge run", () => {
     expect(runStarted?.event?.context?.instructionPaths).toContain(
       path.join(root, "AGENTS.md"),
     );
+    const traceEvents = trace
+      .split("\n")
+      .filter(Boolean)
+      .map((line) => (JSON.parse(line) as { readonly event: RunEvent }).event);
+    const prefixes = traceEvents.filter(
+      (event): event is Extract<RunEvent, { readonly type: "cache.prefix" }> =>
+        event.type === "cache.prefix",
+    );
+    expect(prefixes).toHaveLength(2);
+    expect(prefixes[1]?.observation.stablePrefixHash).toBe(
+      prefixes[0]?.observation.stablePrefixHash,
+    );
+    expect(prefixes[1]?.observation.invalidatedBy).toEqual([]);
+    expect(
+      traceEvents.filter(({ type }) => type === "cache.observed"),
+    ).toHaveLength(2);
     expect(model.requests[1]?.toolResults?.[0]).toMatchObject({
       callId: "read-1",
       result: {

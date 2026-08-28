@@ -125,6 +125,9 @@ describe("Forge configuration", () => {
           mode: "warn",
           bufferTokens: 4_000,
           recentTailTokens: 2_000,
+          activationThreshold: 0.78,
+          minimumReclaimTokens: 8_000,
+          minimumReclaimRatio: 0.2,
         },
       }),
     );
@@ -136,6 +139,9 @@ describe("Forge configuration", () => {
           mode: "compact",
           bufferTokens: 8_000,
           recentTailTokens: 1_000,
+          activationThreshold: 0.9,
+          minimumReclaimTokens: 12_000,
+          minimumReclaimRatio: 0.4,
         },
       }),
     );
@@ -148,6 +154,9 @@ describe("Forge configuration", () => {
       mode: "compact",
       bufferTokens: 8_000,
       recentTailTokens: 1_000,
+      activationThreshold: 0.78,
+      minimumReclaimTokens: 8_000,
+      minimumReclaimRatio: 0.2,
     });
     expect(loaded.provenance["context.mode"].kind).toBe("project");
     expect(loaded.provenance["context.bufferTokens"].kind).toBe("project");
