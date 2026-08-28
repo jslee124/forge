@@ -8,14 +8,19 @@ import {
 } from "@forge/config";
 import {
   type ApprovalChannel,
+  type ApprovalDescriptor,
+  type ApprovalResponse,
   AutomaticWorkspaceWritePolicy,
+  describeApproval,
   type ForgeTool,
+  formatApprovalScope,
   type ModelAdapter,
   ModelConfigurationError,
   type ModelConversationMessage,
   type RunEvent,
   type RunResult,
   runAgent,
+  SessionApprovalStore,
   sha256,
   type ToolContext,
   type ToolResult,
@@ -71,6 +76,7 @@ export interface RunDependencies {
   readonly stderr: WritableOutput;
   readonly signal: AbortSignal;
   readonly approvalChannel?: ApprovalChannel;
+  readonly approvalStore?: SessionApprovalStore;
   readonly conversation?: readonly ModelConversationMessage[];
   readonly contextCheckpoint?: ContextCheckpoint;
   readonly contextPressureMode?: import("@forge/core").ContextPressureMode;
@@ -236,6 +242,14 @@ export async function runTask(
       loaded.workspaceRoot,
       loaded.workingDirectory,
     );
+    const approvalStore =
+      dependencies.approvalStore ??
+      (dependencies.approvalChannel
+        ? new SessionApprovalStore({
+            workspaceRoot: workspace.root,
+            sessionId: dependencies.sessionId ?? runId,
+          })
+        : undefined);
     const policy = pluginHost.extendPolicy(
       loaded.config.permissionProfile === "workspace-write"
         ? new AutomaticWorkspaceWritePolicy()
@@ -344,6 +358,7 @@ export async function runTask(
           ...(dependencies.approvalChannel
             ? { approvalChannel: dependencies.approvalChannel }
             : {}),
+          ...(approvalStore ? { approvalStore } : {}),
           toolContext: context,
           signal: context.signal,
           limits: { maxModelSteps, maxToolCalls },
@@ -414,6 +429,7 @@ export async function runTask(
       ...(dependencies.approvalChannel
         ? { approvalChannel: dependencies.approvalChannel }
         : {}),
+      ...(approvalStore ? { approvalStore } : {}),
       toolContext,
       signal: dependencies.signal,
       limits: {
@@ -715,109 +731,146 @@ export function createApprovalChannel(
     readonly onSubagentPreview?: (preview: SubagentApprovalPreview) => void;
   } = {},
 ): ApprovalChannel {
+  const requestStructured: NonNullable<
+    ApprovalChannel["requestStructured"]
+  > = async (action, signal, context, descriptor) => {
+    if (signal.aborted) {
+      return { kind: "deny" };
+    }
+    if (action.tool.name === "apply_patch") {
+      const preview = await previewPatch(
+        action.input as ApplyPatchInput,
+        context,
+      );
+      if (!preview.ok) {
+        output.write(`Cannot preview patch: ${preview.error.message}\n`);
+        return { kind: "deny" };
+      }
+      if (preview.truncated) {
+        output.write(
+          "Cannot approve patch because its diff exceeds the display limit.\n",
+        );
+        return { kind: "deny" };
+      }
+      output.write(
+        `${formatDiffPanel(preview.output.diff, options.color === true)}\n`,
+      );
+    } else if (action.tool.name === "create_file") {
+      const preview = await previewCreateFile(
+        action.input as CreateFileInput,
+        context,
+      );
+      if (!preview.ok) {
+        output.write(
+          `Cannot preview file creation: ${preview.error.message}\n`,
+        );
+        return { kind: "deny" };
+      }
+      if (preview.truncated) {
+        output.write(
+          "Cannot approve file creation because its diff exceeds the display limit.\n",
+        );
+        return { kind: "deny" };
+      }
+      output.write(
+        `${formatDiffPanel(preview.output.diff, options.color === true)}\n`,
+      );
+    } else if (action.tool.name === "run_command") {
+      const command = action.input as {
+        readonly program: string;
+        readonly args: readonly string[];
+        readonly cwd: string;
+        readonly timeoutMs: number;
+      };
+      const preview = {
+        command: [
+          command.program,
+          ...command.args.map(quoteShellArgument),
+        ].join(" "),
+        cwd: command.cwd,
+        timeoutMs: Math.min(
+          command.timeoutMs,
+          context.limits.commandTimeoutMs ?? command.timeoutMs,
+        ),
+      };
+      if (options.onCommandPreview) {
+        options.onCommandPreview(preview);
+      } else {
+        output.write(formatCommandApprovalPreview(preview));
+      }
+    } else if (action.tool.risk === "network") {
+      const input = action.input as {
+        readonly query?: unknown;
+        readonly url?: unknown;
+      };
+      const preview: NetworkApprovalPreview = {
+        tool: action.tool.name,
+        ...(typeof input.url === "string"
+          ? { label: "Destination", value: input.url }
+          : typeof input.query === "string"
+            ? { label: "Query", value: input.query }
+            : { label: "Target", value: "Plugin-defined external service" }),
+      };
+      if (options.onNetworkPreview) {
+        options.onNetworkPreview(preview);
+      } else {
+        output.write(formatNetworkApprovalPreview(preview));
+      }
+    } else if (action.tool.risk === "model") {
+      const input = action.input as { readonly task?: unknown };
+      const preview: SubagentApprovalPreview = {
+        tool: action.tool.name,
+        task:
+          typeof input.task === "string"
+            ? input.task.slice(0, 2_000)
+            : "Plugin-defined delegated task",
+      };
+      if (options.onSubagentPreview) {
+        options.onSubagentPreview(preview);
+      } else {
+        output.write(formatSubagentApprovalPreview(preview));
+      }
+    }
+
+    const answer = await question(formatApprovalQuestion(descriptor), signal);
+    return parseApprovalResponse(answer, descriptor);
+  };
   return {
     request: async (action, signal, context) => {
-      if (signal.aborted) {
-        return false;
-      }
-      if (action.tool.name === "apply_patch") {
-        const preview = await previewPatch(
-          action.input as ApplyPatchInput,
-          context,
-        );
-        if (!preview.ok) {
-          output.write(`Cannot preview patch: ${preview.error.message}\n`);
-          return false;
-        }
-        if (preview.truncated) {
-          output.write(
-            "Cannot approve patch because its diff exceeds the display limit.\n",
-          );
-          return false;
-        }
-        output.write(
-          `${formatDiffPanel(preview.output.diff, options.color === true)}\n`,
-        );
-      } else if (action.tool.name === "create_file") {
-        const preview = await previewCreateFile(
-          action.input as CreateFileInput,
-          context,
-        );
-        if (!preview.ok) {
-          output.write(
-            `Cannot preview file creation: ${preview.error.message}\n`,
-          );
-          return false;
-        }
-        if (preview.truncated) {
-          output.write(
-            "Cannot approve file creation because its diff exceeds the display limit.\n",
-          );
-          return false;
-        }
-        output.write(
-          `${formatDiffPanel(preview.output.diff, options.color === true)}\n`,
-        );
-      } else if (action.tool.name === "run_command") {
-        const command = action.input as {
-          readonly program: string;
-          readonly args: readonly string[];
-          readonly cwd: string;
-          readonly timeoutMs: number;
-        };
-        const preview = {
-          command: [
-            command.program,
-            ...command.args.map(quoteShellArgument),
-          ].join(" "),
-          cwd: command.cwd,
-          timeoutMs: Math.min(
-            command.timeoutMs,
-            context.limits.commandTimeoutMs ?? command.timeoutMs,
-          ),
-        };
-        if (options.onCommandPreview) {
-          options.onCommandPreview(preview);
-        } else {
-          output.write(formatCommandApprovalPreview(preview));
-        }
-      } else if (action.tool.risk === "network") {
-        const input = action.input as {
-          readonly query?: unknown;
-          readonly url?: unknown;
-        };
-        const preview: NetworkApprovalPreview = {
-          tool: action.tool.name,
-          ...(typeof input.url === "string"
-            ? { label: "Destination", value: input.url }
-            : typeof input.query === "string"
-              ? { label: "Query", value: input.query }
-              : { label: "Target", value: "Plugin-defined external service" }),
-        };
-        if (options.onNetworkPreview) {
-          options.onNetworkPreview(preview);
-        } else {
-          output.write(formatNetworkApprovalPreview(preview));
-        }
-      } else if (action.tool.risk === "model") {
-        const input = action.input as { readonly task?: unknown };
-        const preview: SubagentApprovalPreview = {
-          tool: action.tool.name,
-          task:
-            typeof input.task === "string"
-              ? input.task.slice(0, 2_000)
-              : "Plugin-defined delegated task",
-        };
-        if (options.onSubagentPreview) {
-          options.onSubagentPreview(preview);
-        } else {
-          output.write(formatSubagentApprovalPreview(preview));
-        }
-      }
-
-      const answer = await question("Approve? [y/N] ", signal);
-      return answer !== null && /^(?:y|yes)$/iu.test(answer.trim());
+      const descriptor = await describeApproval(action, context);
+      return (
+        (await requestStructured(action, signal, context, descriptor)).kind !==
+        "deny"
+      );
     },
+    requestStructured,
+  };
+}
+
+export function formatApprovalQuestion(descriptor: ApprovalDescriptor): string {
+  const scope = descriptor.allowedScopes[0];
+  const sessionChoice = scope
+    ? `\n  2  Allow this session: ${formatApprovalScope(scope)}`
+    : "";
+  const risk = descriptor.riskFlags.length
+    ? `\n  Re-confirmation required: ${descriptor.riskFlags.join(", ")}`
+    : "";
+  return `Approve ${descriptor.effect}: ${descriptor.resource}?${risk}\n  1  Allow once${sessionChoice}\n  3  Deny (use "3: feedback" to guide the run)\nChoice [3] `;
+}
+
+export function parseApprovalResponse(
+  answer: string | null,
+  descriptor: ApprovalDescriptor,
+): ApprovalResponse {
+  const normalized = answer?.trim() ?? "";
+  if (/^(?:1|y|yes)$/iu.test(normalized)) return { kind: "allow-once" };
+  if (/^2$/u.test(normalized) && descriptor.allowedScopes.length > 0) {
+    return { kind: "allow-session" };
+  }
+  const feedback = normalized.match(/^(?:3|n|no)\s*:\s*(.+)$/iu)?.[1]?.trim();
+  return {
+    kind: "deny",
+    ...(feedback ? { feedback: feedback.slice(0, 2_000) } : {}),
   };
 }
 

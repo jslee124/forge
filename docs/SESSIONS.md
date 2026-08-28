@@ -75,7 +75,8 @@ Resume follows these rules:
    restored for display.
 2. A new prompt always starts a new bounded run with a new run ID.
 3. Current configuration and `AGENTS.md` instructions are loaded again.
-4. Approval state is new for every resumed run.
+4. Approval state is new for every resumed run; memory-only session grants are
+   cleared before the saved conversation is loaded.
 5. Provider continuation records and partially completed tool calls are never
    resumed.
 6. A saved session from another workspace is rejected unless the user starts
@@ -117,6 +118,8 @@ sensitive data and must not be committed to a repository.
 Session resume does not weaken the existing security model:
 
 - Previous approvals are not restored.
+- `/permissions` grants, scope identifiers, and use counts are runtime-only and
+  are not written to the session snapshot or derived checkpoint.
 - A previous permission profile is not trusted as a grant; current user
   configuration and explicit CLI choices determine the next run.
 - Project files cannot edit session metadata under `FORGE_HOME` through

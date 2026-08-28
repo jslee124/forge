@@ -4,12 +4,11 @@
 
 ## Current milestone
 
-**Milestone 13: long-session efficiency and user control is in progress for
-v0.3.3.** Milestone 13.0-13.2 are implemented on the development branch:
-versioned cross-cutting contracts, prompt-cache observability and stable-prefix
-hashing, and pressure-driven context controls. Scoped permissions, the in-TUI
-update experience, and the full release matrix remain planned. None of this is
-a published v0.3.3 release claim yet.
+**Milestone 13: long-session efficiency and user control is implemented through
+13.5 on the v0.3.3 development branch.** This includes versioned contracts,
+prompt-cache observability, pressure-driven context controls, scoped session
+permissions, the in-TUI update experience, and the offline release matrix.
+Automatic compaction remains opt-in and this is not a published v0.3.3 claim.
 
 ## Working rules
 
@@ -851,30 +850,31 @@ Acceptance criteria:
 
 ### 13.3 Scoped permission grants and approval UX
 
-- [ ] Replace the boolean approval response with a structured decision for
+- [x] Replace the boolean approval response with a structured decision for
   allow once, allow a displayed scope for the current session, or deny with
   optional user feedback
-- [ ] Define normalized, inspectable scopes for workspace writes, an exact
+- [x] Define normalized, inspectable scopes for workspace writes, an exact
   command plus arguments/cwd/timeout ceiling, a network tool plus destination
   host, and a named delegated-model tool; do not use shell strings, unresolved
   globs, or model-authored descriptions as grant identities
-- [ ] Require each tool to supply a structured approval descriptor containing
-  effect, resource/destination, risk flags, preview, and the scopes core permits
-  the UI to offer
-- [ ] Present numbered TUI choices for allow once, allow similar actions in this
+- [x] Require the host to derive a structured approval descriptor for every
+  proposed tool action from validated input: effect, resource/destination, risk
+  flags, preview, and the scopes core permits the UI to offer; plugins cannot
+  author allowed scopes
+- [x] Present numbered TUI choices for allow once, allow similar actions in this
   session, and deny; display exactly what a session grant will cover before the
   user selects it
-- [ ] Add `/permissions` to show the effective profile, its configuration
+- [x] Add `/permissions` to show the effective profile, its configuration
   provenance, active session grants, use count, and revoke controls
-- [ ] Keep grants scoped to the active canonical workspace and session by
+- [x] Keep grants scoped to the active canonical workspace and session by
   default; do not restore them through `/resume` or write them to project files,
   session snapshots, prompts, summaries, Skills, or plugin events
-- [ ] Re-confirm destructive, credential-sensitive, publish/install, broad
+- [x] Re-confirm destructive, credential-sensitive, publish/install, broad
   external-side-effect, or policy-designated actions even if a broader session
   scope would otherwise match
-- [ ] Let deny-with-feedback return bounded user guidance to the active run as a
+- [x] Let deny-with-feedback return bounded user guidance to the active run as a
   denial result, without turning that guidance into an approval
-- [ ] Preserve `deny > confirm > allow` across core and plugin policy hooks, and
+- [x] Preserve `deny > confirm > allow` across core and plugin policy hooks, and
   keep trusted plugin code distinct from model-tool approval
 
 Acceptance criteria:
@@ -890,24 +890,24 @@ Acceptance criteria:
 
 ### 13.4 In-TUI update experience
 
-- [ ] Refactor the existing rate-limited update check to publish structured
+- [x] Refactor the existing rate-limited update check to publish structured
   cached, refreshing, available, current, failed, and disabled states instead
   of writing a startup notice outside the Ink tree
-- [ ] Preserve non-blocking startup, the 24-hour check interval, bounded network
+- [x] Preserve non-blocking startup, the 24-hour check interval, bounded network
   timeout, `CI` behavior, and `FORGE_DISABLE_UPDATE_CHECK=1`
-- [ ] Let an update discovered after startup update the current TUI without
+- [x] Let an update discovered after startup update the current TUI without
   entering the transcript or model context
-- [ ] Render a compact update banner with current/latest version, `forge update`
+- [x] Render a compact update banner with current/latest version, `forge update`
   guidance, release-notes destination, dismiss-this-version, and an accessible
   narrow-terminal layout
-- [ ] Show each available version prominently at most once after dismissal while
+- [x] Show each available version prominently at most once after dismissal while
   keeping explicit `forge update check` authoritative and repeatable
-- [ ] Detect supported installation provenance before suggesting or executing a
+- [x] Detect supported installation provenance before suggesting or executing a
   package-manager command; when provenance is unknown, report the new version
   and documentation without guessing an installer
-- [ ] Keep installation explicit, use argument-array process execution, report
+- [x] Keep installation explicit, use argument-array process execution, report
   that the running process still uses the old version, and require restart
-- [ ] Verify that check, dismissal, failed install, successful install, and
+- [x] Verify that check, dismissal, failed install, successful install, and
   restart never modify credentials, config, sessions, traces, plugins, or other
   user data under `FORGE_HOME`
 
@@ -924,31 +924,31 @@ Acceptance criteria:
 
 ### 13.5 Evaluation matrix and release gates
 
-- [ ] Add deterministic long-session fixtures covering constraint recall,
+- [x] Add deterministic long-session fixtures covering constraint recall,
   edited-file tracking, unresolved work, changed instructions, tool-output
   pressure, repeated compaction, cancellation, resume, and hostile historical
   approval claims
-- [ ] Add permission fixtures for exact-match reuse, near-match rejection,
+- [x] Add permission fixtures for exact-match reuse, near-match rejection,
   workspace changes, symlink/canonical-path changes, destructive actions,
   revoke, deny-with-feedback, plugins, network destinations, and subagents
-- [ ] Add cache fixtures for stable prefixes, every invalidation input,
+- [x] Add cache fixtures for stable prefixes, every invalidation input,
   unavailable usage, tool continuation, compaction boundaries, and aggregate
   accounting without asserting provider support the endpoint did not declare
-- [ ] Add update fixtures for cached and fresh results, late async delivery,
+- [x] Add update fixtures for cached and fresh results, late async delivery,
   dismissal, malformed semver, timeout, disabled/CI mode, install provenance,
   failed install, and protected `FORGE_HOME` data
-- [ ] Render the editor/footer, context controls, approval panels, and update
+- [x] Render the editor/footer, context controls, approval panels, and update
   banner at representative narrow and wide terminal widths; preserve existing
   Enter/newline/Ctrl+C behavior and readable semantic colors
-- [ ] Compare `warn` and session/default `compact` modes on the same tasks and
+- [x] Compare `warn` and session/default `compact` modes on the same tasks and
   record task success, constraint retention, tokens before/after, reclamation,
   latency, cache reads/writes, compaction count, and no-progress pauses
-- [ ] Run live provider trials only behind an explicit opt-in; store bounded,
+- [x] Run live provider trials only behind an explicit opt-in; store bounded,
   redacted reports and never make paid calls part of the default suite
-- [ ] Update English and Chinese context, configuration, security, session,
+- [x] Update English and Chinese context, configuration, security, session,
   CLI UI, releasing, troubleshooting, and product docs to match implemented
   behavior and mark provider-specific limits honestly
-- [ ] Run build, format/lint, typecheck, full offline tests, documentation/link
+- [x] Run build, format/lint, typecheck, full offline tests, documentation/link
   checks, deterministic evaluations, packed-artifact verification, installed
   CLI smoke tests, and version consistency for `0.3.3`
 

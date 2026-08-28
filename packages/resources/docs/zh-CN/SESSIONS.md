@@ -44,7 +44,7 @@ forge resume --last
 1. 只恢复已完成的 user/assistant 轮次和 provider 实际提供的 reasoning，且仅用于展示。
 2. 新 prompt 总是以新的 run ID 开始新的有界运行。
 3. 重新加载当前配置和 `AGENTS.md` 指令。
-4. 每次恢复都创建新的审批状态。
+4. 每次恢复都创建新的审批状态，并在加载历史前清除内存 session grant。
 5. 不恢复 provider continuation、部分完成的工具调用或子进程。
 6. 其他 workspace 的 session 会被拒绝。
 7. 缺失或无效 snapshot 在发起模型请求前以可操作的配置错误结束。
@@ -62,7 +62,7 @@ forge resume --last
 
 持久化前会脱敏配置的 credential 值和已识别的 secret 字段；特别是 `DEEPSEEK_API_KEY` 绝不能出现在 snapshot 或 trace 中。Trace 仍可能包含仓库内容、diff、命令、模型文本和 provider reasoning，因此 `sessions/` 与 `runs/` 属于本地敏感数据，不应提交到仓库。
 
-恢复不会削弱安全模型：旧审批不恢复；旧 permission profile 不是授权；项目文件不能通过 workspace 工具修改 `FORGE_HOME` 下的 session metadata；列出或 inspect session 是只读操作且不会调用模型。
+恢复不会削弱安全模型：旧审批不恢复；`/permissions` scope/use count 不写入 snapshot 或 checkpoint；旧 permission profile 不是授权；项目文件不能通过 workspace 工具修改 `FORGE_HOME` 下的 session metadata；列出或 inspect session 是只读操作且不会调用模型。
 
 ## 延后行为
 

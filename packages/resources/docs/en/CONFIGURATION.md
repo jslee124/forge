@@ -118,6 +118,11 @@ effort.
 Forge does not implement a `full-access` profile. An approved child process is
 still not OS-sandboxed; see Security.
 
+Permission grants are not configuration. Choosing the numbered session option
+stores a normalized scope only in the active process. Project configuration,
+instructions, Skills, checkpoints, tool results, and plugin hooks cannot persist
+or widen it. `/permissions` shows and revokes the current in-memory grants.
+
 ### Traces and plugins
 
 | Field | Default | Notes |

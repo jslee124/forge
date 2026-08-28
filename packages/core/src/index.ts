@@ -1,4 +1,17 @@
-export const FORGE_VERSION = "0.3.2";
+export const FORGE_VERSION = "0.3.3";
+
+export {
+  type ApprovalDescriptor,
+  type ApprovalResponse,
+  type ApprovalResponseKind,
+  type ApprovalRiskFlag,
+  type ApprovalScope,
+  approvalScopeId,
+  describeApproval,
+  formatApprovalScope,
+  SessionApprovalStore,
+  type SessionGrant,
+} from "./approval.js";
 
 export {
   FORGE_PROMPT_SCHEMA_VERSION,

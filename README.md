@@ -13,7 +13,7 @@
 
 <p align="center">
   <a href="https://github.com/jslee124/forge/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/jslee124/forge/ci.yml?branch=main&amp;style=flat-square&amp;label=CI" alt="CI status"></a>
-  <img src="https://img.shields.io/badge/source-v0.3.2-0e7490?style=flat-square" alt="Source version 0.3.2">
+  <img src="https://img.shields.io/badge/source-v0.3.3-0e7490?style=flat-square" alt="Source version 0.3.3">
   <img src="https://img.shields.io/badge/Node.js-%3E%3D24-3c873a?style=flat-square&amp;logo=nodedotjs&amp;logoColor=white" alt="Node.js 24 or newer">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-7c3aed?style=flat-square" alt="MIT license"></a>
 </p>
@@ -309,8 +309,9 @@ Start at the [documentation hub](docs/README.md), which routes readers by task.
 
 ## Current status and limitations
 
-Forge is under active development. The current source and release version is
-`0.3.2`. Automatic context checkpoint generation remains opt-in while
+Forge is under active development. The development source version is `0.3.3`;
+the latest published npm release remains `0.3.2` until the release workflow is
+run. Automatic context checkpoint generation remains opt-in while live
 provider-quality evidence is collected.
 
 - The native runtime supports DeepSeek, OpenAI API, and configured

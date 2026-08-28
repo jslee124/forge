@@ -523,7 +523,8 @@ describe("forge run", () => {
     expect(rendered).toContain("--- a/answer.ts");
     expect(rendered).toContain("-export const answer = 42;");
     expect(rendered).toContain("+export const answer = 43;");
-    expect(rendered).toContain("Approve? [y/N]");
+    expect(rendered).toContain("1  Allow once");
+    expect(rendered).toContain("2  Allow this session");
   });
 
   it("shows new file content before terminal approval", async () => {
@@ -561,7 +562,7 @@ describe("forge run", () => {
     expect(rendered).toContain("--- /dev/null");
     expect(rendered).toContain("+++ b/hello.md");
     expect(rendered).toContain("+hello, world");
-    expect(rendered).toContain("Approve? [y/N]");
+    expect(rendered).toContain("2  Allow this session");
   });
 
   it("shows the external destination before network approval", async () => {
@@ -600,7 +601,7 @@ describe("forge run", () => {
     expect(rendered).toContain("Network request");
     expect(rendered).toContain("Tool         web_fetch");
     expect(rendered).toContain("Destination  https://example.com/docs");
-    expect(rendered).toContain("Approve? [y/N]");
+    expect(rendered).toContain("web_fetch to example.com");
   });
 
   it("shows the delegated task before model-run approval", async () => {
@@ -641,6 +642,6 @@ describe("forge run", () => {
     expect(rendered).toContain(
       "Task         Review src/server.ts for race conditions.",
     );
-    expect(rendered).toContain("Approve? [y/N]");
+    expect(rendered).toContain("delegated model tool delegate_code_review");
   });
 });

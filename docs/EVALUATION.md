@@ -146,4 +146,11 @@ pressure-triggered compaction, low-reclamation pause, and session/default mode
 tests. All remain offline. Automatic compaction is discoverable and opt-in;
 the baseline does not promote the extractive oracle to the default.
 
+The [v0.3.3 Milestone 13 release-gate report](../evals/reports/v0.3.3/M13_RELEASE_GATES.md)
+adds exact/near-match permission scopes, denial feedback, canonical workspace
+and high-risk rejection, asynchronous update delivery and dismissal,
+installation provenance, protected `FORGE_HOME` fixtures, and narrow/wide Ink
+rendering. It records that live trials require explicit `eval:live` opt-in and
+that no paid call was made for the offline gate.
+
 Resource evaluation is deterministic and offline by default. Scripted fixtures cover matching, non-matching, ambiguous, explicit, user-disabled, collision, repeated-load, over-budget, adversarial Skill, product-question, and unsupported-question cases. Metrics include selection precision and recall, unnecessary loads, catalog and loaded tokens, citation accuracy, latency, and task completion. Live-provider resource trials remain explicit opt-in.

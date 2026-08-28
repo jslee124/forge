@@ -4,7 +4,7 @@
 
 ## Status
 
-Roadmap Milestone 10 and Milestone 13.0-13.2 are implemented. The default
+Roadmap Milestone 10 and Milestone 13.0-13.5 are implemented. The default
 remains `warn`; automatic checkpoint generation is opt-in until published
 provider-quality gates pass. The TUI now projects the complete next-request
 input, keeps a segmented pressure indicator visible, and exposes session-only

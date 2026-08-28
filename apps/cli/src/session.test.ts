@@ -236,7 +236,7 @@ describe("interactive Forge session", () => {
     expect(channels).toHaveLength(2);
     expect(channels[0]).not.toBe(channels[1]);
     expect(
-      terminal.questions.filter((prompt) => prompt === "Approve? [y/N] "),
+      terminal.questions.filter((prompt) => prompt.includes("1  Allow once")),
     ).toHaveLength(2);
     expect(stderr.read()).toContain("$ pnpm test");
     expect(stderr.read()).toContain("Working directory  .");

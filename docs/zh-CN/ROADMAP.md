@@ -4,7 +4,7 @@
 
 ## 当前 milestone
 
-**Milestone 13：长会话效率与用户控制，正在面向 v0.3.3 开发。** Milestone 13.0-13.2 已在开发分支实现：跨功能版本化 contract、prompt-cache 可观测性与稳定 prefix hash，以及按压力驱动的 context 控制。有作用域的 permission、TUI 内更新体验和完整 release matrix 仍是计划项；这还不是 v0.3.3 已发布声明。
+**Milestone 13：长会话效率与用户控制已在 v0.3.3 开发分支实现至 13.5。** 当前包括版本化 contract、prompt-cache 可观测性、压力驱动 context、有作用域的 session permission、TUI 内更新体验和离线 release matrix。自动 compact 仍为 opt-in；这不是 v0.3.3 已发布声明。
 
 ## 工作规则
 
@@ -271,15 +271,15 @@ Release criteria：
 
 ### 13.3 有作用域的 permission grant 与审批 UX
 
-- [ ] 将 boolean approval response 替换为结构化 decision：allow once、在当前 session 允许一个明确展示的 scope，或 deny 并可附带 user feedback
-- [ ] 为 workspace write、精确 command 加 arguments/cwd/timeout ceiling、network tool 加 destination host、具名 delegated-model tool 定义规范化且可 inspect 的 scope；不得使用 shell string、未解析 glob 或模型生成的描述作为 grant identity
-- [ ] 每个 tool 提供结构化 approval descriptor，包含 effect、resource/destination、risk flag、preview，以及 core 允许 UI 展示的 scope
-- [ ] TUI 使用编号选项展示 allow once、当前 session 允许同类操作和 deny；用户选择前必须准确看到 session grant 覆盖什么
-- [ ] 增加 `/permissions`，展示 effective profile、配置 provenance、active session grant、使用次数和 revoke 控制
-- [ ] Grant 默认限制在当前 canonical workspace 与 session；不得通过 `/resume` 恢复，也不得写入项目文件、session snapshot、prompt、summary、Skill 或 plugin event
-- [ ] 即使较宽的 session scope 原本可以匹配，destructive、credential-sensitive、publish/install、广泛 external-side-effect 或 policy 指定的 action 仍必须重新确认
-- [ ] Deny-with-feedback 可以把有界 user guidance 作为 denial result 返回当前 run，但不能把 guidance 解释成 approval
-- [ ] 在 core 与 plugin policy hook 之间继续保持 `deny > confirm > allow`，并区分 trusted plugin code 与 model-tool approval
+- [x] 将 boolean approval response 替换为结构化 decision：allow once、在当前 session 允许一个明确展示的 scope，或 deny 并可附带 user feedback
+- [x] 为 workspace write、精确 command 加 arguments/cwd/timeout ceiling、network tool 加 destination host、具名 delegated-model tool 定义规范化且可 inspect 的 scope；不得使用 shell string、未解析 glob 或模型生成的描述作为 grant identity
+- [x] Host 根据已校验 input 为每个 proposed tool action 派生结构化 approval descriptor，包含 effect、resource/destination、risk flag、preview 和 core 允许 UI 展示的 scope；plugin 不能编写 allowed scope
+- [x] TUI 使用编号选项展示 allow once、当前 session 允许同类操作和 deny；用户选择前必须准确看到 session grant 覆盖什么
+- [x] 增加 `/permissions`，展示 effective profile、配置 provenance、active session grant、使用次数和 revoke 控制
+- [x] Grant 默认限制在当前 canonical workspace 与 session；不得通过 `/resume` 恢复，也不得写入项目文件、session snapshot、prompt、summary、Skill 或 plugin event
+- [x] 即使较宽的 session scope 原本可以匹配，destructive、credential-sensitive、publish/install、广泛 external-side-effect 或 policy 指定的 action 仍必须重新确认
+- [x] Deny-with-feedback 可以把有界 user guidance 作为 denial result 返回当前 run，但不能把 guidance 解释成 approval
+- [x] 在 core 与 plugin policy hook 之间继续保持 `deny > confirm > allow`，并区分 trusted plugin code 与 model-tool approval
 
 验收标准：
 
@@ -290,14 +290,14 @@ Release criteria：
 
 ### 13.4 TUI 内更新体验
 
-- [ ] 重构现有 rate-limited update check，使其发布结构化 cached、refreshing、available、current、failed 和 disabled 状态，而不是在 Ink tree 外写 startup notice
-- [ ] 保留非阻塞启动、24 小时检查间隔、有界 network timeout、`CI` 行为和 `FORGE_DISABLE_UPDATE_CHECK=1`
-- [ ] 启动后才发现的新版本可以更新当前 TUI，但不能进入 transcript 或 model context
-- [ ] 渲染紧凑 update banner，包含 current/latest version、`forge update` 指引、release-notes destination、dismiss-this-version，以及可访问的窄终端布局
-- [ ] 一个 available version 被 dismiss 后最多只强提示一次；显式 `forge update check` 仍保持权威且可重复执行
-- [ ] 推荐或执行包管理器命令前检测受支持的 installation provenance；无法识别时只报告新版本与文档，不猜测 installer
-- [ ] 安装保持显式操作，使用 argument-array process execution，说明当前进程仍运行旧版本，并要求 restart
-- [ ] 验证 check、dismiss、安装失败、安装成功和 restart 都不会修改 `FORGE_HOME` 中的 credential、config、session、trace、plugin 或其他用户数据
+- [x] 重构现有 rate-limited update check，使其发布结构化 cached、refreshing、available、current、failed 和 disabled 状态，而不是在 Ink tree 外写 startup notice
+- [x] 保留非阻塞启动、24 小时检查间隔、有界 network timeout、`CI` 行为和 `FORGE_DISABLE_UPDATE_CHECK=1`
+- [x] 启动后才发现的新版本可以更新当前 TUI，但不能进入 transcript 或 model context
+- [x] 渲染紧凑 update banner，包含 current/latest version、`forge update` 指引、release-notes destination、dismiss-this-version，以及可访问的窄终端布局
+- [x] 一个 available version 被 dismiss 后最多只强提示一次；显式 `forge update check` 仍保持权威且可重复执行
+- [x] 推荐或执行包管理器命令前检测受支持的 installation provenance；无法识别时只报告新版本与文档，不猜测 installer
+- [x] 安装保持显式操作，使用 argument-array process execution，说明当前进程仍运行旧版本，并要求 restart
+- [x] 验证 check、dismiss、安装失败、安装成功和 restart 都不会修改 `FORGE_HOME` 中的 credential、config、session、trace、plugin 或其他用户数据
 
 验收标准：
 
@@ -308,15 +308,15 @@ Release criteria：
 
 ### 13.5 评测矩阵与 release gate
 
-- [ ] 增加确定性长会话 fixture，覆盖 constraint recall、edited-file tracking、unresolved work、instruction 变化、tool-output pressure、反复 compact、取消、resume 和恶意历史 approval claim
-- [ ] 增加 permission fixture，覆盖 exact-match reuse、near-match rejection、workspace 变化、symlink/canonical-path 变化、destructive action、revoke、deny-with-feedback、plugin、network destination 和 subagent
-- [ ] 增加 cache fixture，覆盖 stable prefix、每种 invalidation input、unavailable usage、tool continuation、compaction boundary 和聚合计算；不得断言 endpoint 未声明的 provider support
-- [ ] 增加 update fixture，覆盖 cached/fresh result、late async delivery、dismissal、畸形 semver、timeout、disabled/CI mode、install provenance、安装失败和受保护的 `FORGE_HOME` 数据
-- [ ] 在代表性的窄/宽终端宽度渲染 editor/footer、context control、approval panel 和 update banner；保留现有 Enter/newline/Ctrl+C 行为与可读的语义颜色
-- [ ] 在相同任务上比较 `warn` 与 session/default `compact` mode，记录 task success、constraint retention、压缩前后 token、reclamation、latency、cache read/write、compaction count 和 no-progress pause
-- [ ] Live provider trial 只能显式 opt-in；报告必须有界且脱敏，默认 suite 永远不发起付费调用
-- [ ] 更新中英文 context、configuration、security、session、CLI UI、releasing、troubleshooting 和 product 文档，使其匹配真实实现并诚实标注 provider-specific limit
-- [ ] 为 `0.3.3` 运行 build、format/lint、typecheck、完整 offline test、文档/link 检查、确定性 evaluation、packed-artifact verification、installed CLI smoke test 和版本一致性检查
+- [x] 增加确定性长会话 fixture，覆盖 constraint recall、edited-file tracking、unresolved work、instruction 变化、tool-output pressure、反复 compact、取消、resume 和恶意历史 approval claim
+- [x] 增加 permission fixture，覆盖 exact-match reuse、near-match rejection、workspace 变化、symlink/canonical-path 变化、destructive action、revoke、deny-with-feedback、plugin、network destination 和 subagent
+- [x] 增加 cache fixture，覆盖 stable prefix、每种 invalidation input、unavailable usage、tool continuation、compaction boundary 和聚合计算；不得断言 endpoint 未声明的 provider support
+- [x] 增加 update fixture，覆盖 cached/fresh result、late async delivery、dismissal、畸形 semver、timeout、disabled/CI mode、install provenance、安装失败和受保护的 `FORGE_HOME` 数据
+- [x] 在代表性的窄/宽终端宽度渲染 editor/footer、context control、approval panel 和 update banner；保留现有 Enter/newline/Ctrl+C 行为与可读的语义颜色
+- [x] 在相同任务上比较 `warn` 与 session/default `compact` mode，记录 task success、constraint retention、压缩前后 token、reclamation、latency、cache read/write、compaction count 和 no-progress pause
+- [x] Live provider trial 只能显式 opt-in；报告必须有界且脱敏，默认 suite 永远不发起付费调用
+- [x] 更新中英文 context、configuration、security、session、CLI UI、releasing、troubleshooting 和 product 文档，使其匹配真实实现并诚实标注 provider-specific limit
+- [x] 为 `0.3.3` 运行 build、format/lint、typecheck、完整 offline test、文档/link 检查、确定性 evaluation、packed-artifact verification、installed CLI smoke test 和版本一致性检查
 
 Release criteria：
 

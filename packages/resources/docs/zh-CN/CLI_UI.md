@@ -97,9 +97,11 @@ editing
 
 文件写入审批前必须在独立面板展示精确变更：操作和路径（create/modify/delete）、文件摘要和行数、带新旧行号的 unified diff、带 `+/-` 的新增/删除行、清晰的 file/hunk header、已知文件类型的语法高亮，以及触达安全显示限制时的截断说明。
 
-审批不能只依赖颜色；`--no-color`、无色终端和色觉差异都必须保留 `+/-`、header 和行号。超过安全审查限制的 diff 不可审批，不能把未展示的部分默认为已审查。控制项要说明范围：首次 workspace 写入的审批只覆盖本次 run 的后续 workspace 写入，进程命令仍需单独审批。
+审批不能只依赖颜色；`--no-color`、无色终端和色觉差异都必须保留 `+/-`、header 和行号。超过安全审查限制的 diff 不可审批。`1` 仅允许一次，`2` 允许当前内存 session 中准确展示的 scope，`3` 打开可选拒绝 feedback；高风险 action 不提供 session 选项。`/permissions` 展示 profile、scope ID、use count 和 revoke；grant 会在 `/new`、`/resume` 和进程退出时消失。
 
 网络工具审批使用专用面板，展示注册工具名和将发送到外部的有界 URL 或搜索词；plugin secret 和任意 input object 不渲染为预览。
+
+Update checker 也位于 Ink tree 内。启动后的结果可以增加 current/latest banner，但不会产生 transcript 文本或抢走 editor、stream、approval input。宽终端显示 release-notes destination 与 restart 说明；窄终端仍保留版本、`forge update`、restart 和 `/update-dismiss`。
 
 ## 登录面板
 

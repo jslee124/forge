@@ -99,6 +99,8 @@ built-in defaults
 
 Forge 没有实现 `full-access` profile。获批子进程也没有 OS sandbox，详见安全模型。
 
+Permission grant 不是配置。编号 session 选项只在当前进程保存 host 规范化 scope；项目配置、instruction、Skill、checkpoint、tool result 和 plugin hook 都不能持久化或扩大它。`/permissions` 可以查看并撤销当前内存 grant。
+
 ### Trace 与 plugins
 
 | 字段 | 默认值 | 说明 |

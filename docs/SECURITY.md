@@ -105,6 +105,20 @@ child process that has already been approved.
 
 ## Process boundary
 
+Interactive approval is structured: `1` allows once, `2` creates only the
+displayed in-memory session scope, and `3` denies with optional bounded
+feedback. Command scopes bind the exact program and argument array, canonical
+workspace and cwd, and a timeout ceiling. Workspace-write, network
+tool/destination, and delegated-model scopes use similarly normalized host
+fields rather than model-authored text. `/permissions` lists use counts and can
+revoke one or all grants.
+
+Session grants are never serialized or restored. Changed arguments, cwd,
+destination, workspace, or a timeout above the ceiling re-prompts. Destructive,
+credential-sensitive, install, publish, and broad external-effect commands are
+not eligible for reuse. Plugin policy hooks can still change `allow` to
+`confirm`/`deny` or `confirm` to `deny`; they cannot create or widen a grant.
+
 The v0.1 `run_command` tool accepts a program and an argument array and starts it
 with Node.js `spawn` using `shell: false`. Shell syntax such as pipelines,
 redirection, command substitution, and compound commands is not accepted.

@@ -2,7 +2,11 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { AuthenticationManager } from "@forge/auth";
-import type { ForgeTool, RunResult } from "@forge/core";
+import {
+  type ForgeTool,
+  type RunResult,
+  SessionApprovalStore,
+} from "@forge/core";
 import type { SessionSummary } from "@forge/persistence";
 import { renderToString } from "ink";
 import { render } from "ink-testing-library";
@@ -12,11 +16,13 @@ import {
   INK_INCREMENTAL_RENDERING,
   InteractiveApp,
   resolveInkKeyboardMode,
+  UpdateBanner,
 } from "./interactive-ui.js";
 import type {
   ContextStatus,
   InteractiveSessionPersistence,
 } from "./persistent-session.js";
+import type { UpdateService, UpdateState } from "./update.js";
 
 const temporaryDirectories: string[] = [];
 
@@ -30,6 +36,99 @@ afterEach(async () => {
 });
 
 describe("Ink interactive terminal", () => {
+  it("renders accessible narrow and wide update banners", () => {
+    const state: UpdateState = {
+      state: "available",
+      currentVersion: "0.3.2",
+      latestVersion: "0.3.3",
+      source: "npm-registry",
+      dismissed: false,
+    };
+    const wide = stripSequences(
+      renderToString(<UpdateBanner state={state} terminalWidth={100} />),
+    );
+    const narrow = stripSequences(
+      renderToString(<UpdateBanner state={state} terminalWidth={40} />),
+    );
+    expect(wide).toContain("/releases/tag/v0.3.3");
+    expect(wide).toContain("restart required");
+    expect(narrow).toContain("Update 0.3.3");
+    expect(narrow).toContain("/update-dismiss");
+    expect(narrow).not.toContain("release notes");
+  });
+
+  it("delivers a late update without replacing editor input", async () => {
+    const root = await createWorkspace();
+    let listener: ((state: UpdateState) => void) | undefined;
+    const initial: UpdateState = {
+      state: "refreshing",
+      currentVersion: "0.3.2",
+      source: "npm-registry",
+      dismissed: false,
+    };
+    const service: UpdateService = {
+      snapshot: () => initial,
+      subscribe: (next) => {
+        listener = next;
+        next(initial);
+        return () => {
+          listener = undefined;
+        };
+      },
+      start: async () => undefined,
+      dismiss: async () => undefined,
+    };
+    const instance = render(
+      <InteractiveApp
+        options={{}}
+        env={{}}
+        cwd={root}
+        updateService={service}
+      />,
+    );
+    instance.stdin.write("unfinished draft");
+    await settle();
+    listener?.({
+      state: "available",
+      currentVersion: "0.3.2",
+      latestVersion: "0.3.3",
+      source: "npm-registry",
+      dismissed: false,
+    });
+    await settle();
+    expect(instance.lastFrame()).toContain("unfinished draft");
+    expect(instance.lastFrame()).toContain("Update 0.3.3");
+    instance.unmount();
+  });
+
+  it("shows and revokes memory-only session grants through /permissions", async () => {
+    const root = await createWorkspace();
+    const store = new SessionApprovalStore({
+      workspaceRoot: root,
+      sessionId: "test",
+    });
+    store.grant({ kind: "workspace-write", workspaceRoot: root });
+    const instance = render(
+      <InteractiveApp
+        options={{ permissionProfile: "safe" }}
+        env={{}}
+        cwd={root}
+        approvalStore={store}
+      />,
+    );
+    instance.stdin.write("/permissions");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+    expect(instance.lastFrame()).toContain("Session permissions");
+    expect(instance.lastFrame()).toContain("· used");
+    expect(instance.lastFrame()).toContain("1 ·");
+    instance.stdin.write("r");
+    await settle();
+    expect(instance.lastFrame()).toContain("No active session grants");
+    instance.unmount();
+  });
+
   it("directly enables enhanced keyboard protocols for known terminals", () => {
     expect(resolveInkKeyboardMode({ TERM_PROGRAM: "vscode" })).toBe("enabled");
     expect(resolveInkKeyboardMode({ TERM_PROGRAM: "ghostty" })).toBe("enabled");

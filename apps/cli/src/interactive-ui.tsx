@@ -20,6 +20,11 @@ import type {
   RunResult,
 } from "@forge/core";
 import {
+  formatApprovalScope,
+  SessionApprovalStore,
+  type SessionGrant,
+} from "@forge/core";
+import {
   type DiscoverModelsRequest,
   discoverModels,
 } from "@forge/model-compat";
@@ -83,11 +88,18 @@ import {
   detectStartupResources,
   EMPTY_STARTUP_RESOURCES,
 } from "./startup-resources.js";
+import {
+  createUpdateService,
+  FORGE_RELEASES_URL,
+  type UpdateService,
+  type UpdateState,
+} from "./update.js";
 
 type Phase =
   | "editing"
   | "running"
   | "approving"
+  | "approval-feedback"
   | "resuming"
   | "models"
   | "delete-models"
@@ -95,6 +107,7 @@ type Phase =
   | "effort"
   | "plugins"
   | "resources"
+  | "permissions"
   | "plugin-trust"
   | "login-providers"
   | "login-key"
@@ -512,6 +525,10 @@ export interface InteractiveUiDependencies {
     readonly endpoint?: string;
   }) => Promise<string>;
   readonly sessionPersistence?: InteractiveSessionPersistence;
+  readonly approvalStore?: SessionApprovalStore;
+  readonly approvalWorkspaceRoot?: string;
+  readonly permissionProfileSource?: string;
+  readonly updateService?: UpdateService;
   readonly persistModelSelection?: (options: {
     readonly cwd: string;
     readonly env: NodeJS.ProcessEnv;
@@ -587,6 +604,8 @@ export async function runInkInteractiveFromCli(
   let detectedResources =
     dependencies.detectedResources ?? EMPTY_STARTUP_RESOURCES;
   let initialProviders: Readonly<Record<string, ProviderProfile>> = {};
+  let approvalWorkspaceRoot = dependencies.cwd;
+  let permissionProfileSource = "default";
   try {
     const loaded = await loadForgeConfig({
       cwd: dependencies.cwd,
@@ -607,6 +626,8 @@ export async function runInkInteractiveFromCli(
       summaryTargetTokens: loaded.config.context.summaryTargetTokens,
     };
     initialProviders = loaded.config.providers;
+    approvalWorkspaceRoot = loaded.workspaceRoot;
+    permissionProfileSource = loaded.provenance.permissionProfile.label;
     if (!dependencies.detectedResources) {
       detectedResources = await detectStartupResources({
         forgeHome: loaded.forgeHome,
@@ -644,6 +665,17 @@ export async function runInkInteractiveFromCli(
 
   const interactiveDependencies: InteractiveUiDependencies = {
     ...dependencies,
+    approvalWorkspaceRoot,
+    permissionProfileSource,
+    approvalStore:
+      dependencies.approvalStore ??
+      new SessionApprovalStore({
+        workspaceRoot: approvalWorkspaceRoot,
+        sessionId: sessionPersistence?.sessionId ?? randomUUID(),
+      }),
+    updateService:
+      dependencies.updateService ??
+      createUpdateService({ env: dependencies.env, isTTY: true }),
     executeCodexTask:
       dependencies.executeCodexTask ??
       ((prompt, taskOptions, taskDependencies) =>
@@ -731,6 +763,10 @@ export function InteractiveApp({
       ...(endpoint ? { endpoint } : {}),
     }),
   sessionPersistence,
+  approvalStore: injectedApprovalStore,
+  approvalWorkspaceRoot = cwd,
+  permissionProfileSource = "validated configuration",
+  updateService,
   persistModelSelection = saveUserModelSelection,
   persistProviderRoute = saveUserProviderRoute,
   removeProviderRoute = removeUserProviderRoute,
@@ -764,6 +800,21 @@ export function InteractiveApp({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [dismissedCompletion, setDismissedCompletion] = useState<string>();
   const [approval, setApproval] = useState<PendingApproval>();
+  const [approvalFeedback, setApprovalFeedback] = useState("");
+  const approvalStore = useMemo(
+    () =>
+      injectedApprovalStore ??
+      new SessionApprovalStore({
+        workspaceRoot: approvalWorkspaceRoot,
+        sessionId: sessionPersistence?.sessionId ?? randomUUID(),
+      }),
+    [approvalWorkspaceRoot, injectedApprovalStore, sessionPersistence],
+  );
+  const [permissionRevision, setPermissionRevision] = useState(0);
+  const [updateState, setUpdateState] = useState<UpdateState | undefined>(() =>
+    updateService?.snapshot(),
+  );
+  const terminalWidth = process.stdout.columns ?? 80;
   const [resources, setResources] =
     useState<DetectedStartupResources>(detectedResources);
   const [pluginTrustIntent, setPluginTrustIntent] = useState<
@@ -1095,6 +1146,9 @@ export function InteractiveApp({
           setContextActivity("paused");
           appendEntry("warning", event.message);
           break;
+        case "approval.scope-decision":
+          setPermissionRevision((current) => current + 1);
+          break;
         case "tool.proposed":
           appendEntry("tool", `○ Proposed ${event.call.name}`);
           break;
@@ -1162,6 +1216,13 @@ export function InteractiveApp({
     [],
   );
 
+  useEffect(() => {
+    if (!updateService) return;
+    const unsubscribe = updateService.subscribe(setUpdateState);
+    void updateService.start();
+    return unsubscribe;
+  }, [updateService]);
+
   const updateEditor = (
     update: (current: EditorState) => EditorState,
   ): void => {
@@ -1174,6 +1235,7 @@ export function InteractiveApp({
     const pending = approval;
     if (!pending) return;
     setApproval(undefined);
+    setApprovalFeedback("");
     setPhase("running");
     pending.resolve(answer);
   };
@@ -1321,6 +1383,8 @@ export function InteractiveApp({
         setTranscript([]);
         nextTranscriptId.current = 0;
         setEditor(createEditorState());
+        approvalStore.clear();
+        setPermissionRevision((current) => current + 1);
         appendEntry("system", "Started a new session.");
         return;
       case "/context":
@@ -1333,6 +1397,17 @@ export function InteractiveApp({
             sessionPersistence?.contextStatus?.() ??
               "Context status is unavailable because persistence is disabled.",
           );
+        }
+        return;
+      case "/permissions":
+        setEditor(createEditorState());
+        setSelectedIndex(0);
+        setPhase("permissions");
+        return;
+      case "/update-dismiss":
+        setEditor(createEditorState());
+        if (updateState?.latestVersion && updateService) {
+          void updateService.dismiss(updateState.latestVersion);
         }
         return;
       case "/plugins":
@@ -1374,6 +1449,8 @@ export function InteractiveApp({
       case "/resume":
         setEditor(createEditorState());
         setContextPanel(undefined);
+        approvalStore.clear();
+        setPermissionRevision((current) => current + 1);
         if (!sessionPersistence) {
           appendEntry("warning", "Persistent sessions are unavailable.\n");
           return;
@@ -1669,6 +1746,7 @@ export function InteractiveApp({
           stderr,
           signal: controller.signal,
           approvalChannel,
+          approvalStore,
           conversation: [...conversation.current],
           ...(sessionPersistence?.contextCheckpoint
             ? { contextCheckpoint: sessionPersistence.contextCheckpoint }
@@ -1848,8 +1926,49 @@ export function InteractiveApp({
 
     if (phase === "approving") {
       const answer = input.toLocaleLowerCase();
-      if (answer === "y") finishApproval("y");
-      else if (answer === "n" || key.escape || key.return) finishApproval("n");
+      if (answer === "1" || answer === "y") finishApproval("1");
+      else if (answer === "2") finishApproval("2");
+      else if (answer === "3" || answer === "n") {
+        setApprovalFeedback("");
+        setPhase("approval-feedback");
+      } else if (key.escape || key.return) finishApproval("3");
+      return;
+    }
+    if (phase === "approval-feedback") {
+      if (key.escape) {
+        finishApproval("3");
+      } else if (key.return) {
+        finishApproval(
+          approvalFeedback.trim() ? `3: ${approvalFeedback.trim()}` : "3",
+        );
+      } else if (key.backspace || key.delete) {
+        setApprovalFeedback((current) => current.slice(0, -1));
+      } else if (input && approvalFeedback.length < 2_000) {
+        setApprovalFeedback((current) => `${current}${input}`.slice(0, 2_000));
+      }
+      return;
+    }
+    if (phase === "permissions") {
+      const grants = approvalStore.list();
+      if (key.escape) {
+        setPhase("editing");
+      } else if (key.upArrow && grants.length > 0) {
+        setSelectedIndex(
+          (current) => (current - 1 + grants.length) % grants.length,
+        );
+      } else if (key.downArrow && grants.length > 0) {
+        setSelectedIndex((current) => (current + 1) % grants.length);
+      } else if (input.toLocaleLowerCase() === "r" && grants[selectedIndex]) {
+        approvalStore.revoke(grants[selectedIndex].id);
+        setSelectedIndex((current) =>
+          Math.max(0, Math.min(current, grants.length - 2)),
+        );
+        setPermissionRevision((current) => current + 1);
+      } else if (input.toLocaleLowerCase() === "x") {
+        approvalStore.clear();
+        setSelectedIndex(0);
+        setPermissionRevision((current) => current + 1);
+      }
       return;
     }
     if (phase === "plugins") {
@@ -2632,6 +2751,16 @@ export function InteractiveApp({
 
       {phase === "resources" ? <ResourcesPanel resources={resources} /> : null}
 
+      {phase === "permissions" ? (
+        <PermissionsPanel
+          profile={activeOptions.permissionProfile ?? "safe"}
+          provenance={permissionProfileSource}
+          grants={approvalStore.list()}
+          selectedIndex={selectedIndex}
+          revision={permissionRevision}
+        />
+      ) : null}
+
       {phase === "plugin-trust" && pluginTrustIntent ? (
         <PluginTrustPanel
           cwd={cwd}
@@ -2640,7 +2769,7 @@ export function InteractiveApp({
         />
       ) : null}
 
-      {phase === "approving" && approval ? (
+      {(phase === "approving" || phase === "approval-feedback") && approval ? (
         <Box
           borderStyle="round"
           borderColor="yellow"
@@ -2694,18 +2823,38 @@ export function InteractiveApp({
               </Text>
             </Box>
           ) : null}
-          <Text>{approval.prompt}</Text>
-          <Text>
-            <Text bold color="green">
-              y
-            </Text>{" "}
-            approve{" "}
-            <Text bold color="red">
-              n
-            </Text>{" "}
-            deny
-          </Text>
+          {phase === "approval-feedback" ? (
+            <>
+              <Text color="red">Deny with optional guidance</Text>
+              <Text>{approvalFeedback || "_"}</Text>
+              <Text dimColor>Enter deny · Esc deny without feedback</Text>
+            </>
+          ) : (
+            <Text>{approval.prompt}</Text>
+          )}
+          {phase === "approving" ? (
+            <Text>
+              <Text bold color="green">
+                1
+              </Text>{" "}
+              allow once ·{" "}
+              <Text bold color="green">
+                2
+              </Text>{" "}
+              allow displayed session scope ·{" "}
+              <Text bold color="red">
+                3
+              </Text>{" "}
+              deny
+            </Text>
+          ) : null}
         </Box>
+      ) : null}
+
+      {updateState?.state === "available" &&
+      updateState.latestVersion &&
+      !updateState.dismissed ? (
+        <UpdateBanner state={updateState} terminalWidth={terminalWidth} />
       ) : null}
 
       {phase === "resuming" ? (
@@ -3501,7 +3650,7 @@ function PromptFooter({
   const status =
     phase === "running"
       ? "● Running · Ctrl+C cancel"
-      : phase === "approving"
+      : phase === "approving" || phase === "approval-feedback"
         ? "Waiting for approval"
         : phase === "models"
           ? "Choose a model"
@@ -3515,19 +3664,21 @@ function PromptFooter({
                   ? "Review project plugins"
                   : phase === "resources"
                     ? "Review Skills and diagnostics"
-                    : phase === "plugin-trust"
-                      ? "Confirm project plugin trust"
-                      : phase === "login-providers" || phase === "login-key"
-                        ? "Configure a model provider"
-                        : phase === "logout-providers"
-                          ? "Choose a provider to log out"
-                          : phase === "provider-actions"
-                            ? "Manage provider"
-                            : phase === "provider-remove-confirm"
-                              ? "Confirm provider removal"
-                              : phase === "provider-setup"
-                                ? "Configure a provider model"
-                                : "Choose a saved session";
+                    : phase === "permissions"
+                      ? "Review session permissions"
+                      : phase === "plugin-trust"
+                        ? "Confirm project plugin trust"
+                        : phase === "login-providers" || phase === "login-key"
+                          ? "Configure a model provider"
+                          : phase === "logout-providers"
+                            ? "Choose a provider to log out"
+                            : phase === "provider-actions"
+                              ? "Manage provider"
+                              : phase === "provider-remove-confirm"
+                                ? "Confirm provider removal"
+                                : phase === "provider-setup"
+                                  ? "Configure a provider model"
+                                  : "Choose a saved session";
 
   return <Text dimColor>{status}</Text>;
 }
@@ -3702,6 +3853,76 @@ function ContextPanel({
       <Text color="cyan">
         a auto this session · s save user default · c compact now · p preview ·
         Esc close
+      </Text>
+    </Box>
+  );
+}
+
+export function PermissionsPanel({
+  profile,
+  provenance,
+  grants,
+  selectedIndex,
+  revision: _revision,
+}: {
+  readonly profile: string;
+  readonly provenance: string;
+  readonly grants: readonly SessionGrant[];
+  readonly selectedIndex: number;
+  readonly revision: number;
+}): React.JSX.Element {
+  return (
+    <Box
+      borderStyle="round"
+      borderColor="cyan"
+      flexDirection="column"
+      paddingX={1}
+    >
+      <Text bold color="cyan">
+        Session permissions
+      </Text>
+      <Text>
+        Effective profile <Text bold>{profile}</Text> · source {provenance}
+      </Text>
+      <Text dimColor>
+        Grants are memory-only for this workspace and disappear on
+        new/resume/exit.
+      </Text>
+      {grants.length === 0 ? (
+        <Text dimColor>No active session grants.</Text>
+      ) : null}
+      {grants.map((grant, index) => (
+        <Text key={grant.id} bold={index === selectedIndex}>
+          {index === selectedIndex ? "› " : "  "}
+          {formatApprovalScope(grant.scope)} · used {grant.useCount} ·{" "}
+          {grant.id}
+        </Text>
+      ))}
+      <Text dimColor>↑/↓ select · r revoke · x revoke all · Esc close</Text>
+    </Box>
+  );
+}
+
+export function UpdateBanner({
+  state,
+  terminalWidth,
+}: {
+  readonly state: UpdateState;
+  readonly terminalWidth: number;
+}): React.JSX.Element {
+  const latest = state.latestVersion ?? "unknown";
+  const notes = terminalHyperlink(
+    `${FORGE_RELEASES_URL}/tag/v${latest}`,
+    { env: process.env, isTTY: process.stdout.isTTY === true },
+    "release notes",
+  );
+  return (
+    <Box borderStyle="round" borderColor="yellow" paddingX={1}>
+      <Text color="yellow">
+        <Text bold>Update {latest}</Text> · current {state.currentVersion}
+        {terminalWidth >= 64
+          ? ` · forge update · restart required · ${notes} · /update-dismiss`
+          : " · forge update · restart · /update-dismiss"}
       </Text>
     </Box>
   );

@@ -223,9 +223,11 @@ visual truncation must not silently turn partial content into approval for an
 unseen patch.
 
 The approval controls are visible next to the diff and describe their scope.
-For example, approving the first workspace write covers later workspace writes
-only in the current run, while process commands continue to require separate
-approval.
+`1` allows the displayed action once, `2` allows exactly the displayed scope
+for the current in-memory session, and `3` opens an optional denial-feedback
+field. High-risk actions omit the session option. `/permissions` shows the
+effective profile, active scope identifiers, use counts, and revoke controls;
+grants disappear on `/new`, `/resume`, and process exit.
 
 Process-command approval uses the same dedicated panel. It renders a
 shell-readable `$ command` line followed by clearly labelled working-directory
@@ -237,6 +239,12 @@ Plugin-specific secrets and arbitrary input objects are never rendered as an
 approval preview.
 
 ## Sign-in panel
+
+The update checker also renders inside the Ink tree. A late result can add a
+compact current/latest banner without creating transcript text or taking input
+ownership from the editor, stream, or approval panel. Wide terminals include
+the release-notes destination and restart wording; narrow terminals retain the
+versions, `forge update`, restart, and `/update-dismiss` controls.
 
 A pending browser sign-in is a dedicated panel, not transcript text. The Codex
 auth surface reports the URL as a structured `login` output event carrying the

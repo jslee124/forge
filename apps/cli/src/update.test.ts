@@ -1,11 +1,13 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
 import { FORGE_VERSION } from "@forge/core";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  createUpdateService,
+  detectInstallProvenance,
   FORGE_NPM_PACKAGE,
   maybeNotifyUpdate,
   runUpdateCommand,
@@ -61,6 +63,7 @@ describe("Forge npm updates", () => {
         stdout,
         stderr,
         fetch: registryFetch("9.1.0-beta.1"),
+        provenance: "npm",
         install: async (packageName, version, env) => {
           const { PATH } = env;
           received = `${packageName}@${version}:${PATH}`;
@@ -71,7 +74,7 @@ describe("Forge npm updates", () => {
 
     expect(exitCode).toBe(0);
     expect(received).toBe(`${FORGE_NPM_PACKAGE}@9.1.0-beta.1:/test/bin`);
-    expect(stdout.value).toContain("Restart Forge");
+    expect(stdout.value).toContain("restart Forge");
     expect(stderr.value).toBe("");
   });
 
@@ -127,6 +130,7 @@ describe("Forge npm updates", () => {
       now: () => new Date(now.getTime() + 60_000),
       schedule: (task) => backgroundTasks.push(task),
     });
+    await Promise.all(backgroundTasks.splice(0));
     await maybeNotifyUpdate({
       env: { FORGE_HOME: forgeHome, FORGE_DISABLE_UPDATE_CHECK: "1" },
       stderr,
@@ -137,16 +141,200 @@ describe("Forge npm updates", () => {
     });
 
     expect(fetches).toBe(1);
-    expect(stderr.value.match(/Forge 9\.0\.0 is available/gu)).toHaveLength(1);
+    expect(stderr.value.match(/Forge 9\.0\.0 is available/gu)).toHaveLength(2);
     expect(backgroundTasks).toHaveLength(0);
     const cache = JSON.parse(
       await readFile(path.join(forgeHome, "update-check.json"), "utf8"),
     );
     expect(cache).toEqual({
-      schemaVersion: 1,
+      schemaVersion: 2,
       checkedAt: now.toISOString(),
       latestVersion: "9.0.0",
     });
+  });
+
+  it("publishes late refreshing and available states and persists dismissal", async () => {
+    const forgeHome = await makeTemporaryDirectory();
+    let resolveFetch: ((response: Response) => void) | undefined;
+    const fetch = (() =>
+      new Promise<Response>((resolve) => {
+        resolveFetch = resolve;
+      })) as typeof globalThis.fetch;
+    const service = createUpdateService({
+      env: { FORGE_HOME: forgeHome },
+      isTTY: true,
+      fetch,
+      now: () => new Date("2026-08-28T00:00:00.000Z"),
+    });
+    const states: string[] = [];
+    service.subscribe((state) => states.push(state.state));
+    const started = service.start();
+    await vi.waitFor(() => expect(states).toContain("refreshing"));
+    resolveFetch?.(Response.json({ version: "9.0.0" }));
+    await started;
+    expect(service.snapshot()).toMatchObject({
+      state: "available",
+      latestVersion: "9.0.0",
+      dismissed: false,
+    });
+
+    await service.dismiss("9.0.0");
+    expect(service.snapshot().dismissed).toBe(true);
+    const restored = createUpdateService({
+      env: { FORGE_HOME: forgeHome },
+      isTTY: true,
+      fetch: registryFetch("10.0.0"),
+      now: () => new Date("2026-08-28T00:01:00.000Z"),
+    });
+    await restored.start();
+    expect(restored.snapshot()).toMatchObject({
+      state: "available",
+      latestVersion: "9.0.0",
+      dismissed: true,
+    });
+  });
+
+  it("bounds malformed results and disables startup checks in CI", async () => {
+    const forgeHome = await makeTemporaryDirectory();
+    let fetches = 0;
+    const malformed = createUpdateService({
+      env: { FORGE_HOME: forgeHome },
+      isTTY: true,
+      fetch: registryFetch("latest"),
+    });
+    await malformed.start();
+    expect(malformed.snapshot()).toMatchObject({ state: "failed" });
+
+    const disabled = createUpdateService({
+      env: { FORGE_HOME: forgeHome, CI: "true" },
+      isTTY: true,
+      fetch: (async () => {
+        fetches += 1;
+        return Response.json({ version: "9.0.0" });
+      }) as typeof globalThis.fetch,
+    });
+    await disabled.start();
+    expect(disabled.snapshot().state).toBe("disabled");
+    expect(fetches).toBe(0);
+  });
+
+  it("bounds a startup registry timeout", async () => {
+    const forgeHome = await makeTemporaryDirectory();
+    let markStarted: (() => void) | undefined;
+    const fetchStarted = new Promise<void>((resolve) => {
+      markStarted = resolve;
+    });
+    vi.useFakeTimers();
+    try {
+      const service = createUpdateService({
+        env: { FORGE_HOME: forgeHome },
+        isTTY: true,
+        fetch: ((_url, init) =>
+          new Promise<Response>((_resolve, reject) => {
+            markStarted?.();
+            init?.signal?.addEventListener(
+              "abort",
+              () => reject(new DOMException("aborted", "AbortError")),
+              { once: true },
+            );
+          })) as typeof globalThis.fetch,
+      });
+      const started = service.start();
+      await fetchStarted;
+      await vi.advanceTimersByTimeAsync(3_001);
+      await started;
+      expect(service.snapshot()).toMatchObject({
+        state: "failed",
+        message: "npm registry request timed out",
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("detects npm and pnpm provenance and refuses unknown installation", async () => {
+    expect(
+      detectInstallProvenance({ npm_config_user_agent: "pnpm/10" }, ""),
+    ).toBe("pnpm");
+    expect(
+      detectInstallProvenance(
+        {},
+        "/usr/local/lib/node_modules/forge/dist/index.js",
+      ),
+    ).toBe("npm");
+    let installed = false;
+    const stdout = captureOutput();
+    const stderr = captureOutput();
+    const exitCode = await runUpdateCommand(
+      "install",
+      { target: "latest" },
+      {},
+      {
+        stdout,
+        stderr,
+        fetch: registryFetch("9.0.0"),
+        provenance: "unknown",
+        install: async () => {
+          installed = true;
+          return 0;
+        },
+      },
+    );
+    expect(exitCode).toBe(2);
+    expect(installed).toBe(false);
+    expect(stderr.value).toContain("could not identify");
+  });
+
+  it("does not modify protected Forge home data during check, dismissal, or failed install", async () => {
+    const forgeHome = await makeTemporaryDirectory();
+    const protectedFiles = [
+      "auth.json",
+      "config.json",
+      "sessions/session.json",
+      "traces/run.jsonl",
+      "plugins/example/plugin.json",
+    ];
+    for (const relativePath of protectedFiles) {
+      const target = path.join(forgeHome, relativePath);
+      await mkdir(path.dirname(target), { recursive: true });
+      await writeFile(target, `protected:${relativePath}`);
+    }
+    const service = createUpdateService({
+      env: { FORGE_HOME: forgeHome },
+      isTTY: true,
+      fetch: registryFetch("9.0.0"),
+    });
+    await service.start();
+    await service.dismiss("9.0.0");
+    await runUpdateCommand(
+      "install",
+      { target: "9.0.0" },
+      { FORGE_HOME: forgeHome },
+      {
+        stdout: captureOutput(),
+        stderr: captureOutput(),
+        fetch: registryFetch("9.0.0"),
+        provenance: "npm",
+        install: async () => 7,
+      },
+    );
+    await runUpdateCommand(
+      "install",
+      { target: "9.0.0" },
+      { FORGE_HOME: forgeHome },
+      {
+        stdout: captureOutput(),
+        stderr: captureOutput(),
+        fetch: registryFetch("9.0.0"),
+        provenance: "pnpm",
+        install: async () => 0,
+      },
+    );
+    for (const relativePath of protectedFiles) {
+      expect(await readFile(path.join(forgeHome, relativePath), "utf8")).toBe(
+        `protected:${relativePath}`,
+      );
+    }
   });
 });
 

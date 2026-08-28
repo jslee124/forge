@@ -1,4 +1,10 @@
 import {
+  type ApprovalDescriptor,
+  type ApprovalResponse,
+  describeApproval,
+  type SessionApprovalStore,
+} from "./approval.js";
+import {
   observePromptPrefix,
   type PromptPrefixInputs,
   type PromptPrefixObservation,
@@ -278,6 +284,7 @@ export interface RunAgentOptions {
   readonly tools: readonly ForgeTool[];
   readonly policy: ApprovalPolicy;
   readonly approvalChannel?: ApprovalChannel;
+  readonly approvalStore?: SessionApprovalStore;
   readonly toolContext: ToolContext;
   readonly signal: AbortSignal;
   readonly limits?: Partial<RunLimits>;
@@ -721,38 +728,120 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
         return finish("denied", decision.reason);
       }
       if (decision.kind === "confirm") {
-        if (!options.approvalChannel) {
+        let descriptor: ApprovalDescriptor;
+        try {
+          descriptor = await describeApproval(
+            proposed.action,
+            options.toolContext,
+          );
+        } catch {
+          return finish(
+            "failed",
+            "The approval descriptor could not be created.",
+          );
+        }
+        const matchedGrant = options.approvalStore?.match(descriptor);
+        if (matchedGrant) {
+          await emit({
+            type: "approval.scope-decision",
+            schemaVersion: 1,
+            actionId: call.id,
+            decision: "allow-session",
+            scopeId: matchedGrant.id,
+            provenance: "policy",
+            persisted: false,
+          });
+        } else if (!options.approvalChannel) {
           return finish(
             "denied",
             "The action requires approval, but no approval channel is available.",
           );
-        }
-        let approved: boolean;
-        try {
-          approved = await options.approvalChannel.request(
-            proposed.action,
-            options.signal,
-            options.toolContext,
-          );
-        } catch {
+        } else {
+          let response: ApprovalResponse;
+          try {
+            const received = options.approvalChannel.requestStructured
+              ? await options.approvalChannel.requestStructured(
+                  proposed.action,
+                  options.signal,
+                  options.toolContext,
+                  descriptor,
+                )
+              : await options.approvalChannel.request(
+                  proposed.action,
+                  options.signal,
+                  options.toolContext,
+                );
+            response =
+              typeof received === "boolean"
+                ? { kind: received ? "allow-once" : "deny" }
+                : received;
+          } catch {
+            if (options.signal.aborted) {
+              return finish("cancelled", "The run was cancelled.");
+            }
+            return finish("failed", "The approval channel failed.");
+          }
           if (options.signal.aborted) {
             return finish("cancelled", "The run was cancelled.");
           }
-          return finish("failed", "The approval channel failed.");
-        }
-        if (options.signal.aborted) {
-          return finish("cancelled", "The run was cancelled.");
-        }
-        if (!approved) {
-          return finish("denied", "The action was not approved.");
+          if (response.kind === "deny") {
+            const feedback = response.feedback?.trim().slice(0, 2_000);
+            await emit({
+              type: "approval.scope-decision",
+              schemaVersion: 1,
+              actionId: call.id,
+              decision: "deny",
+              provenance: "user",
+              persisted: false,
+            });
+            if (!feedback) {
+              return finish("denied", "The action was not approved.");
+            }
+            const result: ToolResult = {
+              ok: false,
+              error: {
+                code: "approval_denied",
+                message: `The user denied this action: ${feedback}`,
+                retryable: true,
+              },
+            };
+            await emit({ type: "tool.failed", step: modelSteps, call, result });
+            nextResults.push({ callId: call.id, toolName: call.name, result });
+            continue;
+          }
+          if (response.kind === "allow-session") {
+            const scope = descriptor.allowedScopes[0];
+            if (!scope || !options.approvalStore) {
+              return finish(
+                "denied",
+                "A session grant is not permitted for this action.",
+              );
+            }
+            const grant = options.approvalStore.grant(scope);
+            await emit({
+              type: "approval.scope-decision",
+              schemaVersion: 1,
+              actionId: call.id,
+              decision: "allow-session",
+              scopeId: grant.id,
+              provenance: "user",
+              persisted: false,
+            });
+          } else {
+            await emit({
+              type: "approval.scope-decision",
+              schemaVersion: 1,
+              actionId: call.id,
+              decision: "allow-once",
+              provenance: "user",
+              persisted: false,
+            });
+          }
         }
       }
 
       await emit({ type: "tool.started", step: modelSteps, call });
       const result = await execute(proposed.action, options.toolContext);
-      if (result.ok && decision.kind === "confirm") {
-        options.policy.recordApproval?.(proposed.action);
-      }
       await emit({
         type: result.ok ? "tool.completed" : "tool.failed",
         step: modelSteps,

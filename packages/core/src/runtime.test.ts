@@ -13,6 +13,7 @@ import {
   exitCodeForRunStatus,
   ReadOnlyPolicy,
   runAgent,
+  SessionApprovalStore,
   WorkspaceWritePolicy,
 } from "./index.js";
 
@@ -608,7 +609,7 @@ describe("native agent runtime", () => {
     expect(executions).toEqual(["a.ts"]);
   });
 
-  it("scopes one patch approval to later patches in the same run only", async () => {
+  it("reuses an explicit workspace-write grant in the active session only", async () => {
     const executions: string[] = [];
     const patchTool: ForgeTool = {
       name: "apply_patch",
@@ -630,6 +631,10 @@ describe("native agent runtime", () => {
       [{ type: "text.delta", text: "Patched." }, finish("stop")],
     ]);
     let approvals = 0;
+    const approvalStore = new SessionApprovalStore({
+      workspaceRoot: "/workspace",
+      sessionId: "active",
+    });
 
     const result = await runAgent({
       prompt: "Patch twice",
@@ -641,7 +646,12 @@ describe("native agent runtime", () => {
           approvals += 1;
           return true;
         },
+        requestStructured: async () => {
+          approvals += 1;
+          return { kind: "allow-session" };
+        },
       },
+      approvalStore,
       toolContext,
       signal: toolContext.signal,
     });
@@ -655,7 +665,14 @@ describe("native agent runtime", () => {
         .map((event) =>
           event.type === "tool.decision" ? event.decision.kind : "",
         ),
-    ).toEqual(["confirm", "allow"]);
+    ).toEqual(["confirm", "confirm"]);
+    expect(
+      result.events
+        .filter(({ type }) => type === "approval.scope-decision")
+        .map((event) =>
+          event.type === "approval.scope-decision" ? event.provenance : "",
+        ),
+    ).toEqual(["user", "policy"]);
     expect(
       await new WorkspaceWritePolicy().evaluate(
         {
@@ -717,6 +734,41 @@ describe("native agent runtime", () => {
 
     expect(result.status).toBe("completed");
     expect(approvals).toBe(2);
+  });
+
+  it("returns bounded denial feedback to the active tool loop without approving", async () => {
+    const executions: string[] = [];
+    const model = new ScriptedModel([
+      [toolCall("denied-call", "secret.ts"), finish("tool-calls", 1)],
+      [{ type: "text.delta", text: "Understood." }, finish("stop")],
+    ]);
+    const result = await runAgent({
+      prompt: "Read",
+      model,
+      tools: [fakeReadTool(executions)],
+      policy: {
+        evaluate: async () => ({ kind: "confirm", reason: "Confirm it." }),
+      },
+      approvalChannel: {
+        request: async () => false,
+        requestStructured: async () => ({
+          kind: "deny",
+          feedback: "Use the public fixture instead.",
+        }),
+      },
+      toolContext,
+      signal: toolContext.signal,
+    });
+
+    expect(result.status).toBe("completed");
+    expect(executions).toEqual([]);
+    expect(model.requests[1]?.toolResults?.[0]?.result).toMatchObject({
+      ok: false,
+      error: {
+        code: "approval_denied",
+        message: "The user denied this action: Use the public fixture instead.",
+      },
+    });
   });
 
   it("reports failed and cancelled model runs", async () => {
