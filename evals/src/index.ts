@@ -15,6 +15,12 @@ export {
   writeEvaluationReport,
 } from "./report.js";
 export {
+  evaluateResourceCases,
+  PRODUCT_QUESTION_FIXTURES,
+  type ResourceEvaluationCase,
+  type ResourceEvaluationMetrics,
+} from "./resource-evaluation.js";
+export {
   loadTask,
   loadTaskManifests,
   type TaskManifest,

@@ -40,6 +40,57 @@ export type RunStatus =
 
 export type RunEvent =
   | {
+      readonly type: "skill.discovery";
+      readonly catalogCount: number;
+      readonly diagnosticCount: number;
+      readonly diagnostics: readonly {
+        readonly code: string;
+        readonly source: "builtin" | "user" | "project";
+        readonly sourcePath: string;
+        readonly message: string;
+      }[];
+    }
+  | {
+      readonly type: "skill.selected";
+      readonly id: string;
+      readonly name: string;
+      readonly source: "builtin" | "user" | "project";
+      readonly reason: "automatic" | "explicit";
+      readonly invocation: "model" | "explicit-only";
+    }
+  | {
+      readonly type: "skill.loaded";
+      readonly id: string;
+      readonly name: string;
+      readonly source: "builtin" | "user" | "project";
+      readonly relativePath: string;
+      readonly truncated: boolean;
+    }
+  | {
+      readonly type: "skill.rejected";
+      readonly id?: string;
+      readonly code: string;
+      readonly message: string;
+    }
+  | {
+      readonly type: "docs.search";
+      readonly query: string;
+      readonly resultCount: number;
+      readonly locale: "en" | "zh-CN";
+      readonly fallback: boolean;
+    }
+  | {
+      readonly type: "docs.read";
+      readonly reference: string;
+      readonly truncated: boolean;
+    }
+  | {
+      readonly type: "docs.rejected";
+      readonly tool: "search_forge_docs" | "read_forge_doc";
+      readonly code: string;
+      readonly message: string;
+    }
+  | {
       readonly type: "run.started";
       readonly prompt: string;
       readonly imageCount?: number;
@@ -167,6 +218,7 @@ export interface RunAgentOptions {
   readonly signal: AbortSignal;
   readonly limits?: Partial<RunLimits>;
   readonly onEvent?: (event: RunEvent) => void | Promise<void>;
+  readonly initialEvents?: readonly RunEvent[];
 }
 
 export interface RunResult {
@@ -204,8 +256,20 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
   let toolResults: readonly ModelToolResult[] | undefined;
   let finalText = "";
   let overflowRecoveryUsed = false;
+  const selectedSkillIds = new Set(
+    (options.initialEvents ?? [])
+      .filter(
+        (
+          event,
+        ): event is Extract<RunEvent, { readonly type: "skill.selected" }> =>
+          event.type === "skill.selected",
+      )
+      .map(({ id }) => id),
+  );
   const contextConfiguration =
     options.contextConfiguration ?? DEFAULT_CONTEXT_CONFIGURATION;
+
+  for (const event of options.initialEvents ?? []) await emit(event);
 
   await emit({
     type: "run.started",
@@ -443,6 +507,13 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
           toolName: call.name,
           result: proposed.result,
         });
+        if (call.name === "load_skill" && !proposed.result.ok) {
+          await emit({
+            type: "skill.rejected",
+            code: proposed.result.error.code,
+            message: proposed.result.error.message,
+          });
+        }
         continue;
       }
 
@@ -510,6 +581,115 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
         call,
         result,
       });
+      if (call.name === "load_skill") {
+        if (result.ok) {
+          const output = result.output as {
+            readonly id?: unknown;
+            readonly name?: unknown;
+            readonly source?: unknown;
+            readonly invocation?: unknown;
+            readonly relativePath?: unknown;
+            readonly truncated?: unknown;
+          };
+          if (
+            typeof output.id === "string" &&
+            typeof output.name === "string" &&
+            (output.source === "builtin" ||
+              output.source === "user" ||
+              output.source === "project") &&
+            typeof output.relativePath === "string" &&
+            (output.invocation === "model" ||
+              output.invocation === "explicit-only")
+          ) {
+            if (!selectedSkillIds.has(output.id)) {
+              selectedSkillIds.add(output.id);
+              await emit({
+                type: "skill.selected",
+                id: output.id,
+                name: output.name,
+                source: output.source,
+                reason: "automatic",
+                invocation: output.invocation,
+              });
+            }
+            await emit({
+              type: "skill.loaded",
+              id: output.id,
+              name: output.name,
+              source: output.source,
+              relativePath: output.relativePath,
+              truncated: output.truncated === true,
+            });
+          }
+        } else {
+          const id =
+            typeof call.input === "object" &&
+            call.input !== null &&
+            "id" in call.input &&
+            typeof call.input.id === "string"
+              ? call.input.id
+              : undefined;
+          await emit({
+            type: "skill.rejected",
+            ...(id ? { id } : {}),
+            code: result.error.code,
+            message: result.error.message,
+          });
+        }
+      }
+      if (call.name === "search_forge_docs") {
+        if (result.ok) {
+          const output = result.output as {
+            readonly query?: unknown;
+            readonly preferredLocale?: unknown;
+            readonly fallback?: unknown;
+            readonly results?: unknown;
+          };
+          if (
+            typeof output.query === "string" &&
+            (output.preferredLocale === "en" ||
+              output.preferredLocale === "zh-CN") &&
+            Array.isArray(output.results)
+          ) {
+            await emit({
+              type: "docs.search",
+              query: output.query,
+              resultCount: output.results.length,
+              locale: output.preferredLocale,
+              fallback: typeof output.fallback === "string",
+            });
+          }
+        } else {
+          await emit({
+            type: "docs.rejected",
+            tool: "search_forge_docs",
+            code: result.error.code,
+            message: result.error.message,
+          });
+        }
+      }
+      if (call.name === "read_forge_doc") {
+        if (result.ok) {
+          const output = result.output as {
+            readonly reference?: unknown;
+            readonly truncated?: unknown;
+          };
+          if (typeof output.reference === "string") {
+            await emit({
+              type: "docs.read",
+              reference: output.reference,
+              truncated: output.truncated === true,
+            });
+          }
+        } else {
+          await emit({
+            type: "docs.rejected",
+            tool: "read_forge_doc",
+            code: result.error.code,
+            message: result.error.message,
+          });
+        }
+      }
       nextResults.push({
         callId: call.id,
         toolName: call.name,

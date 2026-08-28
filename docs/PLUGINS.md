@@ -5,7 +5,7 @@
 
 [简体中文](zh-CN/PLUGINS.md) · [Documentation index](README.md)
 
-Forge v0.2 works without plugins. A plugin is an optional in-process JavaScript
+Forge 0.3.2 works without plugins. A plugin is an optional in-process JavaScript
 module that can register model-callable tools and explicit local commands,
 contribute instructions, observe immutable run events, or make policy stricter.
 
@@ -110,7 +110,7 @@ forge
 ```
 
 The blue startup frame lists enabled user plugins, trusted or skipped project
-plugins, and discovered project Skills. This listing reads manifests and Skill
+plugins, and discovered built-in, user, and project Skills. This listing reads manifests and Skill
 metadata only; it does not import plugin entry files early.
 
 ## Locations, enablement, and trust
@@ -405,7 +405,8 @@ The native Forge Engine performs these steps for each prompt:
 
 1. Load and validate configuration.
 2. Load bounded user/project instructions.
-3. Discover project Skills and select only explicit `$skill-name` mentions.
+3. Discover bounded built-in, user, and project Skill metadata, resolve
+   collisions, and preserve explicit `$skill-name` selection.
 4. Discover plugin manifests.
 5. Exclude disabled user plugins and untrusted project plugins.
 6. Resolve each entry inside its plugin directory and import it.
@@ -422,17 +423,32 @@ not load Forge plugins.
 
 ## Portable Skills are different
 
-Forge discovers Markdown Skills only at:
+Forge discovers Markdown Skills at:
 
 ```text
+<installed-package>/resources/skills/<skill-name>/SKILL.md
+$FORGE_HOME/skills/<skill-name>/SKILL.md
 <workspace-root>/.agents/skills/<skill-name>/SKILL.md
 ```
 
 A Skill is guidance, not executable plugin code. Discovery never executes it.
-Forge adds a Skill to a run only when the prompt explicitly contains
-`$skill-name`; content is limited to 32 KiB and its path is recorded. Scripts or
-actions described by a Skill still require normal model tool calls, policy,
-approval, and trace events.
+Each `SKILL.md` starts with bounded YAML frontmatter containing a kebab-case
+`name` matching its directory and a task-oriented `description`.
+`disable-model-invocation: true` makes that Skill explicit-only.
+
+The first model request contains only the bounded catalog fields `id`, `name`,
+`description`, and `source`; Skill bodies are loaded lazily through the
+host-owned `load_skill` read tool. That tool accepts only registered opaque IDs,
+limits and deduplicates loads, revalidates canonical paths and file identities,
+and rejects symlinks or files outside the registered root. Name collisions use
+`project > user > builtin`; an explicit `$skill-name` overrides automatic
+routing. Selection, load, rejection, and truncation are trace events visible in
+`forge inspect`.
+
+Scripts or actions described by a Skill still require normal model tool calls,
+policy, approval, and trace events. Selecting or loading a project Skill does
+not trust project plugin code and does not widen `read_file` beyond the active
+workspace.
 
 ## Testing a plugin
 
@@ -592,9 +608,15 @@ would require a restricted process or OS sandbox.
 
 ## Deliberate limitations
 
-Forge v0.2 has no plugin installer, dependency resolver, package registry, hot
+Forge 0.3.2 has no plugin installer, dependency resolver, package registry, hot
 reload, TypeScript entry compilation, custom interactive UI, provider
 registration, isolated plugin process, or enforceable filesystem/network
 capabilities. Plugin commands run only through `forge plugins run`; they do not
 become interactive slash commands. These gaps are explicit so plugin authors
 can target the implemented contract instead of guessing at future APIs.
+
+## Skills and product documentation are resources
+
+Skills are non-executable, untrusted instruction resources discovered from built-in, user, and project scopes. `forge plugins list` reports executable plugins; `forge resources list` reports Skill source, invocation status, collision shadowing, and diagnostics. The interactive equivalents are `/plugins` and `/resources`.
+
+The built-in `forge-product-help` Skill requires a documentation lookup before implementation-specific product answers. `search_forge_docs` and `read_forge_doc` use a version-matched packaged allowlist and stable `forge-doc:<version>:<locale>:<document>#<section>` references. They reject filesystem paths and do not inherit `read_file` access.

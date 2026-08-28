@@ -34,6 +34,7 @@ export type ConfigKey =
   | "limits.maxToolOutputBytes"
   | "trace.enabled"
   | "plugins.enabled"
+  | "resources.disabledModelInvocation"
   | "context.mode"
   | "context.reservedOutputTokens"
   | "context.bufferTokens"
@@ -147,6 +148,30 @@ export async function saveUserModelSelection(options: {
       },
     },
     "model selection",
+  );
+}
+
+export async function setUserSkillModelInvocation(options: {
+  readonly cwd: string;
+  readonly env?: NodeJS.ProcessEnv;
+  readonly name: string;
+  readonly enabled: boolean;
+}): Promise<string> {
+  const loaded = await loadForgeConfig({
+    cwd: options.cwd,
+    ...(options.env ? { env: options.env } : {}),
+  });
+  const existing = await readConfigFile(loaded.userConfigPath);
+  const disabled = new Set(existing?.resources?.disabledModelInvocation ?? []);
+  if (options.enabled) disabled.delete(options.name);
+  else disabled.add(options.name);
+  return writeUserConfig(
+    loaded,
+    {
+      ...(existing ?? { schemaVersion: 1 }),
+      resources: { disabledModelInvocation: [...disabled].sort() },
+    },
+    `Skill model-invocation preference for "${options.name}"`,
   );
 }
 
@@ -340,6 +365,7 @@ const CONFIG_KEYS: readonly ConfigKey[] = [
   "limits.maxToolOutputBytes",
   "trace.enabled",
   "plugins.enabled",
+  "resources.disabledModelInvocation",
   "context.mode",
   "context.reservedOutputTokens",
   "context.bufferTokens",
@@ -354,6 +380,11 @@ function cloneDefaults(): EffectiveForgeConfig {
     limits: { ...DEFAULT_FORGE_CONFIG.limits },
     trace: { ...DEFAULT_FORGE_CONFIG.trace },
     plugins: { enabled: [...DEFAULT_FORGE_CONFIG.plugins.enabled] },
+    resources: {
+      disabledModelInvocation: [
+        ...DEFAULT_FORGE_CONFIG.resources.disabledModelInvocation,
+      ],
+    },
     context: { ...DEFAULT_FORGE_CONFIG.context },
     providers: { ...DEFAULT_FORGE_CONFIG.providers },
   };
@@ -453,6 +484,7 @@ function rejectProjectOnlyFields(
     config.permissionProfile === undefined ? undefined : "permissionProfile",
     config.trace === undefined ? undefined : "trace",
     config.plugins === undefined ? undefined : "plugins",
+    config.resources === undefined ? undefined : "resources",
     config.providers === undefined ? undefined : "providers",
   ].filter((value): value is string => value !== undefined);
   if (forbidden.length > 0) {
@@ -494,6 +526,11 @@ function mergeOrdinary(
     },
     trace: { enabled: next.trace?.enabled ?? base.trace.enabled },
     plugins: { enabled: next.plugins?.enabled ?? base.plugins.enabled },
+    resources: {
+      disabledModelInvocation:
+        next.resources?.disabledModelInvocation ??
+        base.resources.disabledModelInvocation,
+    },
     context: {
       mode: next.context?.mode ?? base.context.mode,
       reservedOutputTokens:
@@ -750,6 +787,8 @@ function recordFileProvenance(
   if (config.trace?.enabled !== undefined) provenance["trace.enabled"] = source;
   if (config.plugins?.enabled !== undefined)
     provenance["plugins.enabled"] = source;
+  if (config.resources?.disabledModelInvocation !== undefined)
+    provenance["resources.disabledModelInvocation"] = source;
   if (config.context?.mode !== undefined) provenance["context.mode"] = source;
   for (const [field, key] of CONTEXT_LIMIT_KEYS) {
     if (config.context?.[field] !== undefined) provenance[key] = source;

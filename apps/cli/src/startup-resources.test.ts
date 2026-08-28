@@ -1,4 +1,11 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  realpath,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -45,7 +52,10 @@ describe("interactive startup resource discovery", () => {
       "review",
     );
     await mkdir(skillDirectory, { recursive: true });
-    await writeFile(path.join(skillDirectory, "SKILL.md"), "Review changes.\n");
+    await writeFile(
+      path.join(skillDirectory, "SKILL.md"),
+      "---\nname: review\ndescription: Review repository changes\n---\nReview changes.\n",
+    );
 
     const untrusted = await detectStartupResources({
       forgeHome,
@@ -53,7 +63,7 @@ describe("interactive startup resource discovery", () => {
       enabledUserPlugins: ["user-tool"],
     });
 
-    expect(untrusted).toEqual({
+    expect(untrusted).toMatchObject({
       plugins: [
         {
           name: "user-tool",
@@ -70,7 +80,34 @@ describe("interactive startup resource discovery", () => {
           capabilities: [],
         },
       ],
-      skills: [{ name: "review", path: path.join(skillDirectory, "SKILL.md") }],
+      skills: [
+        {
+          name: "forge-plugin-creator",
+          path: expect.stringContaining(
+            "resources/skills/forge-plugin-creator/SKILL.md",
+          ),
+          source: "builtin",
+          invocation: "model",
+          status: "automatic",
+        },
+        {
+          name: "forge-product-help",
+          path: expect.stringContaining(
+            "resources/skills/forge-product-help/SKILL.md",
+          ),
+          source: "builtin",
+          invocation: "model",
+          status: "automatic",
+        },
+        {
+          name: "review",
+          path: await realpath(path.join(skillDirectory, "SKILL.md")),
+          source: "project",
+          invocation: "model",
+          status: "automatic",
+        },
+      ],
+      diagnostics: [],
     });
     await expect(readFile(marker)).rejects.toMatchObject({
       code: "ENOENT",

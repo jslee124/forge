@@ -39,7 +39,8 @@ packages/
 |-- model-openai/           # OpenAI Responses API translation
 |-- auth/                   # provider-neutral API-key resolution
 |-- persistence/            # session snapshots、JSONL traces、redaction
-|-- plugin-api/              # discovery、trust、host 与 plugin API v1
+|-- plugin-api/             # 可执行 plugin discovery、trust、host 与 API v1
+|-- resources/              # 非执行型 Skill catalog 与安全延迟加载
 |-- tools/                  # 内置工具实现
 `-- config/                 # 配置和 context loading
 fixtures/                   # integration test 的小型仓库任务
@@ -67,6 +68,7 @@ evals/                      # task manifest、grader、runner、报告
 User -> CLI -> Agent Runtime
               |-- Model Adapter -> Auth Manager -> AI SDK -> Provider
               |-- Context Loader -> Instructions
+              |-- Resource Catalog -> load_skill
               |-- Plugin Host -> Contributions
               |-- Policy Kernel -> Tool Executor
               `-- Run Events -> Terminal + Trace

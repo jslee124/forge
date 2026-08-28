@@ -5,11 +5,7 @@ import path from "node:path";
 import { ZodError } from "zod";
 
 import { pluginManifestSchema } from "./schema.js";
-import type {
-  DiscoveredPlugin,
-  PluginManifest,
-  PortableSkill,
-} from "./types.js";
+import type { DiscoveredPlugin, PluginManifest } from "./types.js";
 
 export class PluginError extends Error {
   readonly code = "FORGE_PLUGIN_ERROR";
@@ -78,49 +74,6 @@ export async function discoverPlugins(options: {
   }
   return plugins.sort((left, right) =>
     left.manifest.name.localeCompare(right.manifest.name),
-  );
-}
-
-export async function discoverPortableSkills(
-  workspaceRoot: string,
-): Promise<readonly PortableSkill[]> {
-  const root = path.join(workspaceRoot, ".agents", "skills");
-  const entries = await readDirectories(root);
-  const skills: PortableSkill[] = [];
-  for (const entry of entries) {
-    if (!/^[a-z0-9][a-z0-9-]{0,63}$/u.test(entry.name)) continue;
-    const skillPath = path.join(root, entry.name, "SKILL.md");
-    let content: string;
-    try {
-      content = await readFile(skillPath, "utf8");
-    } catch (error) {
-      if (isNotFound(error)) continue;
-      throw new PluginError(
-        `Could not read portable skill ${skillPath}.`,
-        skillPath,
-        { cause: error },
-      );
-    }
-    if (Buffer.byteLength(content) > 32_768) {
-      throw new PluginError(
-        `Portable skill ${skillPath} exceeds 32768 bytes.`,
-        skillPath,
-      );
-    }
-    skills.push({ name: entry.name, path: skillPath, content });
-  }
-  return skills.sort((left, right) => left.name.localeCompare(right.name));
-}
-
-export function selectPortableSkills(
-  prompt: string,
-  skills: readonly PortableSkill[],
-): readonly PortableSkill[] {
-  return skills.filter((skill) =>
-    new RegExp(
-      `(^|\\s)\\$${escapeRegExp(skill.name)}(?=\\s|$|[.,:;!?])`,
-      "u",
-    ).test(prompt),
   );
 }
 
@@ -212,8 +165,4 @@ function isNotFound(error: unknown): boolean {
     "code" in error &&
     error.code === "ENOENT"
   );
-}
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
 }

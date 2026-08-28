@@ -276,6 +276,77 @@ const terminalEvent = (
 export const runEventSchema = z.discriminatedUnion("type", [
   z
     .object({
+      type: z.literal("skill.discovery"),
+      catalogCount: z.number().int().nonnegative().max(64),
+      diagnosticCount: z.number().int().nonnegative(),
+      diagnostics: z
+        .array(
+          z
+            .object({
+              code: z.string().max(100),
+              source: z.enum(["builtin", "user", "project"]),
+              sourcePath: z.string().max(4_096),
+              message: z.string().max(1_000),
+            })
+            .strict(),
+        )
+        .max(128),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("skill.selected"),
+      id: z.string().max(200),
+      name: z.string().max(64),
+      source: z.enum(["builtin", "user", "project"]),
+      reason: z.enum(["automatic", "explicit"]),
+      invocation: z.enum(["model", "explicit-only"]),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("skill.loaded"),
+      id: z.string().max(300),
+      name: z.string().max(64),
+      source: z.enum(["builtin", "user", "project"]),
+      relativePath: z.string().max(4_096),
+      truncated: z.boolean(),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("skill.rejected"),
+      id: z.string().max(300).optional(),
+      code: z.string().max(100),
+      message: z.string().max(1_000),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("docs.search"),
+      query: z.string().max(500),
+      resultCount: z.number().int().nonnegative().max(8),
+      locale: z.enum(["en", "zh-CN"]),
+      fallback: z.boolean(),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("docs.read"),
+      reference: z.string().max(300),
+      truncated: z.boolean(),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("docs.rejected"),
+      tool: z.enum(["search_forge_docs", "read_forge_doc"]),
+      code: z.string().max(100),
+      message: z.string().max(1_000),
+    })
+    .strict(),
+  z
+    .object({
       type: z.literal("run.started"),
       prompt: z.string(),
       imageCount: z.number().int().positive().max(8).optional(),

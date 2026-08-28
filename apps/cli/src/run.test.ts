@@ -103,7 +103,102 @@ class CreateThenAnswerModel implements ModelAdapter {
   }
 }
 
+class LoadSkillThenAnswerModel implements ModelAdapter {
+  readonly requests: ModelRequest[] = [];
+
+  async *stream(request: ModelRequest): AsyncIterable<ModelStreamEvent> {
+    this.requests.push(request);
+    if (this.requests.length === 1) {
+      const match = /"id":"(skill:[^"]+)","name":"forge-plugin-creator"/u.exec(
+        request.instructions ?? "",
+      );
+      if (!match?.[1]) throw new Error("Missing built-in Skill catalog id.");
+      yield {
+        type: "tool.call",
+        call: {
+          id: "skill-1",
+          name: "load_skill",
+          input: { id: match[1] },
+        },
+      };
+      yield {
+        type: "finish",
+        finishReason: "tool-calls",
+        usage,
+        continuation: { provider: "fake", data: { step: 1 } },
+      };
+      return;
+    }
+    yield { type: "text.delta", text: "Plugin plan is ready." };
+    yield { type: "finish", finishReason: "stop", usage };
+  }
+}
+
 describe("forge run", () => {
+  it("automatically selects and lazily loads the built-in plugin authoring Skill", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "forge-run-skill-"));
+    temporaryDirectories.push(root);
+    const model = new LoadSkillThenAnswerModel();
+    const events: RunEvent[] = [];
+
+    const exitCode = await runTask(
+      "Create a Forge plugin that counts text",
+      {},
+      {
+        env: { DEEPSEEK_API_KEY: "test-secret", FORGE_HOME: root },
+        cwd: root,
+        stdout: outputBuffer().output,
+        stderr: outputBuffer().output,
+        signal: new AbortController().signal,
+        createAdapter: () => model,
+        onEvent: (event) => {
+          events.push(event);
+        },
+      },
+    );
+
+    expect(exitCode).toBe(0);
+    expect(model.requests).toHaveLength(2);
+    expect(model.requests[0]?.instructions).toContain("<skill_catalog");
+    expect(model.requests[0]?.instructions).toContain(
+      '"name":"forge-plugin-creator"',
+    );
+    expect(model.requests[0]?.instructions).not.toContain(
+      "# Forge plugin creator",
+    );
+    expect(model.requests[0]?.tools?.map(({ name }) => name)).toContain(
+      "load_skill",
+    );
+    expect(model.requests[1]?.toolResults?.[0]).toMatchObject({
+      toolName: "load_skill",
+      result: {
+        ok: true,
+        output: {
+          name: "forge-plugin-creator",
+          source: "builtin",
+          content: expect.stringContaining("# Forge plugin creator"),
+        },
+      },
+    });
+    expect(events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "skill.selected",
+          name: "forge-plugin-creator",
+          reason: "automatic",
+        }),
+        expect.objectContaining({
+          type: "skill.loaded",
+          name: "forge-plugin-creator",
+          truncated: false,
+        }),
+      ]),
+    );
+    expect(
+      events.filter(({ type }) => type === "context.budgeted"),
+    ).toHaveLength(2);
+  });
+
   it("reports provider-hidden reasoning tokens without inventing reasoning text", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "forge-run-reasoning-"));
     temporaryDirectories.push(root);
@@ -226,12 +321,22 @@ describe("forge run", () => {
     );
     expect(trace).toContain('"schemaVersion":1');
     expect(trace).not.toContain("test-secret");
-    const firstEvent = JSON.parse(trace.split("\n")[0] ?? "null") as {
-      readonly event?: {
-        readonly context?: { readonly instructionPaths?: readonly string[] };
-      };
-    };
-    expect(firstEvent.event?.context?.instructionPaths).toContain(
+    const runStarted = trace
+      .split("\n")
+      .filter(Boolean)
+      .map(
+        (line) =>
+          JSON.parse(line) as {
+            readonly event?: {
+              readonly type?: string;
+              readonly context?: {
+                readonly instructionPaths?: readonly string[];
+              };
+            };
+          },
+      )
+      .find(({ event }) => event?.type === "run.started");
+    expect(runStarted?.event?.context?.instructionPaths).toContain(
       path.join(root, "AGENTS.md"),
     );
     expect(model.requests[1]?.toolResults?.[0]).toMatchObject({

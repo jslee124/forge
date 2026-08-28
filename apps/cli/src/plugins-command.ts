@@ -3,7 +3,6 @@ import path from "node:path";
 import { ForgeConfigError, loadForgeConfig } from "@forge/config";
 import {
   discoverPlugins,
-  discoverPortableSkills,
   isProjectTrusted,
   loadPluginHost,
   PluginError,
@@ -46,7 +45,6 @@ export async function runPluginsCommand(
         root: path.join(loaded.workspaceRoot, ".forge", "plugins"),
         scope: "project",
       });
-      const skills = await discoverPortableSkills(loaded.workspaceRoot);
       const trusted = await isProjectTrusted(
         loaded.forgeHome,
         loaded.workspaceRoot,
@@ -55,7 +53,6 @@ export async function runPluginsCommand(
         formatPluginList({
           user,
           project,
-          skills,
           enabled: loaded.config.plugins.enabled,
           projectTrusted: trusted,
         }),
@@ -155,7 +152,6 @@ export async function runPluginsCommand(
 function formatPluginList(options: {
   readonly user: readonly import("@forge/plugin-api").DiscoveredPlugin[];
   readonly project: readonly import("@forge/plugin-api").DiscoveredPlugin[];
-  readonly skills: readonly import("@forge/plugin-api").PortableSkill[];
   readonly enabled: readonly string[];
   readonly projectTrusted: boolean;
 }): string {
@@ -175,10 +171,7 @@ function formatPluginList(options: {
             `  ${plugin.manifest.name}@${plugin.manifest.version}  ${options.projectTrusted ? "trusted" : "untrusted"}`,
         )
       : ["  (none)"]),
-    "Portable skills:",
-    ...(options.skills.length > 0
-      ? options.skills.map((skill) => `  $${skill.name}  ${skill.path}`)
-      : ["  (none)"]),
+    "Skills are non-executable resources. Use `forge resources list` to inspect them.",
     "",
   ].join("\n");
 }

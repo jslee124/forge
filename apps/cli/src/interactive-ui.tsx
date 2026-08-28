@@ -94,6 +94,7 @@ type Phase =
   | "delete-model-confirm"
   | "effort"
   | "plugins"
+  | "resources"
   | "plugin-trust"
   | "login-providers"
   | "login-key"
@@ -611,6 +612,8 @@ export async function runInkInteractiveFromCli(
         forgeHome: loaded.forgeHome,
         workspaceRoot: loaded.workspaceRoot,
         enabledUserPlugins: loaded.config.plugins.enabled,
+        disabledModelInvocation:
+          loaded.config.resources.disabledModelInvocation,
       });
     }
     sessionPersistence ??= await createPersistentInteractiveSession({
@@ -1079,6 +1082,18 @@ export function InteractiveApp({
         case "tool.completed":
           appendEntry("tool", `✓ Completed ${event.call.name}`);
           break;
+        case "docs.search":
+          appendEntry(
+            "tool",
+            `Docs · ${event.resultCount} result(s) · ${event.locale}${event.fallback ? " · English fallback" : ""}`,
+          );
+          break;
+        case "docs.read":
+          appendEntry("tool", `Docs · ${event.reference}`);
+          break;
+        case "docs.rejected":
+          appendEntry("warning", `Docs · ${event.message}`);
+          break;
         case "tool.failed":
           appendEntry(
             "error",
@@ -1296,6 +1311,10 @@ export function InteractiveApp({
         setSelectedIndex(0);
         setPluginTrustIntent(undefined);
         setPhase("plugins");
+        return;
+      case "/resources":
+        setEditor(createEditorState());
+        setPhase("resources");
         return;
       case "/compact --dry-run":
       case "/compact": {
@@ -1668,7 +1687,11 @@ export function InteractiveApp({
   };
 
   const cancelOrExit = (): void => {
-    if (phase === "plugins" || phase === "plugin-trust") {
+    if (
+      phase === "plugins" ||
+      phase === "resources" ||
+      phase === "plugin-trust"
+    ) {
       setPluginTrustIntent(undefined);
       setPhase("editing");
       return;
@@ -1736,6 +1759,10 @@ export function InteractiveApp({
         setPluginTrustIntent("untrust");
         setPhase("plugin-trust");
       }
+      return;
+    }
+    if (phase === "resources") {
+      if (key.escape) setPhase("editing");
       return;
     }
     if (phase === "plugin-trust") {
@@ -2489,6 +2516,8 @@ export function InteractiveApp({
 
       {phase === "plugins" ? <PluginsPanel resources={resources} /> : null}
 
+      {phase === "resources" ? <ResourcesPanel resources={resources} /> : null}
+
       {phase === "plugin-trust" && pluginTrustIntent ? (
         <PluginTrustPanel
           cwd={cwd}
@@ -3063,6 +3092,53 @@ function PluginsPanel({
       ) : (
         <Text dimColor>Esc close</Text>
       )}
+      <Text dimColor>Skills are listed separately in /resources.</Text>
+    </Box>
+  );
+}
+
+function ResourcesPanel({
+  resources,
+}: {
+  readonly resources: DetectedStartupResources;
+}): React.JSX.Element {
+  return (
+    <Box
+      borderStyle="round"
+      borderColor="cyan"
+      flexDirection="column"
+      paddingX={1}
+      marginTop={1}
+    >
+      <Text bold color="cyan">
+        Resources
+      </Text>
+      {resources.skills.length === 0 ? (
+        <Text dimColor>No Skills were discovered.</Text>
+      ) : (
+        resources.skills.map((skill) => (
+          <Box
+            key={`${skill.source}:${skill.path}`}
+            flexDirection="column"
+            marginTop={1}
+          >
+            <Text>
+              <Text bold>${skill.name}</Text>
+              {` · ${skill.source} · ${skill.status ?? skill.invocation}${skill.shadowedBy ? ` by ${skill.shadowedBy}` : ""}`}
+            </Text>
+            <Text dimColor>{skill.description ?? "No description."}</Text>
+          </Box>
+        ))
+      )}
+      {(resources.diagnostics ?? []).map((diagnostic) => (
+        <Text key={diagnostic} color="yellow">
+          {diagnostic}
+        </Text>
+      ))}
+      <Text dimColor>
+        Use forge resources disable|enable &lt;name&gt; for user-scoped
+        automatic invocation. Esc close
+      </Text>
     </Box>
   );
 }
@@ -3156,7 +3232,13 @@ function ForgeHeader({
           </Text>
           <Text dimColor>
             {"   "}
-            {resources.skills.map(({ name }) => `$${name}`).join(" · ")}
+            {resources.skills
+              .filter(({ status }) => status !== "shadowed")
+              .map(
+                ({ name, source, status, invocation }) =>
+                  `$${name} (${source}, ${status ?? invocation})`,
+              )
+              .join(" · ")}
           </Text>
         </Text>
       ) : null}
@@ -3172,6 +3254,10 @@ function ForgeHeader({
           /plugins
         </Text>
         <Text dimColor> trust · </Text>
+        <Text bold color="cyan">
+          /resources
+        </Text>
+        <Text dimColor> skills · </Text>
         <Text bold color="cyan">
           @
         </Text>
@@ -3275,19 +3361,21 @@ function PromptFooter({
                 ? "Choose thinking effort"
                 : phase === "plugins"
                   ? "Review project plugins"
-                  : phase === "plugin-trust"
-                    ? "Confirm project plugin trust"
-                    : phase === "login-providers" || phase === "login-key"
-                      ? "Configure a model provider"
-                      : phase === "logout-providers"
-                        ? "Choose a provider to log out"
-                        : phase === "provider-actions"
-                          ? "Manage provider"
-                          : phase === "provider-remove-confirm"
-                            ? "Confirm provider removal"
-                            : phase === "provider-setup"
-                              ? "Configure a provider model"
-                              : "Choose a saved session";
+                  : phase === "resources"
+                    ? "Review Skills and diagnostics"
+                    : phase === "plugin-trust"
+                      ? "Confirm project plugin trust"
+                      : phase === "login-providers" || phase === "login-key"
+                        ? "Configure a model provider"
+                        : phase === "logout-providers"
+                          ? "Choose a provider to log out"
+                          : phase === "provider-actions"
+                            ? "Manage provider"
+                            : phase === "provider-remove-confirm"
+                              ? "Confirm provider removal"
+                              : phase === "provider-setup"
+                                ? "Configure a provider model"
+                                : "Choose a saved session";
 
   return <Text dimColor>{status}</Text>;
 }

@@ -4,12 +4,12 @@ import { loadForgeConfig } from "@forge/config";
 import type { PluginCapability } from "@forge/plugin-api";
 import {
   discoverPlugins,
-  discoverPortableSkills,
   isProjectTrusted,
   PluginError,
   trustProject,
   untrustProject,
 } from "@forge/plugin-api";
+import { discoverSkillCatalog } from "@forge/resources";
 
 export interface DetectedPluginResource {
   readonly name: string;
@@ -21,23 +21,31 @@ export interface DetectedPluginResource {
 
 export interface DetectedSkillResource {
   readonly name: string;
+  readonly description?: string;
   readonly path: string;
+  readonly source: "builtin" | "user" | "project";
+  readonly invocation: "model" | "explicit-only";
+  readonly status?: "automatic" | "explicit-only" | "disabled" | "shadowed";
+  readonly shadowedBy?: "builtin" | "user" | "project";
 }
 
 export interface DetectedStartupResources {
   readonly plugins: readonly DetectedPluginResource[];
   readonly skills: readonly DetectedSkillResource[];
+  readonly diagnostics?: readonly string[];
 }
 
 export const EMPTY_STARTUP_RESOURCES: DetectedStartupResources = Object.freeze({
   plugins: Object.freeze([]),
   skills: Object.freeze([]),
+  diagnostics: Object.freeze([]),
 });
 
 export async function detectStartupResources(options: {
   readonly forgeHome: string;
   readonly workspaceRoot: string;
   readonly enabledUserPlugins: readonly string[];
+  readonly disabledModelInvocation?: readonly string[];
 }): Promise<DetectedStartupResources> {
   const [userPlugins, projectPlugins, skills] = await Promise.all([
     discoverPlugins({
@@ -49,7 +57,13 @@ export async function detectStartupResources(options: {
       root: path.join(options.workspaceRoot, ".forge", "plugins"),
       scope: "project",
     }),
-    discoverPortableSkills(options.workspaceRoot),
+    discoverSkillCatalog({
+      forgeHome: options.forgeHome,
+      workspaceRoot: options.workspaceRoot,
+      ...(options.disabledModelInvocation
+        ? { disabledModelInvocation: options.disabledModelInvocation }
+        : {}),
+    }),
   ]);
   const projectTrusted =
     projectPlugins.length > 0 &&
@@ -72,7 +86,28 @@ export async function detectStartupResources(options: {
         capabilities: plugin.manifest.capabilities,
       })),
     ],
-    skills: skills.map((skill) => ({ name: skill.name, path: skill.path })),
+    skills: skills.resources.map((skill) => {
+      const winner = skills.skills.find(({ name }) => name === skill.name);
+      const shadowedBy = winner?.id === skill.id ? undefined : winner?.source;
+      return {
+        name: skill.name,
+        description: skill.description,
+        path: skill.canonicalPath,
+        source: skill.source,
+        invocation: skill.invocation,
+        status: shadowedBy
+          ? ("shadowed" as const)
+          : skill.invocation === "explicit-only"
+            ? ("explicit-only" as const)
+            : skill.modelInvocationEnabled
+              ? ("automatic" as const)
+              : ("disabled" as const),
+        ...(shadowedBy ? { shadowedBy } : {}),
+      };
+    }),
+    diagnostics: skills.diagnostics.map(
+      ({ code, source, message }) => `[${code}/${source}] ${message}`,
+    ),
   };
 }
 
@@ -98,5 +133,6 @@ export async function changeProjectPluginTrust(options: {
     forgeHome: loaded.forgeHome,
     workspaceRoot: loaded.workspaceRoot,
     enabledUserPlugins: loaded.config.plugins.enabled,
+    disabledModelInvocation: loaded.config.resources.disabledModelInvocation,
   });
 }

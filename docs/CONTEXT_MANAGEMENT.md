@@ -185,7 +185,7 @@ Forge should classify request content instead of treating it as one string:
 
 | Class | Examples | Retention rule |
 | --- | --- | --- |
-| Mandatory instructions | Current `AGENTS.md`, selected skills, plugin prompt contributions | Reload every run; never summarized |
+| Mandatory instructions | Current `AGENTS.md`, bounded Skill catalog/selection directives, plugin prompt contributions | Reload every run; never summarized; loaded Skill bodies enter as bounded tool results |
 | Current request | The active user prompt and referenced paths | Never summarized or dropped |
 | Protocol state | Pending assistant tool call, matching tool result, provider continuation | Preserve exactly as required by the adapter |
 | Recent conversation | Most recent completed user/assistant turns | Keep verbatim within a configurable tail budget |

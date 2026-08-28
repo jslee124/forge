@@ -4,7 +4,7 @@
 
 [English](../PLUGINS.md) · [中文目录](README.md)
 
-Forge v0.2 不依赖插件。插件是可选的进程内 JavaScript module，可以注册模型调用工具和显式本地命令、贡献指令、观察不可变 run event，或让策略更严格。实现中的类型、schema 和 host 才是最终合约：[types.ts](../../packages/plugin-api/src/types.ts)、[schema.ts](../../packages/plugin-api/src/schema.ts)、[host.ts](../../packages/plugin-api/src/host.ts)。
+Forge 0.3.2 不依赖插件。插件是可选的进程内 JavaScript module，可以注册模型调用工具和显式本地命令、贡献指令、观察不可变 run event，或让策略更严格。实现中的类型、schema 和 host 才是最终合约：[types.ts](../../packages/plugin-api/src/types.ts)、[schema.ts](../../packages/plugin-api/src/schema.ts)、[host.ts](../../packages/plugin-api/src/host.ts)。
 
 ## 快速开始
 
@@ -56,7 +56,7 @@ export default function activate(api) {
 { "schemaVersion": 1, "plugins": { "enabled": ["count-text"] } }
 ```
 
-然后运行 `forge plugins list` 和 `forge`。蓝色启动 frame 会列出 user plugin、trusted/skipped 项目插件和项目 Skills；列表只读 manifest/metadata，不提前 import entry。
+然后运行 `forge plugins list` 和 `forge`。蓝色启动 frame 会列出 user plugin、trusted/skipped 项目插件，以及内置、用户和项目 Skills；列表只读 manifest/metadata，不提前 import entry 或 Skill 正文。
 
 ## 位置、启用与信任
 
@@ -222,13 +222,15 @@ undefined
 
 ## 发现与 run 生命周期
 
-Native Forge Engine 对每个 prompt：校验配置；加载有界 user/project 指令；发现并按 `$skill-name` 选择 Skill；发现 manifest；排除 disabled user plugin 和 untrusted project plugin；解析目录内 entry 并 import；activation 后校验 registration/capability/name conflict；收集有界 prompt contribution；构造 model request 和 tool registry；最后让每个工具经过 policy、审批、执行、event 和 trace。
+Native Forge Engine 对每个 prompt：校验配置；加载有界 user/project 指令；发现内置、用户和项目 Skill metadata、处理冲突并保留 `$skill-name` override；发现 manifest；排除 disabled user plugin 和 untrusted project plugin；解析目录内 entry 并 import；activation 后校验 registration/capability/name conflict；收集有界 prompt contribution；构造 model request 和 tool registry；最后让每个工具经过 policy、审批、执行、event 和 trace。
 
 交互启动 frame 只做到 metadata discovery；真正 import/activation 只在 Forge Engine 开始 run 时发生。Codex Engine 由 Codex App Server 拥有自己的 runtime，不加载 Forge plugin。
 
 ## Portable Skills 的区别
 
-Forge 只在 `<workspace-root>/.agents/skills/<skill-name>/SKILL.md` 发现 Markdown Skill。Skill 是指导而不是可执行插件；发现不会执行；只有 prompt 明确包含 `$skill-name` 才加入 run，内容最多 32 KiB 且记录路径。Skill 描述的脚本和动作仍需正常的 model tool、policy、approval 和 trace。
+Forge 在随包内置目录、`$FORGE_HOME/skills/<skill-name>/SKILL.md` 和 `<workspace-root>/.agents/skills/<skill-name>/SKILL.md` 发现 Markdown Skill。每个文件用有界 YAML frontmatter 声明与目录匹配的 `name`、面向任务的 `description`，可用 `disable-model-invocation: true` 设为仅显式调用。
+
+首个模型请求只包含有预算上限的 `id`、`name`、`description` 和 `source`；正文由宿主 `load_skill` 工具按登记的不透明 ID 延迟加载。工具限制并去重加载，重新校验 canonical path 与文件身份，拒绝 symlink 和登记 root 外文件。名称冲突按 `project > user > builtin` 解析，显式 `$skill-name` 覆盖自动路由。选择、加载、拒绝和截断都会进入 trace，并可由 `forge inspect` 查看。Skill 描述的动作仍需正常 model tool、policy、approval 和 trace；选择 Skill 不等于信任项目 plugin，也不会扩大 workspace `read_file`。
 
 ## 测试插件
 
@@ -275,4 +277,10 @@ conversation、把 child 保存为可独立 resume 的 session、在专用 TUI p
 
 加载插件会执行拥有 Forge 进程完整权限的本地代码；它可以直接 import Node、读任意文件、启动进程或联网。Forge 只在支持的 API 边界执行：trust 前不 import 项目 entry；校验 manifest/API/capability/name/schema；model 调用的 plugin tool 走 core policy/approval；model/network/process/相关 write 需确认；policy hook 只能更严格；prompt/Skill 有界且带来源；observer input clone/freeze/脱敏。
 
-这些保证不隔离恶意 trusted entry，强隔离需要受限进程或 OS sandbox。v0.2 没有插件安装器、依赖解析器、registry、hot reload、TypeScript entry 编译、custom interactive UI、provider registration、隔离进程或可强制执行的 filesystem/network capability；plugin command 只通过 `forge plugins run` 执行，不自动成为交互 slash command。
+这些保证不隔离恶意 trusted entry，强隔离需要受限进程或 OS sandbox。Forge 0.3.2 没有插件安装器、依赖解析器、registry、hot reload、TypeScript entry 编译、custom interactive UI、provider registration、隔离进程或可强制执行的 filesystem/network capability；plugin command 只通过 `forge plugins run` 执行，不自动成为交互 slash command。
+
+## Skills 与产品文档属于资源
+
+Skills 是从内置、用户和项目作用域发现的不可执行、不可信指令资源。`forge plugins list` 只报告可执行插件；`forge resources list` 报告 Skill 来源、调用状态、冲突遮蔽与诊断。交互式入口分别是 `/plugins` 与 `/resources`。
+
+内置 `forge-product-help` Skill 要求在回答实现相关产品问题前先检索文档。`search_forge_docs` 和 `read_forge_doc` 使用与版本匹配的打包白名单及稳定的 `forge-doc:<version>:<locale>:<document>#<section>` 引用；它们拒绝文件系统路径，也不继承 `read_file` 权限。

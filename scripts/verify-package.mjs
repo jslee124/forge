@@ -37,7 +37,26 @@ try {
     "dist/index.js",
     "README.md",
     "LICENSE",
+    "resources/skills/forge-plugin-creator/SKILL.md",
+    "resources/skills/forge-plugin-creator/references/plugin-api.md",
+    "resources/skills/forge-plugin-creator/templates/index.mjs",
+    "resources/skills/forge-plugin-creator/templates/plugin.json",
+    "resources/skills/forge-plugin-creator/templates/plugin.test-template.ts",
+    "resources/skills/forge-product-help/SKILL.md",
   ]);
+  const docsIndex = JSON.parse(
+    await readFile(
+      path.join(packageRoot, "resources", "docs", "index.json"),
+      "utf8",
+    ),
+  );
+  if (docsIndex.forgeVersion !== expected.version)
+    throw new Error(
+      "Packed documentation index version does not match the package version.",
+    );
+  allowedFiles.add("resources/docs/index.json");
+  for (const document of docsIndex.documents)
+    allowedFiles.add(`resources/docs/${document.path}`);
   for (const required of allowedFiles) {
     if (!files.has(required))
       throw new Error(`Packed artifact is missing ${required}.`);
@@ -86,6 +105,24 @@ try {
   }
   run(binPath, ["--help"], temporaryRoot, smokeEnv);
   run(binPath, ["config", "validate"], temporaryRoot, smokeEnv);
+  const resourcesOutput = run(
+    binPath,
+    ["resources", "list"],
+    temporaryRoot,
+    smokeEnv,
+  );
+  for (const builtinSkill of ["forge-plugin-creator", "forge-product-help"]) {
+    if (!resourcesOutput.includes(`$${builtinSkill} · builtin · automatic`)) {
+      throw new Error(
+        `Installed CLI did not discover bundled Skill ${builtinSkill}.`,
+      );
+    }
+  }
+  if (!resourcesOutput.includes(`Product docs: ${expected.version}`)) {
+    throw new Error(
+      "Installed CLI could not load bundled product documentation.",
+    );
+  }
 
   console.log(
     `Verified packed install ${expected.name}@${expected.version} (${report.size} bytes).`,

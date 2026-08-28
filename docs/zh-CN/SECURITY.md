@@ -77,7 +77,7 @@ Child 继承有效 policy/approval，只获得声明的非 subagent 工具，共
 
 ## 仓库指令、Reasoning 与会话
 
-`AGENTS.md`、`.agents/` 和非可执行 `.forge/` 配置是仓库控制的输入，可能含 prompt injection，但不能审批工具、启用 `full-access` 或削弱核心策略。发现不等于执行，引用的脚本和动作仍走正常工具、审批和 trace 流程，并记录来源路径。
+`AGENTS.md`、`.agents/` 和非可执行 `.forge/` 配置是仓库控制的输入，可能含 prompt injection，但不能审批工具、启用 `full-access` 或削弱核心策略。Skill 发现只读取有界 metadata；`load_skill` 只接受登记的不透明 ID，会重新检查 canonical root、非 symlink 普通文件和发现时身份，并返回有界正文，且不扩大 workspace `read_file`。发现不等于执行，引用的脚本和动作仍走正常工具、审批和 trace 流程；Skill 来源、选择原因、加载拒绝和截断会写入 trace。
 
 模型实际返回的 reasoning/thinking 默认对用户可见，必须标记为 provider 提供；不能声称访问 provider 没有返回的 reasoning。reasoning 可能含仓库敏感信息，trace 和导出使用同一脱敏策略。
 
@@ -88,3 +88,5 @@ Child 继承有效 policy/approval，只获得声明的非 subagent 工具，共
 API key、access/refresh token、authorization code 和 PKCE verifier 都是 secret，不能出现在 prompt、trace、终端 debug、plugin event、crash report 或仓库文件中。Forge 当前先从进程环境变量解析 API key，再使用显式的 `$FORGE_HOME/auth.json` fallback。该文件位于项目外，原子写入，目录权限为 `0700`、文件为 `0600`，属于受文件权限保护的敏感明文，而不是 OS keychain；OS credential-store integration 仍是后续改进。
 
 Provider/model/reasoning 选择是普通配置，可保存到 `FORGE_HOME`，credential 与普通配置分离。OAuth refresh 应 single-flight；Forge 不得静默导入或修改其他应用的 credential 文件。ChatGPT 订阅的 OAuth 和刷新全部交给官方 Codex App Server，Forge 不读取 Codex credential 文件，也不接收 token。
+
+打包产品文档使用独立的白名单资源目录。搜索返回不透明、带版本的文档/章节引用；读取会重新校验文件、内容哈希、包版本与输出预算。文档工具拒绝任意路径，也不会扩大工作区文件访问。Skill 与文档文本始终是不可信内容，不能授予权限、暴露秘密或授权命令。

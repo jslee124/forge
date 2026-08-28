@@ -5,7 +5,12 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": ["**", "!!**/dist", "!!**/coverage"]
+    "includes": [
+      "**",
+      "!!**/dist",
+      "!!**/coverage",
+      "!!packages/resources/docs/index.json"
+    ]
   },
   "formatter": {
     "enabled": true,

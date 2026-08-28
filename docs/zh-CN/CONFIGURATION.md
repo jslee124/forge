@@ -215,3 +215,7 @@ Provider route 是 user-only 配置，因为它决定 protocol、endpoint 和 cr
 - **把 `reasoningEffort: "none"` 当成 provider default：** 省略才表示 provider default；显式 `none` 只会在 provider mapping 支持时发送。
 - **把 API key 写进配置：** 删除它；若已提交则立即轮换，然后改用 `/login` 或环境变量。
 - **期待 Forge 修改父 shell：** `/logout` 能移除保存的 credential，但不能取消父 shell 导出的环境变量。
+
+## Skill 调用偏好
+
+用户配置可以把 Skill 名称写入 `resources.disabledModelInvocation`。`forge resources disable <name>` 与 `forge resources enable <name>` 会更新这个仅限用户的设置。关闭自动调用不会修改 Skill 或仓库，也不会禁用显式 `$name` 请求；项目配置不能设置 `resources`。

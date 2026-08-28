@@ -3,9 +3,9 @@
 [English](../RELEASING.md) · [中文文档目录](README.md)
 
 Forge 保持内部实现 package 私有，只发布一个面向用户的
-`@jslee124/forge`。生成物包含 CLI 和已 bundle 的 `@forge/*` workspace
-实现；第三方库仍是普通 npm runtime dependencies。插件 SDK 暂不作为独立
-package 发布。
+`@jslee124/forge`。生成物包含 CLI、已 bundle 的 `@forge/*` workspace
+实现，以及经过审核且版本匹配的内置 Skill 资源；第三方库仍是普通 npm
+runtime dependencies。插件 SDK 暂不作为独立 package 发布。
 
 ## 分发合约
 
@@ -37,8 +37,8 @@ pnpm release:verify-tag v0.3.1
 ```
 
 `package:verify` 会构建公共产物、检查 tarball、在全新临时 prefix 中禁用
-lifecycle scripts 后安装，并验证 `forge --version`、`forge --help` 和
-`forge config validate`。
+lifecycle scripts 后安装，核对内置 Skill/reference/template allowlist 与
+API version，并验证 `forge --version`、`forge --help` 和 `forge config validate`。
 
 打 tag 前必须检查 pack 内容和 release notes。API key、auth 文件、本地
 trace、`.env` 以及未经脱敏审核的 evaluation artifact 都不能发布。
@@ -78,7 +78,7 @@ git push origin v0.3.1
 ```bash
 forge update check
 forge update
-forge update 0.3.1
+forge update 0.3.2
 ```
 
 交互启动最多每 24 小时在后台刷新一次提示性 npm 检查，并在后续启动显示缓存

@@ -21,6 +21,7 @@ const DISPLAY_KEYS: readonly ConfigKey[] = [
   "limits.maxToolOutputBytes",
   "trace.enabled",
   "plugins.enabled",
+  "resources.disabledModelInvocation",
   "context.mode",
   "context.reservedOutputTokens",
   "context.bufferTokens",
@@ -97,6 +98,8 @@ function flatten(loaded: LoadedForgeConfig): Record<ConfigKey, unknown> {
     "limits.maxToolOutputBytes": config.limits.maxToolOutputBytes,
     "trace.enabled": config.trace.enabled,
     "plugins.enabled": config.plugins.enabled,
+    "resources.disabledModelInvocation":
+      config.resources.disabledModelInvocation,
     "context.mode": config.context.mode,
     "context.reservedOutputTokens": config.context.reservedOutputTokens,
     "context.bufferTokens": config.context.bufferTokens,

@@ -19,6 +19,7 @@ export {
   removeUserProviderRoute,
   saveUserModelSelection,
   saveUserProviderRoute,
+  setUserSkillModelInvocation,
 } from "./loader.js";
 export {
   isLoopbackHost,

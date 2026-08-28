@@ -20,6 +20,7 @@ const manifests = [
   "packages/model-openai/package.json",
   "packages/persistence/package.json",
   "packages/plugin-api/package.json",
+  "packages/resources/package.json",
   "packages/tools/package.json",
 ];
 

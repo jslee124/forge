@@ -21,7 +21,7 @@ tool's normal approval and trace pipeline.
 
 The implemented system includes schema-versioned user/project configuration,
 instruction discovery and provenance, persistent sessions and traces,
-explicitly selected portable Skills, trusted plugins, and strictness-merged
+model-invocable portable Skills, trusted plugins, and strictness-merged
 context budgets.
 
 ## `AGENTS.md`
@@ -65,10 +65,19 @@ that action still uses the normal policy and approval flow. Forge should show
 the source path when a project skill is selected and include the selection in
 the trace.
 
-Forge v0.2 selects a skill only when the user prompt contains `$skill-name`.
-Selected `SKILL.md` content is bounded and its source path is recorded in the
-run context. New portable subdirectories should only be added when there is a
-clear cross-agent convention instead of placing Forge-specific data here.
+Forge parses bounded YAML frontmatter (`name`, task-oriented `description`, and
+optional `disable-model-invocation`) and initially sends only escaped catalog
+metadata to the model. Matching Skills are loaded on demand by opaque ID;
+`$skill-name` remains a deterministic override. Project Skills are
+model-invocable by default and require no plugin trust because they are never
+imported or executed. `disable-model-invocation: true` makes one Skill available
+only through an explicit user mention.
+
+The same convention is available for built-in Skills shipped with Forge and
+user Skills under `$FORGE_HOME/skills/`. Collisions resolve as
+`project > user > builtin`, with shadowed sources recorded as diagnostics. New
+portable subdirectories should only be added when there is a clear cross-agent
+convention instead of placing Forge-specific data here.
 
 ## User-level `~/.forge/`
 
@@ -83,6 +92,7 @@ The user layout is:
 ~/.forge/
 |-- config.json
 |-- AGENTS.md
+|-- skills/
 |-- plugin-trust.json
 |-- plugins/
 |-- state/
@@ -94,6 +104,8 @@ The user layout is:
   context behavior, trace behavior, and the default permission profile.
 - `AGENTS.md` contains optional user-wide instructions loaded before project
   instructions.
+- `skills/` contains user-wide non-executable Skills discovered as bounded
+  metadata and loaded lazily.
 - `plugins/` contains explicitly installed or enabled user plugins.
 - `state/` contains non-secret Forge state such as project-trust decisions.
 - `sessions/` contains versioned completed conversation snapshots.
@@ -131,7 +143,7 @@ starting an Agent run.
 ## Project-level `.forge/`
 
 The selected workspace root's `.forge/` is reserved for Forge-specific project
-customization. The v0.2 layout is:
+customization. The current 0.3.2 layout is:
 
 ```text
 .forge/
@@ -185,8 +197,14 @@ Security and instruction precedence are intentionally different:
 
 ```text
 Security decisions: deny > confirm > allow (strictest contribution wins)
-Instructions: user request > selected skill > nearest project AGENTS.md
+Instructions: user request > loaded skill > nearest project AGENTS.md
               > project-root AGENTS.md > ~/.forge/AGENTS.md
+```
+
+Skill name collisions use a separate resource rule:
+
+```text
+explicit $skill-name selection > project > user > builtin
 ```
 
 Core policy defines a mandatory safety floor. Explicit CLI choices and user
@@ -202,5 +220,6 @@ hooks, and their source must remain visible in the trace.
 
 - Configuration migrations beyond `schemaVersion: 1`
 - Additional environment-variable mappings beyond the v0.1 model settings
-- Skill manifest and compatibility rules beyond the v0.2 `SKILL.md` convention
+- Additional Skill manifest and compatibility rules beyond the current
+  `SKILL.md` convention
 - Whether restricted plugins run in a child process or an OS sandbox

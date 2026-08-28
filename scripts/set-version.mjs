@@ -19,6 +19,7 @@ const manifests = [
   "packages/model-openai/package.json",
   "packages/persistence/package.json",
   "packages/plugin-api/package.json",
+  "packages/resources/package.json",
   "packages/tools/package.json",
 ];
 
@@ -86,6 +87,15 @@ await replaceText("docs/zh-CN/GETTING_STARTED.md", [
     `当前源码 release 应输出 \`${version}\``,
   ],
 ]);
+await replaceText(
+  "packages/resources/skills/forge-plugin-creator/references/plugin-api.md",
+  [
+    [
+      /version-matched to Forge [0-9A-Za-z.+-]+/gu,
+      `version-matched to Forge ${version}`,
+    ],
+  ],
+);
 
 console.log(`Updated Forge workspace versions to ${version}.`);
 

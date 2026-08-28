@@ -13,7 +13,7 @@
 
 <p align="center">
   <a href="https://github.com/jslee124/forge/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/jslee124/forge/ci.yml?branch=main&amp;style=flat-square&amp;label=CI" alt="CI 状态"></a>
-  <img src="https://img.shields.io/badge/source-v0.3.0-0e7490?style=flat-square" alt="源码版本 0.3.0">
+  <img src="https://img.shields.io/badge/source-v0.3.2-0e7490?style=flat-square" alt="源码版本 0.3.2">
   <img src="https://img.shields.io/badge/Node.js-%3E%3D24-3c873a?style=flat-square&amp;logo=nodedotjs&amp;logoColor=white" alt="Node.js 24 或更高版本">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-7c3aed?style=flat-square" alt="MIT 许可证"></a>
 </p>
@@ -48,7 +48,7 @@ Forge 是一个开源 TypeScript 项目，用于学习和展示编码 Agent 背�
 | **持久化会话** | 已完成的对话可以跨进程恢复，但不会恢复旧审批或待执行工具调用。 |
 | **有预算的上下文** | `/context` 展示当前预算；可选 checkpoint 压缩已完成历史，但不删除规范 transcript。 |
 | **可复现评测** | 确定性测试验证运行时行为，真实模型试验同时保留成功和失败。 |
-| **受控扩展** | 受信任插件和可移植项目 Skills 可以扩展 Forge，但不能绕过核心策略流水线。 |
+| **受控扩展** | 受信任插件与非执行型内置、用户和项目 Skills 可以扩展 Forge，但不能绕过核心策略流水线。 |
 
 ## 快速开始
 
@@ -130,7 +130,7 @@ forge
 - 将模型文本和 provider 提供的 reasoning 作为独立事件流式输出。
 - 持久化会话，并按 ID 或最近使用顺序恢复已完成的对话轮次。
 - 检查上下文用量，并创建明确、可展示的对话 checkpoint。
-- 加载分层的 `AGENTS.md` 指令和可移植项目 Skills。
+- 加载分层的 `AGENTS.md` 指令，以及延迟调用的内置、用户和项目 Skills。
 - 加载能够贡献工具、命令、observer、prompt、更严格策略 hook 或有界宿主管理 subagent 角色的受信任插件。
 - 为支持的 vision 模型附加 JPEG、PNG、GIF 或 WebP 输入。
 - 将 native-engine 运行记录为可检查的版本化 JSONL trace。
@@ -256,7 +256,7 @@ pnpm forge --help        # 构建并查看 CLI 帮助
 
 ## 当前状态与限制
 
-Forge 仍在积极开发中。当前稳定源码与 npm release 是 `0.3.0`，详见 [v0.3.0 发布说明](docs/zh-CN/releases/v0.3.0.md)。自动上下文 checkpoint 仍默认 opt-in，同时还在收集 provider 质量证据。
+Forge 仍在积极开发中。当前稳定源码与 npm release 是 `0.3.2`；此前功能基线的历史说明见 [v0.3.0 发布说明](docs/zh-CN/releases/v0.3.0.md)。自动上下文 checkpoint 仍默认 opt-in，同时还在收集 provider 质量证据。
 
 - Native runtime 支持 DeepSeek、OpenAI API 和已配置的 OpenAI-compatible 路由；原生 Anthropic 与 Gemini 协议尚未实现。
 - 模型行为具有非确定性；运行时正确不保证真实任务成功。

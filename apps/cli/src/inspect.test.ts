@@ -24,6 +24,28 @@ describe("forge inspect", () => {
     temporaryDirectories.push(root);
     const runId = randomUUID();
     const writer = new JsonlTraceWriter({ forgeHome: root, runId });
+    await writer.append({
+      type: "skill.discovery",
+      catalogCount: 1,
+      diagnosticCount: 0,
+      diagnostics: [],
+    });
+    await writer.append({
+      type: "skill.selected",
+      id: "skill:builtin:forge-plugin-creator",
+      name: "forge-plugin-creator",
+      source: "builtin",
+      reason: "automatic",
+      invocation: "model",
+    });
+    await writer.append({
+      type: "skill.loaded",
+      id: "skill:builtin:forge-plugin-creator",
+      name: "forge-plugin-creator",
+      source: "builtin",
+      relativePath: "SKILL.md",
+      truncated: false,
+    });
     await writer.append({ type: "run.started", prompt: "Inspect repository" });
     await writer.append({ type: "model.started", step: 1 });
     await writer.append({ type: "run.completed" });
@@ -41,6 +63,12 @@ describe("forge inspect", () => {
     expect(stdout.read()).toContain(`Run ${runId}`);
     expect(stdout.read()).toContain("Status completed");
     expect(stdout.read()).toContain('run.started "Inspect repository"');
+    expect(stdout.read()).toContain(
+      "skill.selected $forge-plugin-creator id=skill:builtin:forge-plugin-creator source=builtin reason=automatic invocation=model",
+    );
+    expect(stdout.read()).toContain(
+      "skill.loaded $forge-plugin-creator id=skill:builtin:forge-plugin-creator source=builtin resource=SKILL.md truncated=false",
+    );
     expect(stderr.read()).toBe("");
   });
 

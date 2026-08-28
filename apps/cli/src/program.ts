@@ -11,6 +11,7 @@ import {
 import { runConfigCommand } from "./config-command.js";
 import { runInspectFromCli } from "./inspect.js";
 import { runPluginsCommand } from "./plugins-command.js";
+import { runResourcesCommand } from "./resources-command.js";
 import { type ResumeOptions, runResumeFromCli } from "./resume.js";
 import { runTaskFromCli } from "./run.js";
 import { runInteractiveFromCli } from "./session.js";
@@ -75,6 +76,11 @@ export interface ProgramDependencies {
     options: { readonly target?: string },
     env: NodeJS.ProcessEnv,
   ) => Promise<number>;
+  readonly runResources?: (
+    mode: "list" | "disable" | "enable",
+    name: string | undefined,
+    env: NodeJS.ProcessEnv,
+  ) => Promise<number>;
   readonly notifyUpdate?: (env: NodeJS.ProcessEnv) => Promise<void>;
 }
 
@@ -133,6 +139,15 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
     dependencies.runUpdate ??
     ((mode, options, updateEnv) =>
       runUpdateCommand(mode, options, updateEnv, {
+        stdout: process.stdout,
+        stderr: process.stderr,
+      }));
+  const resources =
+    dependencies.runResources ??
+    ((mode, name, resourceEnv) =>
+      runResourcesCommand(mode, name, {
+        cwd: process.cwd(),
+        env: resourceEnv,
         stdout: process.stdout,
         stderr: process.stderr,
       }));
@@ -367,7 +382,7 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
     .description("Inspect, trust, and run trusted plugins");
   pluginsCommand
     .command("list")
-    .description("List discovered plugins and portable skills")
+    .description("List discovered executable plugins")
     .action(async () => setExitCode(await plugins("list", {}, env)));
   pluginsCommand
     .command("trust")
@@ -375,6 +390,34 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
     .option("--yes", "record an explicit non-interactive trust decision")
     .action(async (options: { readonly yes?: boolean }) =>
       setExitCode(await plugins("trust", options, env)),
+    );
+
+  const resourcesCommand = program
+    .command("resources")
+    .description("Inspect and configure non-executable Forge resources");
+  resourcesCommand
+    .command("list")
+    .description(
+      "List Skills, sources, invocation status, shadowing, and diagnostics",
+    )
+    .action(async () => setExitCode(await resources("list", undefined, env)));
+  resourcesCommand
+    .command("disable")
+    .description(
+      "Disable automatic model invocation for a Skill in user config",
+    )
+    .argument("<name>", "Skill name")
+    .action(async (name: string) =>
+      setExitCode(await resources("disable", name, env)),
+    );
+  resourcesCommand
+    .command("enable")
+    .description(
+      "Restore automatic model invocation for a Skill in user config",
+    )
+    .argument("<name>", "Skill name")
+    .action(async (name: string) =>
+      setExitCode(await resources("enable", name, env)),
     );
   pluginsCommand
     .command("untrust")

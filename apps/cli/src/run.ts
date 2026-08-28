@@ -2,7 +2,6 @@ import { randomUUID } from "node:crypto";
 
 import {
   ForgeConfigError,
-  formatInstructionPrompt,
   loadForgeConfig,
   loadInstructions,
   MAX_TOTAL_INSTRUCTION_BYTES,
@@ -32,13 +31,19 @@ import {
 } from "@forge/persistence";
 import {
   createSubagentTools,
-  discoverPortableSkills,
   loadPluginHost,
   PluginError,
   type PluginSubagentRunner,
   type RegisteredPluginSubagent,
-  selectPortableSkills,
 } from "@forge/plugin-api";
+import {
+  createForgeDocsTools,
+  createLoadSkillTool,
+  discoverSkillCatalog,
+  preferredForgeDocsLocale,
+  type SkillSelection,
+  selectSkills,
+} from "@forge/resources";
 import {
   type ApplyPatchInput,
   builtinTools,
@@ -84,6 +89,25 @@ export interface RunMetadata {
   readonly tracePersisted: boolean;
 }
 
+function formatSkillSelectionPrompt(
+  selections: readonly SkillSelection[],
+): string {
+  if (selections.length === 0) return "";
+  return [
+    '<skill_selection authority="host">',
+    ...selections.map(({ skill, reason }) =>
+      JSON.stringify({
+        id: skill.id,
+        name: skill.name,
+        source: skill.source,
+        reason,
+      }),
+    ),
+    "</skill_selection>",
+    "Load every selected Skill with load_skill before acting. Explicit user selection overrides automatic routing.",
+  ].join("\n");
+}
+
 export async function runTask(
   prompt: string,
   options: AskOptions,
@@ -120,13 +144,34 @@ export async function runTask(
         "Image attachments require a model whose provider profile declares supportsImages: true.",
       );
     }
-    const portableSkills = await discoverPortableSkills(loaded.workspaceRoot);
-    const selectedSkills = selectPortableSkills(prompt, portableSkills);
+    const skillCatalog = await discoverSkillCatalog({
+      forgeHome: loaded.forgeHome,
+      workspaceRoot: loaded.workspaceRoot,
+      disabledModelInvocation: loaded.config.resources.disabledModelInvocation,
+    });
+    for (const diagnostic of skillCatalog.diagnostics) {
+      dependencies.stderr.write(
+        `Skill warning [${diagnostic.source}]: ${diagnostic.message} (${diagnostic.sourcePath})\n`,
+      );
+    }
+    const selectedSkills = selectSkills(prompt, skillCatalog.skills);
+    const loadSkillTool = await createLoadSkillTool(skillCatalog.skills, {
+      explicitlySelectedIds: selectedSkills
+        .filter(({ reason }) => reason === "explicit")
+        .map(({ skill }) => skill.id),
+    });
+    const forgeDocsTools = await createForgeDocsTools({
+      locale: preferredForgeDocsLocale(dependencies.env),
+    });
     const pluginHost = await loadPluginHost({
       forgeHome: loaded.forgeHome,
       workspaceRoot: loaded.workspaceRoot,
       enabledUserPlugins: loaded.config.plugins.enabled,
-      reservedToolNames: builtinTools.map(({ name }) => name),
+      reservedToolNames: [
+        ...builtinTools,
+        loadSkillTool,
+        ...forgeDocsTools,
+      ].map(({ name }) => name),
     });
     for (const warning of pluginHost.warnings) {
       dependencies.stderr.write(`Plugin warning: ${warning}\n`);
@@ -136,14 +181,7 @@ export async function runTask(
       workspaceRoot: loaded.workspaceRoot,
       workingDirectory: loaded.workingDirectory,
     });
-    const selectedSkillPrompt = formatInstructionPrompt(
-      selectedSkills.map((skill) => ({
-        path: skill.path,
-        scope: "project" as const,
-        content: skill.content,
-        truncated: false,
-      })),
-    );
+    const selectedSkillPrompt = formatSkillSelectionPrompt(selectedSkills);
     const activeContext = deriveActiveConversation(
       dependencies.conversation ?? [],
       dependencies.contextCheckpoint,
@@ -151,6 +189,7 @@ export async function runTask(
     );
     const effectiveInstructions = [
       instructions.prompt,
+      skillCatalog.prompt,
       selectedSkillPrompt,
       pluginPrompt.prompt,
       activeContext.memory,
@@ -161,7 +200,7 @@ export async function runTask(
       Buffer.byteLength(effectiveInstructions) > MAX_TOTAL_INSTRUCTION_BYTES
     ) {
       throw new PluginError(
-        `Effective instructions exceed ${MAX_TOTAL_INSTRUCTION_BYTES} bytes after selected skills and plugin contributions.`,
+        `Effective instructions exceed ${MAX_TOTAL_INSTRUCTION_BYTES} bytes after the Skill catalog, selections, and plugin contributions.`,
       );
     }
     const runId = dependencies.runId ?? randomUUID();
@@ -210,7 +249,12 @@ export async function runTask(
         commandTimeoutMs: loaded.config.limits.commandTimeoutMs,
       },
     };
-    const childTools = [...builtinTools, ...pluginHost.tools];
+    const childTools = [
+      ...builtinTools,
+      loadSkillTool,
+      ...forgeDocsTools,
+      ...pluginHost.tools,
+    ];
     validateSubagentToolSelections(pluginHost.subagents, childTools);
     const subagentBudget = {
       remainingRuns: Math.min(4, loaded.config.limits.maxToolCalls),
@@ -354,7 +398,6 @@ export async function runTask(
         permissionProfile: loaded.config.permissionProfile,
         instructionPaths: [
           ...instructions.files.map(({ path }) => path),
-          ...selectedSkills.map(({ path }) => path),
           ...pluginPrompt.sourcePaths,
         ],
       },
@@ -376,6 +419,22 @@ export async function runTask(
         maxToolCalls: loaded.config.limits.maxToolCalls,
       },
       contextConfiguration: loaded.config.context,
+      initialEvents: [
+        {
+          type: "skill.discovery",
+          catalogCount: skillCatalog.skills.length,
+          diagnosticCount: skillCatalog.diagnostics.length,
+          diagnostics: skillCatalog.diagnostics,
+        },
+        ...selectedSkills.map(({ skill, reason }) => ({
+          type: "skill.selected" as const,
+          id: skill.id,
+          name: skill.name,
+          source: skill.source,
+          reason,
+          invocation: skill.invocation,
+        })),
+      ],
       onEvent: async (event) => {
         if (dependencies.renderEventsToOutput !== false) {
           render(event);
@@ -817,6 +876,17 @@ function createRunEventRenderer(
         break;
       case "tool.completed":
         stderr.write(`[tool] completed ${event.call.name}\n`);
+        break;
+      case "docs.search":
+        stderr.write(
+          `[docs] ${event.resultCount} result(s) · ${event.locale}${event.fallback ? " · English fallback" : ""}\n`,
+        );
+        break;
+      case "docs.read":
+        stderr.write(`[docs] read ${event.reference}\n`);
+        break;
+      case "docs.rejected":
+        stderr.write(`[docs] rejected ${event.tool}: ${event.message}\n`);
         break;
       case "tool.failed":
         stderr.write(`[tool] failed ${event.call.name}`);
