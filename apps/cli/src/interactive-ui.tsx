@@ -18,9 +18,11 @@ import type {
   ModelConversationMessage,
   RunEvent,
   RunResult,
+  ToolCall,
 } from "@forge/core";
 import {
   formatApprovalScope,
+  runConversationMessages,
   SessionApprovalStore,
   type SessionGrant,
 } from "@forge/core";
@@ -29,7 +31,16 @@ import {
   discoverModels,
 } from "@forge/model-compat";
 import type { SessionReasoning, SessionSummary } from "@forge/persistence";
-import { Box, render, Text, useApp, useInput, usePaste } from "ink";
+import {
+  Box,
+  render,
+  Static,
+  Text,
+  useApp,
+  useInput,
+  usePaste,
+  useWindowSize,
+} from "ink";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -131,13 +142,43 @@ interface TranscriptEntry {
   readonly text: string;
 }
 
+type StaticOutputItem =
+  | {
+      readonly kind: "header";
+      readonly resources: DetectedStartupResources;
+    }
+  | { readonly kind: "transcript"; readonly entry: TranscriptEntry };
+
 interface PendingApproval {
   readonly prompt: string;
+  readonly allowSession: boolean;
   readonly command?: CommandApprovalPreview;
   readonly network?: NetworkApprovalPreview;
   readonly subagent?: SubagentApprovalPreview;
   readonly resolve: (answer: string | null) => void;
 }
+
+type RunActivity =
+  | { readonly kind: "thinking"; readonly step?: number }
+  | {
+      readonly kind: "tool";
+      readonly stage: "preparing" | "executing";
+      readonly toolName: string;
+      readonly target?: string;
+    };
+
+const RUN_ACTIVITY_FRAMES = [
+  "⠋",
+  "⠙",
+  "⠹",
+  "⠸",
+  "⠼",
+  "⠴",
+  "⠦",
+  "⠧",
+  "⠇",
+  "⠏",
+] as const;
 
 /** A sign-in that App Server has started and is still waiting to complete. */
 interface PendingSignIn {
@@ -782,14 +823,18 @@ export function InteractiveApp({
   const { exit } = useApp();
   const [editor, setEditor] = useState<EditorState>(() => createEditorState());
   const [phase, setPhase] = useState<Phase>("editing");
+  const [runActivity, setRunActivity] = useState<RunActivity>();
+  const [runActivityFrame, setRunActivityFrame] = useState(0);
   const [activeOptions, setActiveOptions] = useState<AskOptions>(options);
   const initialMessages = sessionPersistence?.messages ?? [];
   const [transcript, setTranscript] = useState<readonly TranscriptEntry[]>(() =>
     conversationTranscript(
       initialMessages,
       sessionPersistence?.reasoning ?? [],
+      sessionPersistence?.historyEvents,
     ),
   );
+  const [staticRenderRevision, setStaticRenderRevision] = useState(0);
   const [contextPanel, setContextPanel] = useState<ContextStatus>();
   const [contextRevision, setContextRevision] = useState(0);
   const [contextOfferDismissed, setContextOfferDismissed] = useState(false);
@@ -814,7 +859,7 @@ export function InteractiveApp({
   const [updateState, setUpdateState] = useState<UpdateState | undefined>(() =>
     updateService?.snapshot(),
   );
-  const terminalWidth = process.stdout.columns ?? 80;
+  const { columns: terminalWidth } = useWindowSize();
   const [resources, setResources] =
     useState<DetectedStartupResources>(detectedResources);
   const [pluginTrustIntent, setPluginTrustIntent] = useState<
@@ -1121,16 +1166,30 @@ export function InteractiveApp({
   const handleRunEvent = useCallback(
     (event: RunEvent): void => {
       switch (event.type) {
+        case "model.started":
+          setRunActivity({ kind: "thinking", step: event.step });
+          break;
         case "model.reasoning":
+          setRunActivity((current) =>
+            current?.kind === "tool"
+              ? current
+              : { kind: "thinking", step: event.step },
+          );
           appendEntry("reasoning", event.text, true);
           break;
         case "model.reasoning-unavailable":
+          setRunActivity({ kind: "thinking", step: event.step });
           appendEntry(
             "reasoning",
             `Provider used ${event.reasoningTokens} reasoning tokens but did not return reasoning text.`,
           );
           break;
         case "model.text":
+          setRunActivity((current) =>
+            current?.kind === "tool"
+              ? current
+              : { kind: "thinking", step: event.step },
+          );
           appendEntry("answer", event.text, true);
           break;
         case "model.warning":
@@ -1150,6 +1209,7 @@ export function InteractiveApp({
           setPermissionRevision((current) => current + 1);
           break;
         case "tool.proposed":
+          setRunActivity(toolRunActivity(event.call, "preparing"));
           appendEntry("tool", `○ Proposed ${event.call.name}`);
           break;
         case "tool.decision":
@@ -1159,7 +1219,11 @@ export function InteractiveApp({
           );
           break;
         case "tool.completed":
+          setRunActivity({ kind: "thinking", step: event.step });
           appendEntry("tool", `✓ Completed ${event.call.name}`);
+          break;
+        case "tool.started":
+          setRunActivity(toolRunActivity(event.call, "executing"));
           break;
         case "docs.search":
           appendEntry(
@@ -1174,6 +1238,7 @@ export function InteractiveApp({
           appendEntry("warning", `Docs · ${event.message}`);
           break;
         case "tool.failed":
+          setRunActivity({ kind: "thinking", step: event.step });
           appendEntry(
             "error",
             `✗ Failed ${event.call.name}${event.result.ok ? "" : ` — ${event.result.error.message}`}`,
@@ -1222,6 +1287,16 @@ export function InteractiveApp({
     void updateService.start();
     return unsubscribe;
   }, [updateService]);
+
+  useEffect(() => {
+    if (phase !== "running") return;
+    const timer = setInterval(() => {
+      setRunActivityFrame(
+        (current) => (current + 1) % RUN_ACTIVITY_FRAMES.length,
+      );
+    }, 120);
+    return () => clearInterval(timer);
+  }, [phase]);
 
   const updateEditor = (
     update: (current: EditorState) => EditorState,
@@ -1370,6 +1445,7 @@ export function InteractiveApp({
         setContextPanel(undefined);
         setContextOfferDismissed(false);
         setContextActivity(undefined);
+        setStaticRenderRevision((current) => current + 1);
         setTranscript([]);
         nextTranscriptId.current = 0;
         setEditor(createEditorState());
@@ -1380,6 +1456,7 @@ export function InteractiveApp({
         setContextPanel(undefined);
         setContextOfferDismissed(false);
         setContextActivity(undefined);
+        setStaticRenderRevision((current) => current + 1);
         setTranscript([]);
         nextTranscriptId.current = 0;
         setEditor(createEditorState());
@@ -1626,6 +1703,7 @@ export function InteractiveApp({
     activeController.current = controller;
     setContextPanel(undefined);
     setEditor(createEditorState());
+    setRunActivity({ kind: "thinking" });
     setPhase("running");
     appendEntry(
       "user",
@@ -1646,7 +1724,7 @@ export function InteractiveApp({
     let subagentPreview: SubagentApprovalPreview | undefined;
 
     const approvalChannel = createApprovalChannel(
-      (approvalPrompt, signal) =>
+      (approvalPrompt, signal, descriptor) =>
         new Promise<string | null>((resolve) => {
           let settled = false;
           const settle = (answer: string | null) => {
@@ -1659,6 +1737,7 @@ export function InteractiveApp({
           signal.addEventListener("abort", onAbort, { once: true });
           setApproval({
             prompt: approvalPrompt,
+            allowSession: descriptor.allowedScopes.length > 0,
             ...(commandPreview ? { command: commandPreview } : {}),
             ...(networkPreview ? { network: networkPreview } : {}),
             ...(subagentPreview ? { subagent: subagentPreview } : {}),
@@ -1787,17 +1866,12 @@ export function InteractiveApp({
             `Completed · ${formatModelStatus(activeOptions)}`,
           );
         }
-        if (result?.status === "completed") {
-          conversation.current.push({ role: "user", content: prompt });
-          if (result.finalText !== "") {
-            conversation.current.push({
-              role: "assistant",
-              content: result.finalText,
-            });
-          }
+        if (result) {
+          conversation.current.push(...runConversationMessages(prompt, result));
         }
         activeController.current = undefined;
         setApproval(undefined);
+        setRunActivity(undefined);
         setPhase("editing");
       });
   };
@@ -1927,8 +2001,13 @@ export function InteractiveApp({
     if (phase === "approving") {
       const answer = input.toLocaleLowerCase();
       if (answer === "1" || answer === "y") finishApproval("1");
-      else if (answer === "2") finishApproval("2");
-      else if (answer === "3" || answer === "n") {
+      else if (answer === "2" && approval?.allowSession) finishApproval("2");
+      else if (answer === "2") {
+        appendEntry(
+          "warning",
+          "Session approval is unavailable for this action. Choose 1 or 3.",
+        );
+      } else if (answer === "3" || answer === "n") {
         setApprovalFeedback("");
         setPhase("approval-feedback");
       } else if (key.escape || key.return) finishApproval("3");
@@ -2009,10 +2088,11 @@ export function InteractiveApp({
       void updateProjectPluginTrust(trusted).then(
         (nextResources) => {
           setResources(nextResources);
+          setStaticRenderRevision((current) => current + 1);
           appendEntry(
             "system",
             trusted
-              ? `Trusted project plugins for ${cwd}. They will load on the next Forge task.`
+              ? `Trusted project plugins for ${cwd}.\nThey will load on the next Forge task.`
               : `Removed project plugin trust for ${cwd}.`,
           );
           setPluginTrustIntent(undefined);
@@ -2052,8 +2132,10 @@ export function InteractiveApp({
               const restored = conversationTranscript(
                 messages,
                 sessionPersistence.reasoning ?? [],
+                sessionPersistence.historyEvents,
               );
               nextTranscriptId.current = restored.length;
+              setStaticRenderRevision((current) => current + 1);
               setTranscript(restored);
               setSessions([]);
               setPhase("editing");
@@ -2733,16 +2815,37 @@ export function InteractiveApp({
     }
   });
 
+  const staticTranscript =
+    phase === "running" ? transcript.slice(0, -1) : transcript;
+  const staticOutputItems: StaticOutputItem[] = [
+    { kind: "header", resources },
+    ...Array.from(staticTranscript, (entry) => ({
+      kind: "transcript" as const,
+      entry,
+    })),
+  ];
+
   return (
     <Box flexDirection="column" paddingX={1}>
-      <ForgeHeader resources={resources} />
+      {transcript.length === 0 ? <ForgeHeader resources={resources} /> : null}
 
       {transcript.length > 0 ? (
-        <Box flexDirection="column" marginTop={1}>
-          {transcript.map((entry) => (
-            <TranscriptBlock key={entry.id} entry={entry} />
-          ))}
-        </Box>
+        <>
+          <Static key={staticRenderRevision} items={staticOutputItems}>
+            {(item) =>
+              item.kind === "header" ? (
+                <ForgeHeader key="forge-header" resources={item.resources} />
+              ) : (
+                <TranscriptBlock key={item.entry.id} entry={item.entry} />
+              )
+            }
+          </Static>
+          {phase === "running" && transcript.at(-1) ? (
+            <Box flexDirection="column" marginTop={1}>
+              <TranscriptBlock entry={transcript.at(-1) as TranscriptEntry} />
+            </Box>
+          ) : null}
+        </>
       ) : null}
 
       {contextPanel ? <ContextPanel status={contextPanel} /> : null}
@@ -2837,11 +2940,17 @@ export function InteractiveApp({
               <Text bold color="green">
                 1
               </Text>{" "}
-              allow once ·{" "}
-              <Text bold color="green">
-                2
-              </Text>{" "}
-              allow displayed session scope ·{" "}
+              allow once
+              {approval.allowSession ? (
+                <>
+                  {" · "}
+                  <Text bold color="green">
+                    2
+                  </Text>{" "}
+                  allow displayed session scope
+                </>
+              ) : null}
+              {" · "}
               <Text bold color="red">
                 3
               </Text>{" "}
@@ -3286,14 +3395,11 @@ export function InteractiveApp({
         activeOptions={activeOptions}
         filesLoading={filesLoading}
         phase={phase}
+        {...(runActivity ? { runActivity } : {})}
+        runActivityFrame={runActivityFrame}
         {...(contextStatus ? { contextStatus } : {})}
         {...(contextActivity ? { contextStateOverride: contextActivity } : {})}
-        terminalWidth={
-          typeof (stdout as { readonly columns?: unknown }).columns === "number"
-            ? ((stdout as unknown as { readonly columns: number }).columns ??
-              80)
-            : 80
-        }
+        terminalWidth={terminalWidth}
       />
     </Box>
   );
@@ -3382,6 +3488,7 @@ function ResourcesPanel({
 }: {
   readonly resources: DetectedStartupResources;
 }): React.JSX.Element {
+  const diagnostics = resources.diagnostics ?? [];
   return (
     <Box
       borderStyle="round"
@@ -3393,32 +3500,61 @@ function ResourcesPanel({
       <Text bold color="cyan">
         Resources
       </Text>
-      {resources.skills.length === 0 ? (
-        <Text dimColor>No Skills were discovered.</Text>
-      ) : (
-        resources.skills.map((skill) => (
-          <Box
-            key={`${skill.source}:${skill.path}`}
-            flexDirection="column"
-            marginTop={1}
-          >
-            <Text>
-              <Text bold>${skill.name}</Text>
-              {` · ${skill.source} · ${skill.status ?? skill.invocation}${skill.shadowedBy ? ` by ${skill.shadowedBy}` : ""}`}
-            </Text>
-            <Text dimColor>{skill.description ?? "No description."}</Text>
-          </Box>
-        ))
-      )}
-      {(resources.diagnostics ?? []).map((diagnostic) => (
-        <Text key={diagnostic} color="yellow">
-          {diagnostic}
+      <Box flexDirection="column" marginTop={1}>
+        <Text bold color="gray">
+          Skills
         </Text>
-      ))}
-      <Text dimColor>
-        Use forge resources disable|enable &lt;name&gt; for user-scoped
-        automatic invocation. Esc close
-      </Text>
+        {resources.skills.length === 0 ? (
+          <Text dimColor>No Skills were discovered.</Text>
+        ) : (
+          resources.skills.map((skill) => (
+            <Box
+              key={`${skill.source}:${skill.path}`}
+              flexDirection="column"
+              marginTop={1}
+              paddingLeft={1}
+            >
+              <Text>
+                <Text bold>${skill.name}</Text>
+                <Text dimColor>
+                  {` · ${skill.source} · ${skill.status ?? skill.invocation}${skill.shadowedBy ? ` by ${skill.shadowedBy}` : ""}`}
+                </Text>
+              </Text>
+              <Text dimColor>{skill.description ?? "No description."}</Text>
+            </Box>
+          ))
+        )}
+      </Box>
+      {diagnostics.length > 0 ? (
+        <Box flexDirection="column" marginTop={1}>
+          <Text bold color="yellow">
+            Diagnostics
+          </Text>
+          {diagnostics.map((diagnostic) => (
+            <Text key={diagnostic} color="yellow">
+              {diagnostic}
+            </Text>
+          ))}
+        </Box>
+      ) : null}
+      <Box
+        borderStyle="single"
+        borderColor="gray"
+        flexDirection="column"
+        marginTop={1}
+        paddingX={1}
+      >
+        <Text bold color="cyan">
+          Actions
+        </Text>
+        <Text color="green">forge resources disable|enable &lt;name&gt;</Text>
+        <Text dimColor>
+          Toggle automatic invocation for a user-scoped Skill.
+        </Text>
+        <Text dimColor>
+          <Text color="yellow">Esc</Text> close
+        </Text>
+      </Box>
     </Box>
   );
 }
@@ -3558,7 +3694,11 @@ function formatDetectedPlugin(
 function conversationTranscript(
   messages: readonly ModelConversationMessage[],
   reasoning: readonly SessionReasoning[] = [],
+  historyEvents?: readonly RunEvent[],
 ): readonly TranscriptEntry[] {
+  if (historyEvents && historyEvents.length > 0) {
+    return runEventTranscript(historyEvents);
+  }
   const reasoningByMessage = new Map(
     reasoning.map((entry) => [entry.assistantMessageIndex, entry.content]),
   );
@@ -3577,6 +3717,99 @@ function conversationTranscript(
       kind: message.role === "user" ? "user" : "answer",
       text: message.content,
     });
+  }
+  return transcript;
+}
+
+function runEventTranscript(
+  events: readonly RunEvent[],
+): readonly TranscriptEntry[] {
+  let transcript: readonly TranscriptEntry[] = [];
+  const append = (kind: TranscriptKind, text: string, merge = false): void => {
+    transcript = appendTranscriptEntry(
+      transcript,
+      { id: transcript.length, kind, text },
+      merge,
+    );
+  };
+
+  for (const event of events) {
+    switch (event.type) {
+      case "run.started":
+        append(
+          "user",
+          [
+            event.prompt,
+            ...(event.imageCount
+              ? Array.from(
+                  { length: event.imageCount },
+                  (_, index) => `[Image #${index + 1}]`,
+                )
+              : []),
+          ].join("\n"),
+        );
+        break;
+      case "model.reasoning":
+        append("reasoning", event.text, true);
+        break;
+      case "model.reasoning-unavailable":
+        append(
+          "reasoning",
+          `Provider used ${event.reasoningTokens} reasoning tokens but did not return reasoning text.`,
+        );
+        break;
+      case "model.text":
+        append("answer", event.text, true);
+        break;
+      case "model.warning":
+      case "context.warning":
+        append("warning", event.message);
+        break;
+      case "context.auto-paused":
+        append("warning", event.message);
+        break;
+      case "tool.proposed":
+        append("tool", `○ Proposed ${event.call.name}`);
+        break;
+      case "tool.decision":
+        append(
+          "tool",
+          `◇ ${event.decision.kind.toUpperCase()} ${event.call.name} — ${event.decision.reason}`,
+        );
+        break;
+      case "tool.completed":
+        append("tool", `✓ Completed ${event.call.name}`);
+        break;
+      case "tool.failed":
+        append(
+          "error",
+          `✗ Failed ${event.call.name}${event.result.ok ? "" : ` — ${event.result.error.message}`}`,
+        );
+        break;
+      case "docs.search":
+        append(
+          "tool",
+          `Docs · ${event.resultCount} result(s) · ${event.locale}${event.fallback ? " · English fallback" : ""}`,
+        );
+        break;
+      case "docs.read":
+        append("tool", `Docs · ${event.reference}`);
+        break;
+      case "docs.rejected":
+        append("warning", `Docs · ${event.message}`);
+        break;
+      case "run.completed":
+        append("system", "Completed");
+        break;
+      case "run.failed":
+      case "run.denied":
+      case "run.limit_reached":
+      case "run.cancelled":
+        if (event.message) append("error", event.message);
+        break;
+      default:
+        break;
+    }
   }
   return transcript;
 }
@@ -3601,10 +3834,83 @@ function formatCompactModelStatus(options: AskOptions): string {
   return `${model} · ${effort}`;
 }
 
+function toolRunActivity(
+  call: Pick<ToolCall, "name" | "input">,
+  stage: "preparing" | "executing",
+): RunActivity {
+  const target = toolActivityTarget(call);
+  return {
+    kind: "tool",
+    stage,
+    toolName: call.name,
+    ...(target ? { target } : {}),
+  };
+}
+
+function toolActivityTarget(
+  call: Pick<ToolCall, "name" | "input">,
+): string | undefined {
+  if (!isRecord(call.input)) return undefined;
+  const path = stringInputField(call.input, "path");
+  if (
+    (call.name === "apply_patch" ||
+      call.name === "create_file" ||
+      call.name === "read_file") &&
+    path
+  ) {
+    return path;
+  }
+  if (call.name === "run_command") {
+    const program = stringInputField(call.input, "program");
+    const args = inputField(call.input, "args");
+    if (program && Array.isArray(args)) {
+      const commandArgs = args.filter(
+        (argument): argument is string => typeof argument === "string",
+      );
+      return [program, ...commandArgs].join(" ");
+    }
+    return program;
+  }
+  return undefined;
+}
+
+function stringInputField(
+  input: Record<string, unknown>,
+  key: string,
+): string | undefined {
+  const value = inputField(input, key);
+  return typeof value === "string" && value.trim() !== "" ? value : undefined;
+}
+
+function inputField(input: Record<string, unknown>, key: string): unknown {
+  return input[key];
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function formatRunActivity(activity: RunActivity | undefined): string {
+  if (!activity) return "Working…";
+  if (activity.kind === "thinking") {
+    return activity.step ? `Thinking · step ${activity.step}…` : "Thinking…";
+  }
+  const target = activity.target ? ` · ${activity.target}` : "";
+  if (activity.toolName === "apply_patch") {
+    return `${activity.stage === "preparing" ? "Preparing file edit" : "Editing file"}${target}`;
+  }
+  if (activity.toolName === "create_file") {
+    return `${activity.stage === "preparing" ? "Preparing file creation" : "Creating file"}${target}`;
+  }
+  return `${activity.stage === "preparing" ? "Preparing" : "Running"} ${activity.toolName}${target}`;
+}
+
 function PromptFooter({
   activeOptions,
   filesLoading,
   phase,
+  runActivity,
+  runActivityFrame,
   contextStatus,
   contextStateOverride,
   terminalWidth,
@@ -3612,6 +3918,8 @@ function PromptFooter({
   readonly activeOptions: AskOptions;
   readonly filesLoading: boolean;
   readonly phase: Phase;
+  readonly runActivity?: RunActivity;
+  readonly runActivityFrame: number;
   readonly contextStatus?: ContextStatus;
   readonly contextStateOverride?: ContextStatus["pressure"]["state"];
   readonly terminalWidth: number;
@@ -3647,40 +3955,59 @@ function PromptFooter({
     );
   }
 
-  const status =
-    phase === "running"
-      ? "● Running · Ctrl+C cancel"
-      : phase === "approving" || phase === "approval-feedback"
-        ? "Waiting for approval"
-        : phase === "models"
-          ? "Choose a model"
-          : phase === "delete-models"
-            ? "Choose a configured model to delete"
-            : phase === "delete-model-confirm"
-              ? "Confirm model deletion"
-              : phase === "effort"
-                ? "Choose thinking effort"
-                : phase === "plugins"
-                  ? "Review project plugins"
-                  : phase === "resources"
-                    ? "Review Skills and diagnostics"
-                    : phase === "permissions"
-                      ? "Review session permissions"
-                      : phase === "plugin-trust"
-                        ? "Confirm project plugin trust"
-                        : phase === "login-providers" || phase === "login-key"
-                          ? "Configure a model provider"
-                          : phase === "logout-providers"
-                            ? "Choose a provider to log out"
-                            : phase === "provider-actions"
-                              ? "Manage provider"
-                              : phase === "provider-remove-confirm"
-                                ? "Confirm provider removal"
-                                : phase === "provider-setup"
-                                  ? "Configure a provider model"
-                                  : "Choose a saved session";
+  if (phase === "running") {
+    const activity = formatRunActivity(runActivity);
+    const spinner =
+      RUN_ACTIVITY_FRAMES[runActivityFrame % RUN_ACTIVITY_FRAMES.length] ??
+      RUN_ACTIVITY_FRAMES[0];
+    return (
+      <Box paddingX={1}>
+        <Box flexDirection="column">
+          <Text color={runActivity?.kind === "tool" ? "green" : "cyan"}>
+            {spinner} {activity}
+            <Text dimColor> · Ctrl+C cancel</Text>
+          </Text>
+        </Box>
+      </Box>
+    );
+  }
 
-  return <Text dimColor>{status}</Text>;
+  const status =
+    phase === "approving" || phase === "approval-feedback"
+      ? "Waiting for approval"
+      : phase === "models"
+        ? "Choose a model"
+        : phase === "delete-models"
+          ? "Choose a configured model to delete"
+          : phase === "delete-model-confirm"
+            ? "Confirm model deletion"
+            : phase === "effort"
+              ? "Choose thinking effort"
+              : phase === "plugins"
+                ? "Review project plugins"
+                : phase === "resources"
+                  ? "Review Skills and diagnostics"
+                  : phase === "permissions"
+                    ? "Review session permissions"
+                    : phase === "plugin-trust"
+                      ? "Confirm project plugin trust"
+                      : phase === "login-providers" || phase === "login-key"
+                        ? "Configure a model provider"
+                        : phase === "logout-providers"
+                          ? "Choose a provider to log out"
+                          : phase === "provider-actions"
+                            ? "Manage provider"
+                            : phase === "provider-remove-confirm"
+                              ? "Confirm provider removal"
+                              : phase === "provider-setup"
+                                ? "Configure a provider model"
+                                : "Choose a saved session";
+
+  return (
+    <Box flexDirection="column">
+      <Text dimColor>{status}</Text>
+    </Box>
+  );
 }
 
 function PromptWithCursor({
@@ -4092,15 +4419,7 @@ function TranscriptBlock({
       );
     case "answer":
       return (
-        <Box
-          borderStyle="single"
-          borderColor="green"
-          flexDirection="column"
-          paddingX={2}
-          width="100%"
-          maxWidth={112}
-          marginBottom={1}
-        >
+        <Box flexDirection="column" paddingX={1} marginBottom={1}>
           <Text bold color="green">
             ● Answer
           </Text>
@@ -4140,16 +4459,8 @@ function appendTranscriptEntry(
     next.push(entry);
   }
 
-  const limit = 32_000;
-  let total = next.reduce((size, item) => size + item.text.length, 0);
-  while (next.length > 1 && total > limit) {
-    const removed = next.shift();
-    total -= removed?.text.length ?? 0;
-  }
-  const first = next[0];
-  if (first && first.text.length > limit) {
-    next[0] = { ...first, text: first.text.slice(-limit) };
-  }
+  // Keep the complete UI transcript. Ink.Static moves finalized entries into
+  // terminal scrollback, so trimming here would make older output unrecoverable.
   return next;
 }
 

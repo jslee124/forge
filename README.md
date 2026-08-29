@@ -53,8 +53,8 @@ and testable.
 | **Forge-owned loop** | The runtime controls model steps, tool execution, continuation, recovery, cancellation, and stop limits. |
 | **Explicit policy** | Every tool proposal receives an `allow`, `confirm`, or `deny` decision before execution. |
 | **Observable runs** | Structured terminal events and versioned JSONL traces show what the model proposed and what actually happened. |
-| **Persistent sessions** | Completed conversations survive restarts without restoring old approvals or pending tool calls. |
-| **Budgeted context** | `/context` exposes the active budget; optional checkpoints compact completed history without deleting the canonical transcript. |
+| **Persistent sessions** | Completed turns and bounded failed-run outcomes survive restarts without restoring old approvals or pending tool calls. |
+| **Budgeted context** | `/context` exposes the active budget; optional checkpoints compact canonical history without deleting the canonical transcript. |
 | **Reproducible evaluation** | Deterministic tests prove runtime behavior, while live-model trials retain both successes and failures. |
 | **Controlled extensibility** | Trusted plugins and non-executable built-in, user, and project Skills extend Forge without bypassing the core policy pipeline. |
 
@@ -147,7 +147,7 @@ inspection.
   limits, and approval.
 - React to failed verification and continue toward a corrected result.
 - Stream model text and provider-exposed reasoning as separate events.
-- Persist sessions and resume completed conversation turns by ID or recency.
+- Persist sessions and resume completed turns plus bounded failed-run outcomes by ID or recency.
 - Inspect context usage and create explicit, displayable conversation
   checkpoints.
 - Load hierarchical `AGENTS.md` instructions and lazily invoked built-in, user, and project Skills.
@@ -319,8 +319,8 @@ provider-quality evidence is collected.
   implemented.
 - Model behavior is nondeterministic; runtime correctness does not guarantee
   live task success.
-- Resume restores completed conversation text, not pending tool calls or old
-  approvals.
+- Resume replays available historical model/tool events, but never reactivates
+  pending tool calls or old approvals.
 - Plugins are trusted local code, not isolated extensions.
 - General multi-agent orchestration beyond bounded plugin-declared subagents,
   RAG, IDE integration, cloud execution, autonomous Git pushes, and

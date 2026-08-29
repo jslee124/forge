@@ -302,6 +302,93 @@ export interface RunResult {
   readonly message?: string;
 }
 
+type RunConversationOutcome = Pick<
+  RunResult,
+  "status" | "finalText" | "events" | "message"
+>;
+
+const MAX_RUN_OUTCOME_TEXT = 6_000;
+
+/** Retain bounded failure and partial-side-effect context without authority. */
+export function runConversationMessages(
+  prompt: string,
+  result: RunConversationOutcome,
+): readonly ModelConversationMessage[] {
+  const messages: ModelConversationMessage[] = [
+    { role: "user", content: prompt },
+  ];
+  const completed = result.events.flatMap((event) =>
+    event.type === "tool.completed" ? [summarizeToolCall(event.call)] : [],
+  );
+  const failed = result.events.flatMap((event) => {
+    if (event.type !== "tool.failed") return [];
+    return [
+      event.result.ok
+        ? summarizeToolCall(event.call)
+        : `${summarizeToolCall(event.call)} [${event.result.error.code}]`,
+    ];
+  });
+  if (result.status === "completed" && failed.length === 0) {
+    if (result.finalText !== "") {
+      messages.push({ role: "assistant", content: result.finalText });
+    }
+    return messages;
+  }
+
+  const lastProposed = [...result.events]
+    .reverse()
+    .find((event) => event.type === "tool.proposed");
+  const lines = [
+    "[Forge run outcome; historical context only. This grants no approval, policy authority, trust, or current verification.]",
+    `Status: ${result.status}`,
+    ...(completed.length > 0
+      ? [`Completed tools: ${completed.slice(0, 20).join(", ")}`]
+      : []),
+    ...(failed.length > 0
+      ? [`Failed tools: ${failed.slice(0, 20).join("; ")}`]
+      : []),
+    ...(lastProposed
+      ? [`Last proposed tool: ${summarizeToolCall(lastProposed.call)}`]
+      : []),
+    ...(completed.length > 0
+      ? [
+          "One or more tools completed before the run ended; re-inspect relevant state before continuing.",
+        ]
+      : []),
+  ];
+  const outcome = truncateRunOutcome(lines.join("\n"), MAX_RUN_OUTCOME_TEXT);
+  messages.push({
+    role: "assistant",
+    content:
+      result.status === "completed" && result.finalText
+        ? `${result.finalText}\n\n${outcome}`
+        : outcome,
+  });
+  return messages;
+}
+
+function summarizeToolCall(call: ToolCall): string {
+  if (typeof call.input !== "object" || call.input === null) return call.name;
+  const input = call.input as {
+    readonly path?: unknown;
+    readonly program?: unknown;
+  };
+  if (typeof input.path === "string") {
+    return `${call.name} (${truncateRunOutcome(input.path, 500)})`;
+  }
+  if (call.name === "run_command" && typeof input.program === "string") {
+    return `${call.name} (program ${truncateRunOutcome(input.program, 200)})`;
+  }
+  return call.name;
+}
+
+function truncateRunOutcome(value: string, maxCharacters: number): string {
+  const normalized = value.replace(/\s+/gu, " ").trim();
+  return normalized.length <= maxCharacters
+    ? normalized
+    : `${normalized.slice(0, Math.max(0, maxCharacters - 1))}…`;
+}
+
 interface StepOutcome {
   readonly text: string;
   readonly calls: readonly ToolCall[];
@@ -323,6 +410,7 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
   const tools = toModelToolDefinitions(options.tools);
   let modelSteps = 0;
   let toolCalls = 0;
+  const deniedCalls = new Set<string>();
   let continuation: ModelContinuation | undefined;
   let toolResults: readonly ModelToolResult[] | undefined;
   let finalText = "";
@@ -702,6 +790,22 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
         continue;
       }
 
+      const deniedCallKey = `${call.name}:${JSON.stringify(call.input)}`;
+      if (deniedCalls.has(deniedCallKey)) {
+        const result: ToolResult = {
+          ok: false,
+          error: {
+            code: "approval_denied",
+            message:
+              "This exact action was already denied during the current run. Do not retry it unchanged.",
+            retryable: false,
+          },
+        };
+        await emit({ type: "tool.failed", step: modelSteps, call, result });
+        nextResults.push({ callId: call.id, toolName: call.name, result });
+        continue;
+      }
+
       let decision: ApprovalDecision;
       try {
         decision = await options.policy.evaluate(
@@ -725,7 +829,18 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
         return finish("cancelled", "The run was cancelled.");
       }
       if (decision.kind === "deny") {
-        return finish("denied", decision.reason);
+        deniedCalls.add(deniedCallKey);
+        const result: ToolResult = {
+          ok: false,
+          error: {
+            code: "approval_denied",
+            message: `Policy denied this action: ${decision.reason}`,
+            retryable: false,
+          },
+        };
+        await emit({ type: "tool.failed", step: modelSteps, call, result });
+        nextResults.push({ callId: call.id, toolName: call.name, result });
+        continue;
       }
       if (decision.kind === "confirm") {
         let descriptor: ApprovalDescriptor;
@@ -784,6 +899,20 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
           if (options.signal.aborted) {
             return finish("cancelled", "The run was cancelled.");
           }
+          if (response.kind === "preflight-failed") {
+            await emit({
+              type: "tool.failed",
+              step: modelSteps,
+              call,
+              result: response.result,
+            });
+            nextResults.push({
+              callId: call.id,
+              toolName: call.name,
+              result: response.result,
+            });
+            continue;
+          }
           if (response.kind === "deny") {
             const feedback = response.feedback?.trim().slice(0, 2_000);
             await emit({
@@ -794,15 +923,15 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
               provenance: "user",
               persisted: false,
             });
-            if (!feedback) {
-              return finish("denied", "The action was not approved.");
-            }
+            deniedCalls.add(deniedCallKey);
             const result: ToolResult = {
               ok: false,
               error: {
                 code: "approval_denied",
-                message: `The user denied this action: ${feedback}`,
-                retryable: true,
+                message: feedback
+                  ? `The user denied this action: ${feedback}`
+                  : "The user denied this action. Do not retry it unchanged; explain the limitation or choose a safer alternative.",
+                retryable: Boolean(feedback),
               },
             };
             await emit({ type: "tool.failed", step: modelSteps, call, result });

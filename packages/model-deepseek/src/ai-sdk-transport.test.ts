@@ -1,5 +1,5 @@
 import type { DeepSeekProviderSettings } from "@ai-sdk/deepseek";
-import { APICallError, type streamText } from "ai";
+import { APICallError, InvalidPromptError, type streamText } from "ai";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
@@ -102,6 +102,7 @@ describe("AI SDK DeepSeek transport", () => {
           thinking: "enabled",
           reasoningEffort: "max",
           prompt: "Inspect",
+          instructions: "Follow repository instructions.",
           images: [
             {
               type: "base64",
@@ -120,6 +121,10 @@ describe("AI SDK DeepSeek transport", () => {
     expect(requestBody).toMatchObject({
       model: "deepseek-v4-flash-vision-exp",
       input: [
+        {
+          role: "system",
+          content: "Follow repository instructions.",
+        },
         {
           role: "user",
           content: [
@@ -205,8 +210,8 @@ describe("AI SDK DeepSeek transport", () => {
     }
 
     expect(capturedOptions).toMatchObject({
+      instructions: "Follow repository instructions.",
       messages: [
-        { role: "system", content: "Follow repository instructions." },
         { role: "user", content: "previous task" },
         { role: "assistant", content: "previous answer" },
         { role: "user", content: "current task" },
@@ -692,6 +697,21 @@ describe("AI SDK DeepSeek transport", () => {
       "DeepSeek rejected the API key. Check DEEPSEEK_API_KEY.",
     );
     expect(mapped.statusCode).toBe(401);
+    expect(mapped.retryable).toBe(false);
+    expect(mapped.message).not.toContain("sensitive");
+  });
+
+  it("maps invalid prompts to a non-retryable configuration error", () => {
+    const mapped = mapDeepSeekError(
+      new InvalidPromptError({
+        prompt: { messages: [] },
+        message: "sensitive prompt validation details",
+      }),
+    );
+
+    expect(mapped.message).toBe(
+      "Could not construct the DeepSeek request. Check the prompt and model configuration.",
+    );
     expect(mapped.retryable).toBe(false);
     expect(mapped.message).not.toContain("sensitive");
   });

@@ -702,6 +702,7 @@ export function createTerminalApprovalChannel(
 export type ApprovalQuestion = (
   prompt: string,
   signal: AbortSignal,
+  descriptor: ApprovalDescriptor,
 ) => Promise<string | null>;
 
 export interface CommandApprovalPreview {
@@ -744,13 +745,23 @@ export function createApprovalChannel(
       );
       if (!preview.ok) {
         output.write(`Cannot preview patch: ${preview.error.message}\n`);
-        return { kind: "deny" };
+        return { kind: "preflight-failed", result: preview };
       }
       if (preview.truncated) {
         output.write(
           "Cannot approve patch because its diff exceeds the display limit.\n",
         );
-        return { kind: "deny" };
+        return {
+          kind: "preflight-failed",
+          result: {
+            ok: false,
+            error: {
+              code: "output_limit",
+              message: "The patch preview exceeds the display limit.",
+              retryable: true,
+            },
+          },
+        };
       }
       output.write(
         `${formatDiffPanel(preview.output.diff, options.color === true)}\n`,
@@ -764,13 +775,23 @@ export function createApprovalChannel(
         output.write(
           `Cannot preview file creation: ${preview.error.message}\n`,
         );
-        return { kind: "deny" };
+        return { kind: "preflight-failed", result: preview };
       }
       if (preview.truncated) {
         output.write(
           "Cannot approve file creation because its diff exceeds the display limit.\n",
         );
-        return { kind: "deny" };
+        return {
+          kind: "preflight-failed",
+          result: {
+            ok: false,
+            error: {
+              code: "output_limit",
+              message: "The file creation preview exceeds the display limit.",
+              retryable: true,
+            },
+          },
+        };
       }
       output.write(
         `${formatDiffPanel(preview.output.diff, options.color === true)}\n`,
@@ -832,15 +853,24 @@ export function createApprovalChannel(
       }
     }
 
-    const answer = await question(formatApprovalQuestion(descriptor), signal);
+    const answer = await question(
+      formatApprovalQuestion(descriptor),
+      signal,
+      descriptor,
+    );
     return parseApprovalResponse(answer, descriptor);
   };
   return {
     request: async (action, signal, context) => {
       const descriptor = await describeApproval(action, context);
+      const response = await requestStructured(
+        action,
+        signal,
+        context,
+        descriptor,
+      );
       return (
-        (await requestStructured(action, signal, context, descriptor)).kind !==
-        "deny"
+        response.kind === "allow-once" || response.kind === "allow-session"
       );
     },
     requestStructured,

@@ -3,7 +3,7 @@ import { realpath } from "node:fs/promises";
 import path from "node:path";
 
 import type { ProposedAction } from "./policy.js";
-import type { ToolContext, ToolRisk } from "./tools.js";
+import type { ToolContext, ToolResult, ToolRisk } from "./tools.js";
 
 interface ApprovalInputFields {
   readonly args?: unknown;
@@ -15,12 +15,17 @@ interface ApprovalInputFields {
   readonly [key: string]: unknown;
 }
 
-export type ApprovalResponseKind = "allow-once" | "allow-session" | "deny";
+export type ApprovalResponseKind =
+  | "allow-once"
+  | "allow-session"
+  | "deny"
+  | "preflight-failed";
 
-export interface ApprovalResponse {
-  readonly kind: ApprovalResponseKind;
-  readonly feedback?: string;
-}
+export type ApprovalResponse =
+  | { readonly kind: "allow-once" }
+  | { readonly kind: "allow-session" }
+  | { readonly kind: "deny"; readonly feedback?: string }
+  | { readonly kind: "preflight-failed"; readonly result: ToolResult };
 
 export type ApprovalRiskFlag =
   | "broad-external-effect"

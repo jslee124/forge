@@ -77,6 +77,7 @@ export {
   type RunResult,
   type RunStatus,
   runAgent,
+  runConversationMessages,
 } from "./runtime.js";
 export type {
   ForgeTool,

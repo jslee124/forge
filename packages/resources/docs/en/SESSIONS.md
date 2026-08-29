@@ -4,15 +4,17 @@
 
 ## Goal
 
-Forge persists enough trusted metadata and completed conversation history to
-continue an interactive chat after the process exits. This is deliberately
-separate from replaying an in-progress tool call.
+Forge persists enough trusted metadata, completed conversation history, and
+bounded outcomes from incomplete runs to continue an interactive chat after
+the process exits. This is deliberately separate from replaying an in-progress
+tool call.
 
 The core relationship is:
 
 ```text
 Session
 |-- completed user/assistant turns
+|-- bounded failed/denied/cancelled run outcomes
 |-- provider-exposed reasoning summaries for completed assistant turns
 |-- optional derived context checkpoint
 |-- workspace and working-directory metadata
@@ -47,6 +49,8 @@ Each session stores:
 - Session ID, creation time, and last-updated time
 - Canonical workspace root and the saved working directory
 - Completed user and assistant messages
+- User requests and bounded, authority-free outcome summaries for incomplete
+  runs or completed runs that encountered tool failures
 - Provider-exposed reasoning text associated with completed assistant messages
 - The ordered run IDs belonging to the session
 - An optional versioned checkpoint with source/tail hashes and provenance
@@ -67,24 +71,39 @@ forge resume --last
 
 The interactive `/resume` command opens a bounded list of saved sessions for
 the current canonical workspace. Selecting one replaces the empty/current
-conversation with its completed history and continues in that saved session.
+conversation with its canonical history and continues in that saved session.
+When every referenced trace is available, the interactive transcript is rebuilt
+from the same ordered `RunEvent` stream used during the original run. This
+restores reasoning summaries, intermediate model text, tool proposals,
+decisions, completions, and failures instead of displaying the bounded model
+context summary as assistant prose.
 
 Resume follows these rules:
 
-1. Only completed user/assistant turns and their provider-exposed reasoning are
-   restored for display.
+1. Completed user/assistant turns are restored. Failed, denied, cancelled, and
+   limit-reached runs restore the original request plus a bounded outcome
+   summary. A completed run that encountered tool failures retains a bounded
+   tool-outcome suffix as well.
 2. A new prompt always starts a new bounded run with a new run ID.
 3. Current configuration and `AGENTS.md` instructions are loaded again.
 4. Approval state is new for every resumed run; memory-only session grants are
    cleared before the saved conversation is loaded.
 5. Provider continuation records and partially completed tool calls are never
-   resumed.
+   resumed. Historical tool events are display-only; the next run must
+   re-inspect the workspace and obtain fresh approval before acting.
 6. A saved session from another workspace is rejected unless the user starts
    from that workspace explicitly.
 7. Missing or invalid session files produce an actionable configuration-style
    error without starting a model request.
 8. A valid checkpoint restores the same bounded active view; a stale or invalid
    checkpoint is ignored without changing the canonical transcript.
+9. Legacy snapshots that omitted failed turns are backfilled only when every
+   referenced run trace is readable and the existing canonical messages form
+   an exact ordered subsequence of the reconstruction. Otherwise the snapshot
+   remains unchanged.
+10. If any referenced trace is missing or invalid, Forge falls back to the
+    canonical conversation instead of showing a misleading partial event
+    timeline.
 
 This means Forge restores conversation context, not authority or executable
 state. Saved reasoning remains display-only and is not added to the model's
@@ -108,8 +127,10 @@ assembled from terminal strings.
 ## Redaction and safety
 
 Before persistence, Forge redacts configured credential values and recognized
-secret-bearing fields. In particular, `DEEPSEEK_API_KEY` must never appear in a
-session snapshot or run trace.
+secret-bearing fields. Bounded run-outcome summaries omit tool output, file
+content, command arguments, and raw error messages; they retain only safe tool
+identifiers, file paths or command programs, and error codes. In particular,
+`DEEPSEEK_API_KEY` must never appear in a session snapshot or run trace.
 
 Run traces may still contain repository contents, diffs, commands, model text,
 and provider-returned reasoning. Files under `sessions/` and `runs/` are local

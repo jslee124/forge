@@ -165,7 +165,7 @@ Session 与 workspace 绑定。请在同一个规范仓库中启动：
 pnpm forge resume --last
 ```
 
-Snapshot 位于 `$FORGE_HOME/sessions`。修改 `FORGE_HOME`、移动 checkout、删除或损坏 JSON 都会影响结果。Resume 只恢复 completed turns，不能继续中断的 stream 或待处理 tool call。
+Snapshot 位于 `$FORGE_HOME/sessions`。修改 `FORGE_HOME`、移动 checkout、删除或损坏 JSON 都会影响结果。Resume 会恢复 completed turns，以及 failed、denied、cancelled、limit-reached 运行的有界结果，但不能继续中断的 stream 或待处理 tool call；新运行会重新检查当前状态。
 
 ## 终端输入或渲染异常
 

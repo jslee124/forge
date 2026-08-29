@@ -2,9 +2,9 @@ const ANSI = {
   reset: "\u001B[0m",
   bold: "\u001B[1m",
   cyan: "\u001B[36m",
-  green: "\u001B[32m",
-  red: "\u001B[31m",
   yellow: "\u001B[33m",
+  addedLine: "\u001B[38;5;255m\u001B[48;5;22m",
+  removedLine: "\u001B[38;5;255m\u001B[48;5;52m",
 };
 
 export interface DiffSummary {
@@ -43,7 +43,9 @@ export function formatDiffPanel(diff: string, color: boolean): string {
   const title = `${summary.operation.toUpperCase()} ${summary.path}  +${summary.additions} -${summary.deletions}`;
   const body = numberDiffLines(diff)
     .map(({ line, oldLine, newLine }) => {
-      const gutter = `${formatLineNumber(oldLine)} ${formatLineNumber(newLine)} │ `;
+      const kindLabel = diffKindLabel(line);
+      const label = kindLabel === "" ? "" : ` ${kindLabel}`;
+      const gutter = `${formatLineNumber(oldLine)} ${formatLineNumber(newLine)}${label} │ `;
       return `${paint(gutter, ANSI.yellow, color)}${colorizeDiffLine(line, color)}`;
     })
     .join("\n");
@@ -94,13 +96,20 @@ function formatLineNumber(value: number | undefined): string {
   return value === undefined ? "    " : String(value).padStart(4);
 }
 
+function diffKindLabel(line: string): string {
+  if (line.startsWith("+++") || line.startsWith("---")) return "";
+  if (line.startsWith("+")) return "ADD";
+  if (line.startsWith("-")) return "DEL";
+  return "";
+}
+
 function colorizeDiffLine(line: string, color: boolean): string {
   if (line.startsWith("+++") || line.startsWith("---")) {
     return paint(line, ANSI.bold, color);
   }
   if (line.startsWith("@@")) return paint(line, ANSI.cyan, color);
-  if (line.startsWith("+")) return paint(line, ANSI.green, color);
-  if (line.startsWith("-")) return paint(line, ANSI.red, color);
+  if (line.startsWith("+")) return paint(line, ANSI.addedLine, color);
+  if (line.startsWith("-")) return paint(line, ANSI.removedLine, color);
   return line;
 }
 

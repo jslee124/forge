@@ -3,17 +3,19 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { PassThrough } from "node:stream";
 
-import type {
-  ForgeTool,
-  ModelAdapter,
-  ModelRequest,
-  ModelStreamEvent,
-  RunEvent,
+import {
+  describeApproval,
+  type ForgeTool,
+  type ModelAdapter,
+  type ModelRequest,
+  type ModelStreamEvent,
+  type RunEvent,
 } from "@forge/core";
 import { applyPatchTool, createFileTool, resolveWorkspace } from "@forge/tools";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
+  createApprovalChannel,
   createTerminalApprovalChannel,
   type RunMetadata,
   runTask,
@@ -563,6 +565,43 @@ describe("forge run", () => {
     expect(rendered).toContain("+++ b/hello.md");
     expect(rendered).toContain("+hello, world");
     expect(rendered).toContain("2  Allow this session");
+  });
+
+  it("returns an existing-file preview failure instead of reporting user denial", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "forge-run-"));
+    temporaryDirectories.push(root);
+    await writeFile(path.join(root, "hello.md"), "existing\n");
+    const output = outputBuffer();
+    let questions = 0;
+    const channel = createApprovalChannel(async () => {
+      questions += 1;
+      return "1";
+    }, output.output);
+    const toolInput = { path: "hello.md", content: "replacement\n" };
+    const action = {
+      call: {
+        id: "create-existing",
+        name: "create_file",
+        input: toolInput,
+      },
+      tool: createFileTool,
+      input: toolInput,
+    };
+    const context = {
+      workspace: await resolveWorkspace(root),
+      signal: new AbortController().signal,
+      limits: { maxOutputBytes: 65_536, maxEntries: 200 },
+    };
+    const descriptor = await describeApproval(action, context);
+
+    await expect(
+      channel.requestStructured?.(action, context.signal, context, descriptor),
+    ).resolves.toMatchObject({
+      kind: "preflight-failed",
+      result: { ok: false, error: { code: "already_exists" } },
+    });
+    expect(questions).toBe(0);
+    expect(output.read()).toContain("Cannot preview file creation");
   });
 
   it("shows the external destination before network approval", async () => {

@@ -8,6 +8,7 @@ import {
 } from "@forge/core";
 import {
   APICallError,
+  InvalidPromptError,
   type LanguageModelUsage,
   type ModelMessage,
   RetryError,
@@ -71,6 +72,7 @@ export class AiSdkCompatTransport implements CompatTransport {
       const messages = buildMessages(request);
       const result = this.#streamText({
         model,
+        ...(request.instructions ? { instructions: request.instructions } : {}),
         messages,
         abortSignal: signal,
         onError: () => undefined,
@@ -255,9 +257,6 @@ function buildMessages(request: CompatTransportRequest): ModelMessage[] {
     messages = [...data.messages] as ModelMessage[];
   } else {
     messages = [
-      ...(request.instructions
-        ? [{ role: "system" as const, content: request.instructions }]
-        : []),
       ...(request.conversation ?? []),
       {
         role: "user",
@@ -359,6 +358,12 @@ export function mapCompatError(
   route: string,
 ): ModelProviderError {
   if (error instanceof ModelProviderError) return error;
+  if (InvalidPromptError.isInstance(error)) {
+    return new ModelProviderError(
+      `Could not construct the request for provider route "${route}". Check the prompt and model configuration.`,
+      { provider: route, retryable: false, cause: error },
+    );
+  }
   const apiError = unwrapApiCallError(error);
   const statusCode = apiError?.statusCode;
   if (statusCode === 401 || statusCode === 403) {

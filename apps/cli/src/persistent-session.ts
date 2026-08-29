@@ -6,10 +6,12 @@ import {
 import type {
   ContextPressureSnapshot,
   ModelConversationMessage,
+  RunEvent,
   RunResult,
+  RunStatus,
   WorkspaceContext,
 } from "@forge/core";
-import { conservativeTextTokens } from "@forge/core";
+import { conservativeTextTokens, runConversationMessages } from "@forge/core";
 import { deepSeekModelContext } from "@forge/model-deepseek";
 import { openAIModelContext } from "@forge/model-openai";
 import {
@@ -31,6 +33,7 @@ import type { RunMetadata } from "./run.js";
 export interface InteractiveSessionPersistence {
   readonly messages: readonly ModelConversationMessage[];
   readonly reasoning?: readonly SessionReasoning[];
+  readonly historyEvents?: readonly RunEvent[];
   readonly sessionId: string | undefined;
   readonly contextCheckpoint?: ContextCheckpoint | undefined;
   prepareRun(prompt?: string, imageCount?: number): Promise<string>;
@@ -113,6 +116,7 @@ export class PersistentInteractiveSession
   readonly #traceStore: FileTraceStore;
   readonly #workspace: WorkspaceContext;
   #snapshot: SessionSnapshot | undefined;
+  #historyEvents: readonly RunEvent[] | undefined;
   #context: PersistentContextOptions;
   readonly #cwd: string;
   readonly #env: NodeJS.ProcessEnv;
@@ -125,6 +129,7 @@ export class PersistentInteractiveSession
     readonly traceStore: FileTraceStore;
     readonly workspace: WorkspaceContext;
     readonly snapshot?: SessionSnapshot;
+    readonly historyEvents?: readonly RunEvent[];
     readonly context: PersistentContextOptions;
     readonly cwd: string;
     readonly env: NodeJS.ProcessEnv;
@@ -133,6 +138,7 @@ export class PersistentInteractiveSession
     this.#traceStore = options.traceStore;
     this.#workspace = options.workspace;
     this.#snapshot = options.snapshot;
+    this.#historyEvents = options.historyEvents;
     this.#context = options.context;
     this.#cwd = options.cwd;
     this.#env = options.env;
@@ -152,6 +158,10 @@ export class PersistentInteractiveSession
 
   get reasoning(): readonly SessionReasoning[] {
     return this.#snapshot?.reasoning ?? [];
+  }
+
+  get historyEvents(): readonly RunEvent[] {
+    return this.#historyEvents ?? [];
   }
 
   get contextCheckpoint(): ContextCheckpoint | undefined {
@@ -217,7 +227,12 @@ export class PersistentInteractiveSession
       reasoning: persistedReasoning(result.events),
       status: result.status,
       runId: metadata.runId,
+      events: result.events,
+      ...(result.message ? { message: result.message } : {}),
     });
+    if (this.#historyEvents) {
+      this.#historyEvents = [...this.#historyEvents, ...result.events];
+    }
     const lastPressure = [...result.events]
       .reverse()
       .find(
@@ -253,6 +268,7 @@ export class PersistentInteractiveSession
 
   clear(): void {
     this.#snapshot = undefined;
+    this.#historyEvents = undefined;
     this.#resetTransientContext();
   }
 
@@ -268,14 +284,22 @@ export class PersistentInteractiveSession
       sessionId,
       this.#workspace.root,
     );
-    const restored = await restoreReasoningFromTraces(
+    const migrated = await restoreSessionHistoryFromTraces(
       this.#snapshot,
       this.#traceStore,
     );
+    const restored =
+      migrated !== this.#snapshot
+        ? migrated
+        : await restoreReasoningFromTraces(this.#snapshot, this.#traceStore);
     if (restored !== this.#snapshot) {
       this.#snapshot = restored;
       await this.#store.save(restored);
     }
+    this.#historyEvents = await readSessionHistoryEvents(
+      this.#snapshot,
+      this.#traceStore,
+    );
     return this.#snapshot.messages;
   }
 
@@ -402,7 +426,7 @@ export class PersistentInteractiveSession
     }
     const preview = previewSessionCompaction(this.#snapshot, this.#context);
     if (dryRun) {
-      return `Compaction preview: summarize ${preview.eligibleMessageCount} completed messages, retain ${preview.retainedMessageCount} recent messages; estimated ${preview.estimatedBeforeTokens} -> ${preview.estimatedAfterTokens} tokens. The canonical transcript will remain unchanged.`;
+      return `Compaction preview: summarize ${preview.eligibleMessageCount} historical messages, retain ${preview.retainedMessageCount} recent messages; estimated ${preview.estimatedBeforeTokens} -> ${preview.estimatedAfterTokens} tokens. The canonical transcript will remain unchanged.`;
     }
     const next = createForgeSummaryCheckpoint(this.#snapshot, this.#context);
     await this.#store.save(next);
@@ -478,17 +502,26 @@ export async function createPersistentInteractiveSession(options: {
   });
   const traceStore = new FileTraceStore(loaded.forgeHome);
   let snapshot: SessionSnapshot | undefined;
+  let historyEvents: readonly RunEvent[] | undefined;
   if (options.sessionId) {
     snapshot = await store.loadForWorkspace(options.sessionId, workspace.root);
   } else if (options.last) {
     snapshot = await store.latest(workspace.root);
   }
   if (snapshot) {
-    const restored = await restoreReasoningFromTraces(snapshot, traceStore);
+    const migrated = await restoreSessionHistoryFromTraces(
+      snapshot,
+      traceStore,
+    );
+    const restored =
+      migrated !== snapshot
+        ? migrated
+        : await restoreReasoningFromTraces(snapshot, traceStore);
     if (restored !== snapshot) {
       snapshot = restored;
       await store.save(restored);
     }
+    historyEvents = await readSessionHistoryEvents(snapshot, traceStore);
   }
   return new PersistentInteractiveSession({
     store,
@@ -497,6 +530,7 @@ export async function createPersistentInteractiveSession(options: {
     cwd: options.cwd,
     env: options.env,
     ...(snapshot ? { snapshot } : {}),
+    ...(historyEvents ? { historyEvents } : {}),
     context: {
       mode: loaded.config.context.mode,
       provider: loaded.config.model.provider,
@@ -516,6 +550,129 @@ export async function createPersistentInteractiveSession(options: {
       minimumReclaimRatio: loaded.config.context.minimumReclaimRatio,
     },
   });
+}
+
+async function readSessionHistoryEvents(
+  snapshot: SessionSnapshot,
+  traceStore: FileTraceStore,
+): Promise<readonly RunEvent[] | undefined> {
+  if (snapshot.runIds.length === 0) return undefined;
+  const events: RunEvent[] = [];
+  for (const runId of snapshot.runIds) {
+    try {
+      const envelopes = await traceStore.read(runId);
+      events.push(...envelopes.map(({ event }) => event));
+    } catch {
+      // A partial replay is more misleading than the canonical-message fallback.
+      return undefined;
+    }
+  }
+  return events.length > 0 ? events : undefined;
+}
+
+async function restoreSessionHistoryFromTraces(
+  snapshot: SessionSnapshot,
+  traceStore: FileTraceStore,
+): Promise<SessionSnapshot> {
+  if (snapshot.runIds.length === 0) return snapshot;
+
+  const messages: ModelConversationMessage[] = [];
+  const reasoning: SessionReasoning[] = [];
+  for (const runId of snapshot.runIds) {
+    let envelopes: Awaited<ReturnType<FileTraceStore["read"]>>;
+    try {
+      envelopes = await traceStore.read(runId);
+    } catch {
+      // Migration must be lossless. One missing trace leaves the old snapshot intact.
+      return snapshot;
+    }
+    const events = envelopes.map(({ event }) => event);
+    const prompt = events.find(
+      (
+        event,
+      ): event is Extract<
+        (typeof events)[number],
+        { readonly type: "run.started" }
+      > => event.type === "run.started",
+    )?.prompt;
+    const status = terminalRunStatus(events);
+    if (!prompt || !status) return snapshot;
+
+    const finalText = events
+      .flatMap((event) => (event.type === "model.text" ? [event.text] : []))
+      .join("");
+    const messageStart = messages.length;
+    const runMessages = runConversationMessages(prompt, {
+      status,
+      finalText,
+      events,
+    });
+    messages.push(...runMessages);
+    const reasoningText = persistedReasoning(events);
+    const assistantOffset = runMessages.findIndex(
+      ({ role }) => role === "assistant",
+    );
+    if (status === "completed" && reasoningText && assistantOffset !== -1) {
+      reasoning.push({
+        assistantMessageIndex: messageStart + assistantOffset,
+        content: reasoningText,
+      });
+    }
+  }
+
+  if (
+    messages.length <= snapshot.messages.length ||
+    !isMessageSubsequence(snapshot.messages, messages)
+  ) {
+    return snapshot;
+  }
+  const { contextCheckpoint, ...base } = snapshot;
+  return {
+    ...base,
+    updatedAt: new Date().toISOString(),
+    messages,
+    reasoning,
+  };
+}
+
+function terminalRunStatus(
+  events: readonly RunResult["events"][number][],
+): RunStatus | undefined {
+  for (const event of [...events].reverse()) {
+    switch (event.type) {
+      case "run.completed":
+        return "completed";
+      case "run.failed":
+        return "failed";
+      case "run.cancelled":
+        return "cancelled";
+      case "run.denied":
+        return "denied";
+      case "run.limit_reached":
+        return "limit_reached";
+      default:
+        break;
+    }
+  }
+  return undefined;
+}
+
+function isMessageSubsequence(
+  existing: readonly ModelConversationMessage[],
+  reconstructed: readonly ModelConversationMessage[],
+): boolean {
+  let cursor = 0;
+  for (const message of reconstructed) {
+    const expected = existing[cursor];
+    if (
+      expected &&
+      expected.role === message.role &&
+      expected.content === message.content
+    ) {
+      cursor += 1;
+    }
+  }
+  return cursor === existing.length;
 }
 
 async function restoreReasoningFromTraces(

@@ -4,6 +4,7 @@ import path from "node:path";
 import { AuthenticationManager } from "@forge/auth";
 import {
   type ForgeTool,
+  type RunEvent,
   type RunResult,
   SessionApprovalStore,
 } from "@forge/core";
@@ -225,6 +226,53 @@ describe("Ink interactive terminal", () => {
     );
     expect(frame).toContain("Skills");
     expect(frame).toContain("$review");
+  });
+
+  it("separates resource actions from Skill details", async () => {
+    const root = await createWorkspace();
+    const instance = render(
+      <InteractiveApp
+        options={{}}
+        env={{}}
+        cwd={root}
+        detectedResources={{
+          plugins: [],
+          skills: [
+            {
+              name: "review",
+              description: "Review current changes.",
+              path: "/tmp/review/SKILL.md",
+              source: "project",
+              invocation: "model",
+              status: "automatic",
+            },
+          ],
+          diagnostics: ["[frontmatter/project] ignored entry"],
+        }}
+      />,
+    );
+
+    await settle();
+    instance.stdin.write("/resources");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+
+    const frame = instance.lastFrame() ?? "";
+    expect(frame).toContain("Skills");
+    expect(frame).toContain("$review");
+    expect(frame).toContain("Diagnostics");
+    expect(frame).toContain("Actions");
+    expect(frame).toContain("forge resources disable|enable <name>");
+    expect(frame).toContain(
+      "Toggle automatic invocation for a user-scoped Skill.",
+    );
+    expect(frame).toContain("Esc close");
+    expect(frame.indexOf("Actions")).toBeGreaterThan(
+      frame.indexOf("Review current changes."),
+    );
+    expect(frame).not.toContain("automatic invocation. Esc close");
+    instance.unmount();
   });
 
   it("opens the slash command menu from keyboard input", async () => {
@@ -1165,6 +1213,42 @@ describe("Ink interactive terminal", () => {
     instance.unmount();
   });
 
+  it("keeps the beginning of long transcript output in terminal history", async () => {
+    const root = await createWorkspace();
+    const history = Array.from(
+      { length: 720 },
+      (_, index) =>
+        `history-line-${String(index).padStart(3, "0")} ${"x".repeat(48)}`,
+    ).join("\n");
+    const instance = render(
+      <InteractiveApp
+        options={{}}
+        env={{}}
+        cwd={root}
+        executeTask={async (_prompt, _options, dependencies) => {
+          await dependencies.onEvent?.({
+            type: "model.text",
+            step: 1,
+            text: history,
+          });
+          dependencies.onResult?.(completed(history));
+          return 0;
+        }}
+      />,
+    );
+
+    await settle();
+    instance.stdin.write("show the long history");
+    await settle();
+    instance.stdin.write("\r");
+    await vi.waitFor(() => {
+      const frame = instance.lastFrame() ?? "";
+      expect(frame).toContain("history-line-000");
+      expect(frame).toContain("history-line-719");
+    });
+    instance.unmount();
+  });
+
   it("records completed Codex turns in the persistent session", async () => {
     const root = await createWorkspace();
     const sessionId = "5ca1ab1e-87c6-4a23-bf61-e346bbaf95ed";
@@ -1530,6 +1614,70 @@ describe("Ink interactive terminal", () => {
     instance.unmount();
   });
 
+  it("hides session approval for destructive commands", async () => {
+    const root = await createWorkspace();
+    let approved: boolean | undefined;
+    const processTool = { name: "run_command", risk: "process" } as ForgeTool;
+    const commandInput = {
+      program: "rm",
+      args: ["snake.html"],
+      cwd: ".",
+      timeoutMs: 60_000,
+    } as const;
+    const action = {
+      call: {
+        id: "destructive-command-1",
+        name: "run_command",
+        input: commandInput,
+      },
+      tool: processTool,
+      input: commandInput,
+    };
+    const instance = render(
+      <InteractiveApp
+        options={{}}
+        env={{}}
+        cwd={root}
+        executeTask={async (_prompt, _options, dependencies) => {
+          approved = await dependencies.approvalChannel?.request(
+            action,
+            dependencies.signal,
+            {
+              workspace: { root, cwd: root },
+              signal: dependencies.signal,
+              limits: { maxOutputBytes: 65_536, maxEntries: 200 },
+            },
+          );
+          dependencies.onResult?.(
+            completed(approved ? "Removed." : "Not removed."),
+          );
+          return approved ? 0 : 4;
+        }}
+      />,
+    );
+
+    await settle();
+    instance.stdin.write("remove the old file");
+    await settle();
+    instance.stdin.write("\r");
+    await vi.waitFor(() => {
+      const frame = instance.lastFrame() ?? "";
+      expect(frame).toContain("Approval required");
+      expect(frame).not.toContain("allow displayed session scope");
+    });
+
+    instance.stdin.write("2");
+    await settle();
+    expect(approved).toBeUndefined();
+    expect(instance.lastFrame()).toContain(
+      "Session approval is unavailable for this action. Choose 1 or 3.",
+    );
+
+    instance.stdin.write("1");
+    await vi.waitFor(() => expect(approved).toBe(true));
+    instance.unmount();
+  });
+
   it("shows the network tool and destination before approval", async () => {
     const root = await createWorkspace();
     let approved: boolean | undefined;
@@ -1629,6 +1777,56 @@ describe("Ink interactive terminal", () => {
     instance.unmount();
   });
 
+  it("shows live activity while the model prepares and edits a file", async () => {
+    const root = await createWorkspace();
+    let emitRunEvent: ((event: RunEvent) => void) | undefined;
+    let release: (() => void) | undefined;
+    const call = {
+      id: "edit-1",
+      name: "apply_patch",
+      input: {
+        path: "src/app.ts",
+        edits: [{ oldText: "old", newText: "new" }],
+      },
+    } as const;
+    const instance = render(
+      <InteractiveApp
+        options={{}}
+        env={{}}
+        cwd={root}
+        executeTask={async (_prompt, _options, dependencies) => {
+          await dependencies.onEvent?.({ type: "model.started", step: 1 });
+          emitRunEvent = (event) => {
+            void dependencies.onEvent?.(event);
+          };
+          await new Promise<void>((resolve) => {
+            release = resolve;
+          });
+          return 0;
+        }}
+      />,
+    );
+
+    await settle();
+    instance.stdin.write("update the app");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+    expect(instance.lastFrame()).toContain("Thinking · step 1");
+
+    emitRunEvent?.({ type: "tool.proposed", step: 1, call });
+    await settle();
+    expect(instance.lastFrame()).toContain("Preparing file edit · src/app.ts");
+
+    emitRunEvent?.({ type: "tool.started", step: 1, call });
+    await settle();
+    expect(instance.lastFrame()).toContain("Editing file · src/app.ts");
+
+    release?.();
+    await settle();
+    instance.unmount();
+  });
+
   it("renders reasoning and answers as distinct structured blocks", async () => {
     const root = await createWorkspace();
     let usedStructuredEvents = false;
@@ -1667,6 +1865,15 @@ describe("Ink interactive terminal", () => {
     expect(instance.lastFrame()).toContain("● Answer");
     expect(instance.lastFrame()).toContain("Here is the result.");
     expect(instance.lastFrame()).not.toContain("[reasoning]");
+    const frame = stripSequences(instance.lastFrame() ?? "");
+    const answerStart = frame.indexOf("● Answer");
+    const answerEnd = frame.indexOf("Completed ·", answerStart);
+    const answerOutput = frame.slice(
+      answerStart,
+      answerEnd === -1 ? undefined : answerEnd,
+    );
+    expect(answerOutput).not.toContain("┌");
+    expect(answerOutput).not.toContain("│");
     instance.unmount();
   });
 
@@ -1722,13 +1929,94 @@ describe("Ink interactive terminal", () => {
       workspaceRoot: root,
       workingDirectory: root,
       title: "Previous task",
-      messageCount: 2,
-      runCount: 1,
-      lastRunStatus: "completed",
+      messageCount: 4,
+      runCount: 2,
+      lastRunStatus: "denied",
     };
     const sessionPersistence: InteractiveSessionPersistence = {
       messages: [],
       reasoning: [{ assistantMessageIndex: 1, content: "Previous reasoning" }],
+      historyEvents: [
+        { type: "run.started", prompt: "Previous task" },
+        {
+          type: "model.reasoning",
+          step: 1,
+          text: "Previous reasoning",
+        },
+        { type: "model.text", step: 1, text: "Previous answer" },
+        { type: "run.completed" },
+        {
+          type: "run.started",
+          prompt: "Delete the old file and use retro styling",
+        },
+        {
+          type: "model.text",
+          step: 1,
+          text: "I will inspect the existing files.",
+        },
+        {
+          type: "tool.proposed",
+          step: 1,
+          call: {
+            id: "create-style",
+            name: "create_file",
+            input: { path: "style.css" },
+          },
+        },
+        {
+          type: "tool.decision",
+          step: 1,
+          call: {
+            id: "create-style",
+            name: "create_file",
+            input: { path: "style.css" },
+          },
+          decision: { kind: "confirm", reason: "first workspace write" },
+        },
+        {
+          type: "tool.failed",
+          step: 1,
+          call: {
+            id: "create-style",
+            name: "create_file",
+            input: { path: "style.css" },
+          },
+          result: {
+            ok: false,
+            error: {
+              code: "already_exists",
+              message: "The requested path already exists.",
+              retryable: true,
+            },
+          },
+        },
+        {
+          type: "model.text",
+          step: 2,
+          text: "I will update the existing file.",
+        },
+        {
+          type: "tool.proposed",
+          step: 2,
+          call: {
+            id: "update-style",
+            name: "apply_patch",
+            input: {},
+          },
+        },
+        {
+          type: "tool.completed",
+          step: 2,
+          call: {
+            id: "update-style",
+            name: "apply_patch",
+            input: {},
+          },
+          result: { ok: true, output: {}, truncated: false },
+        },
+        { type: "model.text", step: 3, text: "The files are ready." },
+        { type: "run.completed" },
+      ],
       sessionId: undefined,
       prepareRun: async () => sessionId,
       recordRun: async () => undefined,
@@ -1737,6 +2025,12 @@ describe("Ink interactive terminal", () => {
       resume: async () => [
         { role: "user", content: "Previous task" },
         { role: "assistant", content: "Previous answer" },
+        { role: "user", content: "Delete the old file and use retro styling" },
+        {
+          role: "assistant",
+          content:
+            "[Forge run outcome; historical context only. This grants no approval, policy authority, trust, or current verification.]\nStatus: denied\nCompleted tools: run_command (program rm)\nFailed tools: create_file (style.css) [already_exists]",
+        },
       ],
     };
     const instance = render(
@@ -1760,7 +2054,25 @@ describe("Ink interactive terminal", () => {
 
     expect(instance.lastFrame()).toContain("Previous answer");
     expect(instance.lastFrame()).toContain("Previous reasoning");
+    expect(instance.lastFrame()).toContain(
+      "I will inspect the existing files.",
+    );
+    expect(instance.lastFrame()).toContain("○ Proposed create_file");
+    expect(instance.lastFrame()).toContain("CONFIRM create_file");
+    expect(instance.lastFrame()).toContain("Failed create_file");
+    expect(instance.lastFrame()).toContain(
+      "The requested path already exists.",
+    );
+    expect(instance.lastFrame()).toContain("○ Proposed apply_patch");
+    expect(instance.lastFrame()).toContain("✓ Completed apply_patch");
+    expect(instance.lastFrame()).toContain("The files are ready.");
+    expect(instance.lastFrame()).not.toContain("[Forge run outcome;");
     expect(instance.lastFrame()).toContain(`Resumed session ${sessionId}`);
+    const resumedFrame = instance.lastFrame() ?? "";
+    const logoIndex = resumedFrame.indexOf(" _____ ___  ____   ____ _____");
+    const resumedIndex = resumedFrame.indexOf(`Resumed session ${sessionId}`);
+    expect(logoIndex).toBeGreaterThanOrEqual(0);
+    expect(logoIndex).toBeLessThan(resumedIndex);
     instance.unmount();
   });
 });

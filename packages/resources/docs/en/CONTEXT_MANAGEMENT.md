@@ -27,13 +27,13 @@ hash-only trace metadata; missing provider cache usage remains unavailable.
 
 ## Why this work is next
 
-Forge already separates project instructions, completed conversation turns,
+Forge already separates project instructions, canonical conversation turns,
 the current user request, and provider continuation data. It also bounds
 instruction files, tool output, model steps, tool calls, and persisted session
 size. These controls make execution inspectable, but they do not manage a
 model's token window.
 
-Today, every completed user/assistant turn is sent again on the next native
+Today, every canonical user/assistant turn is sent again on the next native
 Forge request. A long session can therefore fail at the provider boundary even
 when its persisted JSON remains within the session size limit. During a run,
 assistant tool calls and tool results also accumulate through provider
@@ -118,7 +118,7 @@ Milestone 10 should:
 2. Make every context-selection decision visible in structured events and
    `forge inspect`.
 3. Preserve recent conversational continuity while compacting only older,
-   completed turns.
+   canonical historical turns.
 4. Keep the canonical transcript lossless and separate from the smaller active
    model context.
 5. Preserve Forge's security boundary: old text and summaries cannot restore
@@ -498,7 +498,8 @@ The implementation must preserve these invariants:
    permission profiles.
 3. A summary cannot mark a previously failing verification as currently
    passing.
-4. Only completed conversation turns are eligible for cross-run compaction.
+4. Only canonical historical conversation messages are eligible for cross-run
+   compaction; pending executable state is never included.
 5. Pending tool calls and results remain paired according to adapter rules.
 6. The canonical transcript is not mutated or deleted by compaction.
 7. Configured secrets are redacted before checkpoint generation and persistence.

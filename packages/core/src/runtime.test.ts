@@ -13,6 +13,7 @@ import {
   exitCodeForRunStatus,
   ReadOnlyPolicy,
   runAgent,
+  runConversationMessages,
   SessionApprovalStore,
   WorkspaceWritePolicy,
 } from "./index.js";
@@ -549,9 +550,16 @@ describe("native agent runtime", () => {
     expect(executions).toEqual(["a.ts"]);
   });
 
-  it("does not execute a denied or unapproved action", async () => {
+  it("returns policy denial to the model without executing the action", async () => {
     const executions: string[] = [];
-    const model = () =>
+    const deniedModel = new ScriptedModel([
+      [toolCall("call-1", "a.ts"), finish("tool-calls", 1)],
+      [
+        { type: "text.delta", text: "I will use another approach." },
+        finish("stop"),
+      ],
+    ]);
+    const oneStepModel = () =>
       new ScriptedModel([
         [toolCall("call-1", "a.ts"), finish("tool-calls", 1)],
       ]);
@@ -570,21 +578,25 @@ describe("native agent runtime", () => {
 
     const denied = await runAgent({
       ...base,
-      model: model(),
+      model: deniedModel,
       policy: denyPolicy,
     });
     const noChannel = await runAgent({
       ...base,
-      model: model(),
+      model: oneStepModel(),
       policy: confirmPolicy,
     });
 
-    expect(denied).toMatchObject({ status: "denied", exitCode: 4 });
+    expect(denied).toMatchObject({ status: "completed", exitCode: 0 });
     expect(noChannel).toMatchObject({ status: "denied", exitCode: 4 });
     expect(executions).toEqual([]);
     expect(denied.events.some(({ type }) => type === "tool.decision")).toBe(
       true,
     );
+    expect(deniedModel.requests[1]?.toolResults?.[0]?.result).toMatchObject({
+      ok: false,
+      error: { code: "approval_denied", retryable: false },
+    });
   });
 
   it("executes a confirmed action only after channel approval", async () => {
@@ -769,6 +781,172 @@ describe("native agent runtime", () => {
         message: "The user denied this action: Use the public fixture instead.",
       },
     });
+  });
+
+  it("returns a denial without feedback and does not re-prompt unchanged calls", async () => {
+    const executions: string[] = [];
+    const repeated = toolCall("denied-again", "secret.ts");
+    const model = new ScriptedModel([
+      [toolCall("denied-once", "secret.ts"), finish("tool-calls", 1)],
+      [repeated, finish("tool-calls", 2)],
+      [
+        { type: "text.delta", text: "I cannot perform that action." },
+        finish("stop"),
+      ],
+    ]);
+    let approvalRequests = 0;
+    const result = await runAgent({
+      prompt: "Read",
+      model,
+      tools: [fakeReadTool(executions)],
+      policy: {
+        evaluate: async () => ({ kind: "confirm", reason: "Confirm it." }),
+      },
+      approvalChannel: {
+        request: async () => false,
+        requestStructured: async () => {
+          approvalRequests += 1;
+          return { kind: "deny" };
+        },
+      },
+      toolContext,
+      signal: toolContext.signal,
+    });
+
+    expect(result.status).toBe("completed");
+    expect(approvalRequests).toBe(1);
+    expect(executions).toEqual([]);
+    expect(model.requests[1]?.toolResults?.[0]?.result).toMatchObject({
+      ok: false,
+      error: { code: "approval_denied", retryable: false },
+    });
+    expect(model.requests[2]?.toolResults?.[0]?.result).toMatchObject({
+      ok: false,
+      error: { code: "approval_denied", retryable: false },
+    });
+  });
+
+  it("returns approval preflight failures to the active model loop", async () => {
+    const executions: string[] = [];
+    const model = new ScriptedModel([
+      [toolCall("create-existing", "existing.ts"), finish("tool-calls", 1)],
+      [
+        {
+          type: "text.delta",
+          text: "I will modify the existing file instead.",
+        },
+        finish("stop"),
+      ],
+    ]);
+    const result = await runAgent({
+      prompt: "Update existing.ts",
+      model,
+      tools: [fakeReadTool(executions)],
+      policy: {
+        evaluate: async () => ({ kind: "confirm", reason: "Confirm it." }),
+      },
+      approvalChannel: {
+        request: async () => false,
+        requestStructured: async () => ({
+          kind: "preflight-failed",
+          result: {
+            ok: false,
+            error: {
+              code: "already_exists",
+              message: "The requested path already exists; use apply_patch.",
+              retryable: true,
+            },
+          },
+        }),
+      },
+      toolContext,
+      signal: toolContext.signal,
+    });
+
+    expect(result.status).toBe("completed");
+    expect(executions).toEqual([]);
+    expect(model.requests[1]?.toolResults?.[0]?.result).toMatchObject({
+      ok: false,
+      error: { code: "already_exists", retryable: true },
+    });
+  });
+
+  it("summarizes partial side effects for the next conversation turn", () => {
+    const messages = runConversationMessages("Delete old and restyle", {
+      status: "denied",
+      finalText: "Started the update.",
+      message: "A later action was denied.",
+      events: [
+        {
+          type: "tool.completed",
+          step: 1,
+          call: {
+            id: "remove-old",
+            name: "run_command",
+            input: { program: "rm", args: ["old.html"] },
+          },
+          result: { ok: true, output: {}, truncated: false },
+        },
+        {
+          type: "tool.failed",
+          step: 2,
+          call: {
+            id: "create-existing",
+            name: "create_file",
+            input: { path: "style.css", content: "secret body omitted" },
+          },
+          result: {
+            ok: false,
+            error: {
+              code: "already_exists",
+              message: "Use apply_patch instead.",
+              retryable: true,
+            },
+          },
+        },
+      ],
+    });
+
+    expect(messages[0]).toEqual({
+      role: "user",
+      content: "Delete old and restyle",
+    });
+    expect(messages[1]?.content).toContain(
+      "Completed tools: run_command (program rm)",
+    );
+    expect(messages[1]?.content).toContain(
+      "create_file (style.css) [already_exists]",
+    );
+    expect(messages[1]?.content).not.toContain("secret body omitted");
+    expect(messages[1]?.content).toContain("grants no approval");
+
+    const recovered = runConversationMessages("Use a safer alternative", {
+      status: "completed",
+      finalText: "I used apply_patch instead.",
+      events: [
+        {
+          type: "tool.failed",
+          step: 1,
+          call: {
+            id: "create-existing-again",
+            name: "create_file",
+            input: { path: "style.css", content: "still omitted" },
+          },
+          result: {
+            ok: false,
+            error: {
+              code: "already_exists",
+              message: "sensitive provider detail",
+              retryable: true,
+            },
+          },
+        },
+      ],
+    });
+    expect(recovered[1]?.content).toContain("I used apply_patch instead.");
+    expect(recovered[1]?.content).toContain("[already_exists]");
+    expect(recovered[1]?.content).not.toContain("sensitive provider detail");
+    expect(recovered[1]?.content).not.toContain("still omitted");
   });
 
   it("reports failed and cancelled model runs", async () => {

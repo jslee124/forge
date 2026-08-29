@@ -87,7 +87,7 @@ describe("persistent sessions", () => {
     await expect(store.list("/other")).resolves.toEqual([]);
   });
 
-  it("records failed runs without restoring incomplete conversation turns", async () => {
+  it("records failed runs as bounded, authority-free conversation context", async () => {
     const store = new FileSessionStore(await forgeHome());
     const created = store.create({ root: "/workspace", cwd: "/workspace" });
     const saved = recordRunInSession(created, {
@@ -97,7 +97,12 @@ describe("persistent sessions", () => {
       runId: randomUUID(),
     });
 
-    expect(saved.messages).toEqual([]);
+    expect(saved.messages[0]).toEqual({
+      role: "user",
+      content: "Dangerous task",
+    });
+    expect(saved.messages[1]?.content).toContain("Status: denied");
+    expect(saved.messages[1]?.content).toContain("grants no approval");
     expect(saved.runIds).toHaveLength(1);
     expect(saved.lastRunStatus).toBe("denied");
   });

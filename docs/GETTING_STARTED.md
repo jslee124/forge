@@ -223,10 +223,11 @@ pnpm forge resume --last
 pnpm forge inspect <run-id>
 ```
 
-A session stores completed user/assistant turns. A run is one bounded agent-loop
-execution with its own ID and JSONL event trace. Resume restores completed
-conversation text, not old approvals, pending tool calls, child processes, or
-provider continuation state. See [Sessions and traces](SESSIONS.md).
+A session stores canonical conversation context. A run is one bounded
+agent-loop execution with its own ID and JSONL event trace. Interactive resume
+replays available historical model and tool events, but it does not reactivate
+old approvals, pending tool calls, child processes, or provider continuation
+state. See [Sessions and traces](SESSIONS.md).
 
 ## Next steps
 

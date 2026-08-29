@@ -180,7 +180,7 @@ pnpm forge resume --last
 pnpm forge inspect <run-id>
 ```
 
-Session 保存已经完成的 user/assistant turns；run 是一次带独立 ID 和 JSONL event trace 的有界 agent-loop 执行。Resume 只恢复已完成对话文本，不恢复旧审批、待执行 tool call、子进程或 provider continuation state。详见会话与 trace。
+Session 保存规范 conversation context；run 是一次带独立 ID 和 JSONL event trace 的有界 agent-loop 执行。交互式 Resume 会重放可用的历史模型与工具事件，但不会重新激活旧审批、待执行 tool call、子进程或 provider continuation state。详见会话与 trace。
 
 ## 下一步
 

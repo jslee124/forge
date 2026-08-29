@@ -236,8 +236,9 @@ pnpm forge resume --last
 
 Session snapshots live under `$FORGE_HOME/sessions`. Changing `FORGE_HOME`,
 moving the checkout, deleting a snapshot, or corrupting its JSON changes what
-is available. Resume restores only completed turns; it cannot continue an
-interrupted stream or pending tool call.
+is available. Resume restores completed turns plus bounded outcomes from
+failed, denied, cancelled, or limit-reached runs. It cannot continue an
+interrupted stream or pending tool call; the next run re-inspects current state.
 
 ## Terminal input or rendering looks wrong
 

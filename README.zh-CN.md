@@ -260,7 +260,7 @@ Forge 仍在积极开发中。当前开发源码版本是 `0.3.3`；在 release 
 
 - Native runtime 支持 DeepSeek、OpenAI API 和已配置的 OpenAI-compatible 路由；原生 Anthropic 与 Gemini 协议尚未实现。
 - 模型行为具有非确定性；运行时正确不保证真实任务成功。
-- Resume 恢复已完成的对话文本，不恢复待执行工具调用或旧审批。
+- Resume 会重放可用的历史模型/工具事件，但不会重新激活待执行工具调用或旧审批。
 - 插件是受信任的本地代码，不是隔离扩展。
 - 除了有界的 plugin-declared subagent 之外，更通用的多 Agent 编排、RAG、IDE 集成、云端执行、自治 Git push 和跨机器会话同步不在范围内。
 

@@ -11,11 +11,13 @@ import path from "node:path";
 
 import type {
   ModelConversationMessage,
+  RunEvent,
   RunStatus,
   WorkspaceContext,
 } from "@forge/core";
 import {
   conservativeTextTokens,
+  runConversationMessages,
   selectRecentConversation,
   sha256,
 } from "@forge/core";
@@ -230,7 +232,7 @@ export function createForgeSummaryCheckpoint(
   );
   if (view.retainedTailStartIndex === 0) {
     throw new PersistenceError(
-      "The session has no completed older turns eligible for compaction.",
+      "The session has no older historical turns eligible for compaction.",
     );
   }
   const redacted = redactValue(
@@ -365,23 +367,30 @@ export function recordRunInSession(
     readonly reasoning?: string;
     readonly status: RunStatus;
     readonly runId: string;
+    readonly events?: readonly RunEvent[];
+    readonly message?: string;
   },
 ): SessionSnapshot {
   const { contextCheckpoint, ...base } = snapshot;
   const messages: ModelConversationMessage[] = [...snapshot.messages];
   const reasoning = [...snapshot.reasoning];
-  if (options.status === "completed") {
-    messages.push({ role: "user", content: options.prompt });
-    if (options.finalText !== "") {
-      const assistantMessageIndex = messages.length;
-      messages.push({ role: "assistant", content: options.finalText });
-      if (options.reasoning) {
-        reasoning.push({
-          assistantMessageIndex,
-          content: options.reasoning,
-        });
-      }
-    }
+  const runMessages = runConversationMessages(options.prompt, {
+    status: options.status,
+    finalText: options.finalText,
+    events: options.events ?? [],
+    ...(options.message ? { message: options.message } : {}),
+  });
+  const assistantMessageIndex = messages.length + 1;
+  messages.push(...runMessages);
+  if (
+    options.status === "completed" &&
+    runMessages.some(({ role }) => role === "assistant") &&
+    options.reasoning
+  ) {
+    reasoning.push({
+      assistantMessageIndex,
+      content: options.reasoning,
+    });
   }
   return {
     ...base,

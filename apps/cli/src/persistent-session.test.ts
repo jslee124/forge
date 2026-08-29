@@ -53,6 +53,7 @@ describe("persistent interactive session", () => {
     expect(resumed.reasoning).toEqual([
       { assistantMessageIndex: 1, content: "first reasoning" },
     ]);
+    expect(resumed.historyEvents).toEqual([]);
     expect(await resumed.prepareRun()).toBe(sessionId);
 
     const secondRunId = randomUUID();
@@ -70,6 +71,203 @@ describe("persistent interactive session", () => {
       role: "assistant",
       content: "second answer",
     });
+  });
+
+  it("restores failed run intent and partial side effects after restart", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "forge-session-failed-"));
+    temporaryDirectories.push(root);
+    await mkdir(path.join(root, ".git"));
+    const env = { FORGE_HOME: path.join(root, "forge-home") };
+    const first = await createPersistentInteractiveSession({ cwd: root, env });
+    const sessionId = await first.prepareRun();
+    await first.recordRun(
+      "Delete the old file and switch to retro styling",
+      {
+        status: "denied",
+        exitCode: 4,
+        finalText: "Deletion completed; styling remains.",
+        modelSteps: 2,
+        toolCalls: 2,
+        message: "A later action was not approved.",
+        events: [
+          {
+            type: "tool.completed",
+            step: 1,
+            call: {
+              id: "delete-old",
+              name: "run_command",
+              input: { program: "rm", args: ["old.html"] },
+            },
+            result: { ok: true, output: {}, truncated: false },
+          },
+          {
+            type: "tool.failed",
+            step: 2,
+            call: {
+              id: "create-existing",
+              name: "create_file",
+              input: { path: "style.css", content: "omitted body" },
+            },
+            result: {
+              ok: false,
+              error: {
+                code: "already_exists",
+                message: "Use apply_patch instead.",
+                retryable: true,
+              },
+            },
+          },
+        ],
+      },
+      {
+        runId: randomUUID(),
+        sessionId,
+        tracePersisted: true,
+      },
+    );
+
+    const resumed = await createPersistentInteractiveSession({
+      cwd: root,
+      env,
+      sessionId,
+    });
+
+    expect(resumed.messages[0]?.content).toContain("retro styling");
+    expect(resumed.messages[1]?.content).toContain(
+      "Completed tools: run_command (program rm)",
+    );
+    expect(resumed.messages[1]?.content).toContain(
+      "create_file (style.css) [already_exists]",
+    );
+    expect(resumed.messages[1]?.content).not.toContain("omitted body");
+  });
+
+  it("backfills legacy missing failed turns from complete run traces", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "forge-session-legacy-"));
+    temporaryDirectories.push(root);
+    await mkdir(path.join(root, ".git"));
+    const forgeHome = path.join(root, "forge-home");
+    const env = { FORGE_HOME: forgeHome };
+    const sessionStore = new FileSessionStore(forgeHome);
+    const workspaceRoot = await realpath(root);
+    const snapshot = sessionStore.create({
+      root: workspaceRoot,
+      cwd: workspaceRoot,
+    });
+    const firstRunId = randomUUID();
+    const deniedRunId = randomUUID();
+    const retryRunId = randomUUID();
+    await sessionStore.save({
+      ...snapshot,
+      messages: [
+        { role: "user", content: "Create the game" },
+        { role: "assistant", content: "Created." },
+        { role: "user", content: "retry" },
+        { role: "assistant", content: "Everything looks fine." },
+      ],
+      runIds: [firstRunId, deniedRunId, retryRunId],
+    });
+
+    const firstTrace = new JsonlTraceWriter({
+      forgeHome,
+      runId: firstRunId,
+      sessionId: snapshot.id,
+    });
+    await firstTrace.append({ type: "run.started", prompt: "Create the game" });
+    await firstTrace.append({ type: "model.text", step: 1, text: "Created." });
+    await firstTrace.append({ type: "run.completed" });
+
+    const deniedTrace = new JsonlTraceWriter({
+      forgeHome,
+      runId: deniedRunId,
+      sessionId: snapshot.id,
+    });
+    await deniedTrace.append({
+      type: "run.started",
+      prompt: "Delete the old file and use retro styling",
+    });
+    await deniedTrace.append({
+      type: "tool.completed",
+      step: 1,
+      call: {
+        id: "delete-old",
+        name: "run_command",
+        input: { program: "rm", args: ["old.html"] },
+      },
+      result: { ok: true, output: {}, truncated: false },
+    });
+    await deniedTrace.append({
+      type: "tool.failed",
+      step: 2,
+      call: {
+        id: "create-existing",
+        name: "create_file",
+        input: { path: "style.css", content: "legacy body omitted" },
+      },
+      result: {
+        ok: false,
+        error: {
+          code: "already_exists",
+          message: "legacy raw error omitted",
+          retryable: true,
+        },
+      },
+    });
+    await deniedTrace.append({
+      type: "run.denied",
+      message: "The action was not approved.",
+    });
+
+    const retryTrace = new JsonlTraceWriter({
+      forgeHome,
+      runId: retryRunId,
+      sessionId: snapshot.id,
+    });
+    await retryTrace.append({ type: "run.started", prompt: "retry" });
+    await retryTrace.append({
+      type: "model.text",
+      step: 1,
+      text: "Everything looks fine.",
+    });
+    await retryTrace.append({ type: "run.completed" });
+
+    const resumed = await createPersistentInteractiveSession({
+      cwd: root,
+      env,
+      sessionId: snapshot.id,
+    });
+
+    expect(resumed.messages.map(({ content }) => content)).toEqual([
+      "Create the game",
+      "Created.",
+      "Delete the old file and use retro styling",
+      expect.stringContaining("Status: denied"),
+      "retry",
+      "Everything looks fine.",
+    ]);
+    expect(resumed.messages[3]?.content).toContain(
+      "Completed tools: run_command (program rm)",
+    );
+    expect(resumed.messages[3]?.content).toContain(
+      "create_file (style.css) [already_exists]",
+    );
+    expect(resumed.messages[3]?.content).not.toContain("legacy body omitted");
+    expect(resumed.messages[3]?.content).not.toContain("legacy raw error");
+    expect(resumed.historyEvents?.map(({ type }) => type)).toEqual([
+      "run.started",
+      "model.text",
+      "run.completed",
+      "run.started",
+      "tool.completed",
+      "tool.failed",
+      "run.denied",
+      "run.started",
+      "model.text",
+      "run.completed",
+    ]);
+
+    const migrated = await sessionStore.load(snapshot.id);
+    expect(migrated.messages).toEqual(resumed.messages);
   });
 
   it("backfills reasoning from older run traces during resume", async () => {
