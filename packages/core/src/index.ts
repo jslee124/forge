@@ -46,6 +46,13 @@ export {
 
 export { ModelConfigurationError, ModelProviderError } from "./errors.js";
 export type {
+  CanonicalAssistantContent,
+  CanonicalConversationMessage,
+  CanonicalTextContent,
+  CanonicalToolCallContent,
+  CanonicalToolContent,
+  CanonicalUserContent,
+  LegacyConversationMessage,
   ModelAdapter,
   ModelContinuation,
   ModelConversationMessage,
@@ -55,6 +62,13 @@ export type {
   ModelStreamEvent,
   ModelToolResult,
   ModelUsage,
+} from "./model.js";
+export {
+  canonicalText,
+  normalizeCanonicalConversation,
+  projectCanonicalConversation,
+  stableCanonicalConversationJson,
+  validateCanonicalConversation,
 } from "./model.js";
 export {
   type ApprovalChannel,

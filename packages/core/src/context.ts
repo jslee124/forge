@@ -258,16 +258,17 @@ export function selectRecentConversation(
   messages: readonly ModelConversationMessage[],
   tokenBudget: number,
 ): ActiveConversationView {
-  const boundary = completedConversationBoundary(messages);
+  const turns = completedConversationTurns(messages);
+  const boundary = turns.at(-1)?.end ?? 0;
   let start = boundary;
   let tokens = 0;
-  while (start >= 2) {
-    const pair = messages.slice(start - 2, start);
-    if (pair[0]?.role !== "user" || pair[1]?.role !== "assistant") break;
-    const pairTokens = conservativeValueTokens(pair);
-    if (tokens + pairTokens > tokenBudget) break;
-    tokens += pairTokens;
-    start -= 2;
+  for (const turn of [...turns].reverse()) {
+    const turnTokens = conservativeValueTokens(
+      messages.slice(turn.start, turn.end),
+    );
+    if (tokens + turnTokens > tokenBudget) break;
+    tokens += turnTokens;
+    start = turn.start;
   }
   return {
     messages: messages.slice(start, boundary),
@@ -385,20 +386,23 @@ export function sha256(value: string): string {
   return createHash("sha256").update(value).digest("hex");
 }
 
-function completedConversationBoundary(
+function completedConversationTurns(
   messages: readonly ModelConversationMessage[],
-): number {
-  let boundary = 0;
-  for (let index = 0; index + 1 < messages.length; index += 2) {
-    if (
-      messages[index]?.role !== "user" ||
-      messages[index + 1]?.role !== "assistant"
-    ) {
-      break;
+): readonly { readonly start: number; readonly end: number }[] {
+  const turns: { start: number; end: number }[] = [];
+  let start = -1;
+  for (let index = 0; index <= messages.length; index += 1) {
+    const message = messages[index];
+    if (message?.role === "user" || index === messages.length) {
+      if (start !== -1) {
+        const end = index;
+        if (messages[end - 1]?.role !== "assistant") break;
+        turns.push({ start, end });
+      }
+      start = index;
     }
-    boundary = index + 2;
   }
-  return boundary;
+  return turns;
 }
 
 function safeJsonSchema(schema: z.ZodType): unknown {

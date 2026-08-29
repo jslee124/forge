@@ -148,7 +148,7 @@ remaining history budget
 
 ## Conversation compaction
 
-选择算法优先保留 mandatory instructions、current request、required protocol state 和最近的完整 turn；只选择更旧、已完成的消息进入 checkpoint。应先清理可安全移除的旧 tool output，再压缩更大范围。要保持 user/assistant 配对，不能截断半个 tool-call 事务。
+选择算法优先保留 mandatory instructions、current request、required protocol state 和最近的完整 turn；session schema v3 的 structured `history` 与 checkpoint v2 按闭合 user/assistant/tool exchange 选择和 hash。只选择更旧、已完成的消息进入 checkpoint，不能拆开 tool-call/result 或保留 orphan result。
 
 Checkpoint 至少包含 schema version、源消息区间、source/tail hash、生成时间、summary text、summary token estimate、redaction/provenance 和 strategy。它是派生数据，可被 hash 不匹配或验证失败的检查丢弃；规范 transcript 始终保留。
 

@@ -129,10 +129,11 @@ the model; they do not bypass `read_file`, workspace validation, policy, or
 trace events by injecting file contents automatically.
 
 Each interactive prompt starts a fresh bounded run and approval-policy instance.
-Only completed user and assistant text is carried into the next prompt. That
-conversation is persisted as a session and can be restored after restart, while
-tool continuation metadata and approvals remain scoped to the run that produced
-them. See [Persistent Sessions and Run Traces](SESSIONS.md).
+Only completed canonical user, assistant, tool-call, and paired tool-result
+blocks are carried into the next prompt. That provider-neutral conversation is
+persisted as session schema v3 and can be restored after restart. Unfinished
+calls, provider continuation metadata, and approvals remain run-scoped. See
+[Persistent Sessions and Run Traces](SESSIONS.md).
 
 ### Agent runtime
 

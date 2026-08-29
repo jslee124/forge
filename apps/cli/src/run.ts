@@ -339,6 +339,7 @@ export async function runTask(
           (name) => childTools.find((tool) => tool.name === name) as ForgeTool,
         );
         const childResult = await runAgent({
+          runId: childRunId,
           prompt: task,
           context: {
             workspaceRoot: loaded.workspaceRoot,
@@ -405,6 +406,7 @@ export async function runTask(
       dependencies.stderr,
     );
     const result = await runAgent({
+      runId,
       prompt,
       ...(images.length ? { images } : {}),
       context: {

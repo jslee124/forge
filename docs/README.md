@@ -60,7 +60,7 @@ capabilities and per-tool approval are not an operating-system sandbox.
 | [Evaluation guide](EVALUATION.md) | Run deterministic evidence and explicit opt-in live trials |
 | [Published reports](../evals/reports/README.md) | Reviewed release evidence, including retained failures |
 | [Roadmap](ROADMAP.md) | Completed milestone acceptance criteria and later directions |
-| [v0.3.3 implementation record](V0.3.3_IMPLEMENTATION_PLAN.md) | Milestone 13.0-13.5 context, scoped permissions, prompt cache, update UX, architecture, tests, and offline gates; not a publication claim |
+| [Structured session history implementation](STRUCTURED_SESSION_HISTORY_IMPLEMENTATION_PLAN.md) | Canonical tool history, provider projection, session v3 migration, faithful resume, and release gates |
 | [v0.1 acceptance contract](V0.1_SPEC.md) | Historical first-release scope, limits, and gates |
 
 Roadmap and acceptance pages preserve historical decisions. For current CLI

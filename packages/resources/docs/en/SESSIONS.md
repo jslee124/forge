@@ -13,7 +13,7 @@ The core relationship is:
 
 ```text
 Session
-|-- completed user/assistant turns
+|-- canonical user/assistant/tool-call/tool-result history
 |-- bounded failed/denied/cancelled run outcomes
 |-- provider-exposed reasoning summaries for completed assistant turns
 |-- optional derived context checkpoint
@@ -39,7 +39,8 @@ $FORGE_HOME/
     `-- <run-id>.jsonl
 ```
 
-Session snapshots use `schemaVersion: 2`; v1 snapshots migrate on load. Trace
+Session snapshots use `schemaVersion: 3`; v1/v2 snapshots migrate on load. The
+v3 snapshot stores provider-neutral content blocks and a fidelity marker. Trace
 envelopes retain `schemaVersion: 1`. Files are written only under the resolved
 Forge home. Session snapshots are replaced atomically. Run traces are append-only
 while their run is active.
@@ -48,7 +49,8 @@ Each session stores:
 
 - Session ID, creation time, and last-updated time
 - Canonical workspace root and the saved working directory
-- Completed user and assistant messages
+- Completed user and assistant messages, assistant tool calls, and exactly
+  paired model-visible tool results or failures
 - User requests and bounded, authority-free outcome summaries for incomplete
   runs or completed runs that encountered tool failures
 - Provider-exposed reasoning text associated with completed assistant messages
@@ -80,7 +82,7 @@ context summary as assistant prose.
 
 Resume follows these rules:
 
-1. Completed user/assistant turns are restored. Failed, denied, cancelled, and
+1. Completed user/assistant/tool turns are restored. Failed, denied, cancelled, and
    limit-reached runs restore the original request plus a bounded outcome
    summary. A completed run that encountered tool failures retains a bounded
    tool-outcome suffix as well.
@@ -89,21 +91,23 @@ Resume follows these rules:
 4. Approval state is new for every resumed run; memory-only session grants are
    cleared before the saved conversation is loaded.
 5. Provider continuation records and partially completed tool calls are never
-   resumed. Historical tool events are display-only; the next run must
-   re-inspect the workspace and obtain fresh approval before acting.
+   resumed. Closed historical tool exchanges are model-visible context, but
+   remain untrusted historical observations: the next run must re-inspect the
+   workspace and obtain fresh approval before acting.
 6. A saved session from another workspace is rejected unless the user starts
    from that workspace explicitly.
 7. Missing or invalid session files produce an actionable configuration-style
    error without starting a model request.
 8. A valid checkpoint restores the same bounded active view; a stale or invalid
    checkpoint is ignored without changing the canonical transcript.
-9. Legacy snapshots that omitted failed turns are backfilled only when every
+9. Legacy snapshots are always migrated losslessly as text. Structured tool
+   history is backfilled only when every
    referenced run trace is readable and the existing canonical messages form
    an exact ordered subsequence of the reconstruction. Otherwise the snapshot
    remains unchanged.
-10. If any referenced trace is missing or invalid, Forge falls back to the
-    canonical conversation instead of showing a misleading partial event
-    timeline.
+10. If any referenced trace is missing or invalid, Forge renders the canonical
+    structured fallback instead of a misleading partial event timeline. Tool
+    calls/results remain available and the final answer is not duplicated.
 
 This means Forge restores conversation context, not authority or executable
 state. Saved reasoning remains display-only and is not added to the model's

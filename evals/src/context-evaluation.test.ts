@@ -1,6 +1,10 @@
 import { randomUUID } from "node:crypto";
 
-import { conservativeTextTokens, selectRecentConversation } from "@forge/core";
+import {
+  conservativeTextTokens,
+  normalizeCanonicalConversation,
+  selectRecentConversation,
+} from "@forge/core";
 import {
   createForgeSummaryCheckpoint,
   isCheckpointValid,
@@ -29,15 +33,17 @@ function longSession(): SessionSnapshot {
     },
   ]).flat();
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     id: randomUUID(),
     createdAt: "2026-08-19T00:00:00.000Z",
     updatedAt: "2026-08-19T00:00:00.000Z",
     workspaceRoot: "/workspace",
     workingDirectory: "/workspace",
     messages,
+    history: normalizeCanonicalConversation(messages),
     reasoning: [],
     runIds: Array.from({ length: 12 }, () => randomUUID()),
+    historyFidelity: "text-only-migrated",
     lastRunStatus: "completed",
   };
 }

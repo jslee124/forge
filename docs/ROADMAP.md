@@ -718,8 +718,8 @@ update guidance, and provider prompt-cache behavior that can be measured and
 improved. Milestone 10 supplies the context-budget and checkpoint foundation;
 Milestone 13 turns that foundation into a discoverable, evaluation-gated
 default experience. The architecture, UI flows, proposed TypeScript contracts,
-module map, test matrix, and staged delivery sequence live in the
-[v0.3.3 implementation plan](V0.3.3_IMPLEMENTATION_PLAN.md).
+module map, test matrix, and staged delivery sequence are preserved in the
+[Chinese v0.3.3 implementation record](zh-CN/V0.3.3_IMPLEMENTATION_PLAN.md).
 
 This milestone does not add persistent unrestricted permissions, silently run
 package-manager updates, delete canonical conversation history, promise cache
@@ -987,6 +987,43 @@ Release criteria:
 6. Change the default from `warn` to automatic compaction only if the recorded
    evaluation gate passes; otherwise ship the discoverable session opt-in and
    keep the default honest.
+
+## Milestone 14: Structured session history and faithful resume (completed)
+
+Goal: persist the complete provider-neutral, model-visible conversation across
+completed tool exchanges so a resumed model can use prior calls, outputs, and
+failures without restoring authority or an unfinished execution. The detailed
+contract, migration, provider mapping, security rules, test matrix, and delivery
+order live in [Structured Session History and Resume Implementation
+Plan](STRUCTURED_SESSION_HISTORY_IMPLEMENTATION_PLAN.md).
+
+- [x] Introduce canonical user, assistant, tool-call, and paired tool-result
+  content blocks in `@forge/core`
+- [x] Build canonical deltas directly at model-visible runtime commit boundaries
+  instead of deriving normal session writes from UI events
+- [x] Add strict session schema v3, checkpoint v2, and lossless v1/v2 migration
+  with all-or-nothing trace-assisted tool-history backfill
+- [x] Project canonical history through OpenAI, DeepSeek, compatible Responses,
+  compatible Chat Completions, and Codex App Server paths
+- [x] Keep trace-first UI replay and provide a structured canonical fallback
+  when traces are missing, without duplicating answers
+- [x] Make context selection, compaction, hashing, and cache diagnostics preserve
+  closed tool-call/result boundaries
+- [x] Prove redaction, fresh approvals, no dangling calls, cross-provider
+  fallback, old-session readability, and interrupted-write recovery
+- [x] Update current-product English/Chinese and packaged documentation only in
+  the release that implements and verifies the behavior
+
+Acceptance criteria:
+
+- Resume gives the model the same portable completed tool history as an
+  equivalent uninterrupted session.
+- No snapshot, migration, compaction, or provider projection can create an
+  orphan result, dangling call, restored approval, or executable pending state.
+- Missing traces reduce display detail but do not erase canonical structured
+  history or block a safe continuation.
+- All native providers and the Codex Engine pass offline projection and resume
+  contracts; live-provider checks remain explicit opt-in.
 
 ## Later extensions
 

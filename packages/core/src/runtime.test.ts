@@ -392,6 +392,7 @@ describe("native agent runtime", () => {
     const executions: string[] = [];
 
     const result = await runAgent({
+      runId: "run-structured",
       prompt: "Find the answer",
       model,
       tools: [fakeReadTool(executions)],
@@ -410,6 +411,44 @@ describe("native agent runtime", () => {
       continuation: { provider: "fake", data: { step: 1 } },
       toolResults: [{ callId: "call-1", toolName: "read_file" }],
     });
+    expect(result.canonicalDelta).toEqual([
+      expect.objectContaining({
+        id: "run-structured:user",
+        role: "user",
+      }),
+      expect.objectContaining({
+        id: "run-structured:assistant:1",
+        role: "assistant",
+        content: [
+          expect.objectContaining({
+            type: "tool-call",
+            id: "call-1",
+            name: "read_file",
+          }),
+        ],
+      }),
+      expect.objectContaining({
+        id: "run-structured:tool:1:0",
+        role: "tool",
+        toolCallId: "call-1",
+        isError: false,
+      }),
+      expect.objectContaining({
+        id: "run-structured:assistant:2",
+        role: "assistant",
+      }),
+      expect.objectContaining({
+        id: "run-structured:tool:2:0",
+        role: "tool",
+        toolCallId: "call-2",
+        isError: false,
+      }),
+      expect.objectContaining({
+        id: "run-structured:assistant:3",
+        role: "assistant",
+        content: [{ type: "text", text: "The answer is 42." }],
+      }),
+    ]);
 
     const eventTypes = result.events.map(({ type }) => type);
     expect(eventTypes.indexOf("tool.decision")).toBeLessThan(

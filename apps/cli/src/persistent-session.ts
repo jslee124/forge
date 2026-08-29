@@ -4,6 +4,7 @@ import {
   saveUserContextMode,
 } from "@forge/config";
 import type {
+  CanonicalConversationMessage,
   ContextPressureSnapshot,
   ModelConversationMessage,
   RunEvent,
@@ -11,7 +12,11 @@ import type {
   RunStatus,
   WorkspaceContext,
 } from "@forge/core";
-import { conservativeTextTokens, runConversationMessages } from "@forge/core";
+import {
+  canonicalText,
+  conservativeTextTokens,
+  runConversationMessages,
+} from "@forge/core";
 import { deepSeekModelContext } from "@forge/model-deepseek";
 import { openAIModelContext } from "@forge/model-openai";
 import {
@@ -32,6 +37,7 @@ import type { RunMetadata } from "./run.js";
 
 export interface InteractiveSessionPersistence {
   readonly messages: readonly ModelConversationMessage[];
+  readonly history?: readonly ModelConversationMessage[];
   readonly reasoning?: readonly SessionReasoning[];
   readonly historyEvents?: readonly RunEvent[];
   readonly sessionId: string | undefined;
@@ -152,6 +158,10 @@ export class PersistentInteractiveSession
     return this.#snapshot?.messages ?? [];
   }
 
+  get history(): readonly ModelConversationMessage[] {
+    return this.#snapshot?.history ?? [];
+  }
+
   get sessionId(): string | undefined {
     return this.#snapshot?.id;
   }
@@ -177,7 +187,7 @@ export class PersistentInteractiveSession
       (this.#sessionMode === "auto-session" ||
         this.#sessionMode === "auto-default") &&
       pressure.ratio >= this.#context.activationThreshold &&
-      this.#snapshot.messages.length > 0 &&
+      this.#snapshot.history.length > 0 &&
       !isCheckpointValid(this.#snapshot)
     ) {
       const preview = previewSessionCompaction(this.#snapshot, this.#context);
@@ -228,6 +238,9 @@ export class PersistentInteractiveSession
       status: result.status,
       runId: metadata.runId,
       events: result.events,
+      ...(result.canonicalDelta
+        ? { canonicalDelta: result.canonicalDelta }
+        : {}),
       ...(result.message ? { message: result.message } : {}),
     });
     if (this.#historyEvents) {
@@ -261,7 +274,7 @@ export class PersistentInteractiveSession
     ) {
       this.#sessionMode = "paused";
     }
-    if (this.#snapshot.messages.length > 0) {
+    if (this.#snapshot.history.length > 0) {
       await this.#store.save(this.#snapshot);
     }
   }
@@ -293,8 +306,8 @@ export class PersistentInteractiveSession
         ? migrated
         : await restoreReasoningFromTraces(this.#snapshot, this.#traceStore);
     if (restored !== this.#snapshot) {
-      this.#snapshot = restored;
       await this.#store.save(restored);
+      this.#snapshot = await this.#store.load(restored.id);
     }
     this.#historyEvents = await readSessionHistoryEvents(
       this.#snapshot,
@@ -312,7 +325,7 @@ export class PersistentInteractiveSession
       0,
       this.#context.contextWindowTokens - effectiveReserveTokens,
     );
-    const messageCount = this.#snapshot?.messages.length ?? 0;
+    const messageCount = this.#snapshot?.history.length ?? 0;
     const preview = this.#snapshot
       ? previewSessionCompaction(this.#snapshot, this.#context)
       : undefined;
@@ -518,8 +531,8 @@ export async function createPersistentInteractiveSession(options: {
         ? migrated
         : await restoreReasoningFromTraces(snapshot, traceStore);
     if (restored !== snapshot) {
-      snapshot = restored;
       await store.save(restored);
+      snapshot = await store.load(restored.id);
     }
     historyEvents = await readSessionHistoryEvents(snapshot, traceStore);
   }
@@ -574,9 +587,14 @@ async function restoreSessionHistoryFromTraces(
   snapshot: SessionSnapshot,
   traceStore: FileTraceStore,
 ): Promise<SessionSnapshot> {
-  if (snapshot.runIds.length === 0) return snapshot;
+  if (
+    snapshot.runIds.length === 0 ||
+    snapshot.historyFidelity === "structured"
+  ) {
+    return snapshot;
+  }
 
-  const messages: ModelConversationMessage[] = [];
+  const history: CanonicalConversationMessage[] = [];
   const reasoning: SessionReasoning[] = [];
   for (const runId of snapshot.runIds) {
     let envelopes: Awaited<ReturnType<FileTraceStore["read"]>>;
@@ -598,16 +616,10 @@ async function restoreSessionHistoryFromTraces(
     const status = terminalRunStatus(events);
     if (!prompt || !status) return snapshot;
 
-    const finalText = events
-      .flatMap((event) => (event.type === "model.text" ? [event.text] : []))
-      .join("");
-    const messageStart = messages.length;
-    const runMessages = runConversationMessages(prompt, {
-      status,
-      finalText,
-      events,
-    });
-    messages.push(...runMessages);
+    const messageStart = history.length;
+    const runMessages = canonicalTraceRun(runId, prompt, status, events);
+    if (!runMessages) return snapshot;
+    history.push(...runMessages);
     const reasoningText = persistedReasoning(events);
     const assistantOffset = runMessages.findIndex(
       ({ role }) => role === "assistant",
@@ -620,19 +632,154 @@ async function restoreSessionHistoryFromTraces(
     }
   }
 
-  if (
-    messages.length <= snapshot.messages.length ||
-    !isMessageSubsequence(snapshot.messages, messages)
-  ) {
+  if (!isMessageSubsequence(snapshot.messages, history)) {
     return snapshot;
   }
   const { contextCheckpoint, ...base } = snapshot;
   return {
     ...base,
     updatedAt: new Date().toISOString(),
-    messages,
+    history,
+    messages: history.flatMap((message) =>
+      message.role === "tool"
+        ? []
+        : [{ role: message.role, content: canonicalText(message) }],
+    ),
     reasoning,
+    historyFidelity: "structured",
   };
+}
+
+function canonicalTraceRun(
+  runId: string,
+  prompt: string,
+  status: RunStatus,
+  events: readonly RunEvent[],
+): readonly CanonicalConversationMessage[] | undefined {
+  const history: CanonicalConversationMessage[] = [
+    {
+      id: `${runId}:user`,
+      runId,
+      role: "user",
+      content: [{ type: "text", text: prompt }],
+    },
+  ];
+  const completedSteps = events.flatMap((event) =>
+    event.type === "model.completed" ? [event.step] : [],
+  );
+  for (const step of completedSteps) {
+    const text = events
+      .flatMap((event) =>
+        event.type === "model.text" && event.step === step ? [event.text] : [],
+      )
+      .join("");
+    const calls = events.flatMap((event) =>
+      event.type === "tool.proposed" && event.step === step ? [event.call] : [],
+    );
+    if (calls.length === 0) {
+      if (status === "completed" && text) {
+        history.push({
+          id: `${runId}:assistant:${step}`,
+          runId,
+          step,
+          role: "assistant",
+          content: [{ type: "text", text }],
+        });
+      }
+      continue;
+    }
+    const returnedToModel = events.some(
+      (event) => event.type === "model.started" && event.step > step,
+    );
+    if (!returnedToModel) continue;
+    const results = calls.map((call) =>
+      events.find(
+        (
+          event,
+        ): event is Extract<
+          RunEvent,
+          { readonly type: "tool.completed" | "tool.failed" }
+        > =>
+          (event.type === "tool.completed" || event.type === "tool.failed") &&
+          event.step === step &&
+          event.call.id === call.id,
+      ),
+    );
+    if (results.some((result) => result === undefined)) return undefined;
+    history.push({
+      id: `${runId}:assistant:${step}`,
+      runId,
+      step,
+      role: "assistant",
+      content: [
+        ...(text ? [{ type: "text" as const, text }] : []),
+        ...calls.map((call) => ({
+          type: "tool-call" as const,
+          id: call.id,
+          name: call.name,
+          input: call.input,
+        })),
+      ],
+    });
+    for (const [index, result] of results.entries()) {
+      if (!result) return undefined;
+      history.push({
+        id: `${runId}:tool:${step}:${index}`,
+        runId,
+        step,
+        role: "tool",
+        toolCallId: result.call.id,
+        toolName: result.call.name,
+        content: [{ type: "text", text: JSON.stringify(result.result) }],
+        isError: !result.result.ok,
+      });
+    }
+  }
+  if (status === "completed") {
+    const finalTextEvents = events.flatMap((event) =>
+      event.type === "model.text"
+        ? [{ step: event.step, text: event.text }]
+        : [],
+    );
+    const finalStep = finalTextEvents.at(-1)?.step;
+    if (
+      finalStep !== undefined &&
+      !history.some(
+        (message) => message.role === "assistant" && message.step === finalStep,
+      )
+    ) {
+      const text = finalTextEvents
+        .filter(({ step }) => step === finalStep)
+        .map(({ text }) => text)
+        .join("");
+      if (text) {
+        history.push({
+          id: `${runId}:assistant:${finalStep}`,
+          runId,
+          step: finalStep,
+          role: "assistant",
+          content: [{ type: "text", text }],
+        });
+      }
+    }
+  }
+  if (status !== "completed") {
+    const outcome = runConversationMessages(prompt, {
+      status,
+      finalText: "",
+      events,
+    }).at(-1);
+    if (outcome?.role === "assistant") {
+      history.push({
+        id: `${runId}:outcome`,
+        runId,
+        step: Number.MAX_SAFE_INTEGER,
+        role: "assistant",
+        content: [{ type: "text", text: canonicalText(outcome) }],
+      });
+    }
+  }
+  return history;
 }
 
 function terminalRunStatus(
@@ -667,7 +814,7 @@ function isMessageSubsequence(
     if (
       expected &&
       expected.role === message.role &&
-      expected.content === message.content
+      canonicalText(expected) === canonicalText(message)
     ) {
       cursor += 1;
     }
@@ -679,11 +826,11 @@ async function restoreReasoningFromTraces(
   snapshot: SessionSnapshot,
   traceStore: FileTraceStore,
 ): Promise<SessionSnapshot> {
-  if (snapshot.runIds.length === 0 || snapshot.messages.length === 0) {
+  if (snapshot.runIds.length === 0 || snapshot.history.length === 0) {
     return snapshot;
   }
 
-  const assistantMessageIndices = snapshot.messages.flatMap((message, index) =>
+  const assistantMessageIndices = snapshot.history.flatMap((message, index) =>
     message.role === "assistant" ? [index] : [],
   );
   const reasoning = [...snapshot.reasoning];

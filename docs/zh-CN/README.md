@@ -57,6 +57,7 @@ Forge 文档按“读者想完成什么”组织。第一次接触项目时无�
 | [评测指南](EVALUATION.md) | 运行确定性证据与显式 opt-in live trials |
 | [已发布报告](../../evals/reports/README.md) | 经过检查的 release 证据，包括保留的失败 |
 | [路线图](ROADMAP.md) | 已完成 milestone 的验收标准与后续方向 |
+| [结构化 Session History 实现方案](STRUCTURED_SESSION_HISTORY_IMPLEMENTATION_PLAN.md) | 已实现的 canonical tool history、provider projection、session v3 migration、忠实 resume 与 release gate |
 | [v0.3.3 详细实现记录](V0.3.3_IMPLEMENTATION_PLAN.md) | Milestone 13.0-13.5 的 context、scoped permission、prompt cache、update UX、架构、测试与离线 gate；不是发布声明 |
 | [v0.1 验收合约](V0.1_SPEC.md) | 历史首发范围、limits 与 release gates |
 

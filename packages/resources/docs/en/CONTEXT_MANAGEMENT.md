@@ -328,12 +328,13 @@ from unexplained holes in the conversation.
 
 ### Checkpoint schema
 
-Session schema version 2 should retain `messages` as the canonical transcript
-and add an optional derived checkpoint:
+Session schema version 3 retains structured `history` as the canonical
+transcript and uses an optional checkpoint v2. Selection and hashing operate on
+complete user/assistant/tool exchanges and never split a call from its result:
 
 ```ts
 interface ContextCheckpoint {
-  schemaVersion: 1;
+  schemaVersion: 2;
   strategy: "forge-summary" | "provider-native";
   summarizedThroughMessageIndex: number;
   sourceHash: string;

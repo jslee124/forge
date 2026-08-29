@@ -87,6 +87,72 @@ describe("persistent sessions", () => {
     await expect(store.list("/other")).resolves.toEqual([]);
   });
 
+  it("round-trips redacted structured tool history without restoring authority", async () => {
+    const home = await forgeHome();
+    const secret = "sk-structured-history-secret";
+    const store = new FileSessionStore(home, { secrets: [secret] });
+    const created = store.create({ root: "/workspace", cwd: "/workspace" });
+    const runId = randomUUID();
+    const saved = recordRunInSession(created, {
+      prompt: "inspect",
+      finalText: "done",
+      status: "completed",
+      runId,
+      canonicalDelta: [
+        {
+          id: `${runId}:user`,
+          runId,
+          role: "user",
+          content: [{ type: "text", text: "inspect" }],
+        },
+        {
+          id: `${runId}:assistant:1`,
+          runId,
+          step: 1,
+          role: "assistant",
+          content: [
+            {
+              type: "tool-call",
+              id: "call-1",
+              name: "read_file",
+              input: { path: "secret.txt", token: secret },
+            },
+          ],
+        },
+        {
+          id: `${runId}:tool:1:0`,
+          runId,
+          step: 1,
+          role: "tool",
+          toolCallId: "call-1",
+          toolName: "read_file",
+          content: [{ type: "text", text: `result ${secret}` }],
+          isError: false,
+        },
+        {
+          id: `${runId}:assistant:2`,
+          runId,
+          step: 2,
+          role: "assistant",
+          content: [{ type: "text", text: "done" }],
+        },
+      ],
+    });
+    await store.save(saved);
+    const reloaded = await store.load(saved.id);
+
+    expect(reloaded.schemaVersion).toBe(3);
+    expect(reloaded.historyFidelity).toBe("structured");
+    expect(reloaded.history.map(({ role }) => role)).toEqual([
+      "user",
+      "assistant",
+      "tool",
+      "assistant",
+    ]);
+    expect(JSON.stringify(reloaded)).not.toContain(secret);
+    expect(JSON.stringify(reloaded)).not.toContain("approvalStore");
+  });
+
   it("records failed runs as bounded, authority-free conversation context", async () => {
     const store = new FileSessionStore(await forgeHome());
     const created = store.create({ root: "/workspace", cwd: "/workspace" });
@@ -120,7 +186,7 @@ describe("persistent sessions", () => {
         runId: randomUUID(),
       });
     }
-    const originalMessages = snapshot.messages;
+    const originalHistory = snapshot.history;
     const preview = previewSessionCompaction(snapshot, {
       recentTailTokens: 20,
       summaryTargetTokens: 80,
@@ -135,7 +201,7 @@ describe("persistent sessions", () => {
     });
 
     expect(preview.eligibleMessageCount).toBeGreaterThan(0);
-    expect(compacted.messages).toBe(originalMessages);
+    expect(compacted.history).toBe(originalHistory);
     expect(compacted.contextCheckpoint?.summary).not.toContain(
       "session-secret-value",
     );
@@ -159,7 +225,7 @@ describe("persistent sessions", () => {
     await expect(store.save(continued)).resolves.toBeUndefined();
   });
 
-  it("migrates a v1 session snapshot to v2 on load", async () => {
+  it("migrates a v1 session snapshot to v3 on load", async () => {
     const home = await forgeHome();
     const id = randomUUID();
     await mkdir(path.join(home, "sessions"), { recursive: true });
@@ -178,7 +244,7 @@ describe("persistent sessions", () => {
     );
 
     await expect(new FileSessionStore(home).load(id)).resolves.toMatchObject({
-      schemaVersion: 2,
+      schemaVersion: 3,
       id,
       reasoning: [],
     });
@@ -203,7 +269,7 @@ describe("persistent sessions", () => {
     );
 
     await expect(new FileSessionStore(home).load(id)).resolves.toMatchObject({
-      schemaVersion: 2,
+      schemaVersion: 3,
       id,
       reasoning: [],
     });

@@ -21,6 +21,7 @@ import type {
   ToolCall,
 } from "@forge/core";
 import {
+  canonicalText,
   formatApprovalScope,
   runConversationMessages,
   SessionApprovalStore,
@@ -826,7 +827,8 @@ export function InteractiveApp({
   const [runActivity, setRunActivity] = useState<RunActivity>();
   const [runActivityFrame, setRunActivityFrame] = useState(0);
   const [activeOptions, setActiveOptions] = useState<AskOptions>(options);
-  const initialMessages = sessionPersistence?.messages ?? [];
+  const initialMessages =
+    sessionPersistence?.history ?? sessionPersistence?.messages ?? [];
   const [transcript, setTranscript] = useState<readonly TranscriptEntry[]>(() =>
     conversationTranscript(
       initialMessages,
@@ -892,7 +894,9 @@ export function InteractiveApp({
   const [deleteModelReturnPhase, setDeleteModelReturnPhase] = useState<
     "editing" | "provider-actions"
   >("editing");
-  const conversation = useRef<ModelConversationMessage[]>([...initialMessages]);
+  const conversation = useRef<ModelConversationMessage[]>([
+    ...(sessionPersistence?.history ?? initialMessages),
+  ]);
   const activeController = useRef<AbortController | undefined>(undefined);
   const idleExitArmed = useRef(false);
   const nextTranscriptId = useRef(initialMessages.length);
@@ -2128,9 +2132,11 @@ export function InteractiveApp({
         if (selected && sessionPersistence) {
           void sessionPersistence.resume(selected.id).then(
             (messages) => {
-              conversation.current = [...messages];
+              conversation.current = [
+                ...(sessionPersistence.history ?? messages),
+              ];
               const restored = conversationTranscript(
-                messages,
+                sessionPersistence.history ?? messages,
                 sessionPersistence.reasoning ?? [],
                 sessionPersistence.historyEvents,
               );
@@ -3712,11 +3718,32 @@ function conversationTranscript(
         text: savedReasoning,
       });
     }
-    transcript.push({
-      id: transcript.length,
-      kind: message.role === "user" ? "user" : "answer",
-      text: message.content,
-    });
+    if (message.role === "tool") {
+      transcript.push({
+        id: transcript.length,
+        kind: "tool",
+        text: `[historical tool result · ${message.toolName} · ${message.isError ? "failed" : "completed"}] ${canonicalText(message)}`,
+      });
+      continue;
+    }
+    const text = canonicalText(message);
+    if (text)
+      transcript.push({
+        id: transcript.length,
+        kind: message.role === "user" ? "user" : "answer",
+        text,
+      });
+    if (message.role === "assistant" && typeof message.content !== "string") {
+      for (const part of message.content) {
+        if (part.type === "tool-call") {
+          transcript.push({
+            id: transcript.length,
+            kind: "tool",
+            text: `[historical tool call · ${part.name} · ${part.id}]`,
+          });
+        }
+      }
+    }
   }
   return transcript;
 }

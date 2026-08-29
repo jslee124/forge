@@ -5,6 +5,7 @@ import {
   type ModelStreamEvent,
   type ModelToolDefinition,
   type ModelUsage,
+  projectCanonicalConversation,
 } from "@forge/core";
 import {
   APICallError,
@@ -257,7 +258,9 @@ function buildMessages(request: CompatTransportRequest): ModelMessage[] {
     messages = [...data.messages] as ModelMessage[];
   } else {
     messages = [
-      ...(request.conversation ?? []),
+      ...(projectCanonicalConversation(
+        request.conversation ?? [],
+      ) as ModelMessage[]),
       {
         role: "user",
         content: request.images?.length

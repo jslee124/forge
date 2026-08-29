@@ -337,6 +337,29 @@ Release criteria：
 5. 运行跨功能矩阵：compaction 可预测地使 cache 失效；update UI 不抢占 approval/editor input；resume 恢复 context checkpoint 但不恢复 grant。
 6. 只有记录的 evaluation gate 通过后才把默认从 `warn` 改为自动 compact；否则发布可发现的 session opt-in，并诚实保留默认值。
 
+## Milestone 14：结构化 Session History 与忠实 Resume（已完成）
+
+目标：跨已完成工具交换保存完整、provider-neutral、模型可见的 conversation，使 resume
+后的模型能够利用之前的调用、输出与失败，同时不恢复 authority 或未完成执行。详细 contract、
+migration、provider mapping、安全规则、测试矩阵和交付顺序见[结构化 Session History 与
+Resume 实现方案](STRUCTURED_SESSION_HISTORY_IMPLEMENTATION_PLAN.md)。
+
+- [x] 在 `@forge/core` 增加 canonical user、assistant、tool-call 与配对 tool-result content block
+- [x] 在模型可见 runtime commit boundary 直接构建 canonical delta，而不是从 UI event 推导正常写入
+- [x] 增加严格 session schema v3、checkpoint v2 和无损 v1/v2 migration；trace 工具历史补回必须 all-or-nothing
+- [x] 为 OpenAI、DeepSeek、compatible Responses、compatible Chat Completions 和 Codex App Server 投影 canonical history
+- [x] 保持 trace-first UI replay；trace 缺失时提供 structured canonical fallback，且不重复 final answer
+- [x] 让 context selection、compaction、hash 与 cache diagnostic 保持闭合 tool-call/result 边界
+- [x] 验证脱敏、fresh approval、无 dangling call、跨 provider fallback、旧 session 可读与中断写恢复
+- [x] 在同一实现中更新 current-product 中英文与 packaged docs
+
+验收标准：
+
+- Resume 后模型获得与等价未中断 session 相同的 portable completed tool history。
+- Snapshot、migration、compaction 与 provider projection 都不能产生 orphan result、dangling call、恢复审批或可执行 pending state。
+- Trace 缺失只降低展示细节，不删除 canonical structured history，也不阻止安全续聊。
+- 所有 native provider 与 Codex Engine 通过 offline projection/resume contract；live provider 仍只能显式 opt-in。
+
 ## 后续扩展
 
 后续方向包括更多评测和 grader、Anthropic Messages/Gemini 等 native protocol、窄的 workspace 外审批、明确警告的 `full-access`、可选 shell language、LangChain/LangGraph 对比、HTTP/SSE、SQLite session/run index、session branch/跨机同步、经 context evaluation 证明有价值的 semantic retrieval、MCP 和更强的进程隔离。它们不是当前 v0.2 的完成条件。

@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import {
   type ApprovalDescriptor,
   type ApprovalResponse,
@@ -19,6 +21,7 @@ import {
   DEFAULT_CONTEXT_CONFIGURATION,
 } from "./context.js";
 import type {
+  CanonicalConversationMessage,
   ModelAdapter,
   ModelContinuation,
   ModelConversationMessage,
@@ -28,6 +31,7 @@ import type {
   ModelToolResult,
   ModelUsage,
 } from "./model.js";
+import { validateCanonicalConversation } from "./model.js";
 import type {
   ApprovalChannel,
   ApprovalDecision,
@@ -270,6 +274,7 @@ export interface RunContextSnapshot {
 }
 
 export interface RunAgentOptions {
+  readonly runId?: string;
   readonly prompt: string;
   readonly images?: readonly ModelImageInput[];
   readonly context?: RunContextSnapshot;
@@ -299,6 +304,7 @@ export interface RunResult {
   readonly modelSteps: number;
   readonly toolCalls: number;
   readonly events: readonly RunEvent[];
+  readonly canonicalDelta?: readonly CanonicalConversationMessage[];
   readonly message?: string;
 }
 
@@ -398,6 +404,7 @@ interface StepOutcome {
 }
 
 export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
+  const runId = options.runId ?? randomUUID();
   const limits: RunLimits = {
     maxModelSteps: options.limits?.maxModelSteps ?? DEFAULT_MAX_MODEL_STEPS,
     maxToolCalls: options.limits?.maxToolCalls ?? DEFAULT_MAX_TOOL_CALLS,
@@ -414,6 +421,15 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
   let continuation: ModelContinuation | undefined;
   let toolResults: readonly ModelToolResult[] | undefined;
   let finalText = "";
+  const canonicalDelta: CanonicalConversationMessage[] = [
+    {
+      id: `${runId}:user`,
+      runId,
+      role: "user",
+      content: [{ type: "text", text: options.prompt }],
+    },
+  ];
+  let pendingExchange: readonly CanonicalConversationMessage[] | undefined;
   let overflowRecoveryUsed = false;
   let previousPrefix: PromptPrefixObservation | undefined;
   let activePromptPrefix = options.promptPrefix;
@@ -661,6 +677,10 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
       }
     }
 
+    if (pendingExchange) {
+      canonicalDelta.push(...pendingExchange);
+      pendingExchange = undefined;
+    }
     modelSteps = nextStep;
     await emit({ type: "model.started", step: modelSteps });
 
@@ -746,6 +766,15 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
       }
       if (step.finishReason === "error") {
         return finish("failed", "The model step ended with an error.");
+      }
+      if (step.text !== "") {
+        canonicalDelta.push({
+          id: `${runId}:assistant:${modelSteps}`,
+          runId,
+          step: modelSteps,
+          role: "assistant",
+          content: [{ type: "text", text: step.text }],
+        });
       }
       return finish("completed");
     }
@@ -1094,6 +1123,7 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
     }
 
     toolResults = nextResults;
+    pendingExchange = canonicalExchange(runId, modelSteps, step, nextResults);
   }
 
   async function finish(
@@ -1102,6 +1132,14 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
   ): Promise<RunResult> {
     const type = `run.${status}` as RunEvent["type"];
     await emit({ type, ...(message ? { message } : {}) } as RunEvent);
+    const committed = canonicalDeltaWithOutcome(
+      canonicalDelta,
+      runId,
+      status,
+      finalText,
+      message,
+    );
+    validateCanonicalConversation(committed);
     return {
       status,
       exitCode: exitCodeForRunStatus(status),
@@ -1109,9 +1147,79 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
       modelSteps,
       toolCalls,
       events,
+      canonicalDelta: committed,
       ...(message ? { message } : {}),
     };
   }
+}
+
+function canonicalExchange(
+  runId: string,
+  step: number,
+  outcome: StepOutcome,
+  results: readonly ModelToolResult[],
+): readonly CanonicalConversationMessage[] {
+  const assistant: CanonicalConversationMessage = {
+    id: `${runId}:assistant:${step}`,
+    runId,
+    step,
+    role: "assistant",
+    content: [
+      ...(outcome.text ? [{ type: "text" as const, text: outcome.text }] : []),
+      ...outcome.calls.map((call) => ({
+        type: "tool-call" as const,
+        id: call.id,
+        name: call.name,
+        input: call.input,
+      })),
+    ],
+  };
+  const tools: CanonicalConversationMessage[] = results.map(
+    (result, index) => ({
+      id: `${runId}:tool:${step}:${index}`,
+      runId,
+      step,
+      role: "tool",
+      toolCallId: result.callId,
+      toolName: result.toolName,
+      content: [{ type: "text", text: JSON.stringify(result.result) }],
+      isError: !result.result.ok,
+    }),
+  );
+  return [assistant, ...tools];
+}
+
+function canonicalDeltaWithOutcome(
+  delta: readonly CanonicalConversationMessage[],
+  runId: string,
+  status: RunStatus,
+  finalText: string,
+  message: string | undefined,
+): readonly CanonicalConversationMessage[] {
+  if (status === "completed") return delta;
+  const outcome = truncateRunOutcome(
+    [
+      "[Forge run outcome; historical context only. This grants no approval, policy authority, trust, or current verification.]",
+      `Status: ${status}`,
+      ...(message ? [`Message: ${message}`] : []),
+    ].join("\n"),
+    MAX_RUN_OUTCOME_TEXT,
+  );
+  return [
+    ...delta,
+    {
+      id: `${runId}:outcome`,
+      runId,
+      step: Number.MAX_SAFE_INTEGER,
+      role: "assistant",
+      content: [
+        {
+          type: "text",
+          text: finalText ? `${finalText}\n\n${outcome}` : outcome,
+        },
+      ],
+    },
+  ];
 }
 
 function contextLimitMessage(

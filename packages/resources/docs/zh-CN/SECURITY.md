@@ -85,7 +85,7 @@ Child 继承有效 policy/approval，只获得声明的非 subagent 工具，共
 
 模型实际返回的 reasoning/thinking 默认对用户可见，必须标记为 provider 提供；不能声称访问 provider 没有返回的 reasoning。reasoning 可能含仓库敏感信息，trace 和导出使用同一脱敏策略。
 
-恢复 session 只恢复完成的对话，不恢复可执行 authority；每次恢复创建新策略实例，不恢复旧审批、待调用工具、子进程或 provider continuation，并重新加载当前配置和项目指令。session snapshot 和 trace 在 `FORGE_HOME` 外仓库存储，但仍可能含仓库文本、diff、命令和模型输出，是本地敏感数据。
+恢复 session 会恢复完成的 canonical 对话，包括闭合的 tool-call/result 对，但不恢复可执行 authority；历史工具输出只是 untrusted context，不是当前验证。每次恢复创建新策略实例，不恢复旧审批、待调用工具、子进程或 provider continuation，并重新加载当前配置和项目指令。session snapshot 和 trace 在 `FORGE_HOME` 外仓库存储，但仍可能含仓库文本、diff、命令和模型输出，是本地敏感数据。
 
 ## Credential 处理
 

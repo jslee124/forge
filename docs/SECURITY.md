@@ -226,11 +226,13 @@ tool events.
 
 ## Persistent sessions
 
-Resuming a session restores completed conversation messages, not executable
-authority. Forge creates a new policy instance for every resumed run and never
-restores prior approvals, pending tool calls, child processes, or provider
-continuation metadata. Current user configuration and project instructions are
-loaded again before the next prompt.
+Resuming a session restores completed canonical conversation blocks, including
+closed tool-call/result pairs, but never executable authority. Historical tool
+output is untrusted context rather than current verification. Forge creates a
+new policy instance for every resumed run and never restores prior approvals,
+pending tool calls, child processes, or provider continuation metadata. Current
+user configuration and project instructions are loaded again before the next
+prompt.
 
 Session snapshots and traces are stored outside the repository under
 `FORGE_HOME`. They may contain repository text, diffs, commands, and model

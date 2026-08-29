@@ -9,6 +9,7 @@ import {
   type ModelStreamEvent,
   type ModelToolDefinition,
   type ModelUsage,
+  projectCanonicalConversation,
 } from "@forge/core";
 import {
   APICallError,
@@ -182,7 +183,9 @@ function buildMessages(request: OpenAITransportRequest): ModelMessage[] {
     messages = [...data.messages] as ModelMessage[];
   } else {
     messages = [
-      ...(request.conversation ?? []),
+      ...(projectCanonicalConversation(
+        request.conversation ?? [],
+      ) as ModelMessage[]),
       { role: "user", content: request.prompt },
     ];
   }

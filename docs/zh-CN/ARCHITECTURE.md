@@ -80,7 +80,7 @@ User -> CLI -> Agent Runtime
 
 CLI 负责命令和配置解析、持久化交互 session、多行编辑、斜杠补全、`@` 文件引用、workspace 选择、流式事件和 diff 渲染、敏感操作审批、通过 `AbortSignal` 转发取消，以及选择退出码。它不包含 agent loop 或工具实现；Commander 负责进程命令，Ink 只负责交互 presentation。文件 mention 只携带 workspace-relative path，不绕过 `read_file`、workspace 校验、policy 或 trace。
 
-每个交互 prompt 开始新的有界 run 和审批实例；下一 prompt 只携带已完成的 user/assistant text。session 可以跨重启恢复，但 tool continuation 和审批只属于产生它们的 run。
+每个交互 prompt 开始新的有界 run 和审批实例；下一 prompt 携带已完成的 canonical user、assistant、tool-call 与严格配对的 tool-result block。session schema v3 可以跨重启恢复这些 provider-neutral 历史，但未闭合调用、tool continuation 和审批只属于产生它们的 run。
 
 ### Agent runtime
 

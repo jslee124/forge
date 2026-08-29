@@ -10,13 +10,15 @@ import {
 import path from "node:path";
 
 import type {
-  ModelConversationMessage,
+  CanonicalConversationMessage,
   RunEvent,
   RunStatus,
   WorkspaceContext,
 } from "@forge/core";
 import {
+  canonicalText,
   conservativeTextTokens,
+  normalizeCanonicalConversation,
   runConversationMessages,
   selectRecentConversation,
   sha256,
@@ -55,21 +57,41 @@ export class FileSessionStore {
 
   create(workspace: WorkspaceContext): SessionSnapshot {
     const now = new Date().toISOString();
-    return {
-      schemaVersion: 2,
+    return withLegacyMessages({
+      schemaVersion: 3,
       id: randomUUID(),
       createdAt: now,
       updatedAt: now,
       workspaceRoot: workspace.root,
       workingDirectory: workspace.cwd,
-      messages: [],
+      history: [],
       reasoning: [],
       runIds: [],
-    };
+      historyFidelity: "structured",
+    } as Omit<SessionSnapshot, "messages">);
   }
 
   async save(snapshot: SessionSnapshot): Promise<void> {
-    const validated = sessionSnapshotSchema.parse(snapshot) as SessionSnapshot;
+    const { messages: _legacyMessages, ...persistedInput } = snapshot;
+    const compatibleInput =
+      snapshot.history.length === 0 &&
+      Object.prototype.propertyIsEnumerable.call(snapshot, "messages")
+        ? {
+            ...persistedInput,
+            history: normalizeCanonicalConversation(
+              snapshot.messages,
+              `migrated:${snapshot.id}`,
+            ),
+            historyFidelity: "text-only-migrated" as const,
+            contextCheckpoint: undefined,
+          }
+        : persistedInput;
+    const validated = withLegacyMessages(
+      sessionSnapshotSchema.parse(compatibleInput) as Omit<
+        SessionSnapshot,
+        "messages"
+      >,
+    );
     if (validated.contextCheckpoint && !isCheckpointValid(validated)) {
       throw new PersistenceError(
         `Could not save session ${validated.id}: its context checkpoint does not match the canonical transcript.`,
@@ -78,8 +100,14 @@ export class FileSessionStore {
     await mkdir(this.#sessionsDirectory, { recursive: true, mode: 0o700 });
     const target = this.#pathFor(validated.id);
     const temporary = `${target}.${randomUUID()}.tmp`;
-    const redacted = redactValue(validated, this.#secrets) as SessionSnapshot;
-    const persistable = rehashCheckpoint(redacted);
+    const redacted = redactValue(validated, this.#secrets);
+    const redactedValidated = withLegacyMessages(
+      sessionSnapshotSchema.parse(redacted) as Omit<
+        SessionSnapshot,
+        "messages"
+      >,
+    );
+    const persistable = rehashCheckpoint(redactedValidated);
     const serialized = `${JSON.stringify(persistable, null, 2)}\n`;
     try {
       await writeFile(temporary, serialized, {
@@ -113,12 +141,29 @@ export class FileSessionStore {
     }
     try {
       const persisted = persistedSessionSnapshotSchema.parse(JSON.parse(text));
-      if (persisted.schemaVersion === 2) return persisted as SessionSnapshot;
-      return {
-        ...persisted,
-        schemaVersion: 2,
-        reasoning: [],
-      } as SessionSnapshot;
+      if (persisted.schemaVersion === 3) {
+        return withLegacyMessages(
+          persisted as Omit<SessionSnapshot, "messages">,
+        );
+      }
+      return withLegacyMessages({
+        schemaVersion: 3,
+        id: persisted.id,
+        createdAt: persisted.createdAt,
+        updatedAt: persisted.updatedAt,
+        workspaceRoot: persisted.workspaceRoot,
+        workingDirectory: persisted.workingDirectory,
+        history: normalizeCanonicalConversation(
+          persisted.messages,
+          `migrated:${persisted.id}`,
+        ),
+        reasoning: persisted.schemaVersion === 2 ? persisted.reasoning : [],
+        runIds: persisted.runIds,
+        historyFidelity: "text-only-migrated",
+        ...(persisted.lastRunStatus
+          ? { lastRunStatus: persisted.lastRunStatus }
+          : {}),
+      } as Omit<SessionSnapshot, "messages">);
     } catch (error) {
       throw new PersistenceError(
         `Session ${sessionId} is invalid or unsupported.`,
@@ -197,10 +242,10 @@ export function previewSessionCompaction(
   },
 ): CompactionPreview {
   const view = selectRecentConversation(
-    snapshot.messages,
+    snapshot.history,
     options.recentTailTokens,
   );
-  const before = conservativeTextTokens(JSON.stringify(snapshot.messages));
+  const before = conservativeTextTokens(JSON.stringify(snapshot.history));
   return {
     eligibleMessageCount: view.retainedTailStartIndex,
     retainedMessageCount: view.retainedMessageCount,
@@ -227,7 +272,7 @@ export function createForgeSummaryCheckpoint(
   },
 ): SessionSnapshot {
   const view = selectRecentConversation(
-    snapshot.messages,
+    snapshot.history,
     options.recentTailTokens,
   );
   if (view.retainedTailStartIndex === 0) {
@@ -236,21 +281,21 @@ export function createForgeSummaryCheckpoint(
     );
   }
   const redacted = redactValue(
-    snapshot.messages.slice(0, view.retainedTailStartIndex),
+    snapshot.history.slice(0, view.retainedTailStartIndex),
     options.secrets ?? [],
-  ) as readonly ModelConversationMessage[];
+  ) as readonly CanonicalConversationMessage[];
   const summary = extractiveSummary(redacted, options.summaryTargetTokens);
   const sourceJson = JSON.stringify(
-    snapshot.messages.slice(0, view.retainedTailStartIndex),
+    snapshot.history.slice(0, view.retainedTailStartIndex),
   );
   const tailJson = JSON.stringify(
-    snapshot.messages.slice(view.retainedTailStartIndex),
+    snapshot.history.slice(view.retainedTailStartIndex),
   );
-  return {
+  return withLegacyMessages({
     ...snapshot,
     updatedAt: options.now ?? new Date().toISOString(),
     contextCheckpoint: {
-      schemaVersion: 1,
+      schemaVersion: 2,
       strategy: "forge-summary",
       summarizedThroughMessageIndex: view.retainedTailStartIndex,
       sourceHash: sha256(sourceJson),
@@ -260,7 +305,7 @@ export function createForgeSummaryCheckpoint(
       provider: options.provider,
       compactionModelId: options.modelId,
       estimatedCheckpointTokens: conservativeTextTokens(summary),
-      sourceMessageCount: snapshot.messages.length,
+      sourceMessageCount: snapshot.history.length,
       createdAt: options.now ?? new Date().toISOString(),
       safetyLabels: [
         "untrusted-conversation-memory",
@@ -272,14 +317,30 @@ export function createForgeSummaryCheckpoint(
         durationMs: 0,
       },
     },
-  };
+  } as Omit<SessionSnapshot, "messages">);
+}
+
+function withLegacyMessages(
+  snapshot: Omit<SessionSnapshot, "messages">,
+): SessionSnapshot {
+  Object.defineProperty(snapshot, "messages", {
+    enumerable: false,
+    configurable: false,
+    get: () =>
+      snapshot.history.flatMap((message) =>
+        message.role === "tool"
+          ? []
+          : [{ role: message.role, content: canonicalText(message) }],
+      ),
+  });
+  return snapshot as SessionSnapshot;
 }
 
 export function isCheckpointValid(snapshot: SessionSnapshot): boolean {
   const checkpoint = snapshot.contextCheckpoint;
   if (
     !checkpoint ||
-    checkpoint.sourceMessageCount !== snapshot.messages.length
+    checkpoint.sourceMessageCount !== snapshot.history.length
   ) {
     return false;
   }
@@ -287,20 +348,20 @@ export function isCheckpointValid(snapshot: SessionSnapshot): boolean {
     checkpoint.sourceHash ===
       sha256(
         JSON.stringify(
-          snapshot.messages.slice(0, checkpoint.retainedTailStartIndex),
+          snapshot.history.slice(0, checkpoint.retainedTailStartIndex),
         ),
       ) &&
     checkpoint.retainedTailHash ===
       sha256(
         JSON.stringify(
-          snapshot.messages.slice(checkpoint.retainedTailStartIndex),
+          snapshot.history.slice(checkpoint.retainedTailStartIndex),
         ),
       )
   );
 }
 
 function extractiveSummary(
-  messages: readonly ModelConversationMessage[],
+  messages: readonly CanonicalConversationMessage[],
   targetTokens: number,
 ): string {
   const header =
@@ -315,7 +376,7 @@ function extractiveSummary(
     Math.floor(availableBytes / Math.max(1, messages.length)),
   );
   const lines = messages.map((message, index) => {
-    const normalized = message.content.replace(/\s+/gu, " ").trim();
+    const normalized = canonicalText(message).replace(/\s+/gu, " ").trim();
     const authoritySafe =
       /\b(approv(?:e|ed|al)|permission grant|trust decision|unrestricted access|ignore (?:all )?(?:previous|current)|override .{0,30}instruction|system prompt|developer message)\b/iu.test(
         normalized,
@@ -332,12 +393,12 @@ function rehashCheckpoint(snapshot: SessionSnapshot): SessionSnapshot {
   const checkpoint = snapshot.contextCheckpoint;
   if (!checkpoint) return snapshot;
   const start = checkpoint.retainedTailStartIndex;
-  return {
+  return withLegacyMessages({
     ...snapshot,
     contextCheckpoint: {
       ...checkpoint,
-      sourceHash: sha256(JSON.stringify(snapshot.messages.slice(0, start))),
-      retainedTailHash: sha256(JSON.stringify(snapshot.messages.slice(start))),
+      sourceHash: sha256(JSON.stringify(snapshot.history.slice(0, start))),
+      retainedTailHash: sha256(JSON.stringify(snapshot.history.slice(start))),
       ...(checkpoint.summary
         ? {
             estimatedCheckpointTokens: conservativeTextTokens(
@@ -346,7 +407,7 @@ function rehashCheckpoint(snapshot: SessionSnapshot): SessionSnapshot {
           }
         : {}),
     },
-  };
+  } as Omit<SessionSnapshot, "messages">);
 }
 
 function truncateUtf8(value: string, maxBytes: number): string {
@@ -368,23 +429,32 @@ export function recordRunInSession(
     readonly status: RunStatus;
     readonly runId: string;
     readonly events?: readonly RunEvent[];
+    readonly canonicalDelta?: readonly CanonicalConversationMessage[];
     readonly message?: string;
   },
 ): SessionSnapshot {
   const { contextCheckpoint, ...base } = snapshot;
-  const messages: ModelConversationMessage[] = [...snapshot.messages];
+  const history: CanonicalConversationMessage[] = [...snapshot.history];
   const reasoning = [...snapshot.reasoning];
-  const runMessages = runConversationMessages(options.prompt, {
-    status: options.status,
-    finalText: options.finalText,
-    events: options.events ?? [],
-    ...(options.message ? { message: options.message } : {}),
-  });
-  const assistantMessageIndex = messages.length + 1;
-  messages.push(...runMessages);
+  const runMessages =
+    options.canonicalDelta ??
+    normalizeCanonicalConversation(
+      runConversationMessages(options.prompt, {
+        status: options.status,
+        finalText: options.finalText,
+        events: options.events ?? [],
+        ...(options.message ? { message: options.message } : {}),
+      }),
+      options.runId,
+    );
+  const assistantOffset = runMessages.findIndex(
+    ({ role }) => role === "assistant",
+  );
+  const assistantMessageIndex = history.length + assistantOffset;
+  history.push(...runMessages);
   if (
     options.status === "completed" &&
-    runMessages.some(({ role }) => role === "assistant") &&
+    assistantOffset !== -1 &&
     options.reasoning
   ) {
     reasoning.push({
@@ -392,35 +462,36 @@ export function recordRunInSession(
       content: options.reasoning,
     });
   }
-  return {
+  return withLegacyMessages({
     ...base,
     updatedAt: new Date().toISOString(),
-    messages,
+    history,
     reasoning,
     runIds: [...snapshot.runIds, options.runId],
+    historyFidelity: snapshot.historyFidelity,
     lastRunStatus: options.status,
-    ...(messages.length === snapshot.messages.length &&
+    ...(history.length === snapshot.history.length &&
     contextCheckpoint &&
     isCheckpointValid(snapshot)
       ? { contextCheckpoint }
       : {}),
-  };
+  } as Omit<SessionSnapshot, "messages">);
 }
 
 function toSummary(snapshot: SessionSnapshot): SessionSummary {
-  const firstUserMessage = snapshot.messages.find(
-    ({ role }) => role === "user",
-  )?.content;
+  const firstUserMessage = snapshot.history.find(({ role }) => role === "user");
+  const firstUserText = firstUserMessage
+    ? canonicalText(firstUserMessage)
+    : undefined;
   const title =
-    firstUserMessage?.split(/\r?\n/u)[0]?.trim().slice(0, 80) ||
-    "Empty session";
+    firstUserText?.split(/\r?\n/u)[0]?.trim().slice(0, 80) || "Empty session";
   return {
     id: snapshot.id,
     updatedAt: snapshot.updatedAt,
     workspaceRoot: snapshot.workspaceRoot,
     workingDirectory: snapshot.workingDirectory,
     title,
-    messageCount: snapshot.messages.length,
+    messageCount: snapshot.history.length,
     runCount: snapshot.runIds.length,
     ...(snapshot.lastRunStatus
       ? { lastRunStatus: snapshot.lastRunStatus }

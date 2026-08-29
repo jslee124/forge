@@ -14,6 +14,7 @@ import {
   type ModelStreamEvent,
   type ModelToolDefinition,
   type ModelUsage,
+  projectCanonicalConversation,
 } from "@forge/core";
 import {
   APICallError,
@@ -270,7 +271,9 @@ function buildMessages(request: DeepSeekTransportRequest): ModelMessage[] {
     messages = [...request.continuation.data.messages];
   } else {
     messages = [
-      ...(request.conversation ?? []),
+      ...(projectCanonicalConversation(
+        request.conversation ?? [],
+      ) as ModelMessage[]),
       {
         role: "user",
         content: request.images?.length
