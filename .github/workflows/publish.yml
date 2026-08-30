@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing immutable v-prefixed release tag to publish
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -17,10 +23,14 @@ jobs:
   publish:
     if: github.repository == 'jslee124/forge'
     runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
 
     steps:
       - name: Check out tagged source
         uses: actions/checkout@v7
+        with:
+          ref: ${{ env.RELEASE_TAG }}
 
       - name: Install pnpm
         uses: pnpm/action-setup@v6
@@ -49,11 +59,14 @@ jobs:
         run: pnpm package:verify
 
       - name: Verify tag and package versions
-        run: pnpm release:verify-tag "$GITHUB_REF_NAME"
+        run: pnpm release:verify-tag "$RELEASE_TAG"
 
       - name: Select npm dist-tag
-        run: echo "NPM_DIST_TAG=$(node scripts/release-version.mjs \"$GITHUB_REF_NAME\")" >> "$GITHUB_ENV"
+        id: npm-dist-tag
+        run: |
+          npm_dist_tag="$(node scripts/release-version.mjs "$RELEASE_TAG")"
+          echo "tag=$npm_dist_tag" >> "$GITHUB_OUTPUT"
 
       - name: Publish with npm trusted publishing
         working-directory: dist/npm/forge
-        run: npm publish --access public --tag "$NPM_DIST_TAG"
+        run: npm publish --access public --tag "${{ steps.npm-dist-tag.outputs.tag }}"

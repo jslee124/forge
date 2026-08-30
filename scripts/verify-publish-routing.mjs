@@ -24,11 +24,26 @@ const workflow = await readFile(
 );
 for (const required of [
   "scripts/release-version.mjs",
-  'npm publish --access public --tag "$NPM_DIST_TAG"',
+  "workflow_dispatch:",
+  "ref: $" + "{{ env.RELEASE_TAG }}",
+  'npm_dist_tag="$(node scripts/release-version.mjs "$RELEASE_TAG")"',
+  'npm publish --access public --tag "$' +
+    '{{ steps.npm-dist-tag.outputs.tag }}"',
 ]) {
   if (!workflow.includes(required)) {
     throw new Error(
       `Publish workflow is missing required routing: ${required}`,
+    );
+  }
+}
+
+for (const forbidden of [
+  '\\"$GITHUB_REF_NAME\\"',
+  'echo "NPM_DIST_TAG=$(node scripts/release-version.mjs',
+]) {
+  if (workflow.includes(forbidden)) {
+    throw new Error(
+      `Publish workflow contains unsafe routing that can hide a failed dist-tag selection: ${forbidden}`,
     );
   }
 }
