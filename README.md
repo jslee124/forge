@@ -308,11 +308,12 @@ Start at the [documentation hub](docs/README.md), which routes readers by task.
 
 ## Current status and limitations
 
-Forge is under active development. The development source version is `0.3.3`;
-the latest published npm release remains `0.3.2` until the release workflow is
-run. Historical details for the first public feature baseline are in the
-[v0.3.0 release notes](docs/history/v0.3.0/RELEASE_NOTES.md). Automatic context checkpoint
-generation remains opt-in while live provider-quality evidence is collected.
+Forge is under active development. Source version `0.3.3` is published on npm
+under the `latest` dist-tag. See the [v0.3.3 release
+notes](evals/reports/v0.3.3/RELEASE_NOTES.md) for the current release and the
+[v0.3.0 release notes](docs/history/v0.3.0/RELEASE_NOTES.md) for the first public
+feature baseline. Automatic context checkpoint generation remains opt-in while
+live provider-quality evidence is collected.
 
 - The native runtime supports DeepSeek, OpenAI API, and configured
   OpenAI-compatible routes. Native Anthropic and Gemini protocols are not yet

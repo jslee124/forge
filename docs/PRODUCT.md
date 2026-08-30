@@ -90,15 +90,16 @@ therefore require an explicit trust decision.
 
 A narrow, reliable workflow is more valuable than many incomplete features.
 
-## Initial feature set
+## Shipped product surface
 
-The first useful version will include:
+The v0.3.3 release includes:
 
 - A TypeScript command-line interface
 - A multi-line interactive terminal UI with slash-command discovery,
   workspace-file mentions, and readable diff review
-- DeepSeek as the first provider, authenticated with `DEEPSEEK_API_KEY`
-- Streaming model responses through Vercel AI SDK and `@ai-sdk/deepseek`
+- Native DeepSeek and OpenAI API adapters, configured OpenAI-compatible routes,
+  and a separate ChatGPT-subscription path through Codex App Server
+- Streaming model responses through the active provider adapter
 - A multi-step agent loop with explicit stop conditions
 - User-wide configuration through `~/.forge/config.json`
 - Hierarchical repository instructions through `AGENTS.md`
@@ -110,15 +111,20 @@ The first useful version will include:
 - Visible provider-supplied reasoning when available
 - Structured terminal events and JSONL traces
 - Persistent local sessions that can be resumed after restarting Forge
+- Canonical completed tool-call/result history across resume without restoring
+  approvals, pending execution, or provider continuation state
+- Context budgeting, manual checkpoints, opt-in automatic compaction, scoped
+  in-memory permission grants, and prompt-cache observations
+- Versioned product documentation, portable Skills, and trusted local plugins
 - Automated tests for the runtime and tools
 - A canonical fixture task, deterministic recovery scenario, and reproducible
   release evaluation
 
-## Success criteria for v0.1
+## Historical v0.1 baseline
 
-Forge v0.1 is successful when it meets the concrete release gates in
-[v0.1 Acceptance and Evaluation](history/v0.1/ACCEPTANCE.md), including a small repository
-task from end to end:
+Forge v0.1 established the concrete release gates in [v0.1 Acceptance and
+Evaluation](history/v0.1/ACCEPTANCE.md), including a small repository task from
+end to end:
 
 1. Inspect more than one relevant file.
 2. Make a targeted code change.
@@ -131,9 +137,8 @@ task from end to end:
 8. Produce a final summary consistent with the actual file changes and command
    results.
 
-## Out of scope for v0.1
+## Current limitations
 
-- Multiple cooperating agents
 - Graphical or IDE interfaces
 - Remote execution
 - Persistent semantic memory
@@ -142,16 +147,23 @@ task from end to end:
 - Third-party plugin package installation
 - Automatic commits, pushes, or pull requests
 - Production-grade operating-system sandboxing
+- Native Anthropic Messages or Gemini protocols
+- General recursive multi-agent orchestration; plugin-declared subagents are
+  bounded, host-managed, and non-recursive
 
-## Future portfolio direction
+Forge does support an MCP stdio example plugin, but does not discover arbitrary
+MCP servers as a built-in default. Trusted plugins and approved child processes
+run with the local privileges of Forge; policy checks are not an OS sandbox.
 
-After the native runtime is reliable, Forge may add:
+## Later direction
+
+Later work may add:
 
 - A broader evaluation suite with more tasks, trials, graders, and reports
-- OpenAI API-key authentication and, when supported by an appropriate public
-  integration, Codex-compatible Sign in with ChatGPT
 - A LangChain or LangGraph runtime adapter evaluated on the same tasks
 - An HTTP API with Server-Sent Events, cancellation, and human approval
 - SQLite-backed indexing, session branching, and cross-machine synchronization
 
-These are future extensions, not requirements for beginning implementation.
+These are directions, not claims about current behavior. The
+[Roadmap](ROADMAP.md) is the completion contract for work that is actually
+scheduled.

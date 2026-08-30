@@ -165,7 +165,7 @@ created -> running <-> awaiting_approval
 
 CLI、native runtime、AI SDK adapter、auth manager、context loader、tools 和 trace 实现都依赖 core interface；plugin host 依赖 core extension interface；core 不得 import CLI rendering、具体 provider、plugin implementation 或未来的 LangChain adapter。
 
-Milestone 10 将 context ownership 分开：core 负责分类、预算计算、事件和停止；adapter 负责 model window、估算、overflow 分类和 continuation projection；persistence 负责 session-v2 checkpoint；CLI 负责 `/context`、`/compact`、Codex wrapper budget 和 inspection rendering。规范 transcript 永远不被 active model view 替换。兼容 route 的 continuation 仍是 opaque adapter state，provider metadata 由 transport 保存。
+Context ownership 保持分层：core 负责分类、预算计算、事件和停止；adapter 负责 model window、估算、overflow 分类和 continuation projection；persistence 负责 session schema v3 与 checkpoint v2；CLI 负责 `/context`、`/compact`、Codex wrapper budget 和 inspection rendering。规范 transcript 永远不被 active model view 替换。兼容 route 的 continuation 仍是 opaque adapter state，provider metadata 由 transport 保存。
 
 ## 测试策略与延后决定
 

@@ -22,18 +22,18 @@ registry。
 
 ## 准备 release
 
-从干净 checkout 开始，并选择 SemVer。下面以 `0.3.1` 为例，实际执行时替换为
+从干净 checkout 开始，并选择 SemVer。下面以 `0.3.3` 为例，实际执行时替换为
 准备发布的版本：
 
 ```bash
-pnpm version:set 0.3.1
+pnpm version:set 0.3.3
 pnpm install --frozen-lockfile
 pnpm check
 pnpm check:docs
 pnpm test
 pnpm eval:deterministic
 pnpm package:verify
-pnpm release:verify-tag v0.3.1
+pnpm release:verify-tag v0.3.3
 ```
 
 `package:verify` 会构建公共产物、检查 tarball、在全新临时 prefix 中禁用
@@ -47,8 +47,10 @@ trace、`.env` 以及未经脱敏审核的 evaluation artifact 都不能发布�
 
 npm 首次发布已在 v0.3.0 完成。维护者拥有 `@jslee124` scope，
 `.github/workflows/publish.yml` 已注册为该 package 的 GitHub Actions trusted
-publisher。一次性 bootstrap 使用 `0.3.0-bootstrap.0` 和 `bootstrap` dist-tag；
-现在 `latest` 已指向稳定版本 `0.3.0`。后续 release 不要重复 bootstrap 流程。
+publisher。一次性 bootstrap 使用 `0.3.0-bootstrap.0` 和 `bootstrap` dist-tag。
+现在稳定 release 使用 `latest`；应运行
+`npm view @jslee124/forge version dist-tags --json` 核对 registry 当前状态，
+不要从本指南复制容易过时的版本结论。后续 release 不要重复 bootstrap 流程。
 
 稳定版本必须只由 tag workflow 发布。它使用 OIDC，不保存长期 npm token，并在
 所有 release gate 通过后发布生成 package。如果未来更换 trusted publisher
@@ -59,8 +61,8 @@ publisher。一次性 bootstrap 使用 `0.3.0-bootstrap.0` 和 `bootstrap` dist-
 提交版本、release notes 和构建输入，然后创建不可移动的 annotated tag：
 
 ```bash
-git tag -a v0.3.1 -m "Forge v0.3.1"
-git push origin v0.3.1
+git tag -a v0.3.3 -m "Forge v0.3.3"
+git push origin v0.3.3
 ```
 
 `Publish npm package` workflow 会先确认 Git tag、根版本、私有 workspace

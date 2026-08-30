@@ -60,7 +60,7 @@ editing
 
 ## 斜杠命令补全
 
-当 `/` 是首个非空白字符时打开命令列表，后续字符按命令名过滤。同一个 registry 同时驱动补全和 `/help`，避免两处漂移。当前包括 `/help`、`/new`、`/clear`、`/context`、`/compact`、`/plugins`、`/login`、`/logout`、`/model`、`/delete-model`、`/effort`、`/resume` 和 `/exit`。
+当 `/` 是首个非空白字符时打开命令列表，后续字符按命令名过滤。同一个 registry 同时驱动补全和 `/help`，避免两处漂移。当前包括 `/help`、`/new`、`/clear`、`/context`、`/permissions`、`/update-dismiss`、`/compact`、`/plugins`、`/resources`、`/login`、`/logout`、`/model`、`/delete-model`、`/effort`、`/resume` 和 `/exit`。
 
 `/model` 打开键盘 picker，发现当前 ChatGPT/Codex models、配置的 API providers，并按 model 而非 effort 重复显示；`/effort` 是独立的 model-specific picker，`/effort <level>` 可直接设置支持的等级，两者原子保存。`/logout` 移除选定的保存 credential，但不假装能取消父 shell 的环境变量。`/delete-model` 只显示用户配置的 provider model，需要确认，且不能删除当前 active model。
 

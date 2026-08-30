@@ -4,7 +4,7 @@
 
 ## 当前 milestone
 
-**Milestone 13：长会话效率与用户控制已在 v0.3.3 开发分支实现至 13.5。** 当前包括版本化 contract、prompt-cache 可观测性、压力驱动 context、有作用域的 session permission、TUI 内更新体验和离线 release matrix。自动 compact 仍为 opt-in；这不是 v0.3.3 已发布声明。
+**Milestone 14：结构化 Session History 与忠实 Resume 已完成，v0.3.3 已发布。** 该版本包含 Milestone 13 的长会话、作用域 permission、cache 可观测性与更新体验，也会在 resume 时恢复规范的已完成工具交换。自动 compact 仍为 opt-in；真实 provider 验证、npm 发布与离线验收证据仍需分别陈述。
 
 ## 工作规则
 
@@ -362,4 +362,4 @@ Resume 实现方案](history/v0.3.3/STRUCTURED_SESSION_HISTORY.md)。
 
 ## 后续扩展
 
-后续方向包括更多评测和 grader、Anthropic Messages/Gemini 等 native protocol、窄的 workspace 外审批、明确警告的 `full-access`、可选 shell language、LangChain/LangGraph 对比、HTTP/SSE、SQLite session/run index、session branch/跨机同步、经 context evaluation 证明有价值的 semantic retrieval、MCP 和更强的进程隔离。它们不是当前 v0.2 的完成条件。
+后续方向包括更多评测和 grader、Anthropic Messages/Gemini 等 native protocol、窄的 workspace 外审批、明确警告的 `full-access`、可选 shell language、LangChain/LangGraph 对比、HTTP/SSE、SQLite session/run index、session branch/跨机同步、经 context evaluation 证明有价值的 semantic retrieval、MCP 和更强的进程隔离。它们不是当前 v0.3.3 release 的已交付能力。

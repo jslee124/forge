@@ -4,7 +4,7 @@ English · 中文目录
 
 ## 状态
 
-本文描述截至 Milestone 10 的已实现安全模型：内置工具留在选定 workspace 内，每个有效工具操作都经过策略决策，没有审批通道时需要审批的操作会被拒绝。`safe` 与 `workspace-write` 已实现；恢复 session 只恢复已完成对话，每次恢复都会获得新的策略和审批状态；`full-access` 仍延后。
+本文描述截至 v0.3.3（Milestone 10-14）的已实现安全模型：内置工具留在选定 workspace 内，每个有效工具操作都经过策略决策，没有审批通道时需要审批的操作会被拒绝。`safe` 与 `workspace-write` 已实现；恢复 session 只恢复已完成对话，每次恢复都会获得新的策略和审批状态；`full-access` 仍延后。
 
 Context checkpoint 是派生且不可信的 conversation memory，不能携带审批、信任决定、permission profile 或当前验证状态。新指令和当前请求始终有效；规范 transcript 另外保留。Provider-native opaque context 属于敏感状态，不暴露给 plugin observer 或普通 trace payload。
 
@@ -31,11 +31,11 @@ Context checkpoint 是派生且不可信的 conversation memory，不能携带�
 
 ### `workspace-write`
 
-用户选择此 profile 后，workspace 文件工具可以自动修改文件；进程命令、网络工具和委派 subagent 模型运行仍需确认，v0.1 仍拒绝 workspace 外访问。
+用户选择此 profile 后，workspace 文件工具可以自动修改文件；进程命令、网络工具和委派 subagent 模型运行仍需确认，workspace 外访问仍被拒绝。
 
 ### `full-access`
 
-v0.1 之后再考虑。未来的显式高级模式必须有清晰警告和用户决定，项目文件或插件绝不能静默启用它；Forge 不会暴露一个暗示隔离、实际却不隔离的 profile。
+当前仍延后。未来的显式高级模式必须有清晰警告和用户决定，项目文件或插件绝不能静默启用它；Forge 不会暴露一个暗示隔离、实际却不隔离的 profile。
 
 ## 配置边界
 
@@ -43,7 +43,7 @@ v0.1 之后再考虑。未来的显式高级模式必须有清晰警告和用户
 
 ## 文件系统边界
 
-内置文件工具先解析规范路径和符号链接，再应用策略。workspace 内路径遵循当前 profile；v0.1 拒绝外部路径。
+内置文件工具先解析规范路径和符号链接，再应用策略。workspace 内路径遵循当前 profile；外部路径仍被拒绝。
 
 本地图片附件是独立的、由用户明确授权的输入能力。只有用户使用 `--image`、粘贴/拖放，或选择 workspace 内 `@` mention 时，Forge 才接受 workspace 外路径；不会从普通 prompt、仓库内容或模型输出推断附件。模型文件工具仍限制在 workspace。编码前会检查规范路径、普通可读文件、JPEG/PNG/GIF/WebP magic bytes，并限制单图、总大小和数量。用户提供的 HTTP(S) 图片 URL 由选定 provider 获取，Forge 不自行抓取；snapshot 和普通 run event 不保存 base64 图片。
 
@@ -55,7 +55,7 @@ v0.1 之后再考虑。未来的显式高级模式必须有清晰警告和用户
 
 Grant 不序列化也不随 resume 恢复。参数、cwd、destination、workspace 或超时上限变化都会重新提示；destructive、credential-sensitive、install、publish 与广泛外部副作用命令不可复用。Plugin policy hook 只能保持或收紧 `deny > confirm > allow`，不能创建或扩大 grant。
 
-v0.1 `run_command` 接受 program 和 args 数组，以 Node.js `spawn`、`shell: false` 启动。pipeline、重定向、命令替换和复合 shell 语法不接受。默认 profile 下每条命令都需确认，审批提示至少显示精确 program、逐项引用的参数、工作目录、超时和相关环境变化。
+当前 `run_command` 接受 program 和 args 数组，以 Node.js `spawn`、`shell: false` 启动。pipeline、重定向、命令替换和复合 shell 语法不接受。默认 profile 下每条命令都需确认，审批提示至少显示精确 program、逐项引用的参数、工作目录、超时和相关环境变化。
 
 工作目录在 workspace 内不代表进程不能读写外部。没有 OS sandbox，Forge 不能声称获批子进程具有文件系统或网络隔离；`shell: false` 只防止 Forge 自己解析 shell 表达式。
 

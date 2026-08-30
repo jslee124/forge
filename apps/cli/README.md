@@ -27,7 +27,7 @@ available authentication routes.
 ```bash
 forge update check
 forge update
-forge update 0.3.0
+forge update 0.3.3
 ```
 
 Forge never installs an update merely because the CLI started. `forge update`

@@ -1,4 +1,4 @@
-# 上下文管理改进计划
+# 上下文管理
 
 [English](../CONTEXT_MANAGEMENT.md) · [中文目录](README.md)
 
@@ -18,13 +18,13 @@ Forge 已经区分项目指令、完成对话、当前 user request 和 provider
 
 ## 市场复核结论
 
-本计划根据 OpenAI Responses API、OpenCode V2 和 Claude Code 的一手资料复核。复核后的原则是：保留无损 transcript，派生有界 active view，把 summary 放在当前指令之下，先不添加 vector RAG。
+本设计曾根据 OpenAI Responses API、OpenCode V2 和 Claude Code 的一手资料复核。外部链接用于说明设计来源，不代表这些产品此后没有变化。实现原则是：保留无损 transcript，派生有界 active view，把 summary 放在当前指令之下，先不添加 vector RAG。
 
 - OpenAI 支持阈值式 server compaction 和独立 compact endpoint；返回的 compact item 是加密、opaque、需作为 provider state 继续传递。因此 compaction 应是 adapter capability，而不是所有 provider 都必须提供可读 summary。
 - OpenCode 估算最终 prompt/messages/tools，在调用前 compact，保留 serialized recent tail，并对一次干净 overflow 做 retry。Forge 采用有界 tail、保留 transcript 和一次性恢复。
 - Claude Code 会先清理旧 tool output，再总结历史，提供 `/context`、`/compact`，重新加载持久指令，并在反复无效压缩时停止。Forge 将 tool output、tool schema 和 no-progress guard 都纳入预算。
 
-当前 runtime 有两条路径：Native Forge Engine 可用 Forge checkpoint 或 adapter 的 provider-native compaction；Codex Engine 当前将 Forge conversation 序列化成每次 Codex prompt 中的 JSON，Codex 内部 compaction 不能去掉这段新注入 wrapper 的成本。第一步是把同一份 bounded active view 传给 `codexPrompt` 并报告 wrapper 成本；不能声称控制 Codex 内部 threshold。
+当前 runtime 有两条路径：Native Forge Engine 可用 Forge checkpoint 或 adapter 的 provider-native compaction；Codex Engine 会把同一份 bounded active view 传给 `codexPrompt` 并报告 wrapper 成本。Codex 内部 compaction 不能去掉这段新注入 wrapper 的成本，Forge 也不能声称控制 Codex 内部 threshold。
 
 ## 目标
 
@@ -177,11 +177,11 @@ No-progress guard 在以下情况下停止反复压缩：同一 source hash 已�
 - context stop 发生在 provider call 前，并有明确 terminal status。
 - Codex wrapper 使用与 native engine 相同的 bounded active view，但 Forge 不声称控制 Codex 内部 compaction。
 
-## Package 边界与实现顺序
+## Package 边界与 rollout 状态
 
-Core 拥有类别、预算算术、事件和 stop decision；adapter 拥有 window、estimate、overflow classification 和 continuation projection；persistence 拥有 session-v2 checkpoint；CLI 拥有 `/context`、`/compact`、Codex wrapper 和渲染；evals 记录质量和安全 gate。
+Core 拥有类别、预算算术、事件和 stop decision；adapter 拥有 window、estimate、overflow classification 和 continuation projection；persistence 拥有 session schema v3 与 checkpoint v2；CLI 拥有 `/context`、`/compact`、Codex wrapper 和渲染；evals 记录质量和安全 gate。
 
-实施分为：A 测量基础；B 派生 active context；C checkpoint 生成；D run 内 guard；E 评测和默认决策。每阶段都要保持规范 transcript 和现有审批边界不变。
+测量基础、派生 active context、checkpoint 生成、run 内 guard 和确定性对比矩阵已经实现。默认仍为 `warn`；用户可以手动预览/创建 checkpoint、仅为当前进程启用 `compact`，或明确持久化该偏好。只有发布的 live task-quality 证据达到 gate 后，才应考虑把自动压缩改成默认。
 
 ## 测试计划
 

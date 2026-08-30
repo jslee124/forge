@@ -256,7 +256,7 @@ pnpm forge --help        # 构建并查看 CLI 帮助
 
 ## 当前状态与限制
 
-Forge 仍在积极开发中。当前开发源码版本是 `0.3.3`；在 release workflow 执行前，npm 最新公开版本仍是 `0.3.2`。首个公开功能基线的历史说明见 [v0.3.0 发布说明](docs/zh-CN/history/v0.3.0/RELEASE_NOTES.md)。自动上下文 checkpoint 仍默认 opt-in，同时还在收集 live provider 质量证据。
+Forge 仍在积极开发中。源码版本 `0.3.3` 已通过 npm 的 `latest` dist-tag 发布；当前版本说明见 [v0.3.3 发布说明](evals/reports/v0.3.3/RELEASE_NOTES.zh-CN.md)，首个公开功能基线的历史说明见 [v0.3.0 发布说明](docs/zh-CN/history/v0.3.0/RELEASE_NOTES.md)。自动上下文 checkpoint 仍默认 opt-in，同时还在收集 live provider 质量证据。
 
 - Native runtime 支持 DeepSeek、OpenAI API 和已配置的 OpenAI-compatible 路由；原生 Anthropic 与 Gemini 协议尚未实现。
 - 模型行为具有非确定性；运行时正确不保证真实任务成功。

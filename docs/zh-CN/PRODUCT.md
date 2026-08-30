@@ -58,12 +58,15 @@ Forge 可以使用成熟库消除偶然复杂度，但核心运行时概念必�
 
 一个狭窄但可靠的工作流，比许多未完成的功能更有价值。
 
-## 初始功能
+## 已发布产品能力
+
+v0.3.3 包括：
 
 - TypeScript CLI 和多行交互式终端。
 - 斜杠命令发现、workspace 文件引用和可读的 diff 审查。
-- 以 `DEEPSEEK_API_KEY` 认证的 DeepSeek provider。
-- 通过 Vercel AI SDK 和 `@ai-sdk/deepseek` 流式输出。
+- Native DeepSeek/OpenAI API adapter、已配置的 OpenAI-compatible route，以及
+  通过 Codex App Server 使用 ChatGPT subscription 的独立路径。
+- 通过当前 provider adapter 流式输出。
 - 有明确停止条件的多步骤 agent 循环。
 - `~/.forge/config.json` 用户级配置和分层 `AGENTS.md` 指令。
 - `forge config show` 可检查配置来源。
@@ -71,16 +74,29 @@ Forge 可以使用成熟库消除偶然复杂度，但核心运行时概念必�
 - workspace 路径校验、命令超时和取消。
 - 敏感操作审批、provider reasoning 展示、结构化事件和 JSONL trace。
 - 可在重启后恢复的本地会话。
+- Resume 时恢复规范的已完成 tool-call/result history，但不恢复审批、待执行
+  action 或 provider continuation。
+- Context budget、手动 checkpoint、opt-in 自动压缩、内存 session scoped grant
+  与 prompt-cache observation。
+- 版本化产品文档、portable Skill 与受信任本地 plugin。
 - runtime/tool 自动化测试、规范 fixture、确定性恢复场景和可复现发布评测。
 
-## v0.1 成功标准
+## 历史 v0.1 基线
 
 详细 gate 见[历史 v0.1 验收与评测](history/v0.1/ACCEPTANCE.md)。一次完整仓库任务至少要：读取多个相关文件、进行定向修改、运行自动验证、证明失败恢复、在成功或限制后停止、拒绝 workspace 外文件操作、生成与真实行为一致的 trace 和总结。
 
-## v0.1 不在范围内
+## 当前限制
 
-多 Agent 协作、图形或 IDE 界面、远程执行、持久语义记忆、RAG、MCP server 发现、第三方插件安装、自动 commit/push/PR，以及生产级 OS sandbox 都不属于 v0.1。
+当前不提供图形/IDE 界面、远程执行、持久语义记忆、RAG、内置 MCP server
+发现、第三方 plugin 安装器、自动 commit/push/PR、生产级 OS sandbox，以及
+原生 Anthropic Messages/Gemini protocol。Plugin-declared subagent 是有界、
+host-managed 且不可递归的能力，不是通用多 Agent 编排。
 
-## 后续作品集方向
+仓库提供 MCP stdio 示例 plugin，但 Forge 不会默认发现任意 MCP server。受信任
+plugin 和获批子进程拥有 Forge 进程的本地权限；policy check 不等于 OS sandbox。
 
-Native runtime 稳定后，可考虑更大的评测套件、OpenAI API key、在适当公开集成支持下的 ChatGPT 登录、LangChain/LangGraph adapter、带 SSE 和人工审批的 HTTP API，以及 SQLite 索引和会话分支。这些是后续扩展，不是开始实现的前置条件。
+## 后续方向
+
+后续可考虑更大的评测套件、LangChain/LangGraph adapter、带 SSE 和人工审批的
+HTTP API、SQLite 索引、session branch 与跨机同步。这些只是方向，不是当前行为
+声明；真正排期工作的完成合约以[路线图](ROADMAP.md)为准。

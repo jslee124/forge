@@ -4,11 +4,11 @@
 
 ## Current milestone
 
-**Milestone 13: long-session efficiency and user control is implemented through
-13.5 on the v0.3.3 development branch.** This includes versioned contracts,
-prompt-cache observability, pressure-driven context controls, scoped session
-permissions, the in-TUI update experience, and the offline release matrix.
-Automatic compaction remains opt-in and this is not a published v0.3.3 claim.
+**Milestone 14: structured session history and faithful resume is complete, and
+v0.3.3 is published.** The release includes the Milestone 13 long-session,
+scoped-permission, cache-observability, and update work plus canonical completed
+tool exchanges across resume. Automatic compaction remains opt-in; live-provider
+validation and npm publication remain separate from offline acceptance evidence.
 
 ## Working rules
 
@@ -1028,7 +1028,8 @@ Acceptance criteria:
 
 ## Later extensions
 
-These items are intentionally unordered and are not part of v0.1:
+These items are intentionally unordered and are not part of the current v0.3.3
+release:
 
 - Broader evaluation tasks and graders
 - Native non-OpenAI wire protocols such as Anthropic Messages or Gemini

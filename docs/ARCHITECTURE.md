@@ -327,15 +327,15 @@ The default policy is:
 | Later workspace writes in the approved run scope | Allow |
 | Any process command | Confirm |
 | Any registered network tool | Confirm |
-| Built-in file operation outside the workspace | Deny in v0.1 |
+| Built-in file operation outside the workspace | Deny (current boundary) |
 | Approval-required action without an approval channel | Deny |
 
 Symlinks must be resolved before the policy decision. A future release may add
-narrow outside-workspace approvals, but v0.1 does not expose that capability.
+narrow outside-workspace approvals, but the current release does not expose that capability.
 
 `run_command` accepts a program and argument array and uses Node.js `spawn` with
 `shell: false`; shell expressions such as pipelines and redirection are not a
-v0.1 feature. Starting a process in the workspace still does not confine it to
+current feature. Starting a process in the workspace still does not confine it to
 that workspace. Until an OS-level sandbox exists, confirmation, timeout, output
 limits, and trace records are safety controls but not filesystem or network
 isolation.
@@ -478,7 +478,7 @@ Plugin host --------------> Core extension interfaces
 Milestone 10 keeps context ownership split across these boundaries: core owns
 categories, budget arithmetic, events, and stop decisions; adapters own model
 windows, estimation, overflow classification, and continuation projection;
-persistence owns session-v2 checkpoints; the CLI owns `/context`, `/compact`,
+persistence owns session schema v3 and checkpoint v2; the CLI owns `/context`, `/compact`,
 Codex wrapper budgeting, and inspection rendering. The canonical transcript is
 never replaced by its active model view.
 

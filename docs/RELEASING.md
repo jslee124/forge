@@ -23,18 +23,18 @@ development-only files cannot enter the registry by accident.
 
 ## Prepare a release
 
-Start from a clean checkout and choose a semantic version. Replace `0.3.1`
+Start from a clean checkout and choose a semantic version. Replace `0.3.3`
 below with the release being prepared:
 
 ```bash
-pnpm version:set 0.3.1
+pnpm version:set 0.3.3
 pnpm install --frozen-lockfile
 pnpm check
 pnpm check:docs
 pnpm test
 pnpm eval:deterministic
 pnpm package:verify
-pnpm release:verify-tag v0.3.1
+pnpm release:verify-tag v0.3.3
 ```
 
 `package:verify` builds the public artifact, inspects the tarball, installs it
@@ -51,8 +51,10 @@ artifacts that were not explicitly reviewed for publication.
 The first publication was completed for v0.3.0. The `@jslee124` scope is
 controlled by the maintainer, and `.github/workflows/publish.yml` is registered
 as the package's GitHub Actions trusted publisher. The one-time bootstrap used
-`0.3.0-bootstrap.0` under the `bootstrap` dist-tag; `latest` now points to the
-stable `0.3.0` release. Do not repeat the bootstrap procedure for later
+`0.3.0-bootstrap.0` under the `bootstrap` dist-tag. Stable releases now own the
+`latest` dist-tag; verify the current registry state with
+`npm view @jslee124/forge version dist-tags --json` instead of copying a
+version claim from this guide. Do not repeat the bootstrap procedure for later
 releases.
 
 Stable releases must come only from the tag workflow. It uses OIDC instead of a
@@ -66,8 +68,8 @@ Commit the version, release notes, and generated-input changes, then create an
 annotated immutable tag:
 
 ```bash
-git tag -a v0.3.1 -m "Forge v0.3.1"
-git push origin v0.3.1
+git tag -a v0.3.3 -m "Forge v0.3.3"
+git push origin v0.3.3
 ```
 
 The `Publish npm package` workflow verifies that the Git tag, root version,

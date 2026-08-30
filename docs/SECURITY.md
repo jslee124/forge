@@ -4,7 +4,8 @@
 
 ## Status
 
-This document defines Forge's implemented security model through Milestone 10.
+This document defines Forge's implemented security model through v0.3.3,
+including Milestones 10-14.
 Built-in tools stay inside the selected workspace, every valid tool action
 passes through a policy decision, and approval-required actions are denied when
 no approval channel is available. The `safe` and `workspace-write` permission
@@ -34,11 +35,11 @@ must state which boundaries it enforces and which risks remain with the user.
 | Any process command | Confirm |
 | Any registered network tool | Confirm |
 | Any delegated subagent model run | Confirm |
-| Built-in file operation outside the workspace | Deny in v0.1 |
+| Built-in file operation outside the workspace | Deny (current boundary) |
 | Approval-required action without an approval channel | Deny |
 
 Narrow outside-workspace approvals are a possible later feature. They are not
-part of v0.1, so a repository task cannot expand Forge's file-tool boundary by
+implemented, so a repository task cannot expand Forge's file-tool boundary by
 asking the user for an exception.
 
 ## Permission profiles
@@ -54,11 +55,11 @@ require confirmation according to the table above.
 Workspace file tools may modify files automatically after the user selects this
 profile. Process commands, registered network tools, and delegated subagent
 model runs still require confirmation, and outside-workspace file access
-remains denied in v0.1.
+remains denied.
 
 ### `full-access`
 
-Deferred until after v0.1. A future explicit advanced mode would require clear
+Still deferred. A future explicit advanced mode would require clear
 warnings and a user decision; a project file or plugin could never enable it
 silently. Forge will not expose a profile whose name implies isolation it does
 not provide.
@@ -85,7 +86,7 @@ filesystem permissions on platforms where that check is meaningful.
 
 Built-in file tools resolve canonical paths and symlinks before applying policy.
 Paths inside the selected workspace can follow the active permission profile.
-Paths outside it are denied in v0.1.
+Paths outside it are denied.
 
 Local image attachments are a separate, user-authorized input capability.
 Forge accepts an outside-workspace path only when the user explicitly supplies
@@ -119,7 +120,7 @@ credential-sensitive, install, publish, and broad external-effect commands are
 not eligible for reuse. Plugin policy hooks can still change `allow` to
 `confirm`/`deny` or `confirm` to `deny`; they cannot create or widen a grant.
 
-The v0.1 `run_command` tool accepts a program and an argument array and starts it
+The current `run_command` tool accepts a program and an argument array and starts it
 with Node.js `spawn` using `shell: false`. Shell syntax such as pipelines,
 redirection, command substitution, and compound commands is not accepted.
 
@@ -274,7 +275,7 @@ kernel. Its `safe` profile maps to Codex read-only sandboxing. Users must select
 events do not pass through Forge's built-in/plugin tool policy or native JSONL
 trace pipeline; the CLI labels this execution path rather than implying they do.
 
-## Out of scope for v0.1
+## Current limitations retained from the v0.1 boundary
 
 - A hardened operating-system sandbox
 - Guaranteed network isolation

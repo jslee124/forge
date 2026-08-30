@@ -1,4 +1,4 @@
-# Context Management Improvement Plan
+# Context Management
 
 [简体中文](zh-CN/CONTEXT_MANAGEMENT.md) · [Documentation index](README.md)
 
@@ -25,23 +25,16 @@ compaction is cancelled, invalid, or reclaims less than the larger of 8,000
 tokens or 20% of projected input. Stable-prefix and cache observations are
 hash-only trace metadata; missing provider cache usage remains unavailable.
 
-## Why this work is next
+## Why context management exists
 
-Forge already separates project instructions, canonical conversation turns,
-the current user request, and provider continuation data. It also bounds
-instruction files, tool output, model steps, tool calls, and persisted session
-size. These controls make execution inspectable, but they do not manage a
-model's token window.
+Forge separates project instructions, canonical completed conversation, the
+current request, and provider continuation data. Before a provider call it
+projects the complete request, selects a token-aware active history, and either
+warns, uses a valid checkpoint, or stops when mandatory context cannot fit.
+The canonical transcript remains intact even when the active view is smaller.
 
-Today, every canonical user/assistant turn is sent again on the next native
-Forge request. A long session can therefore fail at the provider boundary even
-when its persisted JSON remains within the session size limit. During a run,
-assistant tool calls and tool results also accumulate through provider
-continuation data. Forge currently has no request preflight, token-aware history
-selection, durable summary checkpoint, or automatic compaction.
-
-The next improvement should solve those concrete problems before adding vector
-retrieval. Repository retrieval and conversation compaction are different:
+These controls address model-window pressure without conflating three separate
+problems:
 
 - Repository retrieval decides which source files to inspect. Forge already has
   bounded `list_files`, `search`, and `read_file` tools for this.
@@ -52,11 +45,12 @@ retrieval. Repository retrieval and conversation compaction are different:
 
 ## Market review
 
-This plan was reviewed on 2026-08-19 against current first-party documentation
+The design was reviewed on 2026-08-19 against first-party documentation
 for OpenAI's Responses API, OpenCode V2, and Claude Code. Public OpenAI
 documentation establishes the compaction mechanisms available to Codex-like
 clients, but does not document Codex's exact client-side automatic threshold;
-this plan does not infer that private implementation detail.
+this document does not infer that private implementation detail. The links are
+design provenance, not a claim that external products remain unchanged.
 
 | System | Confirmed approach | Lesson for Forge |
 | --- | --- | --- |
@@ -76,9 +70,9 @@ Primary references:
 
 ### Review conclusions
 
-The original direction remains sound: Forge should retain a lossless transcript,
-derive a bounded active view, keep summaries below current instructions, and
-delay vector RAG. The review changes the implementation in six ways:
+Forge retains a lossless transcript, derives a bounded active view, keeps
+summaries below current instructions, and delays vector RAG. The review shaped
+the implementation in six ways:
 
 1. Reserve `max(requested output, buffer)` rather than subtracting both values
    independently and wasting usable input capacity.
@@ -93,26 +87,22 @@ delay vector RAG. The review changes the implementation in six ways:
 
 ### Forge engine coverage
 
-Milestone 10 must cover two different execution paths:
+The implementation covers two different execution paths:
 
 - **Native Forge Engine:** `runAgent` sends structured instructions,
   conversation messages, tools, and adapter-owned continuation. It can use a
   Forge checkpoint or an adapter's provider-native compaction.
-- **Codex Engine:** the current CLI serializes the entire Forge conversation as
-  JSON inside each new Codex prompt. Context management inside Codex App Server
-  cannot remove the cost of that newly injected wrapper. The first fix is to
-  feed `codexPrompt` the same bounded active view used by native engines and
-  report the wrapper cost. A later experiment may map a Forge session to a
-  persistent App Server thread so only the new user turn is submitted, but that
-  requires explicit lifecycle, resume, and security semantics.
+- **Codex Engine:** the CLI feeds `codexPrompt` a bounded active view and reports
+  the wrapper cost. Context management inside Codex App Server cannot remove
+  the cost of that newly injected wrapper. Mapping a Forge session to a
+  persistent App Server thread remains a possible later experiment with its own
+  lifecycle, resume, and security requirements.
 
 Forge must not claim control over Codex's internal compaction threshold. It may
 record App Server context or compaction events when the public protocol exposes
 them, but otherwise treats that layer as engine-owned and opaque.
 
-## Goals
-
-Milestone 10 should:
+## Implemented goals
 
 1. Prevent predictable context-window failures before a paid provider request.
 2. Make every context-selection decision visible in structured events and
@@ -265,7 +255,7 @@ remaining history budget
   - protocol-required continuation
 ```
 
-Initial configuration should expose only values users can reason about:
+The current defaults expose only values users can reason about:
 
 ```json
 {
@@ -279,7 +269,7 @@ Initial configuration should expose only values users can reason about:
 }
 ```
 
-Recommended modes:
+Implemented modes:
 
 - `off`: preserve current behavior but continue reporting provider usage.
 - `warn`: run preflight and warn; reject only when mandatory context cannot fit.
@@ -306,7 +296,7 @@ adapter is corrected.
 
 ### Selection algorithm
 
-For the first compaction implementation:
+The current selection algorithm:
 
 1. Reload current instructions and compute mandatory cost.
 2. Keep the current request untouched.
@@ -397,7 +387,7 @@ state.
 
 ### Manual-first rollout
 
-Before automatic compaction is enabled, add:
+The interactive controls are:
 
 ```text
 /context   Show active model, window, budget categories, retained turns, and checkpoint provenance
@@ -416,7 +406,7 @@ Conversation checkpoints solve pressure between completed runs. Tool-heavy runs
 can still grow through assistant calls, provider reasoning blocks, and tool
 results.
 
-The initial safe behavior should be:
+The implemented safe behavior is:
 
 1. Bound tool output at execution as Forge already does.
 2. Ask adapters to estimate the complete next request, including continuation.
@@ -524,7 +514,7 @@ Recommended ownership:
 | `@forge/core` | Context categories, abstract budget policy, events, and stop decisions |
 | Model adapters | Model capabilities, token estimation, provider message encoding, continuation rules |
 | `@forge/config` | Versioned context configuration, provenance, and strictness merge |
-| `@forge/persistence` | Session v2 migration, checkpoint validation, atomic storage |
+| `@forge/persistence` | Session schema v3 migration, checkpoint v2 validation, atomic storage |
 | `apps/cli` | `/context`, `/compact`, warnings, inspection rendering, and Codex wrapper budgeting |
 | Codex App Server client | Expose public engine-owned usage or compaction events and optional persistent-thread lifecycle |
 | `evals` | Long-session fixtures, metrics, comparison reports, release gates |
@@ -532,68 +522,14 @@ Recommended ownership:
 A separate package should be created only if tokenization dependencies cannot
 remain adapter-local without duplication.
 
-## Implementation sequence
+## Implementation and rollout state
 
-### Phase A: Measurement foundation
-
-1. Add context capability and estimator contracts.
-2. Implement deterministic fake estimators for runtime tests.
-3. Add adapter capability tables and conservative unknown-model behavior.
-4. Emit `context.budgeted` before each provider request.
-5. Compare estimates with returned usage and extend `forge inspect`.
-6. Count advertised tool schemas and instruction snapshots separately.
-7. Measure the serialized Forge conversation wrapper sent to Codex App Server.
-8. Ship `warn` mode with no history mutation.
-
-Exit gate: all requests have an inspectable budget, and mandatory-context
-overflow fails before contacting the provider.
-
-### Phase B: Derived active context
-
-1. Separate canonical session messages from the active request view.
-2. Implement deterministic recent-turn selection without summary generation.
-3. Use that derived active view for both native adapters and `codexPrompt`.
-4. Add session v1-to-v2 migration and checkpoint validation.
-5. Add `/context` and dry-run compaction previews.
-
-Exit gate: tests prove the transcript is unchanged and selection is stable
-across resume.
-
-### Phase C: Checkpoint generation
-
-1. Implement the constrained summarizer behind an interface and fake.
-2. Add an adapter hook for provider-native opaque compaction.
-3. Add source/tail hashing, redaction, validation, and atomic persistence.
-4. Add `/compact --dry-run`, `/compact`, and failure-safe checkpoint
-   replacement.
-5. Add opt-in `compact` mode.
-
-Exit gate: manual compaction reduces estimated input tokens, preserves required
-facts in fixtures, and cannot carry authority from historical text.
-
-### Phase D: In-run guards
-
-1. Re-estimate before every model step.
-2. Include adapter-owned continuation cost.
-3. Add safe adapter-owned projection of old completed tool output.
-4. Add one-shot clean-overflow recovery and no-progress detection.
-5. Add typed context-limit stop reasons.
-6. Add tool-heavy and tool-schema-heavy deterministic fixtures.
-7. Prototype lazy tool advertisement only if measured schema cost justifies the
-   added complexity.
-
-Exit gate: no known over-budget request is sent silently, and tool protocols
-remain valid.
-
-### Phase E: Evaluation and default decision
-
-1. Run `off`, `warn`, and `compact` modes on identical fixtures and live trials.
-2. Publish aggregate context and task-quality metrics.
-3. Define acceptable regression and estimator-error thresholds.
-4. Enable automatic compaction by default only if those thresholds pass.
-
-Exit gate: the default is chosen from published evidence rather than feature
-availability.
+Measurement, derived active views, checkpoint generation, in-run guards, and
+the deterministic comparison matrix are implemented. The default remains
+`warn`: users can preview or create a checkpoint manually, enable `compact` for
+the current process, or explicitly persist that preference. Moving automatic
+compaction to the default still requires published live task-quality evidence;
+feature availability alone is not that evidence.
 
 ## Test plan
 

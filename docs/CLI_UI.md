@@ -116,8 +116,9 @@ commands. Additional characters filter the list by command name.
 Each command is defined once with its name, description, and handler. The same
 registry drives completion and `/help`, preventing the two surfaces from
 drifting. The registry contains `/help`, `/new`, `/clear`, `/context`,
-`/compact`, `/plugins`, `/login`, `/logout`, `/model`, `/delete-model`,
-`/effort`, `/resume`, and `/exit`.
+`/permissions`, `/update-dismiss`, `/compact`, `/plugins`, `/resources`,
+`/login`, `/logout`, `/model`, `/delete-model`, `/effort`, `/resume`, and
+`/exit`.
 `/plugins` opens the project-plugin trust review described above. `/model`
 opens a keyboard picker, discovers current
 ChatGPT/Codex models, includes configured API providers, and saves one model
