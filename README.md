@@ -13,7 +13,7 @@
 
 <p align="center">
   <a href="https://github.com/jslee124/forge/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/jslee124/forge/ci.yml?branch=main&amp;style=flat-square&amp;label=CI" alt="CI status"></a>
-  <img src="https://img.shields.io/badge/source-v0.3.2-0e7490?style=flat-square" alt="Source version 0.3.2">
+  <img src="https://img.shields.io/badge/source-v0.3.3-0e7490?style=flat-square" alt="Source version 0.3.3">
   <img src="https://img.shields.io/badge/Node.js-%3E%3D24-3c873a?style=flat-square&amp;logo=nodedotjs&amp;logoColor=white" alt="Node.js 24 or newer">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-7c3aed?style=flat-square" alt="MIT license"></a>
 </p>
@@ -53,8 +53,8 @@ and testable.
 | **Forge-owned loop** | The runtime controls model steps, tool execution, continuation, recovery, cancellation, and stop limits. |
 | **Explicit policy** | Every tool proposal receives an `allow`, `confirm`, or `deny` decision before execution. |
 | **Observable runs** | Structured terminal events and versioned JSONL traces show what the model proposed and what actually happened. |
-| **Persistent sessions** | Completed conversations survive restarts without restoring old approvals or pending tool calls. |
-| **Budgeted context** | `/context` exposes the active budget; optional checkpoints compact completed history without deleting the canonical transcript. |
+| **Persistent sessions** | Completed turns and bounded failed-run outcomes survive restarts without restoring old approvals or pending tool calls. |
+| **Budgeted context** | `/context` exposes the active budget; optional checkpoints compact canonical history without deleting the canonical transcript. |
 | **Reproducible evaluation** | Deterministic tests prove runtime behavior, while live-model trials retain both successes and failures. |
 | **Controlled extensibility** | Trusted plugins and non-executable built-in, user, and project Skills extend Forge without bypassing the core policy pipeline. |
 
@@ -146,7 +146,7 @@ inspection.
   limits, and approval.
 - React to failed verification and continue toward a corrected result.
 - Stream model text and provider-exposed reasoning as separate events.
-- Persist sessions and resume completed conversation turns by ID or recency.
+- Persist sessions and resume completed turns plus bounded failed-run outcomes by ID or recency.
 - Inspect context usage and create explicit, displayable conversation
   checkpoints.
 - Load hierarchical `AGENTS.md` instructions and lazily invoked built-in, user, and project Skills.
@@ -308,19 +308,19 @@ Start at the [documentation hub](docs/README.md), which routes readers by task.
 
 ## Current status and limitations
 
-Forge is under active development. The current stable source and npm release is
-`0.3.2`. Historical details for the preceding feature baseline are in the
-[v0.3.0 release notes](docs/releases/v0.3.0.md). Automatic context checkpoint
-generation remains opt-in while
-provider-quality evidence is collected.
+Forge is under active development. The development source version is `0.3.3`;
+the latest published npm release remains `0.3.2` until the release workflow is
+run. Historical details for the first public feature baseline are in the
+[v0.3.0 release notes](docs/history/v0.3.0/RELEASE_NOTES.md). Automatic context checkpoint
+generation remains opt-in while live provider-quality evidence is collected.
 
 - The native runtime supports DeepSeek, OpenAI API, and configured
   OpenAI-compatible routes. Native Anthropic and Gemini protocols are not yet
   implemented.
 - Model behavior is nondeterministic; runtime correctness does not guarantee
   live task success.
-- Resume restores completed conversation text, not pending tool calls or old
-  approvals.
+- Resume replays available historical model/tool events, but never reactivates
+  pending tool calls or old approvals.
 - Plugins are trusted local code, not isolated extensions.
 - General multi-agent orchestration beyond bounded plugin-declared subagents,
   RAG, IDE integration, cloud execution, autonomous Git pushes, and

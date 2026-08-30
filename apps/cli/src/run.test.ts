@@ -3,17 +3,19 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { PassThrough } from "node:stream";
 
-import type {
-  ForgeTool,
-  ModelAdapter,
-  ModelRequest,
-  ModelStreamEvent,
-  RunEvent,
+import {
+  describeApproval,
+  type ForgeTool,
+  type ModelAdapter,
+  type ModelRequest,
+  type ModelStreamEvent,
+  type RunEvent,
 } from "@forge/core";
 import { applyPatchTool, createFileTool, resolveWorkspace } from "@forge/tools";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
+  createApprovalChannel,
   createTerminalApprovalChannel,
   type RunMetadata,
   runTask,
@@ -339,6 +341,22 @@ describe("forge run", () => {
     expect(runStarted?.event?.context?.instructionPaths).toContain(
       path.join(root, "AGENTS.md"),
     );
+    const traceEvents = trace
+      .split("\n")
+      .filter(Boolean)
+      .map((line) => (JSON.parse(line) as { readonly event: RunEvent }).event);
+    const prefixes = traceEvents.filter(
+      (event): event is Extract<RunEvent, { readonly type: "cache.prefix" }> =>
+        event.type === "cache.prefix",
+    );
+    expect(prefixes).toHaveLength(2);
+    expect(prefixes[1]?.observation.stablePrefixHash).toBe(
+      prefixes[0]?.observation.stablePrefixHash,
+    );
+    expect(prefixes[1]?.observation.invalidatedBy).toEqual([]);
+    expect(
+      traceEvents.filter(({ type }) => type === "cache.observed"),
+    ).toHaveLength(2);
     expect(model.requests[1]?.toolResults?.[0]).toMatchObject({
       callId: "read-1",
       result: {
@@ -507,7 +525,8 @@ describe("forge run", () => {
     expect(rendered).toContain("--- a/answer.ts");
     expect(rendered).toContain("-export const answer = 42;");
     expect(rendered).toContain("+export const answer = 43;");
-    expect(rendered).toContain("Approve? [y/N]");
+    expect(rendered).toContain("1  Allow once");
+    expect(rendered).toContain("2  Allow this session");
   });
 
   it("shows new file content before terminal approval", async () => {
@@ -545,7 +564,44 @@ describe("forge run", () => {
     expect(rendered).toContain("--- /dev/null");
     expect(rendered).toContain("+++ b/hello.md");
     expect(rendered).toContain("+hello, world");
-    expect(rendered).toContain("Approve? [y/N]");
+    expect(rendered).toContain("2  Allow this session");
+  });
+
+  it("returns an existing-file preview failure instead of reporting user denial", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "forge-run-"));
+    temporaryDirectories.push(root);
+    await writeFile(path.join(root, "hello.md"), "existing\n");
+    const output = outputBuffer();
+    let questions = 0;
+    const channel = createApprovalChannel(async () => {
+      questions += 1;
+      return "1";
+    }, output.output);
+    const toolInput = { path: "hello.md", content: "replacement\n" };
+    const action = {
+      call: {
+        id: "create-existing",
+        name: "create_file",
+        input: toolInput,
+      },
+      tool: createFileTool,
+      input: toolInput,
+    };
+    const context = {
+      workspace: await resolveWorkspace(root),
+      signal: new AbortController().signal,
+      limits: { maxOutputBytes: 65_536, maxEntries: 200 },
+    };
+    const descriptor = await describeApproval(action, context);
+
+    await expect(
+      channel.requestStructured?.(action, context.signal, context, descriptor),
+    ).resolves.toMatchObject({
+      kind: "preflight-failed",
+      result: { ok: false, error: { code: "already_exists" } },
+    });
+    expect(questions).toBe(0);
+    expect(output.read()).toContain("Cannot preview file creation");
   });
 
   it("shows the external destination before network approval", async () => {
@@ -584,7 +640,7 @@ describe("forge run", () => {
     expect(rendered).toContain("Network request");
     expect(rendered).toContain("Tool         web_fetch");
     expect(rendered).toContain("Destination  https://example.com/docs");
-    expect(rendered).toContain("Approve? [y/N]");
+    expect(rendered).toContain("web_fetch to example.com");
   });
 
   it("shows the delegated task before model-run approval", async () => {
@@ -625,6 +681,6 @@ describe("forge run", () => {
     expect(rendered).toContain(
       "Task         Review src/server.ts for race conditions.",
     );
-    expect(rendered).toContain("Approve? [y/N]");
+    expect(rendered).toContain("delegated model tool delegate_code_review");
   });
 });

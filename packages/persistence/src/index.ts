@@ -16,6 +16,7 @@ export {
   createForgeSummaryCheckpoint,
   FileSessionStore,
   isCheckpointValid,
+  MAX_SESSION_BYTES,
   PersistenceError,
   previewSessionCompaction,
   recordRunInSession,

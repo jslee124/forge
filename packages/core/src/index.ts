@@ -1,15 +1,40 @@
-export const FORGE_VERSION = "0.3.2";
+export const FORGE_VERSION = "0.3.3";
 
+export {
+  type ApprovalDescriptor,
+  type ApprovalResponse,
+  type ApprovalResponseKind,
+  type ApprovalRiskFlag,
+  type ApprovalScope,
+  approvalScopeId,
+  describeApproval,
+  formatApprovalScope,
+  SessionApprovalStore,
+  type SessionGrant,
+} from "./approval.js";
+
+export {
+  FORGE_PROMPT_SCHEMA_VERSION,
+  observePromptPrefix,
+  type PromptCacheCapabilities,
+  type PromptCacheMode,
+  type PromptPrefixInputs,
+  type PromptPrefixInvalidation,
+  type PromptPrefixObservation,
+} from "./cache.js";
 export {
   type ActiveConversationView,
   budgetModelRequest,
   type ContextBudgetReport,
   type ContextConfiguration,
   type ContextMode,
+  type ContextPressureMode,
+  type ContextPressureSnapshot,
   type ContextTokenBreakdown,
   conservativeRequestEstimate,
   conservativeTextTokens,
   conservativeValueTokens,
+  contextPressureSnapshot,
   DEFAULT_CONTEXT_CONFIGURATION,
   type ModelContextCapabilities,
   modelContextCapabilities,
@@ -21,6 +46,13 @@ export {
 
 export { ModelConfigurationError, ModelProviderError } from "./errors.js";
 export type {
+  CanonicalAssistantContent,
+  CanonicalConversationMessage,
+  CanonicalTextContent,
+  CanonicalToolCallContent,
+  CanonicalToolContent,
+  CanonicalUserContent,
+  LegacyConversationMessage,
   ModelAdapter,
   ModelContinuation,
   ModelConversationMessage,
@@ -30,6 +62,13 @@ export type {
   ModelStreamEvent,
   ModelToolResult,
   ModelUsage,
+} from "./model.js";
+export {
+  canonicalText,
+  normalizeCanonicalConversation,
+  projectCanonicalConversation,
+  stableCanonicalConversationJson,
+  validateCanonicalConversation,
 } from "./model.js";
 export {
   type ApprovalChannel,
@@ -52,6 +91,7 @@ export {
   type RunResult,
   type RunStatus,
   runAgent,
+  runConversationMessages,
 } from "./runtime.js";
 export type {
   ForgeTool,

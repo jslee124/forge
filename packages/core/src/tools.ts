@@ -47,6 +47,7 @@ export interface ToolProposal {
 }
 
 export type ToolErrorCode =
+  | "approval_denied"
   | "already_exists"
   | "cancelled"
   | "invalid_input"

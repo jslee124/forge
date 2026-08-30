@@ -1,0 +1,235 @@
+# Forge v0.3.3 全代码库审查与发布就绪度
+
+[English](CODEBASE_REVIEW.md) · [中文文档索引](../../../docs/zh-CN/README.md)
+
+> **证据快照：** 本审查记录的是修复前的 commit `5b24a2e`。其中 finding 与
+> release recommendation 均为历史结论，不能代表当前工作树状态。
+
+## 审查快照
+
+- 审查日期：2026-08-30
+- 审查分支：`dev`
+- 审查 commit：`5b24a2e`
+- 源码版本：`0.3.3`
+- 审查时工作区：干净
+- 审查时远端状态：
+  - `origin/dev` 与 `5b24a2e` 一致
+  - `origin/main` 仍为 `6e6c43b`，即 v0.3.2 的集成 commit
+  - 远端不存在 `v0.3.3` tag
+- 审查时 npm 状态：
+  - `latest` 为 `0.3.2`
+  - 已发布版本为 `0.3.0-bootstrap.0`、`0.3.0`、`0.3.1` 和 `0.3.2`
+
+本文记录对当前 Forge 开发树进行的一次全仓库只读审查，并明确区分确定性
+验证、真实 provider 证据和正式发布证据。审查过程没有修改源码。
+
+## 发布建议
+
+**暂时不要把当前代码树作为 Forge stable 版本发布。**
+
+当前 build、离线测试、文档、打包和公开产物门禁整体健康，但审查实际复现了
+3 个会阻断发布的正确性或安全问题，以及 1 个新 structured-session 路径中的
+重要 provider 兼容性问题。应先修复这些问题并重新运行完整 release matrix，
+然后再创建 release tag。
+
+从 v0.3.2 到当前版本包含 Milestone 13、Milestone 14、session schema v3、
+checkpoint v2，以及大量 runtime/TUI 行为变化，因此 `0.4.0` 比 patch 版本更能
+准确表达改动范围。在 1.0 之前继续使用 `0.3.3` 也可以，但应将其描述为 feature
+release，而不是小型缺陷修复。
+
+## 问题清单
+
+### P1：成功保存的 session 可能立即变得无法读取
+
+`packages/persistence/src/session-store.ts` 只在 `load()` 中执行 4 MiB 的
+`MAX_SESSION_BYTES` 限制。`save()` 会直接序列化并替换 session 文件，不检查最终
+字节数。
+
+最小复现结果：
+
+```text
+serializedApproxBytes: 5400920
+save: succeeded
+load: PersistenceError: Session <id> exceeds the size limit.
+```
+
+这对长会话版本尤其重要：canonical history 只追加不删除，有界 tool result 仍会
+不断累积，最终使 session 无法 resume。
+
+必须处理：
+
+- 在替换旧的有效快照之前检查最终 redacted serialization 的字节数。
+- 保留旧快照的可恢复性，并返回可操作的错误。
+- 为接近持久化大小上限的 session 定义保留、分段或归档策略。
+- 添加覆盖大小边界以及 save/load 对称性的回归测试。
+
+### P1：工具完成后取消会丢失副作用上下文
+
+Runtime 只有在 tool result 准备返回给下一个模型步骤时，才把 tool exchange 写入
+`canonicalDelta`。如果工具已经发出 `tool.completed`，但在 commit point 之前发生
+取消，`finish()` 只会写入泛化的 cancelled outcome，不会提到已经发生的副作用。
+
+复现得到的 event stream 包含：
+
+```text
+tool.started
+tool.completed
+run.cancelled
+```
+
+最终 canonical history 只有原始用户消息和泛化的 `Status: cancelled` assistant
+outcome。Resume 后的模型可能再次执行一个已经修改文件系统或产生进程副作用的操作。
+
+必须处理：
+
+- 不要伪造一个从未返回给模型的 tool-call/result pair。
+- 对取消之前已经完成或失败的工具，增加有界且不携带权限语义的 outcome summary。
+- 明确要求下一轮重新检查相关状态。
+- 扩展现有的 step 间取消测试，不仅断言 status/request count，还要断言最终保存的
+  canonical context。
+
+### P1：绝对 executable path 可以绕过破坏性命令分类
+
+高风险分类直接把完整 `program` 字符串与 `rm`、`curl`、`sudo` 等名称比较，
+因此绝对 executable path 可以绕过匹配。
+
+复现得到的 descriptor：
+
+```json
+{
+  "program": "/bin/rm",
+  "args": ["-rf", "build"],
+  "riskFlags": [],
+  "allowedScopes": ["command"]
+}
+```
+
+因此 UI 可以为 `/bin/rm` 提供可复用的 session grant，与安全文档中“破坏性和
+广泛外部副作用命令不可复用”的规则冲突。
+
+必须处理：
+
+- 除原始 executable 外，也按规范化后的 basename 分类。
+- 对可以执行嵌套高风险命令的 shell、解释器和 `env` wrapper 保守地禁用复用。
+- 为 destructive、credential-sensitive、install、publish 和 network-capable
+  命令增加绝对路径与 wrapper fixture。
+
+### P2：Provider tool-call ID 被当作整个 session 内全局唯一
+
+`validateCanonicalConversation()` 使用一个覆盖整个 session 的 tool-call map。
+两个独立 run 如果都收到 `call-1` 这样的 provider tool-call ID，第二次 session
+保存会失败：
+
+```text
+Duplicate canonical tool-call ID: call-1
+```
+
+OpenAI 通常生成唯一 ID，但 compatible endpoint 和本地模型可能在每个 response
+或 request 中重新从固定编号开始。
+
+必须处理：
+
+- 将 call/result 校验限制在 run 或具备因果关系的 assistant exchange 内；或者
+  分离 durable canonical ID 与 provider wire ID。
+- 保留 protocol replay 所需的 provider ID，但不要要求它在多个独立 run 之间
+  全局唯一。
+- 添加 provider call ID 重复的多 run persistence 测试。
+
+### P2：Prerelease tag 会发布到 npm `latest`
+
+`.github/workflows/publish.yml` 对所有 `v*` tag 触发，并且始终执行：
+
+```text
+npm publish --access public
+```
+
+因此 `v0.4.0-beta.1` 会更新 `latest`，但 release 文档规定 prerelease 应使用
+`next` dist-tag。
+
+必须处理：
+
+- 在 stable workflow 中拒绝 prerelease，或在已验证版本包含 prerelease 部分时
+  显式选择 `--tag next`。
+- 增加确定性的 workflow/version routing 检查。
+
+### P2：Roadmap 的状态描述互相矛盾
+
+Roadmap 顶部称 Milestone 13 已实现，Milestone 14 也被标记为 completed，但
+Milestone 13 的章节标题仍写着“计划中”。英文版存在同样的状态漂移。
+
+必须处理：
+
+- 统一中英文状态描述。
+- 清楚区分已经实现、已通过离线验证、可选的真实 provider 验证和 npm 正式发布。
+
+## 当前 codebase 评价
+
+### 优点
+
+- Core runtime、provider、persistence、CLI、tools、resources、authentication
+  和 plugin API 之间的 workspace 边界清楚。
+- Native agent loop、policy gateway、approval flow 和工具执行由 Forge 控制，
+  而不是交给 model SDK callback。
+- Built-in 文件访问前会 canonicalize workspace path，并检查 traversal 与 symlink
+  escape。
+- 进程执行采用结构化 program/argument contract，并使用 `shell: false`、有界输出、
+  timeout 和 cancellation handling。
+- 写操作 approval 会展示准确 diff，并拒绝被截断的 preview。
+- Prompt-cache observation 会把 provider 未提供的 metrics 保留为 unknown，不会
+  错报为零或 cache miss。
+- Session grant 只保存在内存中，有明确 scope，可以 inspect 和 revoke，也不会通过
+  resume 恢复。
+- Plugin 不能放宽 core policy，文档也明确说明 trusted plugin 是进程内代码而不是
+  sandboxed code。
+- Package generation 会 bundle 私有的 `@forge/*` 实现包，同时保持公开产物 allowlist
+  和普通 external runtime dependency。
+- 英文、中文和随包产品文档统一进行版本化和检查。
+
+### 可维护性风险
+
+- `apps/cli/src/interactive-ui.tsx` 已超过 4,000 行。继续增加 UI 功能前，应拆分
+  session orchestration、approval state、context/update state、transcript renderer
+  和纯展示组件。
+- Session/context 行为现在横跨 runtime、CLI、persistence、adapter、TUI state、trace
+  和文档。跨层 contract test 应成为一等 release gate。
+- 已检入的 Milestone 13 report 早于后续 Milestone 14 structured history 改动。
+  它仍然是有效的 M13 证据，但不能单独证明当前 HEAD 可发布。
+
+## 当前 HEAD 的验证证据
+
+| 门禁 | 结果 |
+| --- | --- |
+| `CI=true pnpm check` | 通过；只有 2 个不导致失败的 Biome information notice |
+| 完整离线测试 | 55 个文件、342 个测试通过；其中 3 个 loopback 测试在受限沙箱外重新验证 |
+| `CI=true pnpm eval:deterministic` | 11 个文件、65 个测试通过 |
+| `CI=true pnpm check:docs` | 83 个 Markdown、373 个本地引用通过 |
+| `CI=true pnpm package:verify` | 通过；干净安装的产物大小为 329,758 bytes |
+| `CI=true pnpm release:verify-tag -- v0.3.3` | 版本一致性检查通过 |
+| `pnpm audit --prod --audit-level low` | 未发现已知漏洞 |
+| `git diff --check` | 通过 |
+| `5b24a2e` 的 GitHub Actions | 通过 |
+| 真实/付费 provider 验证 | 本次审查没有执行 |
+| Git tag 或 npm 发布 | 没有执行；当时不存在 `v0.3.3` tag |
+
+第一次在受限审查沙箱内运行完整测试时，环境不允许绑定 `127.0.0.1`，因此出现了
+3 个 provider-route hook timeout。获得本机 loopback 权限后，完全相同的 3 个测试
+全部通过，因此该失败被归类为环境限制，而不是产品回归。
+
+## 建议的发布顺序
+
+1. 修复 session size、cancelled side effect、destructive classification 和重复
+   tool ID 问题。
+2. 为每个已复现问题增加 focused regression test。
+3. 修复 prerelease dist-tag routing 和双语 Roadmap 状态描述。
+4. 重新运行 build、check、完整离线测试、文档检查、确定性 evaluation、package
+   verification、版本检查和 dependency audit。
+5. 至少为 OpenAI 和 DeepSeek 各运行一次有界的 tool-call/resume smoke；如果
+   compatible route 属于发布声明，也应覆盖一条 compatible route。
+6. 将 `dev` 合并到 `main`，等待 `main` CI 通过。
+7. 创建不可变的 annotated release tag，由 trusted-publishing workflow 发布经过
+   审查的 commit。
+8. 发布后验证 npm dist-tag、公开 clean install、bundled resource 和 update behavior。
+
+修复以上 4 个 runtime/persistence 问题后，当前代码树适合作为 release candidate。
+只有在完整 post-fix matrix 和有界 provider-resume smoke 全部通过后，才建议发布
+stable 版本。

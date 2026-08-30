@@ -8,22 +8,18 @@ const packageRoot = path.join(root, "packages", "resources", "docs");
 const version = JSON.parse(
   await readFile(path.join(root, "package.json"), "utf8"),
 ).version;
+const catalog = JSON.parse(
+  await readFile(path.join(root, "docs", "catalog.json"), "utf8"),
+);
 const check = process.argv.includes("--check");
-const documents = [
-  "GETTING_STARTED",
-  "CONFIGURATION",
-  "AUTHENTICATION",
-  "PLUGINS",
-  "PROJECT_CONTEXT",
-  "SESSIONS",
-  "CONTEXT_MANAGEMENT",
-  "SECURITY",
-  "RELEASING",
-  "TROUBLESHOOTING",
-  "CLI_UI",
-  "ARCHITECTURE",
-  "PRODUCT",
-];
+const documents = catalog.currentProduct;
+if (
+  catalog.schemaVersion !== 1 ||
+  !Array.isArray(documents) ||
+  documents.some((name) => !/^[A-Z0-9_]+$/u.test(name))
+) {
+  throw new Error("docs/catalog.json has an invalid currentProduct catalog.");
+}
 const entries = [];
 
 for (const locale of ["en", "zh-CN"]) {

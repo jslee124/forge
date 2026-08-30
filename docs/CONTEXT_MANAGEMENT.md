@@ -4,10 +4,11 @@
 
 ## Status
 
-Roadmap Milestone 10 is implemented. This document records the design,
-invariants, rollout decision, and follow-up live-evaluation gates. The default
-remains `warn`; automatic checkpoint generation is opt-in until the published
-provider-quality gates pass.
+Roadmap Milestone 10 and Milestone 13.0-13.5 are implemented. The default
+remains `warn`; automatic checkpoint generation is opt-in until published
+provider-quality gates pass. The TUI now projects the complete next-request
+input, keeps a segmented pressure indicator visible, and exposes session-only
+or explicitly persisted automatic mode through `/context`.
 
 The first shipped Forge checkpoint uses a deterministic, redacted extractive
 summarizer so default tests and manual `/compact` make no paid model call. It
@@ -18,15 +19,21 @@ provider-native state, but the current OpenAI AI SDK and DeepSeek adapters
 advertise native compaction as unsupported because their active transports do
 not yet expose a safe compact-item round trip.
 
+The initial activation threshold is `0.78`. Input capacity subtracts
+`max(output reserve, safety buffer)` exactly once. Auto mode pauses when a
+compaction is cancelled, invalid, or reclaims less than the larger of 8,000
+tokens or 20% of projected input. Stable-prefix and cache observations are
+hash-only trace metadata; missing provider cache usage remains unavailable.
+
 ## Why this work is next
 
-Forge already separates project instructions, completed conversation turns,
+Forge already separates project instructions, canonical conversation turns,
 the current user request, and provider continuation data. It also bounds
 instruction files, tool output, model steps, tool calls, and persisted session
 size. These controls make execution inspectable, but they do not manage a
 model's token window.
 
-Today, every completed user/assistant turn is sent again on the next native
+Today, every canonical user/assistant turn is sent again on the next native
 Forge request. A long session can therefore fail at the provider boundary even
 when its persisted JSON remains within the session size limit. During a run,
 assistant tool calls and tool results also accumulate through provider
@@ -111,7 +118,7 @@ Milestone 10 should:
 2. Make every context-selection decision visible in structured events and
    `forge inspect`.
 3. Preserve recent conversational continuity while compacting only older,
-   completed turns.
+   canonical historical turns.
 4. Keep the canonical transcript lossless and separate from the smaller active
    model context.
 5. Preserve Forge's security boundary: old text and summaries cannot restore
@@ -321,12 +328,13 @@ from unexplained holes in the conversation.
 
 ### Checkpoint schema
 
-Session schema version 2 should retain `messages` as the canonical transcript
-and add an optional derived checkpoint:
+Session schema version 3 retains structured `history` as the canonical
+transcript and uses an optional checkpoint v2. Selection and hashing operate on
+complete user/assistant/tool exchanges and never split a call from its result:
 
 ```ts
 interface ContextCheckpoint {
-  schemaVersion: 1;
+  schemaVersion: 2;
   strategy: "forge-summary" | "provider-native";
   summarizedThroughMessageIndex: number;
   sourceHash: string;
@@ -491,7 +499,8 @@ The implementation must preserve these invariants:
    permission profiles.
 3. A summary cannot mark a previously failing verification as currently
    passing.
-4. Only completed conversation turns are eligible for cross-run compaction.
+4. Only canonical historical conversation messages are eligible for cross-run
+   compaction; pending executable state is never included.
 5. Pending tool calls and results remain paired according to adapter rules.
 6. The canonical transcript is not mutated or deleted by compaction.
 7. Configured secrets are redacted before checkpoint generation and persistence.

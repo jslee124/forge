@@ -4,7 +4,7 @@
 
 ## 当前 milestone
 
-**Milestone 12：模型可自动调用的 Skill 与版本化产品知识，已在 v0.3.1 交付，并由 v0.3.2 修复打包资源。** Milestone 11 已完成。自动 context checkpoint 仍保持 opt-in，同时收集 live provider-quality gate。
+**Milestone 13：长会话效率与用户控制已在 v0.3.3 开发分支实现至 13.5。** 当前包括版本化 contract、prompt-cache 可观测性、压力驱动 context、有作用域的 session permission、TUI 内更新体验和离线 release matrix。自动 compact 仍为 opt-in；这不是 v0.3.3 已发布声明。
 
 ## 工作规则
 
@@ -14,7 +14,7 @@
 - 默认测试套件不依赖付费模型调用。
 - 只有 milestone 需要时才新增 workspace package。
 - 实现证明计划错误时更新本文。
-- 以 [v0.1 验收与评测](V0.1_SPEC.md) 作为 release contract。
+- 以[历史 v0.1 验收与评测](history/v0.1/ACCEPTANCE.md)作为 v0.1 release contract。
 
 ## Milestone 0：项目基础（已完成）
 
@@ -54,7 +54,7 @@
 
 ## Milestone 7：评测与首个 release（已完成）
 
-保留规范 fixture，增加至少两个任务和 hidden grader；默认 suite 使用 fake model；付费 DeepSeek 试验显式 opt-in；多次运行记录 model/settings、通过率、耗时、步骤、工具调用和 token；加入 terminal demo、README setup/results/limitations、许可证、model ID 复核并打 `v0.1` tag。所有 v0.1 gate 见 [V0.1_SPEC](V0.1_SPEC.md)。
+保留规范 fixture，增加至少两个任务和 hidden grader；默认 suite 使用 fake model；付费 DeepSeek 试验显式 opt-in；多次运行记录 model/settings、通过率、耗时、步骤、工具调用和 token；加入 terminal demo、README setup/results/limitations、许可证、model ID 复核并打 `v0.1` tag。所有 v0.1 gate 见[历史 v0.1 验收合约](history/v0.1/ACCEPTANCE.md)。
 
 ## Milestone 8：受信任插件 API（v0.2，已完成）
 
@@ -203,6 +203,162 @@ Release criteria：
 - 资源选择与读取有界、来源可见、可 inspect，并计入 context budget。
 - 干净打包的 `0.3.2` CLI 能依据自身版本匹配文档答疑，并能 scaffold 与随包 API 匹配的插件。
 - release claim 不会把 model-invocable Skill 描述成受信任 executable code，也不声称 Forge 尚未提供的 OS sandboxing。
+
+## Milestone 13：长会话效率与用户控制（v0.3.3，已实现并通过离线验证）
+
+目标：让用户在长时间 coding session 中持续使用 Forge，同时看得见 context 压力，减少重复审批打断，以不干扰工作的方式获知新版本，并能测量和改进 provider prompt cache。Milestone 10 已提供 context budget 和 checkpoint 底座；Milestone 13 要把这套底座变成可发现、受评测 gate 约束的默认体验。架构、UI flow、建议 TypeScript contract、模块映射、测试矩阵与分阶段交付顺序详见[历史 v0.3.3 详细实现记录](history/v0.3.3/LONG_SESSION_IMPLEMENTATION.md)。
+
+本实现不会加入持久化的无限制权限，不会静默运行包管理器更新，不会删除规范 conversation transcript，不会对不报告 cache 的 endpoint 声称支持，也不会把 extractive checkpoint 当作生产质量的 semantic memory。可选的 live-provider 验证与 npm 发布仍是独立 release step，尚未由开发分支的离线 gate 完成。
+
+### 13.0 跨功能 contract 与基线
+
+- [x] 为 v0.3.2 记录可复现基线：长会话任务完成率、context estimate、provider input usage、cache read/write token、审批次数、等待审批时间、压缩次数，以及启动/更新检查延迟
+- [x] 为 context pressure、cache observation、scoped approval decision 和 update availability 增加 versioned、provider-neutral runtime event
+- [x] Policy 与 context decision 归 `@forge/core`；规范 transcript 与 checkpoint 完整性归 persistence；终端布局、交互菜单和通知 dismiss 归 `apps/cli`
+- [x] 为 native compaction 与 prompt-cache control 增加 adapter capability descriptor，避免 core 按 provider 名称分支
+- [x] Trace 可以保存 hash、token count、scope identifier 和 provenance，但不能保存原始 credential、隐藏 reasoning、provider cache 内容或未脱敏的敏感 command input
+- [x] 兼容现有 `safe`、`workspace-write` 配置，以及 session-v2 snapshot 和旧 trace event
+
+验收标准：
+
+- Trace reader 能区分 unavailable metric 与真实的零值。
+- Offline fake adapter 不发起付费 provider 请求即可覆盖所有新增 event 和 decision state。
+- 项目配置、instruction、Skill 和 plugin 无法开启更弱的 permission mode、持久化 grant、关闭用户要求的 context guard，或选择 update destination。
+
+### 13.1 Prompt cache 可观测性与稳定 request prefix
+
+- [x] 在 run summary 和 `forge inspect` 中增加每 step 与聚合的 input、cache-read、cache-write、uncached-input 和 cache-hit-ratio 指标
+- [x] 只在 provider 返回数据时报告 cache metric；未知值显示 unavailable，不能推断为 miss
+- [x] 计算脱敏的 stable-prefix、instruction、resource-catalog 和 tool-schema hash，让本地 trace 能解释可能的失效原因，同时避免重复持久化 prompt 正文
+- [x] 把 request composition 重构为确定性的 stable prefix 加动态 turn 内容：core contract、当前仓库 instruction、稳定 Skill metadata 和稳定 tool definition 位于 selected Skill 正文、per-turn plugin contribution、checkpoint memory、conversation 和当前 request 之前
+- [x] Instruction、tool、JSON schema 和 provider option 的语义未变化时，保持 byte-for-byte 稳定顺序
+- [x] 明确定义失效条件：provider/model 变化、instruction 内容或顺序变化、Forge prompt-schema version、启用的 resource/plugin、tool schema 和 compaction checkpoint generation
+- [x] 增加 automatic caching、keyed caching、explicit breakpoint 或 unsupported caching 的 provider capability；只有 adapter 与 endpoint 明确支持时才传递稳定的 session/workspace cache key
+- [x] 保留可 replay 的 provider continuation，并以 append-only 方式加入 tool result，避免 tool loop 无意义地重写早期可缓存 prefix
+- [x] 默认保持 advertised tool set 稳定；把 dynamic allowed-tool subset 与删除/重排 tool definition 分开评测
+
+验收标准：
+
+- 未改变 prefix 的确定性 tool loop 在每个 step 得到相同的本地 prefix hash。
+- 改变任一 invalidation input 会改变相应 hash 并记录原因；只改变 user request 不会使 stable prefix 失效。
+- 会报告 cached token 的 provider 能展示正确的 per-run ratio；不报告的 provider 保持可用并显示 `unavailable`。
+- Compaction 会有意开始新的 cache prefix，在 provider 真正报告前不声称 cache hit。
+
+### 13.2 按压力自动 compact 与 context 控制
+
+- [x] 将 idle 和 next-request pressure ratio 定义为 projected input token 除以 available input token；available input 已经只扣除一次 effective output/safety reserve
+- [x] Projected numerator 包含 instruction、Skill/resource metadata、tool schema、active checkpoint、retained conversation、输入框草稿和附件图片估算；保守或不可用估算用 `~` 或 `?` 表示，避免伪精确
+- [x] 在输入框附近常驻 context indicator，用分段圆环与精确百分比表示：`○`、`◔`、`◑`、`◕`、`●`，并采用 normal、elevated、warning、critical 的语义颜色
+- [x] 展示 `context · warn`、`context · auto`、`compact soon`、`compacting`、`compacted` 和 `auto paused` 状态；窄终端逐步隐藏 label，但保留 percentage
+- [x] 将输入区 footer 拆为 model/context 状态行与快捷键行，避免新增 indicator 让已有输入控制难以阅读
+- [x] 将 `/context` 从只读状态面板升级为交互控制面板，展示 pressure breakdown、mode、strategy、recent-tail budget、last compaction，并提供 `/compact` preview、立即 compact、仅当前 session 启用和保存为用户默认值
+- [x] `warn` 首次跨过配置的 activation threshold 时，显示一次非阻塞提示，提供 compact once、当前 session 开启 auto 或 dismiss；用户不应为了发现自动 compact 而编辑 JSON
+- [x] Session-only auto mode 只保存在 runtime state；只有用户明确操作后才把默认值写入仓库外的 user-level config
+- [x] 初始触发依据通过评测调整的 pressure threshold，而不是单纯 message count；先以 75-80% projected pressure 作为实验值，只压缩 completed history 或可安全 projection 的 continuation state
+- [x] 分阶段回收 context：先限制或替换陈旧且已完成的 tool output；adapter 声明支持时使用 provider-native opaque compaction；否则生成经过校验的 Forge summary 并保留近期 verbatim tail
+- [x] 当前 deterministic extractive summary 保留为安全 fallback 和测试 oracle，但不能作为默认启用自动 compact 的质量依据
+- [x] 持久化 strategy、source/tail hash、token estimate、model、生成时间、safety label，以及 summary generation 是否产生 provider usage
+- [x] 取消、输出无效、反复失败或回收收益过低时暂停 auto compaction；初始把低于 8,000 token 或 projected input 20% 两者较大值的回收视为低收益，再根据评测调整
+- [x] 展示简洁结果，例如 `Context compacted · 86K -> 34K`、strategy、保留的 recent turn，以及单独测得的 generation usage
+
+验收标准：
+
+- 新用户可以完全通过 TUI 发现并启用 auto compaction。
+- 常驻 indicator 与 `/context` 面板使用同一份 snapshot，不会把 history-only estimate 标记成完整 context-window usage。
+- 代表性长会话在发生 provider hard overflow 前触发 auto compaction，但不会每 turn 压缩或无进展循环。
+- 显式目标、约束、已修改文件、未解决工作和历史 verification provenance 能通过 compaction fixture 与 resume 保留下来。
+- Checkpoint 不会恢复 approval、trust、permission profile、当前 verification status、pending tool call 或 secret material。
+
+### 13.3 有作用域的 permission grant 与审批 UX
+
+- [x] 将 boolean approval response 替换为结构化 decision：allow once、在当前 session 允许一个明确展示的 scope，或 deny 并可附带 user feedback
+- [x] 为 workspace write、精确 command 加 arguments/cwd/timeout ceiling、network tool 加 destination host、具名 delegated-model tool 定义规范化且可 inspect 的 scope；不得使用 shell string、未解析 glob 或模型生成的描述作为 grant identity
+- [x] Host 根据已校验 input 为每个 proposed tool action 派生结构化 approval descriptor，包含 effect、resource/destination、risk flag、preview 和 core 允许 UI 展示的 scope；plugin 不能编写 allowed scope
+- [x] TUI 使用编号选项展示 allow once、当前 session 允许同类操作和 deny；用户选择前必须准确看到 session grant 覆盖什么
+- [x] 增加 `/permissions`，展示 effective profile、配置 provenance、active session grant、使用次数和 revoke 控制
+- [x] Grant 默认限制在当前 canonical workspace 与 session；不得通过 `/resume` 恢复，也不得写入项目文件、session snapshot、prompt、summary、Skill 或 plugin event
+- [x] 即使较宽的 session scope 原本可以匹配，destructive、credential-sensitive、publish/install、广泛 external-side-effect 或 policy 指定的 action 仍必须重新确认
+- [x] Deny-with-feedback 可以把有界 user guidance 作为 denial result 返回当前 run，但不能把 guidance 解释成 approval
+- [x] 在 core 与 plugin policy hook 之间继续保持 `deny > confirm > allow`，并区分 trusted plugin code 与 model-tool approval
+
+验收标准：
+
+- 正常 inspect-edit-test 流程可以授权一个清晰展示的窄 scope，并在无需为每个相同行为重复提示的情况下完成。
+- Command argument、cwd、destination host、canonical workspace、risk classification 变化，或 timeout 超过 grant ceiling 时都会产生新的 decision。
+- Session grant 在退出与 resume 后消失；trace 记录 scope identifier 和 decision，但不记录可 replay 的 authority。
+- 恶意 instruction、Skill、checkpoint、tool result 或 plugin policy hook 无法伪造或扩大 grant。
+
+### 13.4 TUI 内更新体验
+
+- [x] 重构现有 rate-limited update check，使其发布结构化 cached、refreshing、available、current、failed 和 disabled 状态，而不是在 Ink tree 外写 startup notice
+- [x] 保留非阻塞启动、24 小时检查间隔、有界 network timeout、`CI` 行为和 `FORGE_DISABLE_UPDATE_CHECK=1`
+- [x] 启动后才发现的新版本可以更新当前 TUI，但不能进入 transcript 或 model context
+- [x] 渲染紧凑 update banner，包含 current/latest version、`forge update` 指引、release-notes destination、dismiss-this-version，以及可访问的窄终端布局
+- [x] 一个 available version 被 dismiss 后最多只强提示一次；显式 `forge update check` 仍保持权威且可重复执行
+- [x] 推荐或执行包管理器命令前检测受支持的 installation provenance；无法识别时只报告新版本与文档，不猜测 installer
+- [x] 安装保持显式操作，使用 argument-array process execution，说明当前进程仍运行旧版本，并要求 restart
+- [x] 验证 check、dismiss、安装失败、安装成功和 restart 都不会修改 `FORGE_HOME` 中的 credential、config、session、trace、plugin 或其他用户数据
+
+验收标准：
+
+- Fake registry 的新结果可以出现在已经运行的 TUI 中，不破坏 editor、approval input、streaming output 或 scrollback。
+- Offline、timeout、畸形 registry data、CI 与 disabled check 保持静默或有界，不会阻塞 interactive startup。
+- npm/pnpm 或其他明确支持的 provenance 得到正确安全指引；未知 provenance 不会触发自动 global install。
+- Update UI 与 compiled `forge update` 对 current version、target version 和 restart requirement 的描述一致。
+
+### 13.5 评测矩阵与 release gate
+
+- [x] 增加确定性长会话 fixture，覆盖 constraint recall、edited-file tracking、unresolved work、instruction 变化、tool-output pressure、反复 compact、取消、resume 和恶意历史 approval claim
+- [x] 增加 permission fixture，覆盖 exact-match reuse、near-match rejection、workspace 变化、symlink/canonical-path 变化、destructive action、revoke、deny-with-feedback、plugin、network destination 和 subagent
+- [x] 增加 cache fixture，覆盖 stable prefix、每种 invalidation input、unavailable usage、tool continuation、compaction boundary 和聚合计算；不得断言 endpoint 未声明的 provider support
+- [x] 增加 update fixture，覆盖 cached/fresh result、late async delivery、dismissal、畸形 semver、timeout、disabled/CI mode、install provenance、安装失败和受保护的 `FORGE_HOME` 数据
+- [x] 在代表性的窄/宽终端宽度渲染 editor/footer、context control、approval panel 和 update banner；保留现有 Enter/newline/Ctrl+C 行为与可读的语义颜色
+- [x] 在相同任务上比较 `warn` 与 session/default `compact` mode，记录 task success、constraint retention、压缩前后 token、reclamation、latency、cache read/write、compaction count 和 no-progress pause
+- [x] Live provider trial 只能显式 opt-in；报告必须有界且脱敏，默认 suite 永远不发起付费调用
+- [x] 更新中英文 context、configuration、security、session、CLI UI、releasing、troubleshooting 和 product 文档，使其匹配真实实现并诚实标注 provider-specific limit
+- [x] 为 `0.3.3` 运行 build、format/lint、typecheck、完整 offline test、文档/link 检查、确定性 evaluation、packed-artifact verification、installed CLI smoke test 和版本一致性检查
+
+Release criteria：
+
+- 所有对 v0.3.3 声称的未勾选项都已实现，或明确移出本次 release；计划文字不会被呈现成已交付行为。
+- Auto compaction 在显式目标、约束、edited-file tracking、unresolved work、安全和 resume 的确定性 fixture 中没有回归，live quality report 也满足默认 rollout 前记录的 threshold。
+- Context indicator 保持响应与语义真实；用户无需修改项目文件即可启用、观察、暂停和撤销 auto compaction。
+- Scoped grant 在代表性 coding flow 中显著减少重复审批，同时所有 near-match 与 high-risk fixture 仍按设计重新提示或拒绝。
+- Cache report 算术正确且明确 provider 能力；release 不作 universal hit-rate 承诺。
+- Update discovery 非阻塞、理解安装来源、保持显式操作，并证明不会修改已有 `FORGE_HOME` 用户数据。
+- 发布前，干净打包的 `0.3.3` 行为、文档、`FORGE_VERSION`、package manifest、tag 和公开安装 smoke expectation 保持一致。
+
+### 13.6 建议交付顺序
+
+1. 先交付 event schema、baseline report、cache telemetry 和 stable-prefix hashing，不改变默认行为。
+2. 通过兼容现有 policy 的 adapter 交付 structured approval response、scope matching、`/permissions` 与 TUI choice。
+3. 交付常驻 context 圆环与交互 `/context` control，再加入按压力 compact 和 quality/no-progress gate。
+4. 将 structured update service、live TUI banner、dismissal 和 install provenance 作为隔离的 vertical slice 交付。
+5. 运行跨功能矩阵：compaction 可预测地使 cache 失效；update UI 不抢占 approval/editor input；resume 恢复 context checkpoint 但不恢复 grant。
+6. 只有记录的 evaluation gate 通过后才把默认从 `warn` 改为自动 compact；否则发布可发现的 session opt-in，并诚实保留默认值。
+
+## Milestone 14：结构化 Session History 与忠实 Resume（已完成）
+
+目标：跨已完成工具交换保存完整、provider-neutral、模型可见的 conversation，使 resume
+后的模型能够利用之前的调用、输出与失败，同时不恢复 authority 或未完成执行。详细 contract、
+migration、provider mapping、安全规则、测试矩阵和交付顺序见[结构化 Session History 与
+Resume 实现方案](history/v0.3.3/STRUCTURED_SESSION_HISTORY.md)。
+
+- [x] 在 `@forge/core` 增加 canonical user、assistant、tool-call 与配对 tool-result content block
+- [x] 在模型可见 runtime commit boundary 直接构建 canonical delta，而不是从 UI event 推导正常写入
+- [x] 增加严格 session schema v3、checkpoint v2 和无损 v1/v2 migration；trace 工具历史补回必须 all-or-nothing
+- [x] 为 OpenAI、DeepSeek、compatible Responses、compatible Chat Completions 和 Codex App Server 投影 canonical history
+- [x] 保持 trace-first UI replay；trace 缺失时提供 structured canonical fallback，且不重复 final answer
+- [x] 让 context selection、compaction、hash 与 cache diagnostic 保持闭合 tool-call/result 边界
+- [x] 验证脱敏、fresh approval、无 dangling call、跨 provider fallback、旧 session 可读与中断写恢复
+- [x] 在同一实现中更新 current-product 中英文与 packaged docs
+
+验收标准：
+
+- Resume 后模型获得与等价未中断 session 相同的 portable completed tool history。
+- Snapshot、migration、compaction 与 provider projection 都不能产生 orphan result、dangling call、恢复审批或可执行 pending state。
+- Trace 缺失只降低展示细节，不删除 canonical structured history，也不阻止安全续聊。
+- 所有 native provider 与 Codex Engine 通过 offline projection/resume contract；live provider 仍只能显式 opt-in。
 
 ## 后续扩展
 

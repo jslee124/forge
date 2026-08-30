@@ -1,27 +1,36 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { AuthenticationManager } from "@forge/auth";
-import type { ForgeTool, RunResult } from "@forge/core";
+import {
+  type ForgeTool,
+  type RunEvent,
+  type RunResult,
+  SessionApprovalStore,
+} from "@forge/core";
 import type { SessionSummary } from "@forge/persistence";
 import { renderToString } from "ink";
 import { render } from "ink-testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  diffRowStyle,
   INK_INCREMENTAL_RENDERING,
   InteractiveApp,
   resolveInkKeyboardMode,
+  UpdateBanner,
 } from "./interactive-ui.js";
 import type {
   ContextStatus,
   InteractiveSessionPersistence,
 } from "./persistent-session.js";
+import type { UpdateService, UpdateState } from "./update.js";
 
 const temporaryDirectories: string[] = [];
 
 afterEach(async () => {
   vi.restoreAllMocks();
+  vi.unstubAllEnvs();
   await Promise.all(
     temporaryDirectories
       .splice(0)
@@ -30,6 +39,99 @@ afterEach(async () => {
 });
 
 describe("Ink interactive terminal", () => {
+  it("renders accessible narrow and wide update banners", () => {
+    const state: UpdateState = {
+      state: "available",
+      currentVersion: "0.3.2",
+      latestVersion: "0.3.3",
+      source: "npm-registry",
+      dismissed: false,
+    };
+    const wide = stripSequences(
+      renderToString(<UpdateBanner state={state} terminalWidth={100} />),
+    );
+    const narrow = stripSequences(
+      renderToString(<UpdateBanner state={state} terminalWidth={40} />),
+    );
+    expect(wide).toContain("/releases/tag/v0.3.3");
+    expect(wide).toContain("restart required");
+    expect(narrow).toContain("Update 0.3.3");
+    expect(narrow).toContain("/update-dismiss");
+    expect(narrow).not.toContain("release notes");
+  });
+
+  it("delivers a late update without replacing editor input", async () => {
+    const root = await createWorkspace();
+    let listener: ((state: UpdateState) => void) | undefined;
+    const initial: UpdateState = {
+      state: "refreshing",
+      currentVersion: "0.3.2",
+      source: "npm-registry",
+      dismissed: false,
+    };
+    const service: UpdateService = {
+      snapshot: () => initial,
+      subscribe: (next) => {
+        listener = next;
+        next(initial);
+        return () => {
+          listener = undefined;
+        };
+      },
+      start: async () => undefined,
+      dismiss: async () => undefined,
+    };
+    const instance = render(
+      <InteractiveApp
+        options={{}}
+        env={{}}
+        cwd={root}
+        updateService={service}
+      />,
+    );
+    instance.stdin.write("unfinished draft");
+    await settle();
+    listener?.({
+      state: "available",
+      currentVersion: "0.3.2",
+      latestVersion: "0.3.3",
+      source: "npm-registry",
+      dismissed: false,
+    });
+    await settle();
+    expect(instance.lastFrame()).toContain("unfinished draft");
+    expect(instance.lastFrame()).toContain("Update 0.3.3");
+    instance.unmount();
+  });
+
+  it("shows and revokes memory-only session grants through /permissions", async () => {
+    const root = await createWorkspace();
+    const store = new SessionApprovalStore({
+      workspaceRoot: root,
+      sessionId: "test",
+    });
+    store.grant({ kind: "workspace-write", workspaceRoot: root });
+    const instance = render(
+      <InteractiveApp
+        options={{ permissionProfile: "safe" }}
+        env={{}}
+        cwd={root}
+        approvalStore={store}
+      />,
+    );
+    instance.stdin.write("/permissions");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+    expect(instance.lastFrame()).toContain("Session permissions");
+    expect(instance.lastFrame()).toContain("· used");
+    expect(instance.lastFrame()).toContain("1 ·");
+    instance.stdin.write("r");
+    await settle();
+    expect(instance.lastFrame()).toContain("No active session grants");
+    instance.unmount();
+  });
+
   it("directly enables enhanced keyboard protocols for known terminals", () => {
     expect(resolveInkKeyboardMode({ TERM_PROGRAM: "vscode" })).toBe("enabled");
     expect(resolveInkKeyboardMode({ TERM_PROGRAM: "ghostty" })).toBe("enabled");
@@ -128,6 +230,53 @@ describe("Ink interactive terminal", () => {
     expect(frame).toContain("$review");
   });
 
+  it("separates resource actions from Skill details", async () => {
+    const root = await createWorkspace();
+    const instance = render(
+      <InteractiveApp
+        options={{}}
+        env={{}}
+        cwd={root}
+        detectedResources={{
+          plugins: [],
+          skills: [
+            {
+              name: "review",
+              description: "Review current changes.",
+              path: "/tmp/review/SKILL.md",
+              source: "project",
+              invocation: "model",
+              status: "automatic",
+            },
+          ],
+          diagnostics: ["[frontmatter/project] ignored entry"],
+        }}
+      />,
+    );
+
+    await settle();
+    instance.stdin.write("/resources");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+
+    const frame = instance.lastFrame() ?? "";
+    expect(frame).toContain("Skills");
+    expect(frame).toContain("$review");
+    expect(frame).toContain("Diagnostics");
+    expect(frame).toContain("Actions");
+    expect(frame).toContain("forge resources disable|enable <name>");
+    expect(frame).toContain(
+      "Toggle automatic invocation for a user-scoped Skill.",
+    );
+    expect(frame).toContain("Esc close");
+    expect(frame.indexOf("Actions")).toBeGreaterThan(
+      frame.indexOf("Review current changes."),
+    );
+    expect(frame).not.toContain("automatic invocation. Esc close");
+    instance.unmount();
+  });
+
   it("opens the slash command menu from keyboard input", async () => {
     const root = await createWorkspace();
     const instance = render(
@@ -218,6 +367,26 @@ describe("Ink interactive terminal", () => {
       provider: "deepseek",
       modelId: "deepseek-v4-flash",
       mode: "warn",
+      activationThreshold: 0.78,
+      pressure: {
+        schemaVersion: 1,
+        provider: "deepseek",
+        modelId: "deepseek-v4-flash",
+        estimatedInputTokens: 14_336,
+        availableInputTokens: 24_576,
+        ratio: 14_336 / 24_576,
+        confidence: "estimated",
+        mode: "warn",
+        state: "elevated",
+        estimates: {
+          instructions: 2_000,
+          currentRequest: 96,
+          toolSchemas: 2_000,
+          conversationHistory: 10_240,
+          continuation: 0,
+          toolResults: 0,
+        },
+      },
       contextWindowTokens: 32_768,
       reservedOutputTokens: 4_096,
       bufferTokens: 8_192,
@@ -237,6 +406,7 @@ describe("Ink interactive terminal", () => {
         estimatedTokens: 1_200,
       },
     };
+    let autoEnabled = false;
     const sessionPersistence: InteractiveSessionPersistence = {
       messages: [],
       sessionId: undefined,
@@ -245,7 +415,16 @@ describe("Ink interactive terminal", () => {
       clear: () => undefined,
       list: async () => [],
       resume: async () => [],
-      contextDetails: () => contextStatus,
+      contextDetails: () => ({
+        ...contextStatus,
+        pressure: {
+          ...contextStatus.pressure,
+          mode: autoEnabled ? "auto-session" : "warn",
+        },
+      }),
+      enableAutoForSession: () => {
+        autoEnabled = true;
+      },
     };
     const instance = render(
       <InteractiveApp
@@ -263,12 +442,18 @@ describe("Ink interactive terminal", () => {
     await settle();
 
     const frame = instance.lastFrame() ?? "";
-    expect(frame).toContain("Context window");
-    expect(frame).toContain("42% history");
+    expect(frame).toContain("Context management");
+    expect(frame).toContain("~58% projected");
+    expect(frame).toContain("Pressure breakdown");
     expect(frame).toContain("deepseek/deepseek-v4-flash");
     expect(frame).toContain("Conversation");
     expect(frame).toContain("forge-summary ready");
+    expect(frame).toContain("a auto this session");
+    expect(frame).toContain("◑ ~58% context · warn");
     expect(frame).not.toContain("Configured categories:");
+    instance.stdin.write("a");
+    await settle();
+    expect(instance.lastFrame()).toContain("automatic for this session");
     instance.unmount();
   });
 
@@ -1030,6 +1215,42 @@ describe("Ink interactive terminal", () => {
     instance.unmount();
   });
 
+  it("keeps the beginning of long transcript output in terminal history", async () => {
+    const root = await createWorkspace();
+    const history = Array.from(
+      { length: 720 },
+      (_, index) =>
+        `history-line-${String(index).padStart(3, "0")} ${"x".repeat(48)}`,
+    ).join("\n");
+    const instance = render(
+      <InteractiveApp
+        options={{}}
+        env={{}}
+        cwd={root}
+        executeTask={async (_prompt, _options, dependencies) => {
+          await dependencies.onEvent?.({
+            type: "model.text",
+            step: 1,
+            text: history,
+          });
+          dependencies.onResult?.(completed(history));
+          return 0;
+        }}
+      />,
+    );
+
+    await settle();
+    instance.stdin.write("show the long history");
+    await settle();
+    instance.stdin.write("\r");
+    await vi.waitFor(() => {
+      const frame = instance.lastFrame() ?? "";
+      expect(frame).toContain("history-line-000");
+      expect(frame).toContain("history-line-719");
+    });
+    instance.unmount();
+  });
+
   it("records completed Codex turns in the persistent session", async () => {
     const root = await createWorkspace();
     const sessionId = "5ca1ab1e-87c6-4a23-bf61-e346bbaf95ed";
@@ -1382,16 +1603,138 @@ describe("Ink interactive terminal", () => {
     instance.stdin.write("run tests");
     await settle();
     instance.stdin.write("\r");
-    await settle();
-    expect(instance.lastFrame()).toContain("Approval required");
-    expect(instance.lastFrame()).toContain("$ pnpm test");
-    expect(instance.lastFrame()).toContain("Working directory  .");
-    expect(instance.lastFrame()).toContain("Timeout            60s");
+    await vi.waitFor(() => {
+      const frame = instance.lastFrame() ?? "";
+      expect(frame).toContain("Approval required");
+      expect(frame).toContain("$ pnpm test");
+      expect(frame).toContain("Working directory  .");
+      expect(frame).toContain("Timeout            60s");
+    });
     instance.stdin.write("y");
-    await settle();
+    await vi.waitFor(() => expect(approved).toBe(true));
 
-    expect(approved).toBe(true);
     expect(instance.lastFrame()).toContain("Enter submit");
+    instance.unmount();
+  });
+
+  it("routes diff previews through semantic Ink rows", async () => {
+    const root = await createWorkspace();
+    const workspaceRoot = await realpath(root);
+    const input = {
+      path: "src/example file.ts",
+      edits: [{ oldText: "export {};", newText: "export const value = 1;" }],
+    } as const;
+    const patchTool = {
+      name: "apply_patch",
+      risk: "write",
+    } as ForgeTool;
+    const instance = render(
+      <InteractiveApp
+        options={{}}
+        env={{}}
+        cwd={root}
+        executeTask={async (_prompt, _options, dependencies) => {
+          await dependencies.approvalChannel?.request(
+            {
+              call: { id: "patch-color-1", name: "apply_patch", input },
+              tool: patchTool,
+              input,
+            },
+            dependencies.signal,
+            {
+              workspace: { root: workspaceRoot, cwd: workspaceRoot },
+              signal: dependencies.signal,
+              limits: { maxOutputBytes: 65_536, maxEntries: 200 },
+            },
+          );
+          return 0;
+        }}
+      />,
+    );
+
+    await settle();
+    instance.stdin.write("update the export");
+    await settle();
+    instance.stdin.write("\r");
+    await vi.waitFor(() => {
+      const frame = instance.lastFrame() ?? "";
+      expect(frame).toContain("DEL │ -export {};");
+      expect(frame).toContain("ADD │ +export const value = 1;");
+    });
+    expect(diffRowStyle("addition")).toEqual({
+      color: "greenBright",
+      backgroundColor: "#123d24",
+    });
+    expect(diffRowStyle("deletion")).toEqual({
+      color: "redBright",
+      backgroundColor: "#4a171c",
+    });
+    instance.stdin.write("3");
+    await settle();
+    instance.unmount();
+  });
+
+  it("hides session approval for destructive commands", async () => {
+    const root = await createWorkspace();
+    let approved: boolean | undefined;
+    const processTool = { name: "run_command", risk: "process" } as ForgeTool;
+    const commandInput = {
+      program: "rm",
+      args: ["snake.html"],
+      cwd: ".",
+      timeoutMs: 60_000,
+    } as const;
+    const action = {
+      call: {
+        id: "destructive-command-1",
+        name: "run_command",
+        input: commandInput,
+      },
+      tool: processTool,
+      input: commandInput,
+    };
+    const instance = render(
+      <InteractiveApp
+        options={{}}
+        env={{}}
+        cwd={root}
+        executeTask={async (_prompt, _options, dependencies) => {
+          approved = await dependencies.approvalChannel?.request(
+            action,
+            dependencies.signal,
+            {
+              workspace: { root, cwd: root },
+              signal: dependencies.signal,
+              limits: { maxOutputBytes: 65_536, maxEntries: 200 },
+            },
+          );
+          dependencies.onResult?.(
+            completed(approved ? "Removed." : "Not removed."),
+          );
+          return approved ? 0 : 4;
+        }}
+      />,
+    );
+
+    await settle();
+    instance.stdin.write("remove the old file");
+    await settle();
+    instance.stdin.write("\r");
+    await vi.waitFor(() => {
+      const frame = instance.lastFrame() ?? "";
+      expect(frame).toContain("Approval required");
+      expect(frame).not.toContain("allow displayed session scope");
+    });
+
+    instance.stdin.write("2");
+    await settle();
+    expect(approved).toBeUndefined();
+    expect(instance.lastFrame()).toContain(
+      "Session approval is unavailable for this action. Choose 1 or 3.",
+    );
+
+    instance.stdin.write("1");
+    await vi.waitFor(() => expect(approved).toBe(true));
     instance.unmount();
   });
 
@@ -1432,14 +1775,15 @@ describe("Ink interactive terminal", () => {
     instance.stdin.write("fetch docs");
     await settle();
     instance.stdin.write("\r");
-    await settle();
-    expect(instance.lastFrame()).toContain("Approval required");
-    expect(instance.lastFrame()).toContain("Network web_fetch");
-    expect(instance.lastFrame()).toContain("https://example.com/docs");
+    await vi.waitFor(() => {
+      const frame = instance.lastFrame() ?? "";
+      expect(frame).toContain("Approval required");
+      expect(frame).toContain("Network web_fetch");
+      expect(frame).toContain("https://example.com/docs");
+    });
     instance.stdin.write("y");
-    await settle();
+    await vi.waitFor(() => expect(approved).toBe(true));
 
-    expect(approved).toBe(true);
     instance.unmount();
   });
 
@@ -1483,14 +1827,65 @@ describe("Ink interactive terminal", () => {
     instance.stdin.write("delegate review");
     await settle();
     instance.stdin.write("\r");
-    await settle();
-    expect(instance.lastFrame()).toContain("Approval required");
-    expect(instance.lastFrame()).toContain("Subagent delegate_code_review");
-    expect(instance.lastFrame()).toContain("Review src/server.ts");
+    await vi.waitFor(() => {
+      const frame = instance.lastFrame() ?? "";
+      expect(frame).toContain("Approval required");
+      expect(frame).toContain("Subagent delegate_code_review");
+      expect(frame).toContain("Review src/server.ts");
+    });
     instance.stdin.write("y");
-    await settle();
+    await vi.waitFor(() => expect(approved).toBe(true));
 
-    expect(approved).toBe(true);
+    instance.unmount();
+  });
+
+  it("shows live activity while the model prepares and edits a file", async () => {
+    const root = await createWorkspace();
+    let emitRunEvent: ((event: RunEvent) => void) | undefined;
+    let release: (() => void) | undefined;
+    const call = {
+      id: "edit-1",
+      name: "apply_patch",
+      input: {
+        path: "src/app.ts",
+        edits: [{ oldText: "old", newText: "new" }],
+      },
+    } as const;
+    const instance = render(
+      <InteractiveApp
+        options={{}}
+        env={{}}
+        cwd={root}
+        executeTask={async (_prompt, _options, dependencies) => {
+          await dependencies.onEvent?.({ type: "model.started", step: 1 });
+          emitRunEvent = (event) => {
+            void dependencies.onEvent?.(event);
+          };
+          await new Promise<void>((resolve) => {
+            release = resolve;
+          });
+          return 0;
+        }}
+      />,
+    );
+
+    await settle();
+    instance.stdin.write("update the app");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+    expect(instance.lastFrame()).toContain("Thinking · step 1");
+
+    emitRunEvent?.({ type: "tool.proposed", step: 1, call });
+    await settle();
+    expect(instance.lastFrame()).toContain("Preparing file edit · src/app.ts");
+
+    emitRunEvent?.({ type: "tool.started", step: 1, call });
+    await settle();
+    expect(instance.lastFrame()).toContain("Editing file · src/app.ts");
+
+    release?.();
+    await settle();
     instance.unmount();
   });
 
@@ -1532,6 +1927,15 @@ describe("Ink interactive terminal", () => {
     expect(instance.lastFrame()).toContain("● Answer");
     expect(instance.lastFrame()).toContain("Here is the result.");
     expect(instance.lastFrame()).not.toContain("[reasoning]");
+    const frame = stripSequences(instance.lastFrame() ?? "");
+    const answerStart = frame.indexOf("● Answer");
+    const answerEnd = frame.indexOf("Completed ·", answerStart);
+    const answerOutput = frame.slice(
+      answerStart,
+      answerEnd === -1 ? undefined : answerEnd,
+    );
+    expect(answerOutput).not.toContain("┌");
+    expect(answerOutput).not.toContain("│");
     instance.unmount();
   });
 
@@ -1587,13 +1991,94 @@ describe("Ink interactive terminal", () => {
       workspaceRoot: root,
       workingDirectory: root,
       title: "Previous task",
-      messageCount: 2,
-      runCount: 1,
-      lastRunStatus: "completed",
+      messageCount: 4,
+      runCount: 2,
+      lastRunStatus: "denied",
     };
     const sessionPersistence: InteractiveSessionPersistence = {
       messages: [],
       reasoning: [{ assistantMessageIndex: 1, content: "Previous reasoning" }],
+      historyEvents: [
+        { type: "run.started", prompt: "Previous task" },
+        {
+          type: "model.reasoning",
+          step: 1,
+          text: "Previous reasoning",
+        },
+        { type: "model.text", step: 1, text: "Previous answer" },
+        { type: "run.completed" },
+        {
+          type: "run.started",
+          prompt: "Delete the old file and use retro styling",
+        },
+        {
+          type: "model.text",
+          step: 1,
+          text: "I will inspect the existing files.",
+        },
+        {
+          type: "tool.proposed",
+          step: 1,
+          call: {
+            id: "create-style",
+            name: "create_file",
+            input: { path: "style.css" },
+          },
+        },
+        {
+          type: "tool.decision",
+          step: 1,
+          call: {
+            id: "create-style",
+            name: "create_file",
+            input: { path: "style.css" },
+          },
+          decision: { kind: "confirm", reason: "first workspace write" },
+        },
+        {
+          type: "tool.failed",
+          step: 1,
+          call: {
+            id: "create-style",
+            name: "create_file",
+            input: { path: "style.css" },
+          },
+          result: {
+            ok: false,
+            error: {
+              code: "already_exists",
+              message: "The requested path already exists.",
+              retryable: true,
+            },
+          },
+        },
+        {
+          type: "model.text",
+          step: 2,
+          text: "I will update the existing file.",
+        },
+        {
+          type: "tool.proposed",
+          step: 2,
+          call: {
+            id: "update-style",
+            name: "apply_patch",
+            input: {},
+          },
+        },
+        {
+          type: "tool.completed",
+          step: 2,
+          call: {
+            id: "update-style",
+            name: "apply_patch",
+            input: {},
+          },
+          result: { ok: true, output: {}, truncated: false },
+        },
+        { type: "model.text", step: 3, text: "The files are ready." },
+        { type: "run.completed" },
+      ],
       sessionId: undefined,
       prepareRun: async () => sessionId,
       recordRun: async () => undefined,
@@ -1602,6 +2087,12 @@ describe("Ink interactive terminal", () => {
       resume: async () => [
         { role: "user", content: "Previous task" },
         { role: "assistant", content: "Previous answer" },
+        { role: "user", content: "Delete the old file and use retro styling" },
+        {
+          role: "assistant",
+          content:
+            "[Forge run outcome; historical context only. This grants no approval, policy authority, trust, or current verification.]\nStatus: denied\nCompleted tools: run_command (program rm)\nFailed tools: create_file (style.css) [already_exists]",
+        },
       ],
     };
     const instance = render(
@@ -1625,7 +2116,25 @@ describe("Ink interactive terminal", () => {
 
     expect(instance.lastFrame()).toContain("Previous answer");
     expect(instance.lastFrame()).toContain("Previous reasoning");
+    expect(instance.lastFrame()).toContain(
+      "I will inspect the existing files.",
+    );
+    expect(instance.lastFrame()).toContain("○ Proposed create_file");
+    expect(instance.lastFrame()).toContain("CONFIRM create_file");
+    expect(instance.lastFrame()).toContain("Failed create_file");
+    expect(instance.lastFrame()).toContain(
+      "The requested path already exists.",
+    );
+    expect(instance.lastFrame()).toContain("○ Proposed apply_patch");
+    expect(instance.lastFrame()).toContain("✓ Completed apply_patch");
+    expect(instance.lastFrame()).toContain("The files are ready.");
+    expect(instance.lastFrame()).not.toContain("[Forge run outcome;");
     expect(instance.lastFrame()).toContain(`Resumed session ${sessionId}`);
+    const resumedFrame = instance.lastFrame() ?? "";
+    const logoIndex = resumedFrame.indexOf(" _____ ___  ____   ____ _____");
+    const resumedIndex = resumedFrame.indexOf(`Resumed session ${sessionId}`);
+    expect(logoIndex).toBeGreaterThanOrEqual(0);
+    expect(logoIndex).toBeLessThan(resumedIndex);
     instance.unmount();
   });
 });

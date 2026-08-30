@@ -72,11 +72,11 @@ git push origin v0.3.1
 
 The `Publish npm package` workflow verifies that the Git tag, root version,
 private workspace versions, runtime version, and generated npm package all
-match before it runs `npm publish --access public`.
+match before it publishes with an explicit dist-tag. Stable semantic versions
+route to `latest`; versions with a prerelease component route to `next`.
 
-Use `npm publish --tag next` only for deliberate prereleases. Do not move a
-published Git tag or reuse an npm version. Fix a bad release with a new patch
-version and leave the prior artifact available for rollback.
+Do not move a published Git tag or reuse an npm version. Fix a bad release with
+a new patch version and leave the prior artifact available for rollback.
 
 ## User updates
 
@@ -85,12 +85,15 @@ Installed users can check or update explicitly:
 ```bash
 forge update check
 forge update
-forge update 0.3.2
+forge update 0.3.3
 ```
 
-Interactive startup refreshes an advisory npm check in the background at most
-once per 24 hours and displays cached results on a later launch. It never
-installs an update automatically. Set
+Interactive startup publishes cached, refreshing, available, current, failed,
+or disabled state inside Ink and refreshes npm metadata at most once per 24
+hours. A late result updates the banner without entering conversation history.
+It never installs automatically; `/update-dismiss` dismisses that version. Set
 `FORGE_DISABLE_UPDATE_CHECK=1` to disable startup checks. The explicit update
-command resolves npm metadata to an exact semantic version before invoking
-`npm install --global --ignore-scripts`.
+command remains repeatable and resolves an exact semantic version. It invokes
+npm or pnpm with an argument array and `--ignore-scripts` only when installation
+provenance is recognized; otherwise it reports the version and release notes
+without guessing. A successful install still requires restarting Forge.

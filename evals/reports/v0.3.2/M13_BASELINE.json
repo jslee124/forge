@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "forgeVersion": "0.3.2",
+  "recordedAt": "2026-08-28T17:15:00+08:00",
+  "fixture": "milestone-10-long-session-v1",
+  "method": "deterministic-offline",
+  "environment": {
+    "node": "24.18.0",
+    "platform": "darwin",
+    "startupSamplesMs": [270, 190, 180, 190, 190],
+    "startupMedianMs": 190,
+    "startupUpdateCheckBlockingLatencyMs": 0
+  },
+  "modes": [
+    {
+      "mode": "off",
+      "taskCompletion": 1,
+      "contextEstimateTokens": 11457,
+      "providerInputTokens": 11457,
+      "cacheReadTokens": null,
+      "cacheWriteTokens": null,
+      "approvalCount": 0,
+      "approvalWaitMs": 0,
+      "compactionCount": 0
+    },
+    {
+      "mode": "warn",
+      "taskCompletion": 1,
+      "contextEstimateTokens": 11457,
+      "providerInputTokens": 11457,
+      "cacheReadTokens": null,
+      "cacheWriteTokens": null,
+      "approvalCount": 0,
+      "approvalWaitMs": 0,
+      "compactionCount": 0
+    },
+    {
+      "mode": "compact",
+      "taskCompletion": 1,
+      "contextEstimateTokens": 2163,
+      "providerInputTokens": 2163,
+      "cacheReadTokens": null,
+      "cacheWriteTokens": null,
+      "approvalCount": 0,
+      "approvalWaitMs": 0,
+      "compactionCount": 1
+    }
+  ],
+  "notes": [
+    "Provider input is supplied by the deterministic fake adapter and is not a paid-provider measurement.",
+    "Null cache fields mean unavailable, not zero.",
+    "Startup samples are wall-clock forge --version runs; the update refresh is asynchronous and adds zero blocking wait by contract and offline test."
+  ]
+}

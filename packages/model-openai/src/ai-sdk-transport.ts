@@ -9,9 +9,11 @@ import {
   type ModelStreamEvent,
   type ModelToolDefinition,
   type ModelUsage,
+  projectCanonicalConversation,
 } from "@forge/core";
 import {
   APICallError,
+  InvalidPromptError,
   type LanguageModelUsage,
   type ModelMessage,
   RetryError,
@@ -64,6 +66,7 @@ export class AiSdkOpenAITransport implements OpenAITransport {
       const messages = buildMessages(request);
       const result = this.#streamText({
         model: openai.responses(request.model),
+        ...(request.instructions ? { instructions: request.instructions } : {}),
         messages,
         abortSignal: signal,
         onError: () => undefined,
@@ -180,10 +183,9 @@ function buildMessages(request: OpenAITransportRequest): ModelMessage[] {
     messages = [...data.messages] as ModelMessage[];
   } else {
     messages = [
-      ...(request.instructions
-        ? [{ role: "system" as const, content: request.instructions }]
-        : []),
-      ...(request.conversation ?? []),
+      ...(projectCanonicalConversation(
+        request.conversation ?? [],
+      ) as ModelMessage[]),
       { role: "user", content: request.prompt },
     ];
   }
@@ -247,6 +249,12 @@ function isAbortError(error: unknown): boolean {
 
 export function mapOpenAIError(error: unknown): ModelProviderError {
   if (error instanceof ModelProviderError) return error;
+  if (InvalidPromptError.isInstance(error)) {
+    return new ModelProviderError(
+      "Could not construct the OpenAI API request. Check the prompt and model configuration.",
+      { provider: "openai", retryable: false, cause: error },
+    );
+  }
   const apiError = unwrapApiCallError(error);
   const statusCode = apiError?.statusCode;
   if (statusCode === 401 || statusCode === 403) {

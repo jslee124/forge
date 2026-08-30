@@ -13,7 +13,7 @@
 
 <p align="center">
   <a href="https://github.com/jslee124/forge/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/jslee124/forge/ci.yml?branch=main&amp;style=flat-square&amp;label=CI" alt="CI 状态"></a>
-  <img src="https://img.shields.io/badge/source-v0.3.2-0e7490?style=flat-square" alt="源码版本 0.3.2">
+  <img src="https://img.shields.io/badge/source-v0.3.3-0e7490?style=flat-square" alt="源码版本 0.3.3">
   <img src="https://img.shields.io/badge/Node.js-%3E%3D24-3c873a?style=flat-square&amp;logo=nodedotjs&amp;logoColor=white" alt="Node.js 24 或更高版本">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-7c3aed?style=flat-square" alt="MIT 许可证"></a>
 </p>
@@ -256,11 +256,11 @@ pnpm forge --help        # 构建并查看 CLI 帮助
 
 ## 当前状态与限制
 
-Forge 仍在积极开发中。当前稳定源码与 npm release 是 `0.3.2`；此前功能基线的历史说明见 [v0.3.0 发布说明](docs/zh-CN/releases/v0.3.0.md)。自动上下文 checkpoint 仍默认 opt-in，同时还在收集 provider 质量证据。
+Forge 仍在积极开发中。当前开发源码版本是 `0.3.3`；在 release workflow 执行前，npm 最新公开版本仍是 `0.3.2`。首个公开功能基线的历史说明见 [v0.3.0 发布说明](docs/zh-CN/history/v0.3.0/RELEASE_NOTES.md)。自动上下文 checkpoint 仍默认 opt-in，同时还在收集 live provider 质量证据。
 
 - Native runtime 支持 DeepSeek、OpenAI API 和已配置的 OpenAI-compatible 路由；原生 Anthropic 与 Gemini 协议尚未实现。
 - 模型行为具有非确定性；运行时正确不保证真实任务成功。
-- Resume 恢复已完成的对话文本，不恢复待执行工具调用或旧审批。
+- Resume 会重放可用的历史模型/工具事件，但不会重新激活待执行工具调用或旧审批。
 - 插件是受信任的本地代码，不是隔离扩展。
 - 除了有界的 plugin-declared subagent 之外，更通用的多 Agent 编排、RAG、IDE 集成、云端执行、自治 Git push 和跨机器会话同步不在范围内。
 

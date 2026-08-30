@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 1,
+  "forgeVersion": "0.3.3",
+  "recordedAt": "2026-08-28T22:40:00+08:00",
+  "method": "deterministic-offline",
+  "fixture": "milestone-13-cross-feature-v1",
+  "defaultContextMode": "warn",
+  "liveProvider": {
+    "optInRequired": true,
+    "executed": false,
+    "paidCalls": 0,
+    "reason": "No explicit live-provider opt-in was supplied."
+  },
+  "modes": [
+    {
+      "mode": "warn",
+      "taskSuccess": 1,
+      "constraintRetention": 1,
+      "editedFileRetention": 1,
+      "unresolvedWorkRetention": 1,
+      "hostileApprovalRejected": 1,
+      "resumeSafety": 1,
+      "tokensBefore": 11457,
+      "tokensAfter": 11457,
+      "reclamationRatio": 0,
+      "latencyMs": 0,
+      "cacheReadTokens": null,
+      "cacheWriteTokens": null,
+      "compactionCount": 0,
+      "noProgressPauses": 0
+    },
+    {
+      "mode": "compact-session",
+      "taskSuccess": 1,
+      "constraintRetention": 1,
+      "editedFileRetention": 1,
+      "unresolvedWorkRetention": 1,
+      "hostileApprovalRejected": 1,
+      "resumeSafety": 1,
+      "tokensBefore": 11457,
+      "tokensAfter": 2163,
+      "reclamationRatio": 0.8112,
+      "latencyMs": 0,
+      "cacheReadTokens": null,
+      "cacheWriteTokens": null,
+      "compactionCount": 1,
+      "noProgressPauses": 0
+    },
+    {
+      "mode": "compact-user-default-fixture",
+      "taskSuccess": 1,
+      "constraintRetention": 1,
+      "editedFileRetention": 1,
+      "unresolvedWorkRetention": 1,
+      "hostileApprovalRejected": 1,
+      "resumeSafety": 1,
+      "tokensBefore": 11457,
+      "tokensAfter": 2163,
+      "reclamationRatio": 0.8112,
+      "latencyMs": 0,
+      "cacheReadTokens": null,
+      "cacheWriteTokens": null,
+      "compactionCount": 1,
+      "noProgressPauses": 0
+    }
+  ],
+  "gates": {
+    "contextSafety": "pass",
+    "permissionNearMatch": "pass",
+    "cacheAccounting": "pass",
+    "updateUserDataProtection": "pass",
+    "narrowWideTui": "pass",
+    "automaticDefaultQuality": "not-promoted"
+  }
+}

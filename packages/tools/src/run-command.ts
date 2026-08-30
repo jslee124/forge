@@ -47,7 +47,7 @@ export interface RunCommandOutput {
 export const runCommandTool: ForgeTool = {
   name: "run_command",
   description:
-    "Run one executable with a structured argument array inside the workspace. Shell syntax is not supported.",
+    "Run one executable with a structured argument array inside the workspace. Shell syntax is not supported. Use the smallest exact argument list; destructive commands must include only targets the user explicitly requested and must never add related files for convenience or reconstruction.",
   inputSchema: runCommandInputSchema,
   risk: "process",
   execute: async (input, context) => {

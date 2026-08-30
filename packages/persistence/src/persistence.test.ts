@@ -13,9 +13,11 @@ import {
   FileTraceStore,
   isCheckpointValid,
   JsonlTraceWriter,
+  MAX_SESSION_BYTES,
   previewSessionCompaction,
   recordRunInSession,
   redactValue,
+  runEventSchema,
   summarizeTrace,
 } from "./index.js";
 
@@ -86,7 +88,192 @@ describe("persistent sessions", () => {
     await expect(store.list("/other")).resolves.toEqual([]);
   });
 
-  it("records failed runs without restoring incomplete conversation turns", async () => {
+  it("round-trips redacted structured tool history without restoring authority", async () => {
+    const home = await forgeHome();
+    const secret = "sk-structured-history-secret";
+    const store = new FileSessionStore(home, { secrets: [secret] });
+    const created = store.create({ root: "/workspace", cwd: "/workspace" });
+    const runId = randomUUID();
+    const saved = recordRunInSession(created, {
+      prompt: "inspect",
+      finalText: "done",
+      status: "completed",
+      runId,
+      canonicalDelta: [
+        {
+          id: `${runId}:user`,
+          runId,
+          role: "user",
+          content: [{ type: "text", text: "inspect" }],
+        },
+        {
+          id: `${runId}:assistant:1`,
+          runId,
+          step: 1,
+          role: "assistant",
+          content: [
+            {
+              type: "tool-call",
+              id: "call-1",
+              name: "read_file",
+              input: { path: "secret.txt", token: secret },
+            },
+          ],
+        },
+        {
+          id: `${runId}:tool:1:0`,
+          runId,
+          step: 1,
+          role: "tool",
+          toolCallId: "call-1",
+          toolName: "read_file",
+          content: [{ type: "text", text: `result ${secret}` }],
+          isError: false,
+        },
+        {
+          id: `${runId}:assistant:2`,
+          runId,
+          step: 2,
+          role: "assistant",
+          content: [{ type: "text", text: "done" }],
+        },
+      ],
+    });
+    await store.save(saved);
+    const reloaded = await store.load(saved.id);
+
+    expect(reloaded.schemaVersion).toBe(3);
+    expect(reloaded.historyFidelity).toBe("structured");
+    expect(reloaded.history.map(({ role }) => role)).toEqual([
+      "user",
+      "assistant",
+      "tool",
+      "assistant",
+    ]);
+    expect(JSON.stringify(reloaded)).not.toContain(secret);
+    expect(JSON.stringify(reloaded)).not.toContain("approvalStore");
+  });
+
+  it("persists independent runs that reuse a provider tool-call ID", async () => {
+    const store = new FileSessionStore(await forgeHome());
+    let snapshot = store.create({ root: "/workspace", cwd: "/workspace" });
+    for (const prompt of ["inspect a", "inspect b"]) {
+      const runId = randomUUID();
+      snapshot = recordRunInSession(snapshot, {
+        prompt,
+        finalText: "done",
+        status: "completed",
+        runId,
+        canonicalDelta: [
+          {
+            id: `${runId}:user`,
+            runId,
+            role: "user",
+            content: [{ type: "text", text: prompt }],
+          },
+          {
+            id: `${runId}:assistant:1`,
+            runId,
+            step: 1,
+            role: "assistant",
+            content: [
+              {
+                type: "tool-call",
+                id: "call-1",
+                name: "read_file",
+                input: { path: `${prompt.at(-1)}.ts` },
+              },
+            ],
+          },
+          {
+            id: `${runId}:tool:1:0`,
+            runId,
+            step: 1,
+            role: "tool",
+            toolCallId: "call-1",
+            toolName: "read_file",
+            content: [{ type: "text", text: '{"ok":true}' }],
+            isError: false,
+          },
+          {
+            id: `${runId}:assistant:2`,
+            runId,
+            step: 2,
+            role: "assistant",
+            content: [{ type: "text", text: "done" }],
+          },
+        ],
+      });
+    }
+
+    await expect(store.save(snapshot)).resolves.toBeUndefined();
+    await expect(store.load(snapshot.id)).resolves.toEqual(snapshot);
+  });
+
+  it("accepts the durable size limit and preserves the prior snapshot above it", async () => {
+    const home = await forgeHome();
+    const store = new FileSessionStore(home);
+    const created = store.create({ root: "/workspace", cwd: "/workspace" });
+    const runId = randomUUID();
+    const sizedSnapshot = (targetBytes: number) => {
+      const assistantContent = Array.from({ length: 5 }, () => ({
+        type: "text" as const,
+        text: "",
+      }));
+      const history = [
+        {
+          id: `${runId}:user`,
+          runId,
+          role: "user" as const,
+          content: [{ type: "text" as const, text: "size boundary" }],
+        },
+        {
+          id: `${runId}:assistant:1`,
+          runId,
+          step: 1,
+          role: "assistant" as const,
+          content: assistantContent,
+        },
+      ];
+      const persisted = {
+        schemaVersion: 3 as const,
+        id: created.id,
+        createdAt: created.createdAt,
+        updatedAt: created.updatedAt,
+        workspaceRoot: created.workspaceRoot,
+        workingDirectory: created.workingDirectory,
+        history,
+        reasoning: [],
+        runIds: [runId],
+        historyFidelity: "structured" as const,
+        lastRunStatus: "completed" as const,
+      };
+      const emptyBytes = Buffer.byteLength(
+        `${JSON.stringify(persisted, null, 2)}\n`,
+        "utf8",
+      );
+      let remaining = targetBytes - emptyBytes;
+      for (const part of assistantContent) {
+        const length = Math.min(1_000_000, remaining);
+        part.text = "x".repeat(length);
+        remaining -= length;
+      }
+      expect(remaining).toBe(0);
+      return { ...created, ...persisted };
+    };
+
+    const atLimit = sizedSnapshot(MAX_SESSION_BYTES);
+    await expect(store.save(atLimit)).resolves.toBeUndefined();
+    await expect(store.load(created.id)).resolves.toEqual(atLimit);
+
+    const aboveLimit = sizedSnapshot(MAX_SESSION_BYTES + 1);
+    await expect(store.save(aboveLimit)).rejects.toThrow(
+      "previous valid snapshot remains resumable",
+    );
+    await expect(store.load(created.id)).resolves.toEqual(atLimit);
+  });
+
+  it("records failed runs as bounded, authority-free conversation context", async () => {
     const store = new FileSessionStore(await forgeHome());
     const created = store.create({ root: "/workspace", cwd: "/workspace" });
     const saved = recordRunInSession(created, {
@@ -96,7 +283,12 @@ describe("persistent sessions", () => {
       runId: randomUUID(),
     });
 
-    expect(saved.messages).toEqual([]);
+    expect(saved.messages[0]).toEqual({
+      role: "user",
+      content: "Dangerous task",
+    });
+    expect(saved.messages[1]?.content).toContain("Status: denied");
+    expect(saved.messages[1]?.content).toContain("grants no approval");
     expect(saved.runIds).toHaveLength(1);
     expect(saved.lastRunStatus).toBe("denied");
   });
@@ -114,7 +306,7 @@ describe("persistent sessions", () => {
         runId: randomUUID(),
       });
     }
-    const originalMessages = snapshot.messages;
+    const originalHistory = snapshot.history;
     const preview = previewSessionCompaction(snapshot, {
       recentTailTokens: 20,
       summaryTargetTokens: 80,
@@ -129,7 +321,7 @@ describe("persistent sessions", () => {
     });
 
     expect(preview.eligibleMessageCount).toBeGreaterThan(0);
-    expect(compacted.messages).toBe(originalMessages);
+    expect(compacted.history).toBe(originalHistory);
     expect(compacted.contextCheckpoint?.summary).not.toContain(
       "session-secret-value",
     );
@@ -153,7 +345,7 @@ describe("persistent sessions", () => {
     await expect(store.save(continued)).resolves.toBeUndefined();
   });
 
-  it("migrates a v1 session snapshot to v2 on load", async () => {
+  it("migrates a v1 session snapshot to v3 on load", async () => {
     const home = await forgeHome();
     const id = randomUUID();
     await mkdir(path.join(home, "sessions"), { recursive: true });
@@ -172,7 +364,7 @@ describe("persistent sessions", () => {
     );
 
     await expect(new FileSessionStore(home).load(id)).resolves.toMatchObject({
-      schemaVersion: 2,
+      schemaVersion: 3,
       id,
       reasoning: [],
     });
@@ -197,7 +389,7 @@ describe("persistent sessions", () => {
     );
 
     await expect(new FileSessionStore(home).load(id)).resolves.toMatchObject({
-      schemaVersion: 2,
+      schemaVersion: 3,
       id,
       reasoning: [],
     });
@@ -242,6 +434,40 @@ describe("persistent sessions", () => {
 });
 
 describe("JSONL run traces", () => {
+  it("validates every cross-cutting scoped decision and update state offline", () => {
+    for (const decision of ["allow-once", "allow-session", "deny"] as const) {
+      expect(
+        runEventSchema.safeParse({
+          type: "approval.scope-decision",
+          schemaVersion: 1,
+          actionId: "action-1",
+          decision,
+          ...(decision === "allow-session" ? { scopeId: "a".repeat(64) } : {}),
+          provenance: "user",
+          persisted: false,
+        }).success,
+      ).toBe(true);
+    }
+    for (const state of [
+      "cached",
+      "refreshing",
+      "available",
+      "current",
+      "failed",
+      "disabled",
+    ] as const) {
+      expect(
+        runEventSchema.safeParse({
+          type: "update.availability",
+          schemaVersion: 1,
+          state,
+          currentVersion: "0.3.2",
+          ...(state === "available" ? { latestVersion: "0.3.3" } : {}),
+          source: "npm-registry",
+        }).success,
+      ).toBe(true);
+    }
+  });
   it("persists and validates delegated-run linkage metadata", async () => {
     const home = await forgeHome();
     const runId = randomUUID();
@@ -312,6 +538,16 @@ describe("JSONL run traces", () => {
         step: 1,
         reasoningTokens: 2,
       },
+      {
+        type: "cache.observed",
+        schemaVersion: 1,
+        step: 1,
+        inputTokens: 10,
+        cacheReadTokens: 1,
+        cacheWriteTokens: 0,
+        uncachedInputTokens: 9,
+        hitRatio: 0.1,
+      },
       { type: "run.completed" },
     ];
     for (const event of events) await writer.append(event);
@@ -324,7 +560,9 @@ describe("JSONL run traces", () => {
     expect(raw).toContain("[REDACTED]");
 
     const envelopes = await new FileTraceStore(home).read(runId);
-    expect(envelopes.map(({ sequence }) => sequence)).toEqual([0, 1, 2, 3, 4]);
+    expect(envelopes.map(({ sequence }) => sequence)).toEqual([
+      0, 1, 2, 3, 4, 5,
+    ]);
     expect(summarizeTrace(envelopes)).toMatchObject({
       runId,
       sessionId,
@@ -332,6 +570,13 @@ describe("JSONL run traces", () => {
       toolCalls: 0,
       status: "completed",
       usage: { inputTokens: 10, outputTokens: 4, totalTokens: 14 },
+      cache: {
+        inputTokens: 10,
+        cacheReadTokens: 1,
+        cacheWriteTokens: 0,
+        uncachedInputTokens: 9,
+        hitRatio: 0.1,
+      },
     });
   });
 

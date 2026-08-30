@@ -13,6 +13,8 @@ import {
   exitCodeForRunStatus,
   ReadOnlyPolicy,
   runAgent,
+  runConversationMessages,
+  SessionApprovalStore,
   WorkspaceWritePolicy,
 } from "./index.js";
 
@@ -101,6 +103,56 @@ function fakeReadTool(executions: string[]): ForgeTool {
 }
 
 describe("native agent runtime", () => {
+  it("keeps unavailable cache telemetry distinct from provider-reported zero", async () => {
+    const unavailable = new ScriptedModel([
+      [
+        {
+          type: "finish",
+          finishReason: "stop",
+          usage: {
+            inputTokens: undefined,
+            outputTokens: 1,
+            reasoningTokens: undefined,
+            cachedInputTokens: undefined,
+            cacheWriteTokens: undefined,
+            totalTokens: 1,
+          },
+        },
+      ],
+    ]);
+    const result = await runAgent({
+      prompt: "cache",
+      model: unavailable,
+      tools: [],
+      policy: new ReadOnlyPolicy(),
+      toolContext,
+      signal: toolContext.signal,
+    });
+    expect(result.events).toContainEqual({
+      type: "cache.observed",
+      schemaVersion: 1,
+      step: 1,
+    });
+
+    const zero = await runAgent({
+      prompt: "cache",
+      model: new ScriptedModel([[finish("stop")]]),
+      tools: [],
+      policy: new ReadOnlyPolicy(),
+      toolContext,
+      signal: toolContext.signal,
+    });
+    expect(zero.events).toContainEqual(
+      expect.objectContaining({
+        type: "cache.observed",
+        inputTokens: 1,
+        cacheReadTokens: 0,
+        uncachedInputTokens: 1,
+        hitRatio: 0,
+      }),
+    );
+  });
+
   it("emits a preflight and stops mandatory overflow before a provider call", async () => {
     let calls = 0;
     const model: ModelAdapter = {
@@ -206,6 +258,80 @@ describe("native agent runtime", () => {
     expect(requests[2]?.continuation?.data).toEqual({ projected: true });
   });
 
+  it("compacts at projected pressure before a hard overflow", async () => {
+    const requests: ModelRequest[] = [];
+    let step = 0;
+    const model: ModelAdapter = {
+      promptCache: { mode: "unsupported" },
+      context: {
+        provider: "fake",
+        modelId: "pressure",
+        contextWindowTokens: 12_000,
+        contextWindowSource: "adapter-table",
+        maxOutputTokens: 2_000,
+        nativeCompaction: "unsupported",
+        continuationProjection: "adapter-owned",
+        estimateRequestTokens: async (request) => ({
+          tokens:
+            request.continuation &&
+            (request.continuation.data as { projected?: boolean }).projected
+              ? 3_000
+              : request.continuation
+                ? 9_000
+                : 1_000,
+          method: "sdk",
+          confidence: "exact",
+        }),
+        projectContinuation: async (continuation) => ({
+          provider: continuation.provider,
+          data: { projected: true },
+        }),
+      },
+      stream: async function* (request) {
+        requests.push(request);
+        step += 1;
+        if (step === 1) {
+          yield toolCall("pressure-tool", "a.ts");
+          yield {
+            ...finish("tool-calls"),
+            continuation: { provider: "fake", data: { projected: false } },
+          };
+          return;
+        }
+        yield { type: "text.delta", text: "Compacted before overflow." };
+        yield finish("stop");
+      },
+    };
+    const result = await runAgent({
+      prompt: "pressure",
+      model,
+      tools: [fakeReadTool([])],
+      policy: new ReadOnlyPolicy(),
+      toolContext,
+      signal: toolContext.signal,
+      contextPressureMode: "auto-session",
+      contextConfiguration: {
+        mode: "compact",
+        reservedOutputTokens: 2_000,
+        bufferTokens: 1_000,
+        recentTailTokens: 1_000,
+        summaryTargetTokens: 500,
+        activationThreshold: 0.78,
+        minimumReclaimTokens: 100,
+        minimumReclaimRatio: 0.2,
+      },
+    });
+    expect(result.status).toBe("completed");
+    expect(requests[1]?.continuation?.data).toEqual({ projected: true });
+    expect(result.events).toContainEqual(
+      expect.objectContaining({
+        type: "context.compaction.completed",
+        estimatedBeforeTokens: 9_000,
+        estimatedAfterTokens: 3_000,
+      }),
+    );
+  });
+
   it("does not retry an overflow after partial assistant output", async () => {
     let requestIndex = 0;
     let projections = 0;
@@ -266,6 +392,7 @@ describe("native agent runtime", () => {
     const executions: string[] = [];
 
     const result = await runAgent({
+      runId: "run-structured",
       prompt: "Find the answer",
       model,
       tools: [fakeReadTool(executions)],
@@ -284,6 +411,44 @@ describe("native agent runtime", () => {
       continuation: { provider: "fake", data: { step: 1 } },
       toolResults: [{ callId: "call-1", toolName: "read_file" }],
     });
+    expect(result.canonicalDelta).toEqual([
+      expect.objectContaining({
+        id: "run-structured:user",
+        role: "user",
+      }),
+      expect.objectContaining({
+        id: "run-structured:assistant:1",
+        role: "assistant",
+        content: [
+          expect.objectContaining({
+            type: "tool-call",
+            id: "call-1",
+            name: "read_file",
+          }),
+        ],
+      }),
+      expect.objectContaining({
+        id: "run-structured:tool:1:0",
+        role: "tool",
+        toolCallId: "call-1",
+        isError: false,
+      }),
+      expect.objectContaining({
+        id: "run-structured:assistant:2",
+        role: "assistant",
+      }),
+      expect.objectContaining({
+        id: "run-structured:tool:2:0",
+        role: "tool",
+        toolCallId: "call-2",
+        isError: false,
+      }),
+      expect.objectContaining({
+        id: "run-structured:assistant:3",
+        role: "assistant",
+        content: [{ type: "text", text: "The answer is 42." }],
+      }),
+    ]);
 
     const eventTypes = result.events.map(({ type }) => type);
     expect(eventTypes.indexOf("tool.decision")).toBeLessThan(
@@ -424,9 +589,16 @@ describe("native agent runtime", () => {
     expect(executions).toEqual(["a.ts"]);
   });
 
-  it("does not execute a denied or unapproved action", async () => {
+  it("returns policy denial to the model without executing the action", async () => {
     const executions: string[] = [];
-    const model = () =>
+    const deniedModel = new ScriptedModel([
+      [toolCall("call-1", "a.ts"), finish("tool-calls", 1)],
+      [
+        { type: "text.delta", text: "I will use another approach." },
+        finish("stop"),
+      ],
+    ]);
+    const oneStepModel = () =>
       new ScriptedModel([
         [toolCall("call-1", "a.ts"), finish("tool-calls", 1)],
       ]);
@@ -445,21 +617,25 @@ describe("native agent runtime", () => {
 
     const denied = await runAgent({
       ...base,
-      model: model(),
+      model: deniedModel,
       policy: denyPolicy,
     });
     const noChannel = await runAgent({
       ...base,
-      model: model(),
+      model: oneStepModel(),
       policy: confirmPolicy,
     });
 
-    expect(denied).toMatchObject({ status: "denied", exitCode: 4 });
+    expect(denied).toMatchObject({ status: "completed", exitCode: 0 });
     expect(noChannel).toMatchObject({ status: "denied", exitCode: 4 });
     expect(executions).toEqual([]);
     expect(denied.events.some(({ type }) => type === "tool.decision")).toBe(
       true,
     );
+    expect(deniedModel.requests[1]?.toolResults?.[0]?.result).toMatchObject({
+      ok: false,
+      error: { code: "approval_denied", retryable: false },
+    });
   });
 
   it("executes a confirmed action only after channel approval", async () => {
@@ -484,7 +660,7 @@ describe("native agent runtime", () => {
     expect(executions).toEqual(["a.ts"]);
   });
 
-  it("scopes one patch approval to later patches in the same run only", async () => {
+  it("reuses an explicit workspace-write grant in the active session only", async () => {
     const executions: string[] = [];
     const patchTool: ForgeTool = {
       name: "apply_patch",
@@ -506,6 +682,10 @@ describe("native agent runtime", () => {
       [{ type: "text.delta", text: "Patched." }, finish("stop")],
     ]);
     let approvals = 0;
+    const approvalStore = new SessionApprovalStore({
+      workspaceRoot: "/workspace",
+      sessionId: "active",
+    });
 
     const result = await runAgent({
       prompt: "Patch twice",
@@ -517,7 +697,12 @@ describe("native agent runtime", () => {
           approvals += 1;
           return true;
         },
+        requestStructured: async () => {
+          approvals += 1;
+          return { kind: "allow-session" };
+        },
       },
+      approvalStore,
       toolContext,
       signal: toolContext.signal,
     });
@@ -531,7 +716,14 @@ describe("native agent runtime", () => {
         .map((event) =>
           event.type === "tool.decision" ? event.decision.kind : "",
         ),
-    ).toEqual(["confirm", "allow"]);
+    ).toEqual(["confirm", "confirm"]);
+    expect(
+      result.events
+        .filter(({ type }) => type === "approval.scope-decision")
+        .map((event) =>
+          event.type === "approval.scope-decision" ? event.provenance : "",
+        ),
+    ).toEqual(["user", "policy"]);
     expect(
       await new WorkspaceWritePolicy().evaluate(
         {
@@ -593,6 +785,207 @@ describe("native agent runtime", () => {
 
     expect(result.status).toBe("completed");
     expect(approvals).toBe(2);
+  });
+
+  it("returns bounded denial feedback to the active tool loop without approving", async () => {
+    const executions: string[] = [];
+    const model = new ScriptedModel([
+      [toolCall("denied-call", "secret.ts"), finish("tool-calls", 1)],
+      [{ type: "text.delta", text: "Understood." }, finish("stop")],
+    ]);
+    const result = await runAgent({
+      prompt: "Read",
+      model,
+      tools: [fakeReadTool(executions)],
+      policy: {
+        evaluate: async () => ({ kind: "confirm", reason: "Confirm it." }),
+      },
+      approvalChannel: {
+        request: async () => false,
+        requestStructured: async () => ({
+          kind: "deny",
+          feedback: "Use the public fixture instead.",
+        }),
+      },
+      toolContext,
+      signal: toolContext.signal,
+    });
+
+    expect(result.status).toBe("completed");
+    expect(executions).toEqual([]);
+    expect(model.requests[1]?.toolResults?.[0]?.result).toMatchObject({
+      ok: false,
+      error: {
+        code: "approval_denied",
+        message: "The user denied this action: Use the public fixture instead.",
+      },
+    });
+  });
+
+  it("returns a denial without feedback and does not re-prompt unchanged calls", async () => {
+    const executions: string[] = [];
+    const repeated = toolCall("denied-again", "secret.ts");
+    const model = new ScriptedModel([
+      [toolCall("denied-once", "secret.ts"), finish("tool-calls", 1)],
+      [repeated, finish("tool-calls", 2)],
+      [
+        { type: "text.delta", text: "I cannot perform that action." },
+        finish("stop"),
+      ],
+    ]);
+    let approvalRequests = 0;
+    const result = await runAgent({
+      prompt: "Read",
+      model,
+      tools: [fakeReadTool(executions)],
+      policy: {
+        evaluate: async () => ({ kind: "confirm", reason: "Confirm it." }),
+      },
+      approvalChannel: {
+        request: async () => false,
+        requestStructured: async () => {
+          approvalRequests += 1;
+          return { kind: "deny" };
+        },
+      },
+      toolContext,
+      signal: toolContext.signal,
+    });
+
+    expect(result.status).toBe("completed");
+    expect(approvalRequests).toBe(1);
+    expect(executions).toEqual([]);
+    expect(model.requests[1]?.toolResults?.[0]?.result).toMatchObject({
+      ok: false,
+      error: { code: "approval_denied", retryable: false },
+    });
+    expect(model.requests[2]?.toolResults?.[0]?.result).toMatchObject({
+      ok: false,
+      error: { code: "approval_denied", retryable: false },
+    });
+  });
+
+  it("returns approval preflight failures to the active model loop", async () => {
+    const executions: string[] = [];
+    const model = new ScriptedModel([
+      [toolCall("create-existing", "existing.ts"), finish("tool-calls", 1)],
+      [
+        {
+          type: "text.delta",
+          text: "I will modify the existing file instead.",
+        },
+        finish("stop"),
+      ],
+    ]);
+    const result = await runAgent({
+      prompt: "Update existing.ts",
+      model,
+      tools: [fakeReadTool(executions)],
+      policy: {
+        evaluate: async () => ({ kind: "confirm", reason: "Confirm it." }),
+      },
+      approvalChannel: {
+        request: async () => false,
+        requestStructured: async () => ({
+          kind: "preflight-failed",
+          result: {
+            ok: false,
+            error: {
+              code: "already_exists",
+              message: "The requested path already exists; use apply_patch.",
+              retryable: true,
+            },
+          },
+        }),
+      },
+      toolContext,
+      signal: toolContext.signal,
+    });
+
+    expect(result.status).toBe("completed");
+    expect(executions).toEqual([]);
+    expect(model.requests[1]?.toolResults?.[0]?.result).toMatchObject({
+      ok: false,
+      error: { code: "already_exists", retryable: true },
+    });
+  });
+
+  it("summarizes partial side effects for the next conversation turn", () => {
+    const messages = runConversationMessages("Delete old and restyle", {
+      status: "denied",
+      finalText: "Started the update.",
+      message: "A later action was denied.",
+      events: [
+        {
+          type: "tool.completed",
+          step: 1,
+          call: {
+            id: "remove-old",
+            name: "run_command",
+            input: { program: "rm", args: ["old.html"] },
+          },
+          result: { ok: true, output: {}, truncated: false },
+        },
+        {
+          type: "tool.failed",
+          step: 2,
+          call: {
+            id: "create-existing",
+            name: "create_file",
+            input: { path: "style.css", content: "secret body omitted" },
+          },
+          result: {
+            ok: false,
+            error: {
+              code: "already_exists",
+              message: "Use apply_patch instead.",
+              retryable: true,
+            },
+          },
+        },
+      ],
+    });
+
+    expect(messages[0]).toEqual({
+      role: "user",
+      content: "Delete old and restyle",
+    });
+    expect(messages[1]?.content).toContain(
+      "Completed tools: run_command (program rm)",
+    );
+    expect(messages[1]?.content).toContain(
+      "create_file (style.css) [already_exists]",
+    );
+    expect(messages[1]?.content).not.toContain("secret body omitted");
+    expect(messages[1]?.content).toContain("grants no approval");
+
+    const recovered = runConversationMessages("Use a safer alternative", {
+      status: "completed",
+      finalText: "I used apply_patch instead.",
+      events: [
+        {
+          type: "tool.failed",
+          step: 1,
+          call: {
+            id: "create-existing-again",
+            name: "create_file",
+            input: { path: "style.css", content: "still omitted" },
+          },
+          result: {
+            ok: false,
+            error: {
+              code: "already_exists",
+              message: "sensitive provider detail",
+              retryable: true,
+            },
+          },
+        },
+      ],
+    });
+    expect(recovered[1]?.content).toContain("I used apply_patch instead.");
+    expect(recovered[1]?.content).toContain("[already_exists]");
+    expect(recovered[1]?.content).not.toContain("sensitive provider detail");
+    expect(recovered[1]?.content).not.toContain("still omitted");
   });
 
   it("reports failed and cancelled model runs", async () => {
@@ -658,6 +1051,30 @@ describe("native agent runtime", () => {
 
     expect(result).toMatchObject({ status: "cancelled", exitCode: 130 });
     expect(model.requests).toHaveLength(1);
+    expect(result.canonicalDelta).toHaveLength(2);
+    expect(result.canonicalDelta?.[1]).toMatchObject({
+      role: "assistant",
+      content: [
+        {
+          type: "text",
+          text: expect.stringContaining(
+            "were not returned to the model: read_file",
+          ),
+        },
+      ],
+    });
+    expect(result.canonicalDelta?.[1]).toEqual(
+      expect.objectContaining({
+        content: [
+          expect.objectContaining({
+            text: expect.stringContaining("Re-inspect relevant"),
+          }),
+        ],
+      }),
+    );
+    expect(JSON.stringify(result.canonicalDelta)).not.toContain(
+      '"type":"tool-call"',
+    );
   });
 
   it("forwards images without exposing their bytes in run events", async () => {

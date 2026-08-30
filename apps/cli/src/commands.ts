@@ -4,6 +4,8 @@ export interface SlashCommand {
     | "/new"
     | "/clear"
     | "/context"
+    | "/permissions"
+    | "/update-dismiss"
     | "/compact"
     | "/plugins"
     | "/resources"
@@ -24,6 +26,14 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
   {
     name: "/context",
     description: "Show context budget and checkpoint status",
+  },
+  {
+    name: "/permissions",
+    description: "Review and revoke session permission grants",
+  },
+  {
+    name: "/update-dismiss",
+    description: "Dismiss the currently advertised update version",
   },
   { name: "/compact", description: "Create a safe conversation checkpoint" },
   { name: "/plugins", description: "Review and manage project plugins" },

@@ -39,7 +39,10 @@ export type ConfigKey =
   | "context.reservedOutputTokens"
   | "context.bufferTokens"
   | "context.recentTailTokens"
-  | "context.summaryTargetTokens";
+  | "context.summaryTargetTokens"
+  | "context.activationThreshold"
+  | "context.minimumReclaimTokens"
+  | "context.minimumReclaimRatio";
 
 export interface ConfigSource {
   readonly kind: "default" | "user" | "project" | "environment" | "cli";
@@ -65,6 +68,9 @@ export interface ConfigOverrides {
   readonly bufferTokens?: number;
   readonly recentTailTokens?: number;
   readonly summaryTargetTokens?: number;
+  readonly activationThreshold?: number;
+  readonly minimumReclaimTokens?: number;
+  readonly minimumReclaimRatio?: number;
 }
 
 interface ForgeEnvironment extends NodeJS.ProcessEnv {
@@ -148,6 +154,26 @@ export async function saveUserModelSelection(options: {
       },
     },
     "model selection",
+  );
+}
+
+export async function saveUserContextMode(options: {
+  readonly cwd: string;
+  readonly env?: NodeJS.ProcessEnv;
+  readonly mode: EffectiveForgeConfig["context"]["mode"];
+}): Promise<string> {
+  const loaded = await loadForgeConfig({
+    cwd: options.cwd,
+    ...(options.env ? { env: options.env } : {}),
+  });
+  const existing = await readConfigFile(loaded.userConfigPath);
+  return writeUserConfig(
+    loaded,
+    {
+      ...(existing ?? { schemaVersion: 1 }),
+      context: { ...(existing?.context ?? {}), mode: options.mode },
+    },
+    "context mode",
   );
 }
 
@@ -371,6 +397,9 @@ const CONFIG_KEYS: readonly ConfigKey[] = [
   "context.bufferTokens",
   "context.recentTailTokens",
   "context.summaryTargetTokens",
+  "context.activationThreshold",
+  "context.minimumReclaimTokens",
+  "context.minimumReclaimRatio",
 ];
 
 function cloneDefaults(): EffectiveForgeConfig {
@@ -540,6 +569,12 @@ function mergeOrdinary(
         next.context?.recentTailTokens ?? base.context.recentTailTokens,
       summaryTargetTokens:
         next.context?.summaryTargetTokens ?? base.context.summaryTargetTokens,
+      activationThreshold:
+        next.context?.activationThreshold ?? base.context.activationThreshold,
+      minimumReclaimTokens:
+        next.context?.minimumReclaimTokens ?? base.context.minimumReclaimTokens,
+      minimumReclaimRatio:
+        next.context?.minimumReclaimRatio ?? base.context.minimumReclaimRatio,
     },
     providers,
   };
@@ -807,6 +842,9 @@ const CONTEXT_LIMIT_KEYS = [
   ["bufferTokens", "context.bufferTokens"],
   ["recentTailTokens", "context.recentTailTokens"],
   ["summaryTargetTokens", "context.summaryTargetTokens"],
+  ["activationThreshold", "context.activationThreshold"],
+  ["minimumReclaimTokens", "context.minimumReclaimTokens"],
+  ["minimumReclaimRatio", "context.minimumReclaimRatio"],
 ] as const;
 
 const CONTEXT_MODE_STRENGTH = { off: 0, warn: 1, compact: 2 } as const;

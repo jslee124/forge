@@ -128,7 +128,7 @@ function finish(
 }
 
 describe("canonical safe-coding vertical slice", () => {
-  it("recovers from failing verification and preserves approval scope", async () => {
+  it("recovers from failing verification with fresh allow-once approvals", async () => {
     const parent = await mkdtemp(path.join(tmpdir(), "forge-recovery-"));
     temporaryDirectories.push(parent);
     const workspaceRoot = path.join(parent, "validation-bug");
@@ -178,6 +178,7 @@ describe("canonical safe-coding vertical slice", () => {
     expect(approvals).toEqual([
       "incomplete-patch",
       "failing-test",
+      "corrective-patch",
       "passing-test",
     ]);
     const failingResult = model.requests[3]?.toolResults?.[0]?.result;

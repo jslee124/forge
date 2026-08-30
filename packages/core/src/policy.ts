@@ -1,3 +1,4 @@
+import type { ApprovalDescriptor, ApprovalResponse } from "./approval.js";
 import type { ForgeTool, ToolCall, ToolContext } from "./tools.js";
 
 export type ApprovalDecisionKind = "allow" | "confirm" | "deny";
@@ -111,6 +112,12 @@ export interface ApprovalChannel {
     signal: AbortSignal,
     context: ToolContext,
   ): Promise<boolean>;
+  requestStructured?(
+    action: ProposedAction,
+    signal: AbortSignal,
+    context: ToolContext,
+    descriptor: ApprovalDescriptor,
+  ): Promise<ApprovalResponse>;
 }
 
 export class ReadOnlyPolicy implements ApprovalPolicy {

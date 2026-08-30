@@ -1,0 +1,59 @@
+# Forge v0.3.0 发布说明
+
+[English](../../../history/v0.3.0/RELEASE_NOTES.md) · [中文文档目录](../../README.md)
+
+> 文档角色：历史。本页记录 v0.3.0 发布时的状态，不是当前产品文档。
+
+Forge v0.3.0 是首个通过 npm 分发的稳定版本。它保留私有 monorepo 架构，
+同时对外提供一个可以安装、已经 bundle 的 CLI。
+
+## 安装与更新
+
+Forge 需要 Node.js 24 或更高版本。
+
+```bash
+npm install --global @jslee124/forge
+forge --version
+```
+
+npm 的 `latest` dist-tag 指向 `0.3.0`。已安装用户可以显式检查或请求更新：
+
+```bash
+forge update check
+forge update
+forge update 0.3.0
+```
+
+交互启动最多每 24 小时执行一次带缓存的提示性检查，绝不会自动安装更新。设置
+`FORGE_DISABLE_UPDATE_CHECK=1` 可以关闭该检查。显式更新会解析出精确 SemVer，
+并在禁用 lifecycle scripts 的情况下调用 npm；它不会修改 `$FORGE_HOME` 中的
+credential、配置、session、trace 或 plugin。
+
+## 分发与发布安全
+
+- `@jslee124/forge` 是唯一公共 package。
+- 私有 `@forge/*` workspace 代码会 bundle 到生成的 CLI 产物中。
+- 插件 SDK 和内部 workspace packages 不会独立发布。
+- 公共产物生成在 `dist/npm/forge`，发布前会完成全新环境安装测试。
+- 稳定版本由 GitHub Actions 从不可移动的 `v*` Git tag 发布，并通过 npm
+  Trusted Publishing 和 OIDC 认证，不保存长期 npm token。
+- 一次性的 `0.3.0-bootstrap.0` 预发布版本保留在 `bootstrap` dist-tag 下，
+  不是默认安装目标。
+
+## 产品与开发者变更
+
+- 新增显式 npm 更新检查与安装命令，并提供不阻塞启动的更新提示。
+- 新增由 host 管理且有边界的 plugin subagent，继续使用 host 拥有的
+  credential、policy、budget 和 trace。
+- 新增 MCP stdio、to-do 和只读 code-review subagent 示例。
+- 扩充并重组英文与简体中文文档，使安装、配置、故障排查、安全和发布流程按
+  用户任务组织。
+
+## 发布验证
+
+在发布到 npm 前，tag 对应源码通过了格式与类型检查、文档链接检查、完整 Vitest
+套件、确定性评测、生成 package 检查、全新 prefix 安装、CLI
+version/help/configuration smoke tests，以及 tag 与 package 版本一致性验证。
+
+模型行为仍具有非确定性。这些 gate 验证发布流水线和经过测试的 runtime 行为，
+不保证每一次真实 provider 任务都成功。

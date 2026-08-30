@@ -148,6 +148,22 @@ behavior. Run in a terminal, narrow the task to read-only behavior, or use a
 purpose-built automation/evaluation approval channel. Do not switch profiles
 expecting OS isolation: neither profile sandboxes an approved process.
 
+In the interactive Forge Engine, choose `1` for one action or `2` only when the
+displayed session scope is appropriate. Use `/permissions` to inspect and
+revoke grants. Changed command arguments, cwd, network destination, workspace,
+timeout above the ceiling, or high-risk install/publish/destructive commands
+correctly prompt again. Choose `3`, optionally type guidance, and press Enter to
+return a denial result to the active run without granting authority.
+
+## An update is shown but `forge update` will not install it
+
+Forge installs only when it recognizes npm or pnpm global-install provenance.
+For an unknown or copied executable it reports the exact new version and
+release-notes URL without guessing a package manager. Use the installer that
+originally installed Forge. After a successful explicit update, restart the
+running process. `FORGE_DISABLE_UPDATE_CHECK=1` disables only the startup check;
+`forge update check` remains explicit and authoritative.
+
 ## A project plugin is listed but skipped
 
 Project plugins are discovered from the canonical workspace root's
@@ -220,8 +236,9 @@ pnpm forge resume --last
 
 Session snapshots live under `$FORGE_HOME/sessions`. Changing `FORGE_HOME`,
 moving the checkout, deleting a snapshot, or corrupting its JSON changes what
-is available. Resume restores only completed turns; it cannot continue an
-interrupted stream or pending tool call.
+is available. Resume restores completed turns plus bounded outcomes from
+failed, denied, cancelled, or limit-reached runs. It cannot continue an
+interrupted stream or pending tool call; the next run re-inspects current state.
 
 ## Terminal input or rendering looks wrong
 

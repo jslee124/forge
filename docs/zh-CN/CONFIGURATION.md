@@ -99,6 +99,8 @@ built-in defaults
 
 Forge 没有实现 `full-access` profile。获批子进程也没有 OS sandbox，详见[安全模型](SECURITY.md)。
 
+Permission grant 不是配置。编号 session 选项只在当前进程保存 host 规范化 scope；项目配置、instruction、Skill、checkpoint、tool result 和 plugin hook 都不能持久化或扩大它。`/permissions` 可以查看并撤销当前内存 grant。
+
 ### Trace 与 plugins
 
 | 字段 | 默认值 | 说明 |
@@ -117,8 +119,11 @@ Forge 没有实现 `full-access` profile。获批子进程也没有 OS sandbox�
 | `context.bufferTokens` | `8192` | 1–2,000,000 | 项目可以增加 safety buffer。 |
 | `context.recentTailTokens` | `12000` | 0–2,000,000 | 项目可以减少原样保留的近期历史预算。 |
 | `context.summaryTargetTokens` | `1200` | 64–2,000,000 | 项目可以减少 checkpoint target。 |
+| `context.activationThreshold` | `0.78` | 0.5–0.95 | 项目只能降低压力阈值，不能提高。 |
+| `context.minimumReclaimTokens` | `8000` | 0–2,000,000 | 项目只能降低 no-progress token 下限，不能提高。 |
+| `context.minimumReclaimRatio` | `0.2` | 0–0.9 | 项目只能降低 no-progress 比率，不能提高。 |
 
-`warn` 会测量并报告压力，但不自动生成 checkpoint；`compact` 允许在实现的预算规则需要时自动生成 checkpoint。`/compact` 始终可作为显式交互操作。无论哪种模式，规范 session transcript 都会独立保留。详见[上下文管理](CONTEXT_MANAGEMENT.md)。
+`warn` 会测量预计下一次请求的压力，并在越过 activation threshold 时给出非阻塞 TUI 控制；`compact` 允许按压力生成 checkpoint。`/context` 可以只为当前进程启用自动压缩，也可以在用户明确选择后把 `compact` 保存到用户配置；session-only 状态不会恢复。`/compact` 在所有模式下仍可显式使用。规范 session transcript 始终独立保留。详见[上下文管理](CONTEXT_MANAGEMENT.md)。
 
 ## 安全的项目配置
 

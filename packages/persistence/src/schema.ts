@@ -1,8 +1,10 @@
 import type {
+  CanonicalConversationMessage,
   ModelConversationMessage,
   RunEvent,
   RunStatus,
 } from "@forge/core";
+import { validateCanonicalConversation } from "@forge/core";
 import { z } from "zod";
 
 const conversationMessageSchema = z
@@ -11,6 +13,61 @@ const conversationMessageSchema = z
     content: z.string(),
   })
   .strict();
+
+const canonicalTextContentSchema = z
+  .object({ type: z.literal("text"), text: z.string().max(1_000_000) })
+  .strict();
+const canonicalToolCallContentSchema = z
+  .object({
+    type: z.literal("tool-call"),
+    id: z.string().min(1).max(1_000),
+    name: z.string().min(1).max(500),
+    input: z.unknown(),
+    providerMetadata: z.record(z.string(), z.unknown()).optional(),
+  })
+  .strict();
+const canonicalUserMessageSchema = z
+  .object({
+    id: z.string().min(1).max(1_000),
+    runId: z.string().min(1).max(1_000),
+    role: z.literal("user"),
+    content: z.array(canonicalTextContentSchema).min(1).max(100),
+  })
+  .strict();
+const canonicalAssistantMessageSchema = z
+  .object({
+    id: z.string().min(1).max(1_000),
+    runId: z.string().min(1).max(1_000),
+    step: z.number().int().nonnegative(),
+    role: z.literal("assistant"),
+    content: z
+      .array(
+        z.discriminatedUnion("type", [
+          canonicalTextContentSchema,
+          canonicalToolCallContentSchema,
+        ]),
+      )
+      .min(1)
+      .max(200),
+  })
+  .strict();
+const canonicalToolMessageSchema = z
+  .object({
+    id: z.string().min(1).max(1_000),
+    runId: z.string().min(1).max(1_000),
+    step: z.number().int().nonnegative(),
+    role: z.literal("tool"),
+    toolCallId: z.string().min(1).max(1_000),
+    toolName: z.string().min(1).max(500),
+    content: z.array(canonicalTextContentSchema).min(1).max(100),
+    isError: z.boolean(),
+  })
+  .strict();
+const canonicalConversationMessageSchema = z.discriminatedUnion("role", [
+  canonicalUserMessageSchema,
+  canonicalAssistantMessageSchema,
+  canonicalToolMessageSchema,
+]);
 
 const sessionReasoningSchema = z
   .object({
@@ -25,7 +82,7 @@ const checkpointSafetyLabels = z.tuple([
   z.literal("no-policy-authority"),
 ]);
 
-export const contextCheckpointSchema = z
+const contextCheckpointV1Schema = z
   .object({
     schemaVersion: z.literal(1),
     strategy: z.enum(["forge-summary", "provider-native"]),
@@ -41,6 +98,15 @@ export const contextCheckpointSchema = z
     sourceMessageCount: z.number().int().positive(),
     createdAt: z.iso.datetime(),
     safetyLabels: checkpointSafetyLabels,
+    generation: z
+      .object({
+        incurredProviderUsage: z.boolean(),
+        durationMs: z.number().nonnegative(),
+        inputTokens: z.number().int().nonnegative().optional(),
+        outputTokens: z.number().int().nonnegative().optional(),
+      })
+      .strict()
+      .optional(),
   })
   .strict()
   .superRefine((checkpoint, context) => {
@@ -73,8 +139,22 @@ export const contextCheckpointSchema = z
     }
   });
 
+export const contextCheckpointSchema = z
+  .preprocess((value) => {
+    if (
+      typeof value === "object" &&
+      value !== null &&
+      "schemaVersion" in value &&
+      value.schemaVersion === 2
+    ) {
+      return { ...value, schemaVersion: 1 };
+    }
+    return value;
+  }, contextCheckpointV1Schema)
+  .transform((checkpoint) => ({ ...checkpoint, schemaVersion: 2 as const }));
+
 export interface ContextCheckpoint {
-  readonly schemaVersion: 1;
+  readonly schemaVersion: 2;
   readonly strategy: "forge-summary" | "provider-native";
   readonly summarizedThroughMessageIndex: number;
   readonly sourceHash: string;
@@ -92,6 +172,12 @@ export interface ContextCheckpoint {
     "no-approval-state",
     "no-policy-authority",
   ];
+  readonly generation?: {
+    readonly incurredProviderUsage: boolean;
+    readonly durationMs: number;
+    readonly inputTokens?: number;
+    readonly outputTokens?: number;
+  };
 }
 
 const sessionSnapshotV1Schema = z
@@ -110,7 +196,7 @@ const sessionSnapshotV1Schema = z
   })
   .strict();
 
-export const sessionSnapshotSchema = z
+const sessionSnapshotV2Schema = z
   .object({
     schemaVersion: z.literal(2),
     id: z.uuid(),
@@ -124,7 +210,7 @@ export const sessionSnapshotSchema = z
     lastRunStatus: z
       .enum(["completed", "failed", "cancelled", "denied", "limit_reached"])
       .optional(),
-    contextCheckpoint: contextCheckpointSchema.optional(),
+    contextCheckpoint: contextCheckpointV1Schema.optional(),
   })
   .strict()
   .superRefine((session, context) => {
@@ -149,21 +235,75 @@ export const sessionSnapshotSchema = z
     }
   });
 
+export const sessionSnapshotSchema = z
+  .object({
+    schemaVersion: z.literal(3),
+    id: z.uuid(),
+    createdAt: z.iso.datetime(),
+    updatedAt: z.iso.datetime(),
+    workspaceRoot: z.string().min(1),
+    workingDirectory: z.string().min(1),
+    history: z.array(canonicalConversationMessageSchema).max(10_000),
+    reasoning: z.array(sessionReasoningSchema).max(10_000).default([]),
+    runIds: z.array(z.uuid()).max(10_000),
+    historyFidelity: z.enum(["structured", "text-only-migrated"]),
+    lastRunStatus: z
+      .enum(["completed", "failed", "cancelled", "denied", "limit_reached"])
+      .optional(),
+    contextCheckpoint: contextCheckpointSchema.optional(),
+  })
+  .strict()
+  .superRefine((session, context) => {
+    try {
+      validateCanonicalConversation(
+        session.history as readonly CanonicalConversationMessage[],
+      );
+    } catch (error) {
+      context.addIssue({
+        code: "custom",
+        message: error instanceof Error ? error.message : "Invalid history.",
+      });
+    }
+    for (const entry of session.reasoning) {
+      if (session.history[entry.assistantMessageIndex]?.role !== "assistant") {
+        context.addIssue({
+          code: "custom",
+          message: "Saved reasoning must reference an assistant message.",
+        });
+      }
+    }
+    const checkpoint = session.contextCheckpoint;
+    if (
+      checkpoint &&
+      (checkpoint.sourceMessageCount > session.history.length ||
+        checkpoint.retainedTailStartIndex > session.history.length)
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "Checkpoint range exceeds the canonical transcript.",
+      });
+    }
+  });
+
 export const persistedSessionSnapshotSchema = z.union([
   sessionSnapshotSchema,
+  sessionSnapshotV2Schema,
   sessionSnapshotV1Schema,
 ]);
 
 export interface SessionSnapshot {
-  readonly schemaVersion: 2;
+  readonly schemaVersion: 3;
   readonly id: string;
   readonly createdAt: string;
   readonly updatedAt: string;
   readonly workspaceRoot: string;
   readonly workingDirectory: string;
+  readonly history: readonly CanonicalConversationMessage[];
+  /** @deprecated Display-only v2 text projection. Model continuation uses history. */
   readonly messages: readonly ModelConversationMessage[];
   readonly reasoning: readonly SessionReasoning[];
   readonly runIds: readonly string[];
+  readonly historyFidelity: "structured" | "text-only-migrated";
   readonly lastRunStatus?: RunStatus;
   readonly contextCheckpoint?: ContextCheckpoint;
 }
@@ -260,6 +400,67 @@ const contextBudgetSchema = z
     instructionSnapshotHash: z.string().regex(/^[a-f0-9]{64}$/u),
     fits: z.boolean(),
     mandatoryFits: z.boolean(),
+  })
+  .strict();
+
+const hashSchema = z.string().regex(/^[a-f0-9]{64}$/u);
+const contextPressureSchema = z
+  .object({
+    schemaVersion: z.literal(1),
+    provider: z.string(),
+    modelId: z.string(),
+    estimatedInputTokens: z.number().int().nonnegative(),
+    availableInputTokens: z.number().int().nonnegative(),
+    ratio: z.number().nonnegative(),
+    confidence: z.enum(["exact", "estimated", "unavailable"]),
+    mode: z.enum(["off", "warn", "auto-session", "auto-default", "paused"]),
+    state: z.enum([
+      "normal",
+      "elevated",
+      "compact-soon",
+      "compacting",
+      "compacted",
+      "critical",
+      "paused",
+    ]),
+    estimates: contextBudgetSchema.shape.estimates,
+  })
+  .strict();
+
+const promptPrefixObservationSchema = z
+  .object({
+    schemaVersion: z.literal(1),
+    promptSchemaVersion: z.number().int().positive(),
+    stablePrefixHash: hashSchema,
+    instructionHash: hashSchema,
+    resourceCatalogHash: hashSchema,
+    toolSchemaHash: hashSchema,
+    providerModelHash: hashSchema,
+    promptSchemaHash: hashSchema,
+    enabledResourceHash: hashSchema,
+    enabledPluginHash: hashSchema,
+    checkpointGenerationHash: hashSchema,
+    providerOptionsHash: hashSchema,
+    invalidatedBy: z.array(
+      z.enum([
+        "initial",
+        "provider-or-model",
+        "prompt-schema",
+        "instructions",
+        "resource-catalog",
+        "enabled-resources",
+        "enabled-plugins",
+        "tool-schema",
+        "checkpoint-generation",
+      ]),
+    ),
+    cacheMode: z.enum([
+      "automatic",
+      "keyed",
+      "explicit-breakpoints",
+      "unsupported",
+    ]),
+    cacheKey: hashSchema.optional(),
   })
   .strict();
 
@@ -373,6 +574,73 @@ export const runEventSchema = z.discriminatedUnion("type", [
       type: z.literal("context.budgeted"),
       step: z.number().int().positive(),
       budget: contextBudgetSchema,
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("context.pressure"),
+      step: z.number().int().positive(),
+      snapshot: contextPressureSchema,
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("cache.prefix"),
+      step: z.number().int().positive(),
+      observation: promptPrefixObservationSchema,
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("cache.observed"),
+      schemaVersion: z.literal(1),
+      step: z.number().int().positive(),
+      inputTokens: z.number().int().nonnegative().optional(),
+      cacheReadTokens: z.number().int().nonnegative().optional(),
+      cacheWriteTokens: z.number().int().nonnegative().optional(),
+      uncachedInputTokens: z.number().int().nonnegative().optional(),
+      hitRatio: z.number().min(0).max(1).optional(),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("approval.scope-decision"),
+      schemaVersion: z.literal(1),
+      actionId: z.string().min(1).max(200),
+      decision: z.enum(["allow-once", "allow-session", "deny"]),
+      scopeId: hashSchema.optional(),
+      provenance: z.enum(["user", "policy"]),
+      persisted: z.literal(false),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("update.availability"),
+      schemaVersion: z.literal(1),
+      state: z.enum([
+        "cached",
+        "refreshing",
+        "available",
+        "current",
+        "failed",
+        "disabled",
+      ]),
+      currentVersion: z.string().max(100),
+      latestVersion: z.string().max(100).optional(),
+      source: z.literal("npm-registry"),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("context.auto-paused"),
+      step: z.number().int().positive(),
+      reason: z.enum([
+        "cancelled",
+        "invalid-output",
+        "repeated-failure",
+        "low-reclamation",
+      ]),
+      message: z.string(),
     })
     .strict(),
   z

@@ -88,6 +88,26 @@ session-exit behavior when Forge is otherwise idle.
   later be used for prompt history; history is not required for Milestone 4.6.
 - Shift+Tab cycles through the active model's supported thinking-effort levels.
 
+## Context pressure and controls
+
+The editor footer uses two rows. The first keeps model/effort and a projected
+context indicator visible; the second preserves the existing keyboard
+shortcuts. The indicator uses `○`, `◔`, `◑`, `◕`, or `●` plus a percentage and
+semantic text. Estimated values carry `~`; responsive rendering drops labels
+before it drops the number or ring.
+
+`/context` opens a keyboard-owned panel backed by the same pressure snapshot.
+It shows instructions, tool schemas, active history, draft/image estimates,
+the effective reserve, checkpoint provenance, threshold, strategy, and last
+compaction. Press `p` to preview, `c` to compact once, `a` to enable automatic
+compaction for this process, `s` to explicitly save it as the user default, or
+Escape to close. A first `warn`-mode threshold crossing offers compact once,
+session auto, or dismiss without stealing an active run or approval prompt.
+
+The default remains `warn`. Automatic compaction uses projected pressure, not
+message count, and pauses after cancellation, invalid projection, or low
+reclamation. The canonical transcript remains lossless.
+
 ## Slash-command completion
 
 Typing `/` as the first non-whitespace character opens a list of available
@@ -203,9 +223,11 @@ visual truncation must not silently turn partial content into approval for an
 unseen patch.
 
 The approval controls are visible next to the diff and describe their scope.
-For example, approving the first workspace write covers later workspace writes
-only in the current run, while process commands continue to require separate
-approval.
+`1` allows the displayed action once, `2` allows exactly the displayed scope
+for the current in-memory session, and `3` opens an optional denial-feedback
+field. High-risk actions omit the session option. `/permissions` shows the
+effective profile, active scope identifiers, use counts, and revoke controls;
+grants disappear on `/new`, `/resume`, and process exit.
 
 Process-command approval uses the same dedicated panel. It renders a
 shell-readable `$ command` line followed by clearly labelled working-directory
@@ -217,6 +239,12 @@ Plugin-specific secrets and arbitrary input objects are never rendered as an
 approval preview.
 
 ## Sign-in panel
+
+The update checker also renders inside the Ink tree. A late result can add a
+compact current/latest banner without creating transcript text or taking input
+ownership from the editor, stream, or approval panel. Wide terminals include
+the release-notes destination and restart wording; narrow terminals retain the
+versions, `forge update`, restart, and `/update-dismiss` controls.
 
 A pending browser sign-in is a dedicated panel, not transcript text. The Codex
 auth surface reports the URL as a structured `login` output event carrying the

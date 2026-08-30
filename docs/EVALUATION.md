@@ -139,4 +139,24 @@ See the [Milestone 10 release gate](../evals/reports/v0.2/CONTEXT_MANAGEMENT.md)
 `warn` remains the default until paid-provider estimator and task-quality gates
 are published.
 
+Milestone 13 adds the checked-in
+[v0.3.2 comparison baseline](../evals/reports/v0.3.2/M13_BASELINE.md), stable
+prefix/invalidation fixtures, unavailable-versus-zero cache accounting,
+pressure-triggered compaction, low-reclamation pause, and session/default mode
+tests. All remain offline. Automatic compaction is discoverable and opt-in;
+the baseline does not promote the extractive oracle to the default.
+
+The [v0.3.3 Milestone 13 release-gate report](../evals/reports/v0.3.3/M13_RELEASE_GATES.md)
+adds exact/near-match permission scopes, denial feedback, canonical workspace
+and high-risk rejection, asynchronous update delivery and dismissal,
+installation provenance, protected `FORGE_HOME` fixtures, and narrow/wide Ink
+rendering. It records that live trials require explicit `eval:live` opt-in and
+that no paid call was made for the offline gate. That report predates Milestone
+14 structured history and is historical M13-only evidence. The current
+deterministic release matrix also runs the
+[cross-layer session contract](../evals/src/session-contract.test.ts), which
+exercises runtime canonical deltas through save/load, resume projection,
+checkpoint validation, cancellation outcome recovery, repeated provider call
+IDs, non-restored approval state, and durable-size rejection.
+
 Resource evaluation is deterministic and offline by default. Scripted fixtures cover matching, non-matching, ambiguous, explicit, user-disabled, collision, repeated-load, over-budget, adversarial Skill, product-question, and unsupported-question cases. Metrics include selection precision and recall, unnecessary loads, catalog and loaded tokens, citation accuracy, latency, and task completion. Live-provider resource trials remain explicit opt-in.

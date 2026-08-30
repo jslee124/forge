@@ -19,6 +19,8 @@ const headingCache = new Map();
 const failures = [];
 let localLinkCount = 0;
 
+await validateDocumentationCatalog();
+
 for (const sourcePath of markdownFiles) {
   const source = await readFile(sourcePath, "utf8");
   const searchable = stripFencedCode(source);
@@ -27,6 +29,142 @@ for (const sourcePath of markdownFiles) {
     if (target === undefined) continue;
     localLinkCount += 1;
     await validateLocalReference(sourcePath, target);
+  }
+}
+
+async function validateDocumentationCatalog() {
+  const docsRoot = path.join(repositoryRoot, "docs");
+  const catalogPath = path.join(docsRoot, "catalog.json");
+  let catalog;
+  try {
+    catalog = JSON.parse(await readFile(catalogPath, "utf8"));
+  } catch (error) {
+    failures.push(
+      `docs/catalog.json: could not read the documentation catalog: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    return;
+  }
+  if (catalog.schemaVersion !== 1) {
+    failures.push("docs/catalog.json: unsupported schemaVersion.");
+    return;
+  }
+  const classified = new Map();
+  const historicalPaths = [];
+  const redirectPaths = [];
+  const add = (relativePath, role) => {
+    const normalized = relativePath.replaceAll(path.sep, "/");
+    const previous = classified.get(normalized);
+    if (previous) {
+      failures.push(
+        `docs/catalog.json: ${normalized} is classified as both ${previous} and ${role}.`,
+      );
+      return;
+    }
+    classified.set(normalized, role);
+  };
+  for (const [key, role] of [
+    ["currentProduct", "current-product"],
+    ["currentDevelopment", "current-development"],
+  ]) {
+    const basenames = catalog[key];
+    if (!Array.isArray(basenames)) {
+      failures.push(`docs/catalog.json: ${key} must be an array.`);
+      continue;
+    }
+    for (const basename of basenames) {
+      if (typeof basename !== "string" || !/^[A-Z0-9_]+$/u.test(basename)) {
+        failures.push(
+          `docs/catalog.json: invalid ${key} basename ${basename}.`,
+        );
+        continue;
+      }
+      add(`${basename}.md`, role);
+      add(`zh-CN/${basename}.md`, role);
+      if (
+        role === "current-product" &&
+        /(?:^V\d|PLAN|REVIEW|ROADMAP)/u.test(basename)
+      ) {
+        failures.push(
+          `docs/catalog.json: historical or planning document ${basename} cannot be current-product.`,
+        );
+      }
+    }
+  }
+  if (!Array.isArray(catalog.history)) {
+    failures.push("docs/catalog.json: history must be an array.");
+  } else {
+    for (const entry of catalog.history) {
+      if (
+        !entry ||
+        typeof entry.path !== "string" ||
+        typeof entry.snapshot !== "string" ||
+        (!entry.path.includes("/history/") &&
+          !entry.path.startsWith("history/"))
+      ) {
+        failures.push("docs/catalog.json: invalid historical document entry.");
+        continue;
+      }
+      add(entry.path, "historical");
+      historicalPaths.push(entry.path);
+    }
+  }
+  if (!Array.isArray(catalog.redirects)) {
+    failures.push("docs/catalog.json: redirects must be an array.");
+  } else {
+    for (const redirect of catalog.redirects) {
+      if (typeof redirect !== "string") {
+        failures.push("docs/catalog.json: invalid redirect entry.");
+        continue;
+      }
+      add(redirect, "redirect");
+      redirectPaths.push(redirect);
+    }
+  }
+  const discovered = (await collectMarkdown(docsRoot)).map((filePath) =>
+    path.relative(docsRoot, filePath).split(path.sep).join("/"),
+  );
+  for (const relativePath of discovered) {
+    if (!classified.has(relativePath)) {
+      failures.push(
+        `docs/catalog.json: ${relativePath} has no documentation role.`,
+      );
+    }
+  }
+  for (const [relativePath, role] of classified) {
+    if (!discovered.includes(relativePath)) {
+      failures.push(
+        `docs/catalog.json: ${relativePath} is classified as ${role} but does not exist.`,
+      );
+    }
+  }
+  for (const relativePath of historicalPaths) {
+    const content = await readFile(
+      path.join(docsRoot, relativePath),
+      "utf8",
+    ).catch(() => "");
+    if (
+      !/(?:Document role: historical|文档角色：历史)/u.test(
+        content.slice(0, 1_500),
+      )
+    ) {
+      failures.push(
+        `docs/catalog.json: historical document ${relativePath} is missing a visible role banner.`,
+      );
+    }
+  }
+  for (const relativePath of redirectPaths) {
+    const content = await readFile(
+      path.join(docsRoot, relativePath),
+      "utf8",
+    ).catch(() => "");
+    if (
+      Buffer.byteLength(content, "utf8") > 2_048 ||
+      !/(?:moved|已移动)/iu.test(content)
+    ) {
+      failures.push(
+        `docs/catalog.json: redirect ${relativePath} must be a short moved-document pointer.`,
+      );
+    }
   }
 }
 

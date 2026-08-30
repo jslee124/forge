@@ -1,4 +1,5 @@
-import { APICallError, type streamText } from "ai";
+import type { OpenAIProviderSettings } from "@ai-sdk/openai";
+import { APICallError, InvalidPromptError, type streamText } from "ai";
 import { describe, expect, it } from "vitest";
 
 import { AiSdkCompatTransport, mapCompatError } from "./ai-sdk-transport.js";
@@ -29,6 +30,7 @@ describe("AI SDK compatibility transport", () => {
         model: "mimo-v2.5-pro",
         reasoningEffort: "medium",
         prompt: "hello",
+        instructions: "Follow repository instructions.",
       },
       new AbortController().signal,
     )) {
@@ -36,6 +38,8 @@ describe("AI SDK compatibility transport", () => {
     }
 
     expect(capturedOptions).toMatchObject({
+      instructions: "Follow repository instructions.",
+      messages: [{ role: "user", content: "hello" }],
       providerOptions: {
         openai: {
           reasoningEffort: "medium",
@@ -260,6 +264,60 @@ describe("AI SDK compatibility transport", () => {
       "HTTP 400: invalid_reasoning_effort: API key=[redacted] and effort max is unsupported",
     );
     expect(mapped.message).not.toContain("sk-super-secret");
+  });
+
+  it("passes instructions through chat-completions prompt standardization", async () => {
+    let requestBody: unknown;
+    const fetchMock: NonNullable<OpenAIProviderSettings["fetch"]> = async (
+      _input,
+      init,
+    ) => {
+      requestBody = JSON.parse(String(init?.body));
+      return new Response(JSON.stringify({ error: { message: "test stop" } }), {
+        status: 400,
+        headers: { "content-type": "application/json" },
+      });
+    };
+    const transport = new AiSdkCompatTransport({ fetch: fetchMock });
+
+    await expect(async () => {
+      for await (const _event of transport.stream(
+        {
+          route: "local-chat",
+          api: "openai-completions",
+          baseUrl: "http://127.0.0.1:11434/v1",
+          model: "custom-model",
+          prompt: "hello",
+          instructions: "Follow repository instructions.",
+        },
+        new AbortController().signal,
+      )) {
+        // Consume until the mocked provider error.
+      }
+    }).rejects.toThrow("HTTP 400");
+
+    expect(requestBody).toMatchObject({
+      messages: [
+        { role: "system", content: "Follow repository instructions." },
+        { role: "user", content: "hello" },
+      ],
+    });
+  });
+
+  it("maps invalid prompts to a non-retryable route configuration error", () => {
+    const mapped = mapCompatError(
+      new InvalidPromptError({
+        prompt: { messages: [] },
+        message: "sensitive prompt validation details",
+      }),
+      "gateway",
+    );
+
+    expect(mapped.message).toBe(
+      'Could not construct the request for provider route "gateway". Check the prompt and model configuration.',
+    );
+    expect(mapped.retryable).toBe(false);
+    expect(mapped.message).not.toContain("sensitive");
   });
 });
 

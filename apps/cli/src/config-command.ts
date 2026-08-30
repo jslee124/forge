@@ -27,6 +27,9 @@ const DISPLAY_KEYS: readonly ConfigKey[] = [
   "context.bufferTokens",
   "context.recentTailTokens",
   "context.summaryTargetTokens",
+  "context.activationThreshold",
+  "context.minimumReclaimTokens",
+  "context.minimumReclaimRatio",
 ];
 
 export async function runConfigCommand(
@@ -105,5 +108,8 @@ function flatten(loaded: LoadedForgeConfig): Record<ConfigKey, unknown> {
     "context.bufferTokens": config.context.bufferTokens,
     "context.recentTailTokens": config.context.recentTailTokens,
     "context.summaryTargetTokens": config.context.summaryTargetTokens,
+    "context.activationThreshold": config.context.activationThreshold,
+    "context.minimumReclaimTokens": config.context.minimumReclaimTokens,
+    "context.minimumReclaimRatio": config.context.minimumReclaimRatio,
   };
 }

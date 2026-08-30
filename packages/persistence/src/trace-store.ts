@@ -170,6 +170,22 @@ export interface TraceSummary {
     readonly providerInputTokens?: number;
     readonly absoluteErrorTokens?: number;
   };
+  readonly cache: {
+    readonly steps: readonly {
+      readonly step: number;
+      readonly inputTokens?: number;
+      readonly cacheReadTokens?: number;
+      readonly cacheWriteTokens?: number;
+      readonly uncachedInputTokens?: number;
+      readonly hitRatio?: number;
+    }[];
+    readonly inputTokens?: number;
+    readonly cacheReadTokens?: number;
+    readonly cacheWriteTokens?: number;
+    readonly uncachedInputTokens?: number;
+    readonly hitRatio?: number;
+    readonly lastPrefix?: import("@forge/core").PromptPrefixObservation;
+  };
 }
 
 export function summarizeTrace(
@@ -187,6 +203,8 @@ export function summarizeTrace(
   let lastBudget: ContextBudgetReport | undefined;
   let providerInputTokens: number | undefined;
   let absoluteErrorTokens: number | undefined;
+  const cacheSteps: TraceSummary["cache"]["steps"][number][] = [];
+  let lastPrefix: import("@forge/core").PromptPrefixObservation | undefined;
   for (const { event } of envelopes) {
     if (event.type === "model.started") modelSteps += 1;
     if (event.type === "tool.proposed")
@@ -201,6 +219,25 @@ export function summarizeTrace(
       providerInputTokens = event.providerInputTokens;
       absoluteErrorTokens = event.absoluteErrorTokens;
     }
+    if (event.type === "cache.observed") {
+      cacheSteps.push({
+        step: event.step,
+        ...(event.inputTokens !== undefined
+          ? { inputTokens: event.inputTokens }
+          : {}),
+        ...(event.cacheReadTokens !== undefined
+          ? { cacheReadTokens: event.cacheReadTokens }
+          : {}),
+        ...(event.cacheWriteTokens !== undefined
+          ? { cacheWriteTokens: event.cacheWriteTokens }
+          : {}),
+        ...(event.uncachedInputTokens !== undefined
+          ? { uncachedInputTokens: event.uncachedInputTokens }
+          : {}),
+        ...(event.hitRatio !== undefined ? { hitRatio: event.hitRatio } : {}),
+      });
+    }
+    if (event.type === "cache.prefix") lastPrefix = event.observation;
   }
   return {
     runId: first.runId,
@@ -224,18 +261,58 @@ export function summarizeTrace(
       ...(providerInputTokens !== undefined ? { providerInputTokens } : {}),
       ...(absoluteErrorTokens !== undefined ? { absoluteErrorTokens } : {}),
     },
+    cache: summarizeCache(cacheSteps, lastPrefix),
   };
 }
 
 function emptyUsage(): ModelUsage {
   return {
-    inputTokens: 0,
-    outputTokens: 0,
-    reasoningTokens: 0,
-    cachedInputTokens: 0,
-    cacheWriteTokens: 0,
-    totalTokens: 0,
+    inputTokens: undefined,
+    outputTokens: undefined,
+    reasoningTokens: undefined,
+    cachedInputTokens: undefined,
+    cacheWriteTokens: undefined,
+    totalTokens: undefined,
   };
+}
+
+function summarizeCache(
+  steps: TraceSummary["cache"]["steps"],
+  lastPrefix: import("@forge/core").PromptPrefixObservation | undefined,
+): TraceSummary["cache"] {
+  const inputTokens = sumKnown(steps.map(({ inputTokens }) => inputTokens));
+  const cacheReadTokens = sumKnown(
+    steps.map(({ cacheReadTokens }) => cacheReadTokens),
+  );
+  const cacheWriteTokens = sumKnown(
+    steps.map(({ cacheWriteTokens }) => cacheWriteTokens),
+  );
+  const uncachedInputTokens = sumKnown(
+    steps.map(({ uncachedInputTokens }) => uncachedInputTokens),
+  );
+  const hitRatio =
+    inputTokens !== undefined &&
+    cacheReadTokens !== undefined &&
+    inputTokens > 0
+      ? Math.min(1, cacheReadTokens / inputTokens)
+      : inputTokens === 0 && cacheReadTokens === 0
+        ? 0
+        : undefined;
+  return {
+    steps,
+    ...(inputTokens !== undefined ? { inputTokens } : {}),
+    ...(cacheReadTokens !== undefined ? { cacheReadTokens } : {}),
+    ...(cacheWriteTokens !== undefined ? { cacheWriteTokens } : {}),
+    ...(uncachedInputTokens !== undefined ? { uncachedInputTokens } : {}),
+    ...(hitRatio !== undefined ? { hitRatio } : {}),
+    ...(lastPrefix ? { lastPrefix } : {}),
+  };
+}
+
+function sumKnown(values: readonly (number | undefined)[]): number | undefined {
+  if (values.length === 0 || values.some((value) => value === undefined))
+    return undefined;
+  return (values as readonly number[]).reduce((sum, value) => sum + value, 0);
 }
 
 function addUsage(

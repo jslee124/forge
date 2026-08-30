@@ -43,6 +43,9 @@ export interface ContextConfiguration {
   readonly bufferTokens: number;
   readonly recentTailTokens: number;
   readonly summaryTargetTokens: number;
+  readonly activationThreshold?: number;
+  readonly minimumReclaimTokens?: number;
+  readonly minimumReclaimRatio?: number;
 }
 
 export const DEFAULT_CONTEXT_CONFIGURATION: ContextConfiguration = {
@@ -51,7 +54,73 @@ export const DEFAULT_CONTEXT_CONFIGURATION: ContextConfiguration = {
   bufferTokens: 8_192,
   recentTailTokens: 12_000,
   summaryTargetTokens: 1_200,
+  activationThreshold: 0.78,
+  minimumReclaimTokens: 8_000,
+  minimumReclaimRatio: 0.2,
 };
+
+export type ContextPressureMode =
+  | "off"
+  | "warn"
+  | "auto-session"
+  | "auto-default"
+  | "paused";
+
+export interface ContextPressureSnapshot {
+  readonly schemaVersion: 1;
+  readonly provider: string;
+  readonly modelId: string;
+  readonly estimatedInputTokens: number;
+  readonly availableInputTokens: number;
+  readonly ratio: number;
+  readonly confidence: "exact" | "estimated" | "unavailable";
+  readonly mode: ContextPressureMode;
+  readonly state:
+    | "normal"
+    | "elevated"
+    | "compact-soon"
+    | "compacting"
+    | "compacted"
+    | "critical"
+    | "paused";
+  readonly estimates: ContextTokenBreakdown;
+}
+
+export function contextPressureSnapshot(
+  budget: ContextBudgetReport,
+  mode: ContextPressureMode,
+  stateOverride?: ContextPressureSnapshot["state"],
+): ContextPressureSnapshot {
+  const ratio =
+    budget.availableInputTokens === 0
+      ? budget.estimatedInputTokens > 0
+        ? 1
+        : 0
+      : budget.estimatedInputTokens / budget.availableInputTokens;
+  const state =
+    stateOverride ??
+    (mode === "paused"
+      ? "paused"
+      : ratio >= 0.9
+        ? "critical"
+        : ratio >= 0.75
+          ? "compact-soon"
+          : ratio >= 0.5
+            ? "elevated"
+            : "normal");
+  return {
+    schemaVersion: 1,
+    provider: budget.provider,
+    modelId: budget.modelId,
+    estimatedInputTokens: budget.estimatedInputTokens,
+    availableInputTokens: budget.availableInputTokens,
+    ratio,
+    confidence: budget.estimationConfidence,
+    mode,
+    state,
+    estimates: budget.estimates,
+  };
+}
 
 export interface ContextTokenBreakdown {
   readonly instructions: number;
@@ -189,16 +258,17 @@ export function selectRecentConversation(
   messages: readonly ModelConversationMessage[],
   tokenBudget: number,
 ): ActiveConversationView {
-  const boundary = completedConversationBoundary(messages);
+  const turns = completedConversationTurns(messages);
+  const boundary = turns.at(-1)?.end ?? 0;
   let start = boundary;
   let tokens = 0;
-  while (start >= 2) {
-    const pair = messages.slice(start - 2, start);
-    if (pair[0]?.role !== "user" || pair[1]?.role !== "assistant") break;
-    const pairTokens = conservativeValueTokens(pair);
-    if (tokens + pairTokens > tokenBudget) break;
-    tokens += pairTokens;
-    start -= 2;
+  for (const turn of [...turns].reverse()) {
+    const turnTokens = conservativeValueTokens(
+      messages.slice(turn.start, turn.end),
+    );
+    if (tokens + turnTokens > tokenBudget) break;
+    tokens += turnTokens;
+    start = turn.start;
   }
   return {
     messages: messages.slice(start, boundary),
@@ -316,20 +386,23 @@ export function sha256(value: string): string {
   return createHash("sha256").update(value).digest("hex");
 }
 
-function completedConversationBoundary(
+function completedConversationTurns(
   messages: readonly ModelConversationMessage[],
-): number {
-  let boundary = 0;
-  for (let index = 0; index + 1 < messages.length; index += 2) {
-    if (
-      messages[index]?.role !== "user" ||
-      messages[index + 1]?.role !== "assistant"
-    ) {
-      break;
+): readonly { readonly start: number; readonly end: number }[] {
+  const turns: { start: number; end: number }[] = [];
+  let start = -1;
+  for (let index = 0; index <= messages.length; index += 1) {
+    const message = messages[index];
+    if (message?.role === "user" || index === messages.length) {
+      if (start !== -1) {
+        const end = index;
+        if (messages[end - 1]?.role !== "assistant") break;
+        turns.push({ start, end });
+      }
+      start = index;
     }
-    boundary = index + 2;
   }
-  return boundary;
+  return turns;
 }
 
 function safeJsonSchema(schema: z.ZodType): unknown {

@@ -64,12 +64,11 @@ git push origin v0.3.1
 ```
 
 `Publish npm package` workflow 会先确认 Git tag、根版本、私有 workspace
-版本、runtime 版本和生成 npm package 完全一致，然后运行
-`npm publish --access public`。
+版本、runtime 版本和生成 npm package 完全一致，然后使用显式 dist-tag 发布。
+稳定语义版本路由到 `latest`；带 prerelease component 的版本路由到 `next`。
 
-预发布版本才使用 `npm publish --tag next`。不要移动已经发布的 Git tag，
-也不要复用 npm 版本。错误 release 应通过新的 patch 版本修复，并保留旧版本
-供用户回滚。
+不要移动已经发布的 Git tag，也不要复用 npm 版本。错误 release 应通过新的
+patch 版本修复，并保留旧版本供用户回滚。
 
 ## 用户更新
 
@@ -78,10 +77,7 @@ git push origin v0.3.1
 ```bash
 forge update check
 forge update
-forge update 0.3.2
+forge update 0.3.3
 ```
 
-交互启动最多每 24 小时在后台刷新一次提示性 npm 检查，并在后续启动显示缓存
-结果；绝不会因为启动而安装更新。设置 `FORGE_DISABLE_UPDATE_CHECK=1` 可以关闭
-启动检查。显式更新命令会先把 npm metadata 解析为精确 SemVer，再执行禁用
-lifecycle scripts 的全局 npm 安装。
+交互启动在 Ink 内发布 cached、refreshing、available、current、failed 或 disabled 状态，并最多每 24 小时刷新一次 npm metadata；晚到结果不会进入对话历史。启动永不安装更新，`/update-dismiss` 只 dismiss 当前版本。`FORGE_DISABLE_UPDATE_CHECK=1` 可关闭启动检查。显式命令仍可重复，会先解析精确 SemVer；只有识别 npm/pnpm 全局安装来源后才用 argument array 与 `--ignore-scripts` 安装，未知来源只报告版本和 release notes。成功后仍需 restart。

@@ -51,6 +51,10 @@ v0.1 之后再考虑。未来的显式高级模式必须有清晰警告和用户
 
 ## 进程边界
 
+交互审批采用结构化选择：`1` 仅允许一次，`2` 只在当前内存 session 中保存界面准确展示的 scope，`3` 拒绝并可附带有界 feedback。Command scope 绑定精确 program/argument array、canonical workspace/cwd 和 timeout ceiling；workspace write、network tool/destination 与 delegated-model 使用同样由 host 规范化的字段。`/permissions` 展示 use count 并可撤销。
+
+Grant 不序列化也不随 resume 恢复。参数、cwd、destination、workspace 或超时上限变化都会重新提示；destructive、credential-sensitive、install、publish 与广泛外部副作用命令不可复用。Plugin policy hook 只能保持或收紧 `deny > confirm > allow`，不能创建或扩大 grant。
+
 v0.1 `run_command` 接受 program 和 args 数组，以 Node.js `spawn`、`shell: false` 启动。pipeline、重定向、命令替换和复合 shell 语法不接受。默认 profile 下每条命令都需确认，审批提示至少显示精确 program、逐项引用的参数、工作目录、超时和相关环境变化。
 
 工作目录在 workspace 内不代表进程不能读写外部。没有 OS sandbox，Forge 不能声称获批子进程具有文件系统或网络隔离；`shell: false` 只防止 Forge 自己解析 shell 表达式。
@@ -81,7 +85,7 @@ Child 继承有效 policy/approval，只获得声明的非 subagent 工具，共
 
 模型实际返回的 reasoning/thinking 默认对用户可见，必须标记为 provider 提供；不能声称访问 provider 没有返回的 reasoning。reasoning 可能含仓库敏感信息，trace 和导出使用同一脱敏策略。
 
-恢复 session 只恢复完成的对话，不恢复可执行 authority；每次恢复创建新策略实例，不恢复旧审批、待调用工具、子进程或 provider continuation，并重新加载当前配置和项目指令。session snapshot 和 trace 在 `FORGE_HOME` 外仓库存储，但仍可能含仓库文本、diff、命令和模型输出，是本地敏感数据。
+恢复 session 会恢复完成的 canonical 对话，包括闭合的 tool-call/result 对，但不恢复可执行 authority；历史工具输出只是 untrusted context，不是当前验证。每次恢复创建新策略实例，不恢复旧审批、待调用工具、子进程或 provider continuation，并重新加载当前配置和项目指令。session snapshot 和 trace 在 `FORGE_HOME` 外仓库存储，但仍可能含仓库文本、diff、命令和模型输出，是本地敏感数据。
 
 ## Credential 处理
 

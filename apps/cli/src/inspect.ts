@@ -63,6 +63,22 @@ export function formatInspection(events: readonly TraceEnvelope[]): string {
     .map(([name, value]) => `${name}=${value}`)
     .join(" ");
   const budget = summary.context.lastBudget;
+  const cache = summary.cache;
+  const cacheLines = [
+    "",
+    "Prompt cache",
+    `Aggregate input=${formatOptional(cache.inputTokens)} read=${formatOptional(cache.cacheReadTokens)} write=${formatOptional(cache.cacheWriteTokens)} uncached=${formatOptional(cache.uncachedInputTokens)} hitRatio=${formatRatio(cache.hitRatio)}`,
+    ...cache.steps.map(
+      (step) =>
+        `Step ${step.step} input=${formatOptional(step.inputTokens)} read=${formatOptional(step.cacheReadTokens)} write=${formatOptional(step.cacheWriteTokens)} uncached=${formatOptional(step.uncachedInputTokens)} hitRatio=${formatRatio(step.hitRatio)}`,
+    ),
+    ...(cache.lastPrefix
+      ? [
+          `Prefix ${cache.lastPrefix.stablePrefixHash} mode=${cache.lastPrefix.cacheMode} invalidatedBy=${cache.lastPrefix.invalidatedBy.join(",") || "none"}`,
+          `Hashes instructions=${cache.lastPrefix.instructionHash} resources=${cache.lastPrefix.resourceCatalogHash} tools=${cache.lastPrefix.toolSchemaHash}`,
+        ]
+      : ["Prefix unavailable"]),
+  ];
   const contextLines = budget
     ? [
         "",
@@ -88,6 +104,7 @@ export function formatInspection(events: readonly TraceEnvelope[]): string {
     `Tool calls ${summary.toolCalls}${toolSummary ? ` (${toolSummary})` : ""}`,
     `Usage ${usage}`,
     ...contextLines,
+    ...cacheLines,
     "",
     "Events",
     ...events.map(
@@ -128,6 +145,18 @@ function describeEvent(event: TraceEnvelope["event"]): string {
       return `${event.type} ${JSON.stringify(event.message)}`;
     case "context.budgeted":
       return `${event.type} step=${event.step} estimated=${event.budget.estimatedInputTokens} available=${event.budget.availableInputTokens} retained=${event.budget.retainedMessageCount} omitted=${event.budget.omittedMessageCount}`;
+    case "context.pressure":
+      return `${event.type} step=${event.step} ratio=${Math.round(event.snapshot.ratio * 100)}% confidence=${event.snapshot.confidence} mode=${event.snapshot.mode} state=${event.snapshot.state}`;
+    case "cache.prefix":
+      return `${event.type} step=${event.step} hash=${event.observation.stablePrefixHash} mode=${event.observation.cacheMode} invalidatedBy=${event.observation.invalidatedBy.join(",") || "none"}`;
+    case "cache.observed":
+      return `${event.type} step=${event.step} input=${formatOptional(event.inputTokens)} read=${formatOptional(event.cacheReadTokens)} write=${formatOptional(event.cacheWriteTokens)} uncached=${formatOptional(event.uncachedInputTokens)} hitRatio=${formatRatio(event.hitRatio)}`;
+    case "approval.scope-decision":
+      return `${event.type} action=${event.actionId} decision=${event.decision} scope=${event.scopeId ?? "none"} persisted=false provenance=${event.provenance}`;
+    case "update.availability":
+      return `${event.type} state=${event.state} current=${event.currentVersion}${event.latestVersion ? ` latest=${event.latestVersion}` : ""}`;
+    case "context.auto-paused":
+      return `${event.type} step=${event.step} reason=${event.reason} ${event.message}`;
     case "context.warning":
     case "context.limit_reached":
       return `${event.type} step=${event.step} ${event.message}`;
@@ -151,4 +180,12 @@ function describeEvent(event: TraceEnvelope["event"]): string {
         ? `${event.type} ${event.message}`
         : event.type;
   }
+}
+
+function formatOptional(value: number | undefined): string {
+  return value === undefined ? "unavailable" : String(value);
+}
+
+function formatRatio(value: number | undefined): string {
+  return value === undefined ? "unavailable" : `${(value * 100).toFixed(1)}%`;
 }

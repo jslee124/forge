@@ -14,9 +14,11 @@ import {
   type ModelStreamEvent,
   type ModelToolDefinition,
   type ModelUsage,
+  projectCanonicalConversation,
 } from "@forge/core";
 import {
   APICallError,
+  InvalidPromptError,
   type LanguageModelUsage,
   type ModelMessage,
   RetryError,
@@ -87,6 +89,7 @@ export class AiSdkDeepSeekTransport implements DeepSeekTransport {
         model: usesResponsesApi
           ? responses.responses(request.model)
           : deepSeek(request.model),
+        ...(request.instructions ? { instructions: request.instructions } : {}),
         messages,
         abortSignal: signal,
         // Forge maps stream errors itself. The AI SDK default logs the raw
@@ -268,10 +271,9 @@ function buildMessages(request: DeepSeekTransportRequest): ModelMessage[] {
     messages = [...request.continuation.data.messages];
   } else {
     messages = [
-      ...(request.instructions
-        ? [{ role: "system" as const, content: request.instructions }]
-        : []),
-      ...(request.conversation ?? []),
+      ...(projectCanonicalConversation(
+        request.conversation ?? [],
+      ) as ModelMessage[]),
       {
         role: "user",
         content: request.images?.length
@@ -385,6 +387,17 @@ function isAbortError(error: unknown): boolean {
 export function mapDeepSeekError(error: unknown): ModelProviderError {
   if (error instanceof ModelProviderError) {
     return error;
+  }
+
+  if (InvalidPromptError.isInstance(error)) {
+    return new ModelProviderError(
+      "Could not construct the DeepSeek request. Check the prompt and model configuration.",
+      {
+        provider: "deepseek",
+        retryable: false,
+        cause: error,
+      },
+    );
   }
 
   const apiError = unwrapApiCallError(error);

@@ -15,7 +15,7 @@ import { runResourcesCommand } from "./resources-command.js";
 import { type ResumeOptions, runResumeFromCli } from "./resume.js";
 import { runTaskFromCli } from "./run.js";
 import { runInteractiveFromCli } from "./session.js";
-import { maybeNotifyUpdate, runUpdateCommand } from "./update.js";
+import { runUpdateCommand } from "./update.js";
 
 export interface ProgramDependencies {
   readonly env?: NodeJS.ProcessEnv;
@@ -81,7 +81,6 @@ export interface ProgramDependencies {
     name: string | undefined,
     env: NodeJS.ProcessEnv,
   ) => Promise<number>;
-  readonly notifyUpdate?: (env: NodeJS.ProcessEnv) => Promise<void>;
 }
 
 export function createProgram(dependencies: ProgramDependencies = {}): Command {
@@ -151,14 +150,6 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
         stdout: process.stdout,
         stderr: process.stderr,
       }));
-  const notifyUpdate =
-    dependencies.notifyUpdate ??
-    ((updateEnv) =>
-      maybeNotifyUpdate({
-        env: updateEnv,
-        stderr: process.stderr,
-        isTTY: process.stderr.isTTY === true,
-      }));
   const program = new Command()
     .name("forge")
     .description("A safe, observable, and evaluable coding agent")
@@ -180,7 +171,6 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
       "permission profile: safe or workspace-write",
     )
     .action(async (options: AskOptions) => {
-      await notifyUpdate(env);
       setExitCode(await interactive(options, env));
     });
 

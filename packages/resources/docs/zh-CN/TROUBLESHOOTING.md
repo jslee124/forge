@@ -110,6 +110,12 @@ pnpm forge auth login openai --method device-code
 
 当 stdin/stderr 不是 TTY 时，one-shot native run 没有审批通道，需要确认的操作会 fail closed。这是预期行为。请改在终端运行、把任务缩小为只读，或使用专门的自动化/评测审批通道。不要把切换 profile 当成 OS isolation；两种 profile 都不会 sandbox 获批进程。
 
+交互 Forge Engine 中，`1` 只允许一次，`2` 仅保存界面展示的 session scope；用 `/permissions` 查看和撤销。参数、cwd、network destination、workspace、超过 ceiling 的 timeout 或 install/publish/destructive 高风险命令会正确重新提示。按 `3` 后可输入 guidance 再回车，把 denial result 返回当前 run，但不会授予 authority。
+
+## 显示更新但 `forge update` 不安装
+
+Forge 只在识别 npm/pnpm 全局安装来源时执行安装。未知或复制的 executable 只报告精确版本与 release-notes URL，不猜测包管理器；请使用最初的 installer。显式安装成功后需要 restart。`FORGE_DISABLE_UPDATE_CHECK=1` 只关闭启动检查，`forge update check` 仍是显式且权威的查询。
+
 ## 项目 plugin 被发现但显示 skipped
 
 Forge 会从规范 workspace root 的 `.forge/plugins/` 发现项目 plugin，但在信任前不会 import。检查代码后使用 `/plugins` 面板，或：
@@ -159,7 +165,7 @@ Session 与 workspace 绑定。请在同一个规范仓库中启动：
 pnpm forge resume --last
 ```
 
-Snapshot 位于 `$FORGE_HOME/sessions`。修改 `FORGE_HOME`、移动 checkout、删除或损坏 JSON 都会影响结果。Resume 只恢复 completed turns，不能继续中断的 stream 或待处理 tool call。
+Snapshot 位于 `$FORGE_HOME/sessions`。修改 `FORGE_HOME`、移动 checkout、删除或损坏 JSON 都会影响结果。Resume 会恢复 completed turns，以及 failed、denied、cancelled、limit-reached 运行的有界结果，但不能继续中断的 stream 或待处理 tool call；新运行会重新检查当前状态。
 
 ## 终端输入或渲染异常
 

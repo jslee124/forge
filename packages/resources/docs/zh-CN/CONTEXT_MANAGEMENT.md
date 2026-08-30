@@ -4,9 +4,11 @@ English · 中文目录
 
 ## 状态
 
-Roadmap Milestone 10 已实现。默认模式仍是 `warn`；自动生成 checkpoint 在 provider 质量 gate 发布前保持 opt-in。当前 checkpoint 使用确定性、脱敏的 extractive summarizer，因此默认测试和手动 `/compact` 不会产生付费模型调用。它在所有可用历史消息之间分配有界空间，移除类似 authority 的审批声明，并把验证文字标记为历史信息。
+Roadmap Milestone 10 与 Milestone 13.0-13.5 已实现。默认模式仍是 `warn`；自动生成 checkpoint 在 provider 质量 gate 发布前保持 opt-in。TUI 现在会预计完整的下一次请求输入、常驻显示分段压力 indicator，并通过 `/context` 提供仅当前 session 或明确持久化的自动模式。当前 checkpoint 使用确定性、脱敏的 extractive summarizer，因此默认测试和手动 `/compact` 不会产生付费模型调用。它在所有可用历史消息之间分配有界空间，移除类似 authority 的审批声明，并把验证文字标记为历史信息。
 
 Checkpoint schema 和 adapter capability contract 支持 provider-native opaque state；但当前 OpenAI AI SDK 和 DeepSeek adapter 因 transport 尚未提供安全的 compact-item round trip，声明 native compaction 不支持。
+
+初始 activation threshold 是 `0.78`。Input capacity 只扣除一次 `max(output reserve, safety buffer)`。压缩被取消、输出无效，或回收量小于 8,000 token 与 projected input 20% 两者的较大值时，auto mode 会暂停。Stable-prefix 与 cache observation 只把 hash metadata 写入 trace；provider 没有报告的 cache usage 保持 unavailable。
 
 ## 为什么要做
 
@@ -146,7 +148,7 @@ remaining history budget
 
 ## Conversation compaction
 
-选择算法优先保留 mandatory instructions、current request、required protocol state 和最近的完整 turn；只选择更旧、已完成的消息进入 checkpoint。应先清理可安全移除的旧 tool output，再压缩更大范围。要保持 user/assistant 配对，不能截断半个 tool-call 事务。
+选择算法优先保留 mandatory instructions、current request、required protocol state 和最近的完整 turn；session schema v3 的 structured `history` 与 checkpoint v2 按闭合 user/assistant/tool exchange 选择和 hash。只选择更旧、已完成的消息进入 checkpoint，不能拆开 tool-call/result 或保留 orphan result。
 
 Checkpoint 至少包含 schema version、源消息区间、source/tail hash、生成时间、summary text、summary token estimate、redaction/provenance 和 strategy。它是派生数据，可被 hash 不匹配或验证失败的检查丢弃；规范 transcript 始终保留。
 

@@ -1,10 +1,27 @@
+import { randomUUID } from "node:crypto";
+
+import {
+  type ApprovalDescriptor,
+  type ApprovalResponse,
+  describeApproval,
+  type SessionApprovalStore,
+} from "./approval.js";
+import {
+  observePromptPrefix,
+  type PromptPrefixInputs,
+  type PromptPrefixObservation,
+} from "./cache.js";
 import {
   budgetModelRequest,
   type ContextBudgetReport,
   type ContextConfiguration,
+  type ContextPressureMode,
+  type ContextPressureSnapshot,
+  contextPressureSnapshot,
   DEFAULT_CONTEXT_CONFIGURATION,
 } from "./context.js";
 import type {
+  CanonicalConversationMessage,
   ModelAdapter,
   ModelContinuation,
   ModelConversationMessage,
@@ -14,6 +31,7 @@ import type {
   ModelToolResult,
   ModelUsage,
 } from "./model.js";
+import { validateCanonicalConversation } from "./model.js";
 import type {
   ApprovalChannel,
   ApprovalDecision,
@@ -101,6 +119,59 @@ export type RunEvent =
       readonly type: "context.budgeted";
       readonly step: number;
       readonly budget: ContextBudgetReport;
+    }
+  | {
+      readonly type: "context.pressure";
+      readonly step: number;
+      readonly snapshot: ContextPressureSnapshot;
+    }
+  | {
+      readonly type: "cache.prefix";
+      readonly step: number;
+      readonly observation: PromptPrefixObservation;
+    }
+  | {
+      readonly type: "cache.observed";
+      readonly schemaVersion: 1;
+      readonly step: number;
+      readonly inputTokens?: number;
+      readonly cacheReadTokens?: number;
+      readonly cacheWriteTokens?: number;
+      readonly uncachedInputTokens?: number;
+      readonly hitRatio?: number;
+    }
+  | {
+      readonly type: "approval.scope-decision";
+      readonly schemaVersion: 1;
+      readonly actionId: string;
+      readonly decision: "allow-once" | "allow-session" | "deny";
+      readonly scopeId?: string;
+      readonly provenance: "user" | "policy";
+      readonly persisted: false;
+    }
+  | {
+      readonly type: "update.availability";
+      readonly schemaVersion: 1;
+      readonly state:
+        | "cached"
+        | "refreshing"
+        | "available"
+        | "current"
+        | "failed"
+        | "disabled";
+      readonly currentVersion: string;
+      readonly latestVersion?: string;
+      readonly source: "npm-registry";
+    }
+  | {
+      readonly type: "context.auto-paused";
+      readonly step: number;
+      readonly reason:
+        | "cancelled"
+        | "invalid-output"
+        | "repeated-failure"
+        | "low-reclamation";
+      readonly message: string;
     }
   | {
       readonly type: "context.warning" | "context.limit_reached";
@@ -203,17 +274,22 @@ export interface RunContextSnapshot {
 }
 
 export interface RunAgentOptions {
+  readonly runId?: string;
   readonly prompt: string;
   readonly images?: readonly ModelImageInput[];
   readonly context?: RunContextSnapshot;
+  readonly sessionId?: string;
   readonly instructions?: string;
   readonly conversation?: readonly ModelConversationMessage[];
   readonly omittedConversationMessages?: number;
   readonly contextConfiguration?: ContextConfiguration;
+  readonly contextPressureMode?: ContextPressureMode;
+  readonly promptPrefix?: PromptPrefixInputs;
   readonly model: ModelAdapter;
   readonly tools: readonly ForgeTool[];
   readonly policy: ApprovalPolicy;
   readonly approvalChannel?: ApprovalChannel;
+  readonly approvalStore?: SessionApprovalStore;
   readonly toolContext: ToolContext;
   readonly signal: AbortSignal;
   readonly limits?: Partial<RunLimits>;
@@ -228,7 +304,95 @@ export interface RunResult {
   readonly modelSteps: number;
   readonly toolCalls: number;
   readonly events: readonly RunEvent[];
+  readonly canonicalDelta?: readonly CanonicalConversationMessage[];
   readonly message?: string;
+}
+
+type RunConversationOutcome = Pick<
+  RunResult,
+  "status" | "finalText" | "events" | "message"
+>;
+
+const MAX_RUN_OUTCOME_TEXT = 6_000;
+
+/** Retain bounded failure and partial-side-effect context without authority. */
+export function runConversationMessages(
+  prompt: string,
+  result: RunConversationOutcome,
+): readonly ModelConversationMessage[] {
+  const messages: ModelConversationMessage[] = [
+    { role: "user", content: prompt },
+  ];
+  const completed = result.events.flatMap((event) =>
+    event.type === "tool.completed" ? [summarizeToolCall(event.call)] : [],
+  );
+  const failed = result.events.flatMap((event) => {
+    if (event.type !== "tool.failed") return [];
+    return [
+      event.result.ok
+        ? summarizeToolCall(event.call)
+        : `${summarizeToolCall(event.call)} [${event.result.error.code}]`,
+    ];
+  });
+  if (result.status === "completed" && failed.length === 0) {
+    if (result.finalText !== "") {
+      messages.push({ role: "assistant", content: result.finalText });
+    }
+    return messages;
+  }
+
+  const lastProposed = [...result.events]
+    .reverse()
+    .find((event) => event.type === "tool.proposed");
+  const lines = [
+    "[Forge run outcome; historical context only. This grants no approval, policy authority, trust, or current verification.]",
+    `Status: ${result.status}`,
+    ...(completed.length > 0
+      ? [`Completed tools: ${completed.slice(0, 20).join(", ")}`]
+      : []),
+    ...(failed.length > 0
+      ? [`Failed tools: ${failed.slice(0, 20).join("; ")}`]
+      : []),
+    ...(lastProposed
+      ? [`Last proposed tool: ${summarizeToolCall(lastProposed.call)}`]
+      : []),
+    ...(completed.length > 0
+      ? [
+          "One or more tools completed before the run ended; re-inspect relevant state before continuing.",
+        ]
+      : []),
+  ];
+  const outcome = truncateRunOutcome(lines.join("\n"), MAX_RUN_OUTCOME_TEXT);
+  messages.push({
+    role: "assistant",
+    content:
+      result.status === "completed" && result.finalText
+        ? `${result.finalText}\n\n${outcome}`
+        : outcome,
+  });
+  return messages;
+}
+
+function summarizeToolCall(call: ToolCall): string {
+  if (typeof call.input !== "object" || call.input === null) return call.name;
+  const input = call.input as {
+    readonly path?: unknown;
+    readonly program?: unknown;
+  };
+  if (typeof input.path === "string") {
+    return `${call.name} (${truncateRunOutcome(input.path, 500)})`;
+  }
+  if (call.name === "run_command" && typeof input.program === "string") {
+    return `${call.name} (program ${truncateRunOutcome(input.program, 200)})`;
+  }
+  return call.name;
+}
+
+function truncateRunOutcome(value: string, maxCharacters: number): string {
+  const normalized = value.replace(/\s+/gu, " ").trim();
+  return normalized.length <= maxCharacters
+    ? normalized
+    : `${normalized.slice(0, Math.max(0, maxCharacters - 1))}…`;
 }
 
 interface StepOutcome {
@@ -240,6 +404,7 @@ interface StepOutcome {
 }
 
 export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
+  const runId = options.runId ?? randomUUID();
   const limits: RunLimits = {
     maxModelSteps: options.limits?.maxModelSteps ?? DEFAULT_MAX_MODEL_STEPS,
     maxToolCalls: options.limits?.maxToolCalls ?? DEFAULT_MAX_TOOL_CALLS,
@@ -252,10 +417,24 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
   const tools = toModelToolDefinitions(options.tools);
   let modelSteps = 0;
   let toolCalls = 0;
+  const deniedCalls = new Set<string>();
   let continuation: ModelContinuation | undefined;
   let toolResults: readonly ModelToolResult[] | undefined;
   let finalText = "";
+  const canonicalDelta: CanonicalConversationMessage[] = [
+    {
+      id: `${runId}:user`,
+      runId,
+      role: "user",
+      content: [{ type: "text", text: options.prompt }],
+    },
+  ];
+  let pendingExchange: readonly CanonicalConversationMessage[] | undefined;
+  let pendingToolOutcomes: readonly ModelToolResult[] = [];
   let overflowRecoveryUsed = false;
+  let previousPrefix: PromptPrefixObservation | undefined;
+  let activePromptPrefix = options.promptPrefix;
+  let autoCompactionPaused = options.contextPressureMode === "paused";
   const selectedSkillIds = new Set(
     (options.initialEvents ?? [])
       .filter(
@@ -268,6 +447,11 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
   );
   const contextConfiguration =
     options.contextConfiguration ?? DEFAULT_CONTEXT_CONFIGURATION;
+  const pressureMode =
+    options.contextPressureMode ??
+    (contextConfiguration.mode === "compact"
+      ? "auto-default"
+      : contextConfiguration.mode);
 
   for (const event of options.initialEvents ?? []) await emit(event);
 
@@ -287,7 +471,7 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
     }
 
     const nextStep = modelSteps + 1;
-    let request = {
+    let request: import("./model.js").ModelRequest = {
       prompt: options.prompt,
       ...(options.images?.length ? { images: options.images } : {}),
       ...(options.instructions ? { instructions: options.instructions } : {}),
@@ -296,6 +480,30 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
       ...(continuation ? { continuation } : {}),
       ...(toolResults ? { toolResults } : {}),
     };
+    if (activePromptPrefix) {
+      const observation = observePromptPrefix({
+        request,
+        inputs: activePromptPrefix,
+        capabilities: options.model.promptCache ?? { mode: "unsupported" },
+        ...(previousPrefix ? { previous: previousPrefix } : {}),
+        ...(options.sessionId ? { sessionId: options.sessionId } : {}),
+        ...(options.context?.workspaceRoot
+          ? { workspaceRoot: options.context.workspaceRoot }
+          : {}),
+      });
+      previousPrefix = observation;
+      await emit({ type: "cache.prefix", step: nextStep, observation });
+      if (observation.cacheMode !== "unsupported") {
+        request = {
+          ...request,
+          cacheControl: {
+            mode: observation.cacheMode,
+            ...(observation.cacheKey ? { key: observation.cacheKey } : {}),
+            stablePrefixHash: observation.stablePrefixHash,
+          },
+        };
+      }
+    }
     let budget = await budgetModelRequest({
       model: options.model,
       request,
@@ -304,10 +512,22 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
         ? { omittedMessageCount: options.omittedConversationMessages }
         : {}),
     });
+    let pressure = contextPressureSnapshot(
+      budget,
+      autoCompactionPaused ? "paused" : pressureMode,
+    );
+    await emit({
+      type: "context.pressure",
+      step: nextStep,
+      snapshot: pressure,
+    });
     const capabilities = options.model.context;
+    const activationThreshold =
+      contextConfiguration.activationThreshold ?? 0.78;
     if (
       contextConfiguration.mode === "compact" &&
-      !budget.fits &&
+      !autoCompactionPaused &&
+      pressure.ratio >= activationThreshold &&
       continuation &&
       capabilities?.projectContinuation
     ) {
@@ -335,9 +555,52 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
           0,
           budget.estimatedInputTokens - projectedBudget.estimatedInputTokens,
         );
-        if (reclaimedTokens >= 128) {
+        const minimumUsefulReclamation = Math.max(
+          contextConfiguration.minimumReclaimTokens ?? 8_000,
+          Math.ceil(
+            budget.estimatedInputTokens *
+              (contextConfiguration.minimumReclaimRatio ?? 0.2),
+          ),
+        );
+        if (reclaimedTokens >= minimumUsefulReclamation) {
           request = projectedRequest;
           continuation = projected;
+          if (activePromptPrefix) {
+            activePromptPrefix = {
+              ...activePromptPrefix,
+              checkpointGeneration: `${activePromptPrefix.checkpointGeneration}:adapter-${nextStep}`,
+            };
+            const compactedPrefix = observePromptPrefix({
+              request,
+              inputs: activePromptPrefix,
+              capabilities: options.model.promptCache ?? {
+                mode: "unsupported",
+              },
+              ...(previousPrefix ? { previous: previousPrefix } : {}),
+              ...(options.sessionId ? { sessionId: options.sessionId } : {}),
+              ...(options.context?.workspaceRoot
+                ? { workspaceRoot: options.context.workspaceRoot }
+                : {}),
+            });
+            previousPrefix = compactedPrefix;
+            await emit({
+              type: "cache.prefix",
+              step: nextStep,
+              observation: compactedPrefix,
+            });
+            if (compactedPrefix.cacheMode !== "unsupported") {
+              request = {
+                ...request,
+                cacheControl: {
+                  mode: compactedPrefix.cacheMode,
+                  ...(compactedPrefix.cacheKey
+                    ? { key: compactedPrefix.cacheKey }
+                    : {}),
+                  stablePrefixHash: compactedPrefix.stablePrefixHash,
+                },
+              };
+            }
+          }
           await emit({
             type: "context.compaction.completed",
             step: nextStep,
@@ -347,12 +610,30 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
             reclaimedTokens,
           });
           budget = projectedBudget;
+          pressure = contextPressureSnapshot(
+            projectedBudget,
+            pressureMode,
+            "compacted",
+          );
+          await emit({
+            type: "context.pressure",
+            step: nextStep,
+            snapshot: pressure,
+          });
         } else {
           await emit({
             type: "context.compaction.failed",
             step: nextStep,
             strategy: "adapter-continuation",
-            message: `Continuation projection reclaimed only ${reclaimedTokens} tokens; minimum useful reclamation is 128.`,
+            message: `Continuation projection reclaimed only ${reclaimedTokens} tokens; minimum useful reclamation is ${minimumUsefulReclamation}.`,
+          });
+          autoCompactionPaused = true;
+          await emit({
+            type: "context.auto-paused",
+            step: nextStep,
+            reason: "low-reclamation",
+            message:
+              "Automatic compaction paused because projection reclaimed too little context.",
           });
         }
       } else {
@@ -361,6 +642,14 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
           step: nextStep,
           strategy: "adapter-continuation",
           message: "The adapter could not safely project its continuation.",
+        });
+        autoCompactionPaused = true;
+        await emit({
+          type: "context.auto-paused",
+          step: nextStep,
+          reason: "invalid-output",
+          message:
+            "Automatic compaction paused because the adapter returned no safe projection.",
         });
       }
     }
@@ -389,6 +678,11 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
       }
     }
 
+    if (pendingExchange) {
+      canonicalDelta.push(...pendingExchange);
+      pendingExchange = undefined;
+      pendingToolOutcomes = [];
+    }
     modelSteps = nextStep;
     await emit({ type: "model.started", step: modelSteps });
 
@@ -446,6 +740,7 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
       finishReason: step.finishReason,
       usage: step.usage,
     });
+    await emit(cacheObservation(modelSteps, step.usage));
     if (step.usage.inputTokens !== undefined) {
       const absoluteErrorTokens = Math.abs(
         step.usage.inputTokens - budget.estimatedInputTokens,
@@ -473,6 +768,15 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
       }
       if (step.finishReason === "error") {
         return finish("failed", "The model step ended with an error.");
+      }
+      if (step.text !== "") {
+        canonicalDelta.push({
+          id: `${runId}:assistant:${modelSteps}`,
+          runId,
+          step: modelSteps,
+          role: "assistant",
+          content: [{ type: "text", text: step.text }],
+        });
       }
       return finish("completed");
     }
@@ -517,6 +821,22 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
         continue;
       }
 
+      const deniedCallKey = `${call.name}:${JSON.stringify(call.input)}`;
+      if (deniedCalls.has(deniedCallKey)) {
+        const result: ToolResult = {
+          ok: false,
+          error: {
+            code: "approval_denied",
+            message:
+              "This exact action was already denied during the current run. Do not retry it unchanged.",
+            retryable: false,
+          },
+        };
+        await emit({ type: "tool.failed", step: modelSteps, call, result });
+        nextResults.push({ callId: call.id, toolName: call.name, result });
+        continue;
+      }
+
       let decision: ApprovalDecision;
       try {
         decision = await options.policy.evaluate(
@@ -540,41 +860,148 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
         return finish("cancelled", "The run was cancelled.");
       }
       if (decision.kind === "deny") {
-        return finish("denied", decision.reason);
+        deniedCalls.add(deniedCallKey);
+        const result: ToolResult = {
+          ok: false,
+          error: {
+            code: "approval_denied",
+            message: `Policy denied this action: ${decision.reason}`,
+            retryable: false,
+          },
+        };
+        await emit({ type: "tool.failed", step: modelSteps, call, result });
+        nextResults.push({ callId: call.id, toolName: call.name, result });
+        continue;
       }
       if (decision.kind === "confirm") {
-        if (!options.approvalChannel) {
+        let descriptor: ApprovalDescriptor;
+        try {
+          descriptor = await describeApproval(
+            proposed.action,
+            options.toolContext,
+          );
+        } catch {
+          return finish(
+            "failed",
+            "The approval descriptor could not be created.",
+          );
+        }
+        const matchedGrant = options.approvalStore?.match(descriptor);
+        if (matchedGrant) {
+          await emit({
+            type: "approval.scope-decision",
+            schemaVersion: 1,
+            actionId: call.id,
+            decision: "allow-session",
+            scopeId: matchedGrant.id,
+            provenance: "policy",
+            persisted: false,
+          });
+        } else if (!options.approvalChannel) {
           return finish(
             "denied",
             "The action requires approval, but no approval channel is available.",
           );
-        }
-        let approved: boolean;
-        try {
-          approved = await options.approvalChannel.request(
-            proposed.action,
-            options.signal,
-            options.toolContext,
-          );
-        } catch {
+        } else {
+          let response: ApprovalResponse;
+          try {
+            const received = options.approvalChannel.requestStructured
+              ? await options.approvalChannel.requestStructured(
+                  proposed.action,
+                  options.signal,
+                  options.toolContext,
+                  descriptor,
+                )
+              : await options.approvalChannel.request(
+                  proposed.action,
+                  options.signal,
+                  options.toolContext,
+                );
+            response =
+              typeof received === "boolean"
+                ? { kind: received ? "allow-once" : "deny" }
+                : received;
+          } catch {
+            if (options.signal.aborted) {
+              return finish("cancelled", "The run was cancelled.");
+            }
+            return finish("failed", "The approval channel failed.");
+          }
           if (options.signal.aborted) {
             return finish("cancelled", "The run was cancelled.");
           }
-          return finish("failed", "The approval channel failed.");
-        }
-        if (options.signal.aborted) {
-          return finish("cancelled", "The run was cancelled.");
-        }
-        if (!approved) {
-          return finish("denied", "The action was not approved.");
+          if (response.kind === "preflight-failed") {
+            await emit({
+              type: "tool.failed",
+              step: modelSteps,
+              call,
+              result: response.result,
+            });
+            nextResults.push({
+              callId: call.id,
+              toolName: call.name,
+              result: response.result,
+            });
+            continue;
+          }
+          if (response.kind === "deny") {
+            const feedback = response.feedback?.trim().slice(0, 2_000);
+            await emit({
+              type: "approval.scope-decision",
+              schemaVersion: 1,
+              actionId: call.id,
+              decision: "deny",
+              provenance: "user",
+              persisted: false,
+            });
+            deniedCalls.add(deniedCallKey);
+            const result: ToolResult = {
+              ok: false,
+              error: {
+                code: "approval_denied",
+                message: feedback
+                  ? `The user denied this action: ${feedback}`
+                  : "The user denied this action. Do not retry it unchanged; explain the limitation or choose a safer alternative.",
+                retryable: Boolean(feedback),
+              },
+            };
+            await emit({ type: "tool.failed", step: modelSteps, call, result });
+            nextResults.push({ callId: call.id, toolName: call.name, result });
+            continue;
+          }
+          if (response.kind === "allow-session") {
+            const scope = descriptor.allowedScopes[0];
+            if (!scope || !options.approvalStore) {
+              return finish(
+                "denied",
+                "A session grant is not permitted for this action.",
+              );
+            }
+            const grant = options.approvalStore.grant(scope);
+            await emit({
+              type: "approval.scope-decision",
+              schemaVersion: 1,
+              actionId: call.id,
+              decision: "allow-session",
+              scopeId: grant.id,
+              provenance: "user",
+              persisted: false,
+            });
+          } else {
+            await emit({
+              type: "approval.scope-decision",
+              schemaVersion: 1,
+              actionId: call.id,
+              decision: "allow-once",
+              provenance: "user",
+              persisted: false,
+            });
+          }
         }
       }
 
       await emit({ type: "tool.started", step: modelSteps, call });
       const result = await execute(proposed.action, options.toolContext);
-      if (result.ok && decision.kind === "confirm") {
-        options.policy.recordApproval?.(proposed.action);
-      }
       await emit({
         type: result.ok ? "tool.completed" : "tool.failed",
         step: modelSteps,
@@ -695,9 +1122,14 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
         toolName: call.name,
         result,
       });
+      pendingToolOutcomes = [
+        ...pendingToolOutcomes,
+        { callId: call.id, toolName: call.name, result },
+      ];
     }
 
     toolResults = nextResults;
+    pendingExchange = canonicalExchange(runId, modelSteps, step, nextResults);
   }
 
   async function finish(
@@ -706,6 +1138,15 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
   ): Promise<RunResult> {
     const type = `run.${status}` as RunEvent["type"];
     await emit({ type, ...(message ? { message } : {}) } as RunEvent);
+    const committed = canonicalDeltaWithOutcome(
+      canonicalDelta,
+      runId,
+      status,
+      finalText,
+      message,
+      pendingToolOutcomes,
+    );
+    validateCanonicalConversation(committed);
     return {
       status,
       exitCode: exitCodeForRunStatus(status),
@@ -713,9 +1154,93 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
       modelSteps,
       toolCalls,
       events,
+      canonicalDelta: committed,
       ...(message ? { message } : {}),
     };
   }
+}
+
+function canonicalExchange(
+  runId: string,
+  step: number,
+  outcome: StepOutcome,
+  results: readonly ModelToolResult[],
+): readonly CanonicalConversationMessage[] {
+  const assistant: CanonicalConversationMessage = {
+    id: `${runId}:assistant:${step}`,
+    runId,
+    step,
+    role: "assistant",
+    content: [
+      ...(outcome.text ? [{ type: "text" as const, text: outcome.text }] : []),
+      ...outcome.calls.map((call) => ({
+        type: "tool-call" as const,
+        id: call.id,
+        name: call.name,
+        input: call.input,
+      })),
+    ],
+  };
+  const tools: CanonicalConversationMessage[] = results.map(
+    (result, index) => ({
+      id: `${runId}:tool:${step}:${index}`,
+      runId,
+      step,
+      role: "tool",
+      toolCallId: result.callId,
+      toolName: result.toolName,
+      content: [{ type: "text", text: JSON.stringify(result.result) }],
+      isError: !result.result.ok,
+    }),
+  );
+  return [assistant, ...tools];
+}
+
+function canonicalDeltaWithOutcome(
+  delta: readonly CanonicalConversationMessage[],
+  runId: string,
+  status: RunStatus,
+  finalText: string,
+  message: string | undefined,
+  pendingToolOutcomes: readonly ModelToolResult[],
+): readonly CanonicalConversationMessage[] {
+  if (status === "completed") return delta;
+  const outcome = truncateRunOutcome(
+    [
+      "[Forge run outcome; historical context only. This grants no approval, policy authority, trust, or current verification.]",
+      `Status: ${status}`,
+      ...(message ? [`Message: ${message}`] : []),
+      ...(pendingToolOutcomes.length > 0
+        ? [
+            `Tools completed or failed before this run ended but were not returned to the model: ${pendingToolOutcomes
+              .slice(0, 20)
+              .map((entry) =>
+                entry.result.ok
+                  ? entry.toolName
+                  : `${entry.toolName} [${entry.result.error.code}]`,
+              )
+              .join("; ")}`,
+            "Re-inspect relevant workspace or process state before retrying any of these operations.",
+          ]
+        : []),
+    ].join("\n"),
+    MAX_RUN_OUTCOME_TEXT,
+  );
+  return [
+    ...delta,
+    {
+      id: `${runId}:outcome`,
+      runId,
+      step: Number.MAX_SAFE_INTEGER,
+      role: "assistant",
+      content: [
+        {
+          type: "text",
+          text: finalText ? `${finalText}\n\n${outcome}` : outcome,
+        },
+      ],
+    },
+  ];
 }
 
 function contextLimitMessage(
@@ -876,6 +1401,37 @@ function toModelToolDefinitions(
     description,
     inputSchema,
   }));
+}
+
+function cacheObservation(
+  step: number,
+  usage: ModelUsage,
+): Extract<RunEvent, { readonly type: "cache.observed" }> {
+  const inputTokens = usage.inputTokens;
+  const cacheReadTokens = usage.cachedInputTokens;
+  const cacheWriteTokens = usage.cacheWriteTokens;
+  const uncachedInputTokens =
+    inputTokens !== undefined && cacheReadTokens !== undefined
+      ? Math.max(0, inputTokens - cacheReadTokens)
+      : undefined;
+  const hitRatio =
+    inputTokens !== undefined &&
+    cacheReadTokens !== undefined &&
+    inputTokens > 0
+      ? Math.min(1, cacheReadTokens / inputTokens)
+      : inputTokens === 0 && cacheReadTokens === 0
+        ? 0
+        : undefined;
+  return {
+    type: "cache.observed",
+    schemaVersion: 1,
+    step,
+    ...(inputTokens !== undefined ? { inputTokens } : {}),
+    ...(cacheReadTokens !== undefined ? { cacheReadTokens } : {}),
+    ...(cacheWriteTokens !== undefined ? { cacheWriteTokens } : {}),
+    ...(uncachedInputTokens !== undefined ? { uncachedInputTokens } : {}),
+    ...(hitRatio !== undefined ? { hitRatio } : {}),
+  };
 }
 
 class RunCancellationError extends Error {}

@@ -44,6 +44,7 @@ export function resolveReasoningWireValue(
 
 export class CompatModelAdapter implements ModelAdapter {
   readonly context: ModelContextCapabilities;
+  readonly promptCache = { mode: "unsupported" as const };
   readonly #options: CompatModelAdapterOptions;
   readonly #reasoningWireValue: string | undefined;
 

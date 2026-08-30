@@ -18,13 +18,30 @@ import type {
   ModelConversationMessage,
   RunEvent,
   RunResult,
+  ToolCall,
+} from "@forge/core";
+import {
+  canonicalText,
+  formatApprovalScope,
+  runConversationMessages,
+  SessionApprovalStore,
+  type SessionGrant,
 } from "@forge/core";
 import {
   type DiscoverModelsRequest,
   discoverModels,
 } from "@forge/model-compat";
 import type { SessionReasoning, SessionSummary } from "@forge/persistence";
-import { Box, render, Text, useApp, useInput, usePaste } from "ink";
+import {
+  Box,
+  render,
+  Static,
+  Text,
+  useApp,
+  useInput,
+  usePaste,
+  useWindowSize,
+} from "ink";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -42,6 +59,11 @@ import {
   formatSlashCommandHelp,
   type SlashCommand,
 } from "./commands.js";
+import {
+  type DiffRow,
+  formatUnifiedDiffRows,
+  summarizeUnifiedDiff,
+} from "./diff.js";
 import { terminalHyperlink } from "./hyperlink.js";
 import { isSupportedImagePath } from "./image-input.js";
 import {
@@ -83,11 +105,18 @@ import {
   detectStartupResources,
   EMPTY_STARTUP_RESOURCES,
 } from "./startup-resources.js";
+import {
+  createUpdateService,
+  FORGE_RELEASES_URL,
+  type UpdateService,
+  type UpdateState,
+} from "./update.js";
 
 type Phase =
   | "editing"
   | "running"
   | "approving"
+  | "approval-feedback"
   | "resuming"
   | "models"
   | "delete-models"
@@ -95,6 +124,7 @@ type Phase =
   | "effort"
   | "plugins"
   | "resources"
+  | "permissions"
   | "plugin-trust"
   | "login-providers"
   | "login-key"
@@ -110,6 +140,7 @@ type TranscriptKind =
   | "warning"
   | "error"
   | "system"
+  | "diff"
   | "raw";
 
 interface TranscriptEntry {
@@ -118,13 +149,43 @@ interface TranscriptEntry {
   readonly text: string;
 }
 
+type StaticOutputItem =
+  | {
+      readonly kind: "header";
+      readonly resources: DetectedStartupResources;
+    }
+  | { readonly kind: "transcript"; readonly entry: TranscriptEntry };
+
 interface PendingApproval {
   readonly prompt: string;
+  readonly allowSession: boolean;
   readonly command?: CommandApprovalPreview;
   readonly network?: NetworkApprovalPreview;
   readonly subagent?: SubagentApprovalPreview;
   readonly resolve: (answer: string | null) => void;
 }
+
+type RunActivity =
+  | { readonly kind: "thinking"; readonly step?: number }
+  | {
+      readonly kind: "tool";
+      readonly stage: "preparing" | "executing";
+      readonly toolName: string;
+      readonly target?: string;
+    };
+
+const RUN_ACTIVITY_FRAMES = [
+  "⠋",
+  "⠙",
+  "⠹",
+  "⠸",
+  "⠼",
+  "⠴",
+  "⠦",
+  "⠧",
+  "⠇",
+  "⠏",
+] as const;
 
 /** A sign-in that App Server has started and is still waiting to complete. */
 interface PendingSignIn {
@@ -512,6 +573,10 @@ export interface InteractiveUiDependencies {
     readonly endpoint?: string;
   }) => Promise<string>;
   readonly sessionPersistence?: InteractiveSessionPersistence;
+  readonly approvalStore?: SessionApprovalStore;
+  readonly approvalWorkspaceRoot?: string;
+  readonly permissionProfileSource?: string;
+  readonly updateService?: UpdateService;
   readonly persistModelSelection?: (options: {
     readonly cwd: string;
     readonly env: NodeJS.ProcessEnv;
@@ -587,6 +652,8 @@ export async function runInkInteractiveFromCli(
   let detectedResources =
     dependencies.detectedResources ?? EMPTY_STARTUP_RESOURCES;
   let initialProviders: Readonly<Record<string, ProviderProfile>> = {};
+  let approvalWorkspaceRoot = dependencies.cwd;
+  let permissionProfileSource = "default";
   try {
     const loaded = await loadForgeConfig({
       cwd: dependencies.cwd,
@@ -607,6 +674,8 @@ export async function runInkInteractiveFromCli(
       summaryTargetTokens: loaded.config.context.summaryTargetTokens,
     };
     initialProviders = loaded.config.providers;
+    approvalWorkspaceRoot = loaded.workspaceRoot;
+    permissionProfileSource = loaded.provenance.permissionProfile.label;
     if (!dependencies.detectedResources) {
       detectedResources = await detectStartupResources({
         forgeHome: loaded.forgeHome,
@@ -644,6 +713,17 @@ export async function runInkInteractiveFromCli(
 
   const interactiveDependencies: InteractiveUiDependencies = {
     ...dependencies,
+    approvalWorkspaceRoot,
+    permissionProfileSource,
+    approvalStore:
+      dependencies.approvalStore ??
+      new SessionApprovalStore({
+        workspaceRoot: approvalWorkspaceRoot,
+        sessionId: sessionPersistence?.sessionId ?? randomUUID(),
+      }),
+    updateService:
+      dependencies.updateService ??
+      createUpdateService({ env: dependencies.env, isTTY: true }),
     executeCodexTask:
       dependencies.executeCodexTask ??
       ((prompt, taskOptions, taskDependencies) =>
@@ -731,6 +811,10 @@ export function InteractiveApp({
       ...(endpoint ? { endpoint } : {}),
     }),
   sessionPersistence,
+  approvalStore: injectedApprovalStore,
+  approvalWorkspaceRoot = cwd,
+  permissionProfileSource = "validated configuration",
+  updateService,
   persistModelSelection = saveUserModelSelection,
   persistProviderRoute = saveUserProviderRoute,
   removeProviderRoute = removeUserProviderRoute,
@@ -746,20 +830,44 @@ export function InteractiveApp({
   const { exit } = useApp();
   const [editor, setEditor] = useState<EditorState>(() => createEditorState());
   const [phase, setPhase] = useState<Phase>("editing");
+  const [runActivity, setRunActivity] = useState<RunActivity>();
+  const [runActivityFrame, setRunActivityFrame] = useState(0);
   const [activeOptions, setActiveOptions] = useState<AskOptions>(options);
-  const initialMessages = sessionPersistence?.messages ?? [];
+  const initialMessages =
+    sessionPersistence?.history ?? sessionPersistence?.messages ?? [];
   const [transcript, setTranscript] = useState<readonly TranscriptEntry[]>(() =>
     conversationTranscript(
       initialMessages,
       sessionPersistence?.reasoning ?? [],
+      sessionPersistence?.historyEvents,
     ),
   );
+  const [staticRenderRevision, setStaticRenderRevision] = useState(0);
   const [contextPanel, setContextPanel] = useState<ContextStatus>();
+  const [contextRevision, setContextRevision] = useState(0);
+  const [contextOfferDismissed, setContextOfferDismissed] = useState(false);
+  const [contextActivity, setContextActivity] =
+    useState<ContextStatus["pressure"]["state"]>();
   const [files, setFiles] = useState<readonly string[]>([]);
   const [filesLoading, setFilesLoading] = useState(true);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [dismissedCompletion, setDismissedCompletion] = useState<string>();
   const [approval, setApproval] = useState<PendingApproval>();
+  const [approvalFeedback, setApprovalFeedback] = useState("");
+  const approvalStore = useMemo(
+    () =>
+      injectedApprovalStore ??
+      new SessionApprovalStore({
+        workspaceRoot: approvalWorkspaceRoot,
+        sessionId: sessionPersistence?.sessionId ?? randomUUID(),
+      }),
+    [approvalWorkspaceRoot, injectedApprovalStore, sessionPersistence],
+  );
+  const [permissionRevision, setPermissionRevision] = useState(0);
+  const [updateState, setUpdateState] = useState<UpdateState | undefined>(() =>
+    updateService?.snapshot(),
+  );
+  const { columns: terminalWidth } = useWindowSize();
   const [resources, setResources] =
     useState<DetectedStartupResources>(detectedResources);
   const [pluginTrustIntent, setPluginTrustIntent] = useState<
@@ -792,10 +900,26 @@ export function InteractiveApp({
   const [deleteModelReturnPhase, setDeleteModelReturnPhase] = useState<
     "editing" | "provider-actions"
   >("editing");
-  const conversation = useRef<ModelConversationMessage[]>([...initialMessages]);
+  const conversation = useRef<ModelConversationMessage[]>([
+    ...(sessionPersistence?.history ?? initialMessages),
+  ]);
   const activeController = useRef<AbortController | undefined>(undefined);
   const idleExitArmed = useRef(false);
   const nextTranscriptId = useRef(initialMessages.length);
+  const contextStatus = useMemo(() => {
+    void contextRevision;
+    return sessionPersistence?.contextDetails?.(
+      editor.value,
+      editor.images.length,
+    );
+  }, [sessionPersistence, editor.value, editor.images.length, contextRevision]);
+  const contextOfferVisible =
+    phase === "editing" &&
+    !contextPanel &&
+    !contextOfferDismissed &&
+    contextStatus?.pressure.mode === "warn" &&
+    contextStatus.pressure.confidence !== "unavailable" &&
+    contextStatus.pressure.ratio >= contextStatus.activationThreshold;
 
   const completionSignature = `${editor.value}\u0000${editor.cursor}`;
   const mentionQuery = activeMentionQuery(editor.value, editor.cursor);
@@ -1052,16 +1176,30 @@ export function InteractiveApp({
   const handleRunEvent = useCallback(
     (event: RunEvent): void => {
       switch (event.type) {
+        case "model.started":
+          setRunActivity({ kind: "thinking", step: event.step });
+          break;
         case "model.reasoning":
+          setRunActivity((current) =>
+            current?.kind === "tool"
+              ? current
+              : { kind: "thinking", step: event.step },
+          );
           appendEntry("reasoning", event.text, true);
           break;
         case "model.reasoning-unavailable":
+          setRunActivity({ kind: "thinking", step: event.step });
           appendEntry(
             "reasoning",
             `Provider used ${event.reasoningTokens} reasoning tokens but did not return reasoning text.`,
           );
           break;
         case "model.text":
+          setRunActivity((current) =>
+            current?.kind === "tool"
+              ? current
+              : { kind: "thinking", step: event.step },
+          );
           appendEntry("answer", event.text, true);
           break;
         case "model.warning":
@@ -1070,7 +1208,18 @@ export function InteractiveApp({
         case "context.warning":
           appendEntry("warning", event.message);
           break;
+        case "context.pressure":
+          setContextActivity(event.snapshot.state);
+          break;
+        case "context.auto-paused":
+          setContextActivity("paused");
+          appendEntry("warning", event.message);
+          break;
+        case "approval.scope-decision":
+          setPermissionRevision((current) => current + 1);
+          break;
         case "tool.proposed":
+          setRunActivity(toolRunActivity(event.call, "preparing"));
           appendEntry("tool", `○ Proposed ${event.call.name}`);
           break;
         case "tool.decision":
@@ -1080,7 +1229,11 @@ export function InteractiveApp({
           );
           break;
         case "tool.completed":
+          setRunActivity({ kind: "thinking", step: event.step });
           appendEntry("tool", `✓ Completed ${event.call.name}`);
+          break;
+        case "tool.started":
+          setRunActivity(toolRunActivity(event.call, "executing"));
           break;
         case "docs.search":
           appendEntry(
@@ -1095,6 +1248,7 @@ export function InteractiveApp({
           appendEntry("warning", `Docs · ${event.message}`);
           break;
         case "tool.failed":
+          setRunActivity({ kind: "thinking", step: event.step });
           appendEntry(
             "error",
             `✗ Failed ${event.call.name}${event.result.ok ? "" : ` — ${event.result.error.message}`}`,
@@ -1137,6 +1291,23 @@ export function InteractiveApp({
     [],
   );
 
+  useEffect(() => {
+    if (!updateService) return;
+    const unsubscribe = updateService.subscribe(setUpdateState);
+    void updateService.start();
+    return unsubscribe;
+  }, [updateService]);
+
+  useEffect(() => {
+    if (phase !== "running") return;
+    const timer = setInterval(() => {
+      setRunActivityFrame(
+        (current) => (current + 1) % RUN_ACTIVITY_FRAMES.length,
+      );
+    }, 120);
+    return () => clearInterval(timer);
+  }, [phase]);
+
   const updateEditor = (
     update: (current: EditorState) => EditorState,
   ): void => {
@@ -1149,6 +1320,7 @@ export function InteractiveApp({
     const pending = approval;
     if (!pending) return;
     setApproval(undefined);
+    setApprovalFeedback("");
     setPhase("running");
     pending.resolve(answer);
   };
@@ -1281,6 +1453,9 @@ export function InteractiveApp({
         conversation.current = [];
         sessionPersistence?.clear();
         setContextPanel(undefined);
+        setContextOfferDismissed(false);
+        setContextActivity(undefined);
+        setStaticRenderRevision((current) => current + 1);
         setTranscript([]);
         nextTranscriptId.current = 0;
         setEditor(createEditorState());
@@ -1289,9 +1464,14 @@ export function InteractiveApp({
         conversation.current = [];
         sessionPersistence?.clear();
         setContextPanel(undefined);
+        setContextOfferDismissed(false);
+        setContextActivity(undefined);
+        setStaticRenderRevision((current) => current + 1);
         setTranscript([]);
         nextTranscriptId.current = 0;
         setEditor(createEditorState());
+        approvalStore.clear();
+        setPermissionRevision((current) => current + 1);
         appendEntry("system", "Started a new session.");
         return;
       case "/context":
@@ -1304,6 +1484,17 @@ export function InteractiveApp({
             sessionPersistence?.contextStatus?.() ??
               "Context status is unavailable because persistence is disabled.",
           );
+        }
+        return;
+      case "/permissions":
+        setEditor(createEditorState());
+        setSelectedIndex(0);
+        setPhase("permissions");
+        return;
+      case "/update-dismiss":
+        setEditor(createEditorState());
+        if (updateState?.latestVersion && updateService) {
+          void updateService.dismiss(updateState.latestVersion);
         }
         return;
       case "/plugins":
@@ -1345,6 +1536,8 @@ export function InteractiveApp({
       case "/resume":
         setEditor(createEditorState());
         setContextPanel(undefined);
+        approvalStore.clear();
+        setPermissionRevision((current) => current + 1);
         if (!sessionPersistence) {
           appendEntry("warning", "Persistent sessions are unavailable.\n");
           return;
@@ -1520,6 +1713,7 @@ export function InteractiveApp({
     activeController.current = controller;
     setContextPanel(undefined);
     setEditor(createEditorState());
+    setRunActivity({ kind: "thinking" });
     setPhase("running");
     appendEntry(
       "user",
@@ -1540,7 +1734,7 @@ export function InteractiveApp({
     let subagentPreview: SubagentApprovalPreview | undefined;
 
     const approvalChannel = createApprovalChannel(
-      (approvalPrompt, signal) =>
+      (approvalPrompt, signal, descriptor) =>
         new Promise<string | null>((resolve) => {
           let settled = false;
           const settle = (answer: string | null) => {
@@ -1553,6 +1747,7 @@ export function InteractiveApp({
           signal.addEventListener("abort", onAbort, { once: true });
           setApproval({
             prompt: approvalPrompt,
+            allowSession: descriptor.allowedScopes.length > 0,
             ...(commandPreview ? { command: commandPreview } : {}),
             ...(networkPreview ? { network: networkPreview } : {}),
             ...(subagentPreview ? { subagent: subagentPreview } : {}),
@@ -1565,7 +1760,7 @@ export function InteractiveApp({
         }),
       stderr,
       {
-        color: !("NO_COLOR" in process.env),
+        onDiffPreview: ({ diff }) => appendEntry("diff", diff),
         onCommandPreview: (preview) => {
           commandPreview = preview;
         },
@@ -1579,7 +1774,10 @@ export function InteractiveApp({
     );
 
     void (async () => {
-      const sessionId = await sessionPersistence?.prepareRun();
+      const sessionId = await sessionPersistence?.prepareRun(
+        prompt,
+        imageSources.length,
+      );
       if (activeOptions.engine === "codex") {
         let finalText = "";
         let reasoningText = "";
@@ -1637,9 +1835,16 @@ export function InteractiveApp({
           stderr,
           signal: controller.signal,
           approvalChannel,
+          approvalStore,
           conversation: [...conversation.current],
           ...(sessionPersistence?.contextCheckpoint
             ? { contextCheckpoint: sessionPersistence.contextCheckpoint }
+            : {}),
+          ...(sessionPersistence?.contextDetails
+            ? {
+                contextPressureMode:
+                  sessionPersistence.contextDetails().pressure.mode,
+              }
             : {}),
           ...(sessionId ? { sessionId } : {}),
           onEvent: handleRunEvent,
@@ -1671,17 +1876,12 @@ export function InteractiveApp({
             `Completed · ${formatModelStatus(activeOptions)}`,
           );
         }
-        if (result?.status === "completed") {
-          conversation.current.push({ role: "user", content: prompt });
-          if (result.finalText !== "") {
-            conversation.current.push({
-              role: "assistant",
-              content: result.finalText,
-            });
-          }
+        if (result) {
+          conversation.current.push(...runConversationMessages(prompt, result));
         }
         activeController.current = undefined;
         setApproval(undefined);
+        setRunActivity(undefined);
         setPhase("editing");
       });
   };
@@ -1734,10 +1934,130 @@ export function InteractiveApp({
       return;
     }
 
+    if (phase === "editing" && contextPanel) {
+      const answer = input.toLocaleLowerCase();
+      if (key.escape) {
+        setContextPanel(undefined);
+      } else if (answer === "a") {
+        sessionPersistence?.enableAutoForSession?.();
+        setContextRevision((current) => current + 1);
+        setContextPanel(sessionPersistence?.contextDetails?.());
+      } else if (answer === "s" && sessionPersistence?.saveAutoDefault) {
+        void sessionPersistence.saveAutoDefault().then(
+          (savedPath) => {
+            appendEntry(
+              "system",
+              `Saved automatic compaction as the user default in ${savedPath}.`,
+            );
+            setContextRevision((current) => current + 1);
+            setContextPanel(sessionPersistence.contextDetails?.());
+          },
+          (error: unknown) =>
+            appendEntry(
+              "error",
+              `Could not save context default: ${error instanceof Error ? error.message : "unknown error"}`,
+            ),
+        );
+      } else if (
+        (answer === "c" || answer === "p") &&
+        sessionPersistence?.compact
+      ) {
+        if (answer === "c") setContextActivity("compacting");
+        void sessionPersistence.compact(answer === "p").then(
+          (message) => {
+            appendEntry("system", message);
+            setContextRevision((current) => current + 1);
+            setContextPanel(sessionPersistence.contextDetails?.());
+            if (answer === "c") setContextActivity("compacted");
+          },
+          (error: unknown) =>
+            appendEntry(
+              "error",
+              `Could not compact session: ${error instanceof Error ? error.message : "unknown error"}`,
+            ),
+        );
+      }
+      return;
+    }
+
+    if (contextOfferVisible) {
+      const answer = input.toLocaleLowerCase();
+      if (answer === "d" || key.escape) {
+        setContextOfferDismissed(true);
+      } else if (answer === "a") {
+        sessionPersistence?.enableAutoForSession?.();
+        setContextOfferDismissed(true);
+        setContextRevision((current) => current + 1);
+        appendEntry("system", "Automatic compaction enabled for this session.");
+      } else if (answer === "c" && sessionPersistence?.compact) {
+        setContextOfferDismissed(true);
+        setContextActivity("compacting");
+        void sessionPersistence.compact(false).then(
+          (message) => {
+            appendEntry("system", message);
+            setContextRevision((current) => current + 1);
+            setContextActivity("compacted");
+          },
+          (error: unknown) =>
+            appendEntry(
+              "error",
+              `Could not compact session: ${error instanceof Error ? error.message : "unknown error"}`,
+            ),
+        );
+      }
+      return;
+    }
+
     if (phase === "approving") {
       const answer = input.toLocaleLowerCase();
-      if (answer === "y") finishApproval("y");
-      else if (answer === "n" || key.escape || key.return) finishApproval("n");
+      if (answer === "1" || answer === "y") finishApproval("1");
+      else if (answer === "2" && approval?.allowSession) finishApproval("2");
+      else if (answer === "2") {
+        appendEntry(
+          "warning",
+          "Session approval is unavailable for this action. Choose 1 or 3.",
+        );
+      } else if (answer === "3" || answer === "n") {
+        setApprovalFeedback("");
+        setPhase("approval-feedback");
+      } else if (key.escape || key.return) finishApproval("3");
+      return;
+    }
+    if (phase === "approval-feedback") {
+      if (key.escape) {
+        finishApproval("3");
+      } else if (key.return) {
+        finishApproval(
+          approvalFeedback.trim() ? `3: ${approvalFeedback.trim()}` : "3",
+        );
+      } else if (key.backspace || key.delete) {
+        setApprovalFeedback((current) => current.slice(0, -1));
+      } else if (input && approvalFeedback.length < 2_000) {
+        setApprovalFeedback((current) => `${current}${input}`.slice(0, 2_000));
+      }
+      return;
+    }
+    if (phase === "permissions") {
+      const grants = approvalStore.list();
+      if (key.escape) {
+        setPhase("editing");
+      } else if (key.upArrow && grants.length > 0) {
+        setSelectedIndex(
+          (current) => (current - 1 + grants.length) % grants.length,
+        );
+      } else if (key.downArrow && grants.length > 0) {
+        setSelectedIndex((current) => (current + 1) % grants.length);
+      } else if (input.toLocaleLowerCase() === "r" && grants[selectedIndex]) {
+        approvalStore.revoke(grants[selectedIndex].id);
+        setSelectedIndex((current) =>
+          Math.max(0, Math.min(current, grants.length - 2)),
+        );
+        setPermissionRevision((current) => current + 1);
+      } else if (input.toLocaleLowerCase() === "x") {
+        approvalStore.clear();
+        setSelectedIndex(0);
+        setPermissionRevision((current) => current + 1);
+      }
       return;
     }
     if (phase === "plugins") {
@@ -1778,10 +2098,11 @@ export function InteractiveApp({
       void updateProjectPluginTrust(trusted).then(
         (nextResources) => {
           setResources(nextResources);
+          setStaticRenderRevision((current) => current + 1);
           appendEntry(
             "system",
             trusted
-              ? `Trusted project plugins for ${cwd}. They will load on the next Forge task.`
+              ? `Trusted project plugins for ${cwd}.\nThey will load on the next Forge task.`
               : `Removed project plugin trust for ${cwd}.`,
           );
           setPluginTrustIntent(undefined);
@@ -1817,15 +2138,21 @@ export function InteractiveApp({
         if (selected && sessionPersistence) {
           void sessionPersistence.resume(selected.id).then(
             (messages) => {
-              conversation.current = [...messages];
+              conversation.current = [
+                ...(sessionPersistence.history ?? messages),
+              ];
               const restored = conversationTranscript(
-                messages,
+                sessionPersistence.history ?? messages,
                 sessionPersistence.reasoning ?? [],
+                sessionPersistence.historyEvents,
               );
               nextTranscriptId.current = restored.length;
+              setStaticRenderRevision((current) => current + 1);
               setTranscript(restored);
               setSessions([]);
               setPhase("editing");
+              setContextOfferDismissed(false);
+              setContextActivity(undefined);
               appendEntry("system", `Resumed session ${selected.id}.`);
             },
             (error: unknown) => {
@@ -2500,16 +2827,37 @@ export function InteractiveApp({
     }
   });
 
+  const staticTranscript =
+    phase === "running" ? transcript.slice(0, -1) : transcript;
+  const staticOutputItems: StaticOutputItem[] = [
+    { kind: "header", resources },
+    ...Array.from(staticTranscript, (entry) => ({
+      kind: "transcript" as const,
+      entry,
+    })),
+  ];
+
   return (
     <Box flexDirection="column" paddingX={1}>
-      <ForgeHeader resources={resources} />
+      {transcript.length === 0 ? <ForgeHeader resources={resources} /> : null}
 
       {transcript.length > 0 ? (
-        <Box flexDirection="column" marginTop={1}>
-          {transcript.map((entry) => (
-            <TranscriptBlock key={entry.id} entry={entry} />
-          ))}
-        </Box>
+        <>
+          <Static key={staticRenderRevision} items={staticOutputItems}>
+            {(item) =>
+              item.kind === "header" ? (
+                <ForgeHeader key="forge-header" resources={item.resources} />
+              ) : (
+                <TranscriptBlock key={item.entry.id} entry={item.entry} />
+              )
+            }
+          </Static>
+          {phase === "running" && transcript.at(-1) ? (
+            <Box flexDirection="column" marginTop={1}>
+              <TranscriptBlock entry={transcript.at(-1) as TranscriptEntry} />
+            </Box>
+          ) : null}
+        </>
       ) : null}
 
       {contextPanel ? <ContextPanel status={contextPanel} /> : null}
@@ -2517,6 +2865,16 @@ export function InteractiveApp({
       {phase === "plugins" ? <PluginsPanel resources={resources} /> : null}
 
       {phase === "resources" ? <ResourcesPanel resources={resources} /> : null}
+
+      {phase === "permissions" ? (
+        <PermissionsPanel
+          profile={activeOptions.permissionProfile ?? "safe"}
+          provenance={permissionProfileSource}
+          grants={approvalStore.list()}
+          selectedIndex={selectedIndex}
+          revision={permissionRevision}
+        />
+      ) : null}
 
       {phase === "plugin-trust" && pluginTrustIntent ? (
         <PluginTrustPanel
@@ -2526,7 +2884,7 @@ export function InteractiveApp({
         />
       ) : null}
 
-      {phase === "approving" && approval ? (
+      {(phase === "approving" || phase === "approval-feedback") && approval ? (
         <Box
           borderStyle="round"
           borderColor="yellow"
@@ -2580,18 +2938,44 @@ export function InteractiveApp({
               </Text>
             </Box>
           ) : null}
-          <Text>{approval.prompt}</Text>
-          <Text>
-            <Text bold color="green">
-              y
-            </Text>{" "}
-            approve{" "}
-            <Text bold color="red">
-              n
-            </Text>{" "}
-            deny
-          </Text>
+          {phase === "approval-feedback" ? (
+            <>
+              <Text color="red">Deny with optional guidance</Text>
+              <Text>{approvalFeedback || "_"}</Text>
+              <Text dimColor>Enter deny · Esc deny without feedback</Text>
+            </>
+          ) : (
+            <Text>{approval.prompt}</Text>
+          )}
+          {phase === "approving" ? (
+            <Text>
+              <Text bold color="green">
+                1
+              </Text>{" "}
+              allow once
+              {approval.allowSession ? (
+                <>
+                  {" · "}
+                  <Text bold color="green">
+                    2
+                  </Text>{" "}
+                  allow displayed session scope
+                </>
+              ) : null}
+              {" · "}
+              <Text bold color="red">
+                3
+              </Text>{" "}
+              deny
+            </Text>
+          ) : null}
         </Box>
+      ) : null}
+
+      {updateState?.state === "available" &&
+      updateState.latestVersion &&
+      !updateState.dismissed ? (
+        <UpdateBanner state={updateState} terminalWidth={terminalWidth} />
       ) : null}
 
       {phase === "resuming" ? (
@@ -3010,10 +3394,24 @@ export function InteractiveApp({
         </Box>
       ) : null}
 
+      {contextOfferVisible ? (
+        <Box paddingX={1}>
+          <Text color="yellow">
+            Context is nearing its limit · <Text bold>c</Text> compact once ·{" "}
+            <Text bold>a</Text> auto for session · <Text bold>d</Text> dismiss
+          </Text>
+        </Box>
+      ) : null}
+
       <PromptFooter
         activeOptions={activeOptions}
         filesLoading={filesLoading}
         phase={phase}
+        {...(runActivity ? { runActivity } : {})}
+        runActivityFrame={runActivityFrame}
+        {...(contextStatus ? { contextStatus } : {})}
+        {...(contextActivity ? { contextStateOverride: contextActivity } : {})}
+        terminalWidth={terminalWidth}
       />
     </Box>
   );
@@ -3102,6 +3500,7 @@ function ResourcesPanel({
 }: {
   readonly resources: DetectedStartupResources;
 }): React.JSX.Element {
+  const diagnostics = resources.diagnostics ?? [];
   return (
     <Box
       borderStyle="round"
@@ -3113,32 +3512,61 @@ function ResourcesPanel({
       <Text bold color="cyan">
         Resources
       </Text>
-      {resources.skills.length === 0 ? (
-        <Text dimColor>No Skills were discovered.</Text>
-      ) : (
-        resources.skills.map((skill) => (
-          <Box
-            key={`${skill.source}:${skill.path}`}
-            flexDirection="column"
-            marginTop={1}
-          >
-            <Text>
-              <Text bold>${skill.name}</Text>
-              {` · ${skill.source} · ${skill.status ?? skill.invocation}${skill.shadowedBy ? ` by ${skill.shadowedBy}` : ""}`}
-            </Text>
-            <Text dimColor>{skill.description ?? "No description."}</Text>
-          </Box>
-        ))
-      )}
-      {(resources.diagnostics ?? []).map((diagnostic) => (
-        <Text key={diagnostic} color="yellow">
-          {diagnostic}
+      <Box flexDirection="column" marginTop={1}>
+        <Text bold color="gray">
+          Skills
         </Text>
-      ))}
-      <Text dimColor>
-        Use forge resources disable|enable &lt;name&gt; for user-scoped
-        automatic invocation. Esc close
-      </Text>
+        {resources.skills.length === 0 ? (
+          <Text dimColor>No Skills were discovered.</Text>
+        ) : (
+          resources.skills.map((skill) => (
+            <Box
+              key={`${skill.source}:${skill.path}`}
+              flexDirection="column"
+              marginTop={1}
+              paddingLeft={1}
+            >
+              <Text>
+                <Text bold>${skill.name}</Text>
+                <Text dimColor>
+                  {` · ${skill.source} · ${skill.status ?? skill.invocation}${skill.shadowedBy ? ` by ${skill.shadowedBy}` : ""}`}
+                </Text>
+              </Text>
+              <Text dimColor>{skill.description ?? "No description."}</Text>
+            </Box>
+          ))
+        )}
+      </Box>
+      {diagnostics.length > 0 ? (
+        <Box flexDirection="column" marginTop={1}>
+          <Text bold color="yellow">
+            Diagnostics
+          </Text>
+          {diagnostics.map((diagnostic) => (
+            <Text key={diagnostic} color="yellow">
+              {diagnostic}
+            </Text>
+          ))}
+        </Box>
+      ) : null}
+      <Box
+        borderStyle="single"
+        borderColor="gray"
+        flexDirection="column"
+        marginTop={1}
+        paddingX={1}
+      >
+        <Text bold color="cyan">
+          Actions
+        </Text>
+        <Text color="green">forge resources disable|enable &lt;name&gt;</Text>
+        <Text dimColor>
+          Toggle automatic invocation for a user-scoped Skill.
+        </Text>
+        <Text dimColor>
+          <Text color="yellow">Esc</Text> close
+        </Text>
+      </Box>
     </Box>
   );
 }
@@ -3278,7 +3706,11 @@ function formatDetectedPlugin(
 function conversationTranscript(
   messages: readonly ModelConversationMessage[],
   reasoning: readonly SessionReasoning[] = [],
+  historyEvents?: readonly RunEvent[],
 ): readonly TranscriptEntry[] {
+  if (historyEvents && historyEvents.length > 0) {
+    return runEventTranscript(historyEvents);
+  }
   const reasoningByMessage = new Map(
     reasoning.map((entry) => [entry.assistantMessageIndex, entry.content]),
   );
@@ -3292,11 +3724,125 @@ function conversationTranscript(
         text: savedReasoning,
       });
     }
-    transcript.push({
-      id: transcript.length,
-      kind: message.role === "user" ? "user" : "answer",
-      text: message.content,
-    });
+    if (message.role === "tool") {
+      transcript.push({
+        id: transcript.length,
+        kind: "tool",
+        text: `[historical tool result · ${message.toolName} · ${message.isError ? "failed" : "completed"}] ${canonicalText(message)}`,
+      });
+      continue;
+    }
+    const text = canonicalText(message);
+    if (text)
+      transcript.push({
+        id: transcript.length,
+        kind: message.role === "user" ? "user" : "answer",
+        text,
+      });
+    if (message.role === "assistant" && typeof message.content !== "string") {
+      for (const part of message.content) {
+        if (part.type === "tool-call") {
+          transcript.push({
+            id: transcript.length,
+            kind: "tool",
+            text: `[historical tool call · ${part.name} · ${part.id}]`,
+          });
+        }
+      }
+    }
+  }
+  return transcript;
+}
+
+function runEventTranscript(
+  events: readonly RunEvent[],
+): readonly TranscriptEntry[] {
+  let transcript: readonly TranscriptEntry[] = [];
+  const append = (kind: TranscriptKind, text: string, merge = false): void => {
+    transcript = appendTranscriptEntry(
+      transcript,
+      { id: transcript.length, kind, text },
+      merge,
+    );
+  };
+
+  for (const event of events) {
+    switch (event.type) {
+      case "run.started":
+        append(
+          "user",
+          [
+            event.prompt,
+            ...(event.imageCount
+              ? Array.from(
+                  { length: event.imageCount },
+                  (_, index) => `[Image #${index + 1}]`,
+                )
+              : []),
+          ].join("\n"),
+        );
+        break;
+      case "model.reasoning":
+        append("reasoning", event.text, true);
+        break;
+      case "model.reasoning-unavailable":
+        append(
+          "reasoning",
+          `Provider used ${event.reasoningTokens} reasoning tokens but did not return reasoning text.`,
+        );
+        break;
+      case "model.text":
+        append("answer", event.text, true);
+        break;
+      case "model.warning":
+      case "context.warning":
+        append("warning", event.message);
+        break;
+      case "context.auto-paused":
+        append("warning", event.message);
+        break;
+      case "tool.proposed":
+        append("tool", `○ Proposed ${event.call.name}`);
+        break;
+      case "tool.decision":
+        append(
+          "tool",
+          `◇ ${event.decision.kind.toUpperCase()} ${event.call.name} — ${event.decision.reason}`,
+        );
+        break;
+      case "tool.completed":
+        append("tool", `✓ Completed ${event.call.name}`);
+        break;
+      case "tool.failed":
+        append(
+          "error",
+          `✗ Failed ${event.call.name}${event.result.ok ? "" : ` — ${event.result.error.message}`}`,
+        );
+        break;
+      case "docs.search":
+        append(
+          "tool",
+          `Docs · ${event.resultCount} result(s) · ${event.locale}${event.fallback ? " · English fallback" : ""}`,
+        );
+        break;
+      case "docs.read":
+        append("tool", `Docs · ${event.reference}`);
+        break;
+      case "docs.rejected":
+        append("warning", `Docs · ${event.message}`);
+        break;
+      case "run.completed":
+        append("system", "Completed");
+        break;
+      case "run.failed":
+      case "run.denied":
+      case "run.limit_reached":
+      case "run.cancelled":
+        if (event.message) append("error", event.message);
+        break;
+      default:
+        break;
+    }
   }
   return transcript;
 }
@@ -3321,22 +3867,118 @@ function formatCompactModelStatus(options: AskOptions): string {
   return `${model} · ${effort}`;
 }
 
+function toolRunActivity(
+  call: Pick<ToolCall, "name" | "input">,
+  stage: "preparing" | "executing",
+): RunActivity {
+  const target = toolActivityTarget(call);
+  return {
+    kind: "tool",
+    stage,
+    toolName: call.name,
+    ...(target ? { target } : {}),
+  };
+}
+
+function toolActivityTarget(
+  call: Pick<ToolCall, "name" | "input">,
+): string | undefined {
+  if (!isRecord(call.input)) return undefined;
+  const path = stringInputField(call.input, "path");
+  if (
+    (call.name === "apply_patch" ||
+      call.name === "create_file" ||
+      call.name === "read_file") &&
+    path
+  ) {
+    return path;
+  }
+  if (call.name === "run_command") {
+    const program = stringInputField(call.input, "program");
+    const args = inputField(call.input, "args");
+    if (program && Array.isArray(args)) {
+      const commandArgs = args.filter(
+        (argument): argument is string => typeof argument === "string",
+      );
+      return [program, ...commandArgs].join(" ");
+    }
+    return program;
+  }
+  return undefined;
+}
+
+function stringInputField(
+  input: Record<string, unknown>,
+  key: string,
+): string | undefined {
+  const value = inputField(input, key);
+  return typeof value === "string" && value.trim() !== "" ? value : undefined;
+}
+
+function inputField(input: Record<string, unknown>, key: string): unknown {
+  return input[key];
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function formatRunActivity(activity: RunActivity | undefined): string {
+  if (!activity) return "Working…";
+  if (activity.kind === "thinking") {
+    return activity.step ? `Thinking · step ${activity.step}…` : "Thinking…";
+  }
+  const target = activity.target ? ` · ${activity.target}` : "";
+  if (activity.toolName === "apply_patch") {
+    return `${activity.stage === "preparing" ? "Preparing file edit" : "Editing file"}${target}`;
+  }
+  if (activity.toolName === "create_file") {
+    return `${activity.stage === "preparing" ? "Preparing file creation" : "Creating file"}${target}`;
+  }
+  return `${activity.stage === "preparing" ? "Preparing" : "Running"} ${activity.toolName}${target}`;
+}
+
 function PromptFooter({
   activeOptions,
   filesLoading,
   phase,
+  runActivity,
+  runActivityFrame,
+  contextStatus,
+  contextStateOverride,
+  terminalWidth,
 }: {
   readonly activeOptions: AskOptions;
   readonly filesLoading: boolean;
   readonly phase: Phase;
+  readonly runActivity?: RunActivity;
+  readonly runActivityFrame: number;
+  readonly contextStatus?: ContextStatus;
+  readonly contextStateOverride?: ContextStatus["pressure"]["state"];
+  readonly terminalWidth: number;
 }): React.JSX.Element {
   if (phase === "editing") {
+    const pressureLabel = contextStatus
+      ? formatContextIndicator(
+          contextStatus,
+          terminalWidth,
+          contextStateOverride,
+        )
+      : undefined;
     return (
-      <Box paddingX={1}>
-        <Text color="gray">
+      <Box paddingX={1} flexDirection="column">
+        <Box justifyContent="space-between">
           <Text color="blue">{formatCompactModelStatus(activeOptions)}</Text>
-          {"  ·  "}
-          {filesLoading ? "Indexing files  ·  " : ""}
+          {pressureLabel ? (
+            <Text
+              color={contextPressureColor(contextStatus?.pressure.ratio ?? 0)}
+            >
+              {pressureLabel}
+            </Text>
+          ) : null}
+        </Box>
+        <Text color="gray">
+          {filesLoading ? "Indexing files · " : ""}
           <Text color="yellow">Shift+Tab</Text> effort ·{" "}
           <Text color="green">Enter</Text> submit ·{" "}
           <Text color="cyan">Shift+Enter/Meta+Enter/Ctrl+J</Text> newline ·{" "}
@@ -3346,23 +3988,40 @@ function PromptFooter({
     );
   }
 
+  if (phase === "running") {
+    const activity = formatRunActivity(runActivity);
+    const spinner =
+      RUN_ACTIVITY_FRAMES[runActivityFrame % RUN_ACTIVITY_FRAMES.length] ??
+      RUN_ACTIVITY_FRAMES[0];
+    return (
+      <Box paddingX={1}>
+        <Box flexDirection="column">
+          <Text color={runActivity?.kind === "tool" ? "green" : "cyan"}>
+            {spinner} {activity}
+            <Text dimColor> · Ctrl+C cancel</Text>
+          </Text>
+        </Box>
+      </Box>
+    );
+  }
+
   const status =
-    phase === "running"
-      ? "● Running · Ctrl+C cancel"
-      : phase === "approving"
-        ? "Waiting for approval"
-        : phase === "models"
-          ? "Choose a model"
-          : phase === "delete-models"
-            ? "Choose a configured model to delete"
-            : phase === "delete-model-confirm"
-              ? "Confirm model deletion"
-              : phase === "effort"
-                ? "Choose thinking effort"
-                : phase === "plugins"
-                  ? "Review project plugins"
-                  : phase === "resources"
-                    ? "Review Skills and diagnostics"
+    phase === "approving" || phase === "approval-feedback"
+      ? "Waiting for approval"
+      : phase === "models"
+        ? "Choose a model"
+        : phase === "delete-models"
+          ? "Choose a configured model to delete"
+          : phase === "delete-model-confirm"
+            ? "Confirm model deletion"
+            : phase === "effort"
+              ? "Choose thinking effort"
+              : phase === "plugins"
+                ? "Review project plugins"
+                : phase === "resources"
+                  ? "Review Skills and diagnostics"
+                  : phase === "permissions"
+                    ? "Review session permissions"
                     : phase === "plugin-trust"
                       ? "Confirm project plugin trust"
                       : phase === "login-providers" || phase === "login-key"
@@ -3377,7 +4036,11 @@ function PromptFooter({
                                 ? "Configure a provider model"
                                 : "Choose a saved session";
 
-  return <Text dimColor>{status}</Text>;
+  return (
+    <Box flexDirection="column">
+      <Text dimColor>{status}</Text>
+    </Box>
+  );
 }
 
 function PromptWithCursor({
@@ -3406,10 +4069,8 @@ function ContextPanel({
 }: {
   readonly status: ContextStatus;
 }): React.JSX.Element {
-  const inputBudget = status.availableInputTokens;
-  const usedTokens = Math.min(status.estimatedTranscriptTokens, inputBudget);
-  const usageRatio =
-    inputBudget === 0 ? (usedTokens > 0 ? 1 : 0) : usedTokens / inputBudget;
+  const inputBudget = status.pressure.availableInputTokens;
+  const usageRatio = status.pressure.ratio;
   const usagePercent = Math.round(usageRatio * 100);
   const reclaimedTokens = Math.max(
     0,
@@ -3434,24 +4095,46 @@ function ContextPanel({
     >
       <Text>
         <Text bold color="cyan">
-          Context window
+          Context management
         </Text>
-        <Text dimColor> · {status.mode} mode</Text>
+        <Text dimColor> · {contextModeLabel(status.pressure.mode)}</Text>
       </Text>
 
       <Box flexDirection="column" marginTop={1}>
         <Text>
           <Text bold color={contextUsageColor(usagePercent)}>
-            {usagePercent}% history
+            {contextRing(usageRatio)} ~{usagePercent}% projected
           </Text>
           <Text dimColor>
             {" "}
-            · ~{formatTokenCount(status.estimatedTranscriptTokens)} of{" "}
+            · ~{formatTokenCount(status.pressure.estimatedInputTokens)} of{" "}
             {formatTokenCount(inputBudget)} input tokens
           </Text>
         </Text>
         <Text color={contextUsageColor(usagePercent)}>
           {contextUsageBar(usageRatio)}
+        </Text>
+      </Box>
+
+      <Box flexDirection="column" marginTop={1}>
+        <Text bold color="gray">
+          Pressure breakdown
+        </Text>
+        <Text>
+          instructions{" "}
+          {formatTokenCount(status.pressure.estimates.instructions)} · tools{" "}
+          {formatTokenCount(status.pressure.estimates.toolSchemas)} · history{" "}
+          {formatTokenCount(status.pressure.estimates.conversationHistory)} ·
+          draft/images{" "}
+          {formatTokenCount(status.pressure.estimates.currentRequest)}
+        </Text>
+        <Text dimColor>
+          {status.pressure.confidence === "unavailable"
+            ? "? incomplete projection"
+            : status.pressure.confidence === "exact"
+              ? "exact projection"
+              : "~ estimated"}{" "}
+          · activation {Math.round(status.activationThreshold * 100)}%
         </Text>
       </Box>
 
@@ -3517,7 +4200,90 @@ function ContextPanel({
         <Text dimColor>
           Canonical transcript is retained · checkpoint is untrusted memory
         </Text>
+        {status.lastCompaction ? (
+          <Text dimColor>
+            Last compact:{" "}
+            {formatTokenCount(status.lastCompaction.estimatedBeforeTokens)} →{" "}
+            {formatTokenCount(status.lastCompaction.estimatedAfterTokens)} ·{" "}
+            {status.lastCompaction.strategy}
+          </Text>
+        ) : null}
       </Box>
+
+      <Text color="cyan">
+        a auto this session · s save user default · c compact now · p preview ·
+        Esc close
+      </Text>
+    </Box>
+  );
+}
+
+export function PermissionsPanel({
+  profile,
+  provenance,
+  grants,
+  selectedIndex,
+  revision: _revision,
+}: {
+  readonly profile: string;
+  readonly provenance: string;
+  readonly grants: readonly SessionGrant[];
+  readonly selectedIndex: number;
+  readonly revision: number;
+}): React.JSX.Element {
+  return (
+    <Box
+      borderStyle="round"
+      borderColor="cyan"
+      flexDirection="column"
+      paddingX={1}
+    >
+      <Text bold color="cyan">
+        Session permissions
+      </Text>
+      <Text>
+        Effective profile <Text bold>{profile}</Text> · source {provenance}
+      </Text>
+      <Text dimColor>
+        Grants are memory-only for this workspace and disappear on
+        new/resume/exit.
+      </Text>
+      {grants.length === 0 ? (
+        <Text dimColor>No active session grants.</Text>
+      ) : null}
+      {grants.map((grant, index) => (
+        <Text key={grant.id} bold={index === selectedIndex}>
+          {index === selectedIndex ? "› " : "  "}
+          {formatApprovalScope(grant.scope)} · used {grant.useCount} ·{" "}
+          {grant.id}
+        </Text>
+      ))}
+      <Text dimColor>↑/↓ select · r revoke · x revoke all · Esc close</Text>
+    </Box>
+  );
+}
+
+export function UpdateBanner({
+  state,
+  terminalWidth,
+}: {
+  readonly state: UpdateState;
+  readonly terminalWidth: number;
+}): React.JSX.Element {
+  const latest = state.latestVersion ?? "unknown";
+  const notes = terminalHyperlink(
+    `${FORGE_RELEASES_URL}/tag/v${latest}`,
+    { env: process.env, isTTY: process.stdout.isTTY === true },
+    "release notes",
+  );
+  return (
+    <Box borderStyle="round" borderColor="yellow" paddingX={1}>
+      <Text color="yellow">
+        <Text bold>Update {latest}</Text> · current {state.currentVersion}
+        {terminalWidth >= 64
+          ? ` · forge update · restart required · ${notes} · /update-dismiss`
+          : " · forge update · restart · /update-dismiss"}
+      </Text>
     </Box>
   );
 }
@@ -3534,6 +4300,69 @@ function contextUsageColor(percent: number): "green" | "yellow" | "red" {
 
 function formatTokenCount(value: number): string {
   return new Intl.NumberFormat("en-US").format(value);
+}
+
+function contextRing(ratio: number): "○" | "◔" | "◑" | "◕" | "●" {
+  return ratio >= 0.9
+    ? "●"
+    : ratio >= 0.75
+      ? "◕"
+      : ratio >= 0.5
+        ? "◑"
+        : ratio >= 0.25
+          ? "◔"
+          : "○";
+}
+
+function formatContextIndicator(
+  status: ContextStatus,
+  width: number,
+  stateOverride?: ContextStatus["pressure"]["state"],
+): string {
+  const ratio = status.pressure.ratio;
+  const value =
+    status.pressure.confidence === "unavailable"
+      ? "?"
+      : `${status.pressure.confidence === "exact" ? "" : "~"}${Math.round(
+          ratio * 100,
+        )}%`;
+  const compact = `${contextRing(ratio)} ${value}`;
+  if (width < 48) return contextRing(ratio);
+  if (width < 72) return compact;
+  const effectiveState = stateOverride ?? status.pressure.state;
+  const state =
+    effectiveState === "compact-soon"
+      ? "compact soon"
+      : effectiveState === "compacting"
+        ? "compacting"
+        : effectiveState === "compacted"
+          ? "compacted"
+          : effectiveState === "paused"
+            ? "auto paused"
+            : status.pressure.mode === "auto-session" ||
+                status.pressure.mode === "auto-default"
+              ? "context · auto"
+              : "context · warn";
+  return `${compact} ${state}`;
+}
+
+function contextPressureColor(ratio: number): "green" | "yellow" | "red" {
+  return ratio >= 0.9 ? "red" : ratio >= 0.75 ? "yellow" : "green";
+}
+
+function contextModeLabel(mode: ContextStatus["pressure"]["mode"]): string {
+  switch (mode) {
+    case "auto-session":
+      return "automatic for this session";
+    case "auto-default":
+      return "automatic user default";
+    case "paused":
+      return "automatic paused";
+    case "off":
+      return "off";
+    default:
+      return "warn only";
+  }
 }
 
 /**
@@ -3623,15 +4452,7 @@ function TranscriptBlock({
       );
     case "answer":
       return (
-        <Box
-          borderStyle="single"
-          borderColor="green"
-          flexDirection="column"
-          paddingX={2}
-          width="100%"
-          maxWidth={112}
-          marginBottom={1}
-        >
+        <Box flexDirection="column" paddingX={1} marginBottom={1}>
           <Text bold color="green">
             ● Answer
           </Text>
@@ -3646,12 +4467,75 @@ function TranscriptBlock({
       return <Text color="red">✗ {entry.text}</Text>;
     case "system":
       return <Text dimColor>{entry.text}</Text>;
+    case "diff":
+      return <DiffPanel diff={entry.text} />;
     case "raw":
       // Codex Engine streams stdout/stderr chunks instead of structured
       // RunEvents. Render those chunks as Markdown so its answer keeps the
       // same terminal presentation as Forge model output.
       return <TerminalMarkdown layout="answer">{entry.text}</TerminalMarkdown>;
   }
+}
+
+export function DiffPanel({
+  diff,
+}: {
+  readonly diff: string;
+}): React.JSX.Element {
+  const summary = summarizeUnifiedDiff(diff);
+  const title = `${summary.operation.toUpperCase()} ${summary.path}`;
+  return (
+    <Box flexDirection="column">
+      <Text bold>
+        ╭─ {title} <Text color="greenBright">+{summary.additions}</Text>{" "}
+        <Text color="redBright">-{summary.deletions}</Text>
+      </Text>
+      {formatUnifiedDiffRows(diff).map((row, index) => {
+        const key = `${index}-${row.kind}`;
+        if (row.kind === "addition") {
+          return (
+            <Text key={key} {...diffRowStyle(row.kind)}>
+              {row.gutter}
+              {row.line}
+            </Text>
+          );
+        }
+        if (row.kind === "deletion") {
+          return (
+            <Text key={key} {...diffRowStyle(row.kind)}>
+              {row.gutter}
+              {row.line}
+            </Text>
+          );
+        }
+        return (
+          <Text key={key}>
+            <Text color="yellow">{row.gutter}</Text>
+            <Text
+              {...(row.kind === "header" ? { bold: true } : {})}
+              {...(row.kind === "hunk" ? { color: "cyan" as const } : {})}
+            >
+              {row.line}
+            </Text>
+          </Text>
+        );
+      })}
+      <Text bold>╰─ Review the exact change before approval</Text>
+    </Box>
+  );
+}
+
+export function diffRowStyle(kind: DiffRow["kind"]): {
+  readonly color?: "greenBright" | "redBright";
+  readonly backgroundColor?: string;
+} {
+  if (kind === "addition") {
+    return { color: "greenBright", backgroundColor: "#123d24" };
+  }
+  if (kind === "deletion") {
+    return { color: "redBright", backgroundColor: "#4a171c" };
+  }
+  return {};
 }
 
 function appendTranscriptEntry(
@@ -3671,16 +4555,8 @@ function appendTranscriptEntry(
     next.push(entry);
   }
 
-  const limit = 32_000;
-  let total = next.reduce((size, item) => size + item.text.length, 0);
-  while (next.length > 1 && total > limit) {
-    const removed = next.shift();
-    total -= removed?.text.length ?? 0;
-  }
-  const first = next[0];
-  if (first && first.text.length > limit) {
-    next[0] = { ...first, text: first.text.slice(-limit) };
-  }
+  // Keep the complete UI transcript. Ink.Static moves finalized entries into
+  // terminal scrollback, so trimming here would make older output unrecoverable.
   return next;
 }
 

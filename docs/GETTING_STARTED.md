@@ -47,7 +47,7 @@ pnpm build
 pnpm forge --version
 ```
 
-The final command builds the workspace and should print `0.3.2` for the current
+The final command builds the workspace and should print `0.3.3` for the current
 source release. It does not contact a model provider.
 
 During development you can keep using `pnpm forge`. To expose the same checkout
@@ -223,10 +223,11 @@ pnpm forge resume --last
 pnpm forge inspect <run-id>
 ```
 
-A session stores completed user/assistant turns. A run is one bounded agent-loop
-execution with its own ID and JSONL event trace. Resume restores completed
-conversation text, not old approvals, pending tool calls, child processes, or
-provider continuation state. See [Sessions and traces](SESSIONS.md).
+A session stores canonical conversation context. A run is one bounded
+agent-loop execution with its own ID and JSONL event trace. Interactive resume
+replays available historical model and tool events, but it does not reactivate
+old approvals, pending tool calls, child processes, or provider continuation
+state. See [Sessions and traces](SESSIONS.md).
 
 ## Next steps
 

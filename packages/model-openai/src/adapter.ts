@@ -19,6 +19,7 @@ export interface OpenAIModelAdapterOptions {
 
 export class OpenAIModelAdapter implements ModelAdapter {
   readonly context: ModelContextCapabilities;
+  readonly promptCache = { mode: "automatic" as const };
   readonly #apiKey: string;
   readonly #model: string;
   readonly #reasoningEffort: OpenAIReasoningEffort;

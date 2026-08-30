@@ -1,6 +1,6 @@
 {
   "name": "@forge/model-openai",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "private": true,
   "type": "module",
   "exports": {
@@ -13,9 +13,9 @@
     "dist"
   ],
   "dependencies": {
-    "@ai-sdk/openai": "^4.0.43",
+    "@ai-sdk/openai": "4.0.43",
     "@forge/auth": "workspace:*",
     "@forge/core": "workspace:*",
-    "ai": "^7.0.66"
+    "ai": "7.0.66"
   }
 }
