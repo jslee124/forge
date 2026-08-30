@@ -14,6 +14,15 @@ artifacts are written to the ignored `evals/artifacts/` directory first.
 - [v0.3.3 codebase review](v0.3.3/CODEBASE_REVIEW.md) ·
   [简体中文](v0.3.3/CODEBASE_REVIEW.zh-CN.md) — review snapshot for commit
   `5b24a2e`; its pre-fix release recommendation is historical
+- [v0.3.3 release notes](v0.3.3/RELEASE_NOTES.md) ·
+  [简体中文](v0.3.3/RELEASE_NOTES.zh-CN.md) — candidate notes; publication and
+  live-provider validation remain explicitly pending
+- [v0.3.3 post-fix release gates](v0.3.3/POST_FIX_RELEASE_GATES.md) ·
+  [简体中文](v0.3.3/POST_FIX_RELEASE_GATES.zh-CN.md) — current local candidate
+  evidence and the remaining external stable-release conditions
+- [v0.3.3 live provider resume smoke](v0.3.3/LIVE_PROVIDER_RESUME_SMOKE.md) ·
+  [简体中文](v0.3.3/LIVE_PROVIDER_RESUME_SMOKE.zh-CN.md) — bounded DeepSeek and
+  Luna Codex Engine cross-process resume evidence; OpenAI API was not used
 
 The v0.1 report contains the required successful and failed live trials and
 parseable redacted traces. The v0.2.0 release adds deterministic context

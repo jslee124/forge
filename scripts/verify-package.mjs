@@ -9,6 +9,14 @@ const packageRoot = path.join(root, "dist", "npm", "forge");
 const expected = JSON.parse(
   await readFile(path.join(packageRoot, "package.json"), "utf8"),
 );
+for (const dependency of ["@ai-sdk/deepseek", "@ai-sdk/openai", "ai"]) {
+  const version = expected.dependencies?.[dependency];
+  if (typeof version !== "string" || !/^\d+\.\d+\.\d+$/u.test(version)) {
+    throw new Error(
+      `Published provider dependency ${dependency} must use the exact tested version; received ${version ?? "<missing>"}.`,
+    );
+  }
+}
 if (expected.bin?.forge !== "dist/index.js") {
   throw new Error(
     'Published manifest must map bin.forge to "dist/index.js" without a leading "./".',

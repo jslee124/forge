@@ -13,10 +13,10 @@
     "dist"
   ],
   "dependencies": {
-    "@ai-sdk/openai": "^4.0.43",
+    "@ai-sdk/openai": "4.0.43",
     "@forge/auth": "workspace:*",
     "@forge/config": "workspace:*",
     "@forge/core": "workspace:*",
-    "ai": "^7.0.66"
+    "ai": "7.0.66"
   }
 }

@@ -124,7 +124,7 @@ importers:
   packages/model-compat:
     dependencies:
       '@ai-sdk/openai':
-        specifier: ^4.0.43
+        specifier: 4.0.43
         version: 4.0.43(zod@4.4.3)
       '@forge/auth':
         specifier: workspace:*
@@ -136,16 +136,16 @@ importers:
         specifier: workspace:*
         version: link:../core
       ai:
-        specifier: ^7.0.66
+        specifier: 7.0.66
         version: 7.0.66(zod@4.4.3)
 
   packages/model-deepseek:
     dependencies:
       '@ai-sdk/deepseek':
-        specifier: ^3.0.28
+        specifier: 3.0.28
         version: 3.0.28(zod@4.4.3)
       '@ai-sdk/openai':
-        specifier: ^4.0.43
+        specifier: 4.0.43
         version: 4.0.43(zod@4.4.3)
       '@forge/auth':
         specifier: workspace:*
@@ -154,7 +154,7 @@ importers:
         specifier: workspace:*
         version: link:../core
       ai:
-        specifier: ^7.0.66
+        specifier: 7.0.66
         version: 7.0.66(zod@4.4.3)
     devDependencies:
       zod:
@@ -164,7 +164,7 @@ importers:
   packages/model-openai:
     dependencies:
       '@ai-sdk/openai':
-        specifier: ^4.0.43
+        specifier: 4.0.43
         version: 4.0.43(zod@4.4.3)
       '@forge/auth':
         specifier: workspace:*
@@ -173,7 +173,7 @@ importers:
         specifier: workspace:*
         version: link:../core
       ai:
-        specifier: ^7.0.66
+        specifier: 7.0.66
         version: 7.0.66(zod@4.4.3)
 
   packages/persistence:

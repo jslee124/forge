@@ -1603,15 +1603,16 @@ describe("Ink interactive terminal", () => {
     instance.stdin.write("run tests");
     await settle();
     instance.stdin.write("\r");
-    await settle();
-    expect(instance.lastFrame()).toContain("Approval required");
-    expect(instance.lastFrame()).toContain("$ pnpm test");
-    expect(instance.lastFrame()).toContain("Working directory  .");
-    expect(instance.lastFrame()).toContain("Timeout            60s");
+    await vi.waitFor(() => {
+      const frame = instance.lastFrame() ?? "";
+      expect(frame).toContain("Approval required");
+      expect(frame).toContain("$ pnpm test");
+      expect(frame).toContain("Working directory  .");
+      expect(frame).toContain("Timeout            60s");
+    });
     instance.stdin.write("y");
-    await settle();
+    await vi.waitFor(() => expect(approved).toBe(true));
 
-    expect(approved).toBe(true);
     expect(instance.lastFrame()).toContain("Enter submit");
     instance.unmount();
   });
@@ -1655,11 +1656,11 @@ describe("Ink interactive terminal", () => {
     instance.stdin.write("update the export");
     await settle();
     instance.stdin.write("\r");
-    await settle();
-
-    const frame = instance.lastFrame() ?? "";
-    expect(frame).toContain("DEL │ -export {};");
-    expect(frame).toContain("ADD │ +export const value = 1;");
+    await vi.waitFor(() => {
+      const frame = instance.lastFrame() ?? "";
+      expect(frame).toContain("DEL │ -export {};");
+      expect(frame).toContain("ADD │ +export const value = 1;");
+    });
     expect(diffRowStyle("addition")).toEqual({
       color: "greenBright",
       backgroundColor: "#123d24",
@@ -1774,14 +1775,15 @@ describe("Ink interactive terminal", () => {
     instance.stdin.write("fetch docs");
     await settle();
     instance.stdin.write("\r");
-    await settle();
-    expect(instance.lastFrame()).toContain("Approval required");
-    expect(instance.lastFrame()).toContain("Network web_fetch");
-    expect(instance.lastFrame()).toContain("https://example.com/docs");
+    await vi.waitFor(() => {
+      const frame = instance.lastFrame() ?? "";
+      expect(frame).toContain("Approval required");
+      expect(frame).toContain("Network web_fetch");
+      expect(frame).toContain("https://example.com/docs");
+    });
     instance.stdin.write("y");
-    await settle();
+    await vi.waitFor(() => expect(approved).toBe(true));
 
-    expect(approved).toBe(true);
     instance.unmount();
   });
 
@@ -1825,14 +1827,15 @@ describe("Ink interactive terminal", () => {
     instance.stdin.write("delegate review");
     await settle();
     instance.stdin.write("\r");
-    await settle();
-    expect(instance.lastFrame()).toContain("Approval required");
-    expect(instance.lastFrame()).toContain("Subagent delegate_code_review");
-    expect(instance.lastFrame()).toContain("Review src/server.ts");
+    await vi.waitFor(() => {
+      const frame = instance.lastFrame() ?? "";
+      expect(frame).toContain("Approval required");
+      expect(frame).toContain("Subagent delegate_code_review");
+      expect(frame).toContain("Review src/server.ts");
+    });
     instance.stdin.write("y");
-    await settle();
+    await vi.waitFor(() => expect(approved).toBe(true));
 
-    expect(approved).toBe(true);
     instance.unmount();
   });
 
