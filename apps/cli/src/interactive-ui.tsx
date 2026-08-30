@@ -59,6 +59,11 @@ import {
   formatSlashCommandHelp,
   type SlashCommand,
 } from "./commands.js";
+import {
+  type DiffRow,
+  formatUnifiedDiffRows,
+  summarizeUnifiedDiff,
+} from "./diff.js";
 import { terminalHyperlink } from "./hyperlink.js";
 import { isSupportedImagePath } from "./image-input.js";
 import {
@@ -135,6 +140,7 @@ type TranscriptKind =
   | "warning"
   | "error"
   | "system"
+  | "diff"
   | "raw";
 
 interface TranscriptEntry {
@@ -1754,7 +1760,7 @@ export function InteractiveApp({
         }),
       stderr,
       {
-        color: !("NO_COLOR" in process.env),
+        onDiffPreview: ({ diff }) => appendEntry("diff", diff),
         onCommandPreview: (preview) => {
           commandPreview = preview;
         },
@@ -4461,12 +4467,75 @@ function TranscriptBlock({
       return <Text color="red">✗ {entry.text}</Text>;
     case "system":
       return <Text dimColor>{entry.text}</Text>;
+    case "diff":
+      return <DiffPanel diff={entry.text} />;
     case "raw":
       // Codex Engine streams stdout/stderr chunks instead of structured
       // RunEvents. Render those chunks as Markdown so its answer keeps the
       // same terminal presentation as Forge model output.
       return <TerminalMarkdown layout="answer">{entry.text}</TerminalMarkdown>;
   }
+}
+
+export function DiffPanel({
+  diff,
+}: {
+  readonly diff: string;
+}): React.JSX.Element {
+  const summary = summarizeUnifiedDiff(diff);
+  const title = `${summary.operation.toUpperCase()} ${summary.path}`;
+  return (
+    <Box flexDirection="column">
+      <Text bold>
+        ╭─ {title} <Text color="greenBright">+{summary.additions}</Text>{" "}
+        <Text color="redBright">-{summary.deletions}</Text>
+      </Text>
+      {formatUnifiedDiffRows(diff).map((row, index) => {
+        const key = `${index}-${row.kind}`;
+        if (row.kind === "addition") {
+          return (
+            <Text key={key} {...diffRowStyle(row.kind)}>
+              {row.gutter}
+              {row.line}
+            </Text>
+          );
+        }
+        if (row.kind === "deletion") {
+          return (
+            <Text key={key} {...diffRowStyle(row.kind)}>
+              {row.gutter}
+              {row.line}
+            </Text>
+          );
+        }
+        return (
+          <Text key={key}>
+            <Text color="yellow">{row.gutter}</Text>
+            <Text
+              {...(row.kind === "header" ? { bold: true } : {})}
+              {...(row.kind === "hunk" ? { color: "cyan" as const } : {})}
+            >
+              {row.line}
+            </Text>
+          </Text>
+        );
+      })}
+      <Text bold>╰─ Review the exact change before approval</Text>
+    </Box>
+  );
+}
+
+export function diffRowStyle(kind: DiffRow["kind"]): {
+  readonly color?: "greenBright" | "redBright";
+  readonly backgroundColor?: string;
+} {
+  if (kind === "addition") {
+    return { color: "greenBright", backgroundColor: "#123d24" };
+  }
+  if (kind === "deletion") {
+    return { color: "redBright", backgroundColor: "#4a171c" };
+  }
+  return {};
 }
 
 function appendTranscriptEntry(

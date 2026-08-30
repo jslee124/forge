@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { AuthenticationManager } from "@forge/auth";
@@ -14,6 +14,7 @@ import { render } from "ink-testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  diffRowStyle,
   INK_INCREMENTAL_RENDERING,
   InteractiveApp,
   resolveInkKeyboardMode,
@@ -29,6 +30,7 @@ const temporaryDirectories: string[] = [];
 
 afterEach(async () => {
   vi.restoreAllMocks();
+  vi.unstubAllEnvs();
   await Promise.all(
     temporaryDirectories
       .splice(0)
@@ -1611,6 +1613,63 @@ describe("Ink interactive terminal", () => {
 
     expect(approved).toBe(true);
     expect(instance.lastFrame()).toContain("Enter submit");
+    instance.unmount();
+  });
+
+  it("routes diff previews through semantic Ink rows", async () => {
+    const root = await createWorkspace();
+    const workspaceRoot = await realpath(root);
+    const input = {
+      path: "src/example file.ts",
+      edits: [{ oldText: "export {};", newText: "export const value = 1;" }],
+    } as const;
+    const patchTool = {
+      name: "apply_patch",
+      risk: "write",
+    } as ForgeTool;
+    const instance = render(
+      <InteractiveApp
+        options={{}}
+        env={{}}
+        cwd={root}
+        executeTask={async (_prompt, _options, dependencies) => {
+          await dependencies.approvalChannel?.request(
+            {
+              call: { id: "patch-color-1", name: "apply_patch", input },
+              tool: patchTool,
+              input,
+            },
+            dependencies.signal,
+            {
+              workspace: { root: workspaceRoot, cwd: workspaceRoot },
+              signal: dependencies.signal,
+              limits: { maxOutputBytes: 65_536, maxEntries: 200 },
+            },
+          );
+          return 0;
+        }}
+      />,
+    );
+
+    await settle();
+    instance.stdin.write("update the export");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+
+    const frame = instance.lastFrame() ?? "";
+    expect(frame).toContain("DEL │ -export {};");
+    expect(frame).toContain("ADD │ +export const value = 1;");
+    expect(diffRowStyle("addition")).toEqual({
+      color: "greenBright",
+      backgroundColor: "#123d24",
+    });
+    expect(diffRowStyle("deletion")).toEqual({
+      color: "redBright",
+      backgroundColor: "#4a171c",
+    });
+    instance.stdin.write("3");
+    await settle();
     instance.unmount();
   });
 

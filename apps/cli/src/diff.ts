@@ -3,8 +3,8 @@ const ANSI = {
   bold: "\u001B[1m",
   cyan: "\u001B[36m",
   yellow: "\u001B[33m",
-  addedLine: "\u001B[38;5;255m\u001B[48;5;22m",
-  removedLine: "\u001B[38;5;255m\u001B[48;5;52m",
+  addedLine: "\u001B[38;5;120m\u001B[48;5;22m",
+  removedLine: "\u001B[38;5;210m\u001B[48;5;52m",
 };
 
 export interface DiffSummary {
@@ -12,6 +12,12 @@ export interface DiffSummary {
   readonly path: string;
   readonly additions: number;
   readonly deletions: number;
+}
+
+export interface DiffRow {
+  readonly gutter: string;
+  readonly line: string;
+  readonly kind: "header" | "hunk" | "addition" | "deletion" | "context";
 }
 
 export function summarizeUnifiedDiff(diff: string): DiffSummary {
@@ -41,19 +47,27 @@ export function summarizeUnifiedDiff(diff: string): DiffSummary {
 export function formatDiffPanel(diff: string, color: boolean): string {
   const summary = summarizeUnifiedDiff(diff);
   const title = `${summary.operation.toUpperCase()} ${summary.path}  +${summary.additions} -${summary.deletions}`;
-  const body = numberDiffLines(diff)
-    .map(({ line, oldLine, newLine }) => {
-      const kindLabel = diffKindLabel(line);
-      const label = kindLabel === "" ? "" : ` ${kindLabel}`;
-      const gutter = `${formatLineNumber(oldLine)} ${formatLineNumber(newLine)}${label} │ `;
-      return `${paint(gutter, ANSI.yellow, color)}${colorizeDiffLine(line, color)}`;
-    })
+  const body = formatUnifiedDiffRows(diff)
+    .map(({ gutter, line, kind }) => colorizeDiffRow(gutter, line, kind, color))
     .join("\n");
   return [
     paint(`╭─ ${title}`, ANSI.bold, color),
     body,
     paint("╰─ Review the exact change before approval", ANSI.bold, color),
   ].join("\n");
+}
+
+export function formatUnifiedDiffRows(diff: string): readonly DiffRow[] {
+  return numberDiffLines(diff).map(({ line, oldLine, newLine }) => {
+    const kind = diffLineKind(line);
+    const label =
+      kind === "addition" ? " ADD" : kind === "deletion" ? " DEL" : "";
+    return {
+      gutter: `${formatLineNumber(oldLine)} ${formatLineNumber(newLine)}${label} │ `,
+      line,
+      kind,
+    };
+  });
 }
 
 function numberDiffLines(diff: string): readonly {
@@ -96,21 +110,30 @@ function formatLineNumber(value: number | undefined): string {
   return value === undefined ? "    " : String(value).padStart(4);
 }
 
-function diffKindLabel(line: string): string {
-  if (line.startsWith("+++") || line.startsWith("---")) return "";
-  if (line.startsWith("+")) return "ADD";
-  if (line.startsWith("-")) return "DEL";
-  return "";
+function diffLineKind(line: string): DiffRow["kind"] {
+  if (line.startsWith("+++") || line.startsWith("---")) return "header";
+  if (line.startsWith("@@")) return "hunk";
+  if (line.startsWith("+")) return "addition";
+  if (line.startsWith("-")) return "deletion";
+  return "context";
 }
 
-function colorizeDiffLine(line: string, color: boolean): string {
-  if (line.startsWith("+++") || line.startsWith("---")) {
-    return paint(line, ANSI.bold, color);
+function colorizeDiffRow(
+  gutter: string,
+  line: string,
+  kind: DiffRow["kind"],
+  color: boolean,
+): string {
+  const row = `${gutter}${line}`;
+  if (kind === "header") {
+    return `${paint(gutter, ANSI.yellow, color)}${paint(line, ANSI.bold, color)}`;
   }
-  if (line.startsWith("@@")) return paint(line, ANSI.cyan, color);
-  if (line.startsWith("+")) return paint(line, ANSI.addedLine, color);
-  if (line.startsWith("-")) return paint(line, ANSI.removedLine, color);
-  return line;
+  if (kind === "hunk") {
+    return `${paint(gutter, ANSI.yellow, color)}${paint(line, ANSI.cyan, color)}`;
+  }
+  if (kind === "addition") return paint(row, ANSI.addedLine, color);
+  if (kind === "deletion") return paint(row, ANSI.removedLine, color);
+  return `${paint(gutter, ANSI.yellow, color)}${line}`;
 }
 
 function paint(value: string, code: string, enabled: boolean): string {

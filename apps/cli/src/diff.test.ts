@@ -29,10 +29,10 @@ describe("diff presentation", () => {
   it("adds high-contrast ANSI backgrounds while preserving diff markers", () => {
     const panel = formatDiffPanel(DIFF, true);
     expect(panel).toContain(
-      "\u001B[38;5;255m\u001B[48;5;52m-export const answer = 42;",
+      "\u001B[38;5;210m\u001B[48;5;52m   1      DEL │ -export const answer = 42;",
     );
     expect(panel).toContain(
-      "\u001B[38;5;255m\u001B[48;5;22m+export const answer = 43;",
+      "\u001B[38;5;120m\u001B[48;5;22m        1 ADD │ +export const answer = 43;",
     );
   });
 

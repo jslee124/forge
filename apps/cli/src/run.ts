@@ -724,11 +724,16 @@ export interface SubagentApprovalPreview {
   readonly task: string;
 }
 
+export interface DiffApprovalPreview {
+  readonly diff: string;
+}
+
 export function createApprovalChannel(
   question: ApprovalQuestion,
   output: WritableOutput,
   options: {
     readonly color?: boolean;
+    readonly onDiffPreview?: (preview: DiffApprovalPreview) => void;
     readonly onCommandPreview?: (preview: CommandApprovalPreview) => void;
     readonly onNetworkPreview?: (preview: NetworkApprovalPreview) => void;
     readonly onSubagentPreview?: (preview: SubagentApprovalPreview) => void;
@@ -765,9 +770,13 @@ export function createApprovalChannel(
           },
         };
       }
-      output.write(
-        `${formatDiffPanel(preview.output.diff, options.color === true)}\n`,
-      );
+      if (options.onDiffPreview) {
+        options.onDiffPreview({ diff: preview.output.diff });
+      } else {
+        output.write(
+          `${formatDiffPanel(preview.output.diff, options.color === true)}\n`,
+        );
+      }
     } else if (action.tool.name === "create_file") {
       const preview = await previewCreateFile(
         action.input as CreateFileInput,
@@ -795,9 +804,13 @@ export function createApprovalChannel(
           },
         };
       }
-      output.write(
-        `${formatDiffPanel(preview.output.diff, options.color === true)}\n`,
-      );
+      if (options.onDiffPreview) {
+        options.onDiffPreview({ diff: preview.output.diff });
+      } else {
+        output.write(
+          `${formatDiffPanel(preview.output.diff, options.color === true)}\n`,
+        );
+      }
     } else if (action.tool.name === "run_command") {
       const command = action.input as {
         readonly program: string;
