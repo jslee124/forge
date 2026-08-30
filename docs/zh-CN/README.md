@@ -10,13 +10,13 @@ Forge 文档按“读者想完成什么”组织。第一次接触项目时无�
 | --- | --- | --- |
 | 第一次运行 Forge | [快速上手](GETTING_STARTED.md) | [CLI UI](CLI_UI.md) · [认证模型](AUTHENTICATION.md) |
 | 配置模型、limits 或 context | [配置参考](CONFIGURATION.md) | [认证模型](AUTHENTICATION.md) · [上下文管理](CONTEXT_MANAGEMENT.md) |
-| 理解 Forge 能保护什么、不能保护什么 | [安全模型](SECURITY.md) | [架构](ARCHITECTURE.md) |
+| 理解 Forge 能保护什么、不能保护什么 | [安全模型](SECURITY_MODEL.md) | [架构](ARCHITECTURE.md) |
 | 恢复 conversation 或检查 run | [会话与 trace](SESSIONS.md) | [CLI UI](CLI_UI.md) |
-| 添加项目指令或 portable Skill | [项目上下文](PROJECT_CONTEXT.md) | [安全模型](SECURITY.md) |
+| 添加项目指令或 portable Skill | [项目上下文](PROJECT_CONTEXT.md) | [安全模型](SECURITY_MODEL.md) |
 | 编写 plugin 或学习扩展示例 | [插件开发](PLUGINS.md) | [架构](ARCHITECTURE.md) |
 | 复现发布证据 | [评测指南](EVALUATION.md) | [v0.1 合约](history/v0.1/ACCEPTANCE.md) |
 | 为 Forge 贡献代码或文档 | [贡献指南](../../CONTRIBUTING.zh-CN.md) | [架构](ARCHITECTURE.md) · [路线图](ROADMAP.md) |
-| 发布 npm release | [npm 发布指南](RELEASING.md) | [评测指南](EVALUATION.md) · [安全模型](SECURITY.md) |
+| 发布 npm release | [npm 发布指南](RELEASING.md) | [评测指南](EVALUATION.md) · [安全模型](SECURITY_MODEL.md) |
 | 查看当前版本 | [v0.3.3 发布说明](../../evals/reports/v0.3.3/RELEASE_NOTES.zh-CN.md) | [release 证据](../../evals/reports/v0.3.3/) |
 | 查看首个公开版本 | [v0.3.0 发布说明](history/v0.3.0/RELEASE_NOTES.md) | [npm 发布指南](RELEASING.md) |
 | 排查错误 | [故障排查](TROUBLESHOOTING.md) | 再阅读对应症状链接的专题页 |
@@ -38,7 +38,7 @@ Forge 文档按“读者想完成什么”组织。第一次接触项目时无�
 | 指南 | 文档类型 | 内容 |
 | --- | --- | --- |
 | [架构](ARCHITECTURE.md) | 当前架构概览 | Package 边界、两个 Engine、runtime loop、policy、events 和依赖方向 |
-| [安全模型](SECURITY.md) | 已实现安全合约 | Workspace、进程、网络、plugin、credential、session 与委派运行边界 |
+| [安全模型](SECURITY_MODEL.md) | 已实现安全合约 | Workspace、进程、网络、plugin、credential、session 与委派运行边界 |
 | [上下文管理](CONTEXT_MANAGEMENT.md) | 已实现设计记录 | Budget、checkpoint、overflow recovery、不变量和评测 gate |
 | [产品定义](PRODUCT.md) | 产品依据 | 目标用户、原则、范围和明确非目标 |
 

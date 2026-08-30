@@ -167,7 +167,7 @@ Forge 的“默认安全”是具体且可检查的：
 
 内置文件工具会在执行 workspace 边界检查前解析规范路径和符号链接。进程命令使用结构化的 `program + args[]` 输入，`shell: false`，默认超时 60 秒，并限制输出。
 
-> **安全边界：** 审批不是隔离。Forge **不是操作系统 sandbox**。获批的子进程拥有启动 Forge 的用户权限，受信任插件则是进程内代码。在不受信任的仓库上使用 Forge 前，请阅读[安全模型](docs/zh-CN/SECURITY.md)。
+> **安全边界：** 审批不是隔离。Forge **不是操作系统 sandbox**。获批的子进程拥有启动 Forge 的用户权限，受信任插件则是进程内代码。在不受信任的仓库上使用 Forge 前，请阅读[安全模型](docs/zh-CN/SECURITY_MODEL.md)。
 
 ## Provider 与 Engine
 
@@ -249,7 +249,7 @@ pnpm forge --help        # 构建并查看 CLI 帮助
 | --- | --- |
 | 安装与第一次任务 | [快速上手](docs/zh-CN/GETTING_STARTED.md) · [故障排查](docs/zh-CN/TROUBLESHOOTING.md) |
 | 日常使用 | [CLI UI](docs/zh-CN/CLI_UI.md) · [配置](docs/zh-CN/CONFIGURATION.md) · [认证](docs/zh-CN/AUTHENTICATION.md) · [会话](docs/zh-CN/SESSIONS.md) |
-| 边界与内部原理 | [架构](docs/zh-CN/ARCHITECTURE.md) · [安全](docs/zh-CN/SECURITY.md) · [上下文管理](docs/zh-CN/CONTEXT_MANAGEMENT.md) |
+| 边界与内部原理 | [架构](docs/zh-CN/ARCHITECTURE.md) · [安全模型](docs/zh-CN/SECURITY_MODEL.md) · [上下文管理](docs/zh-CN/CONTEXT_MANAGEMENT.md) |
 | 定制与扩展 | [项目上下文](docs/zh-CN/PROJECT_CONTEXT.md) · [插件](docs/zh-CN/PLUGINS.md) · [示例](examples/plugins/) |
 | 证据与方向 | [评测](docs/zh-CN/EVALUATION.md) · [已发布报告](evals/reports/README.md) · [路线图](docs/zh-CN/ROADMAP.md) |
 | 贡献 | [贡献指南](CONTRIBUTING.zh-CN.md) |

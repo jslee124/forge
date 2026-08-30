@@ -194,7 +194,7 @@ with `shell: false`, a 60-second default timeout, and bounded output.
 > **Security boundary:** Approval is not isolation. Forge is **not an
 > operating-system sandbox**. An approved child process runs with the privileges
 > of the user who launched Forge, and trusted plugins are in-process code. Read
-> the [security model](docs/SECURITY.md) before using Forge on untrusted
+> the [security model](docs/SECURITY_MODEL.md) before using Forge on untrusted
 > repositories.
 
 ## Providers and engines
@@ -301,7 +301,7 @@ Start at the [documentation hub](docs/README.md), which routes readers by task.
 | --- | --- |
 | Install and first task | [Getting started](docs/GETTING_STARTED.md) · [Troubleshooting](docs/TROUBLESHOOTING.md) |
 | Daily use | [CLI UI](docs/CLI_UI.md) · [Configuration](docs/CONFIGURATION.md) · [Authentication](docs/AUTHENTICATION.md) · [Sessions](docs/SESSIONS.md) |
-| Boundaries and internals | [Architecture](docs/ARCHITECTURE.md) · [Security](docs/SECURITY.md) · [Context management](docs/CONTEXT_MANAGEMENT.md) |
+| Boundaries and internals | [Architecture](docs/ARCHITECTURE.md) · [Security model](docs/SECURITY_MODEL.md) · [Context management](docs/CONTEXT_MANAGEMENT.md) |
 | Customization and extensions | [Project context](docs/PROJECT_CONTEXT.md) · [Plugins](docs/PLUGINS.md) · [examples](examples/plugins/) |
 | Evidence and direction | [Evaluation](docs/EVALUATION.md) · [published reports](evals/reports/README.md) · [Roadmap](docs/ROADMAP.md) |
 | Contributing | [Contribution guide](CONTRIBUTING.md) |

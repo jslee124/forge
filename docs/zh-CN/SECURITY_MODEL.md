@@ -1,6 +1,6 @@
 # 安全模型
 
-[English](../SECURITY.md) · [中文目录](README.md)
+[English](../SECURITY_MODEL.md) · [中文目录](README.md)
 
 ## 状态
 

@@ -11,13 +11,13 @@ with the shortest path below instead of reading every page in order.
 | --- | --- | --- |
 | Run Forge for the first time | [Getting started](GETTING_STARTED.md) | [CLI UI](CLI_UI.md) · [Authentication](AUTHENTICATION.md) |
 | Configure a model, limits, or context behavior | [Configuration](CONFIGURATION.md) | [Authentication](AUTHENTICATION.md) · [Context management](CONTEXT_MANAGEMENT.md) |
-| Understand what Forge can and cannot protect | [Security](SECURITY.md) | [Architecture](ARCHITECTURE.md) |
+| Understand what Forge can and cannot protect | [Security model](SECURITY_MODEL.md) | [Architecture](ARCHITECTURE.md) |
 | Resume a conversation or inspect a run | [Sessions and traces](SESSIONS.md) | [CLI UI](CLI_UI.md) |
-| Add project instructions or a portable Skill | [Project context](PROJECT_CONTEXT.md) | [Security](SECURITY.md) |
+| Add project instructions or a portable Skill | [Project context](PROJECT_CONTEXT.md) | [Security model](SECURITY_MODEL.md) |
 | Build a plugin or study an extension example | [Plugin authoring](PLUGINS.md) | [Architecture](ARCHITECTURE.md) |
 | Reproduce the published evidence | [Evaluation](EVALUATION.md) | [v0.1 contract](history/v0.1/ACCEPTANCE.md) |
 | Contribute to Forge | [Contributing](../CONTRIBUTING.md) | [Architecture](ARCHITECTURE.md) · [Roadmap](ROADMAP.md) |
-| Publish an npm release | [npm release guide](RELEASING.md) | [Evaluation](EVALUATION.md) · [Security](SECURITY.md) |
+| Publish an npm release | [npm release guide](RELEASING.md) | [Evaluation](EVALUATION.md) · [Security model](SECURITY_MODEL.md) |
 | Review the current release | [v0.3.3 release notes](../evals/reports/v0.3.3/RELEASE_NOTES.md) | [release evidence](../evals/reports/v0.3.3/) |
 | Review the first public release | [v0.3.0 release notes](history/v0.3.0/RELEASE_NOTES.md) | [npm release guide](RELEASING.md) |
 | Diagnose a problem | [Troubleshooting](TROUBLESHOOTING.md) | The topic-specific guide linked from the symptom |
@@ -39,7 +39,7 @@ with the shortest path below instead of reading every page in order.
 | Guide | Document type | What it covers |
 | --- | --- | --- |
 | [Architecture](ARCHITECTURE.md) | Current architecture and rationale | Package boundaries, both engines, the runtime loop, policy, events, and dependency direction |
-| [Security](SECURITY.md) | Implemented security contract | Workspace, process, network, plugin, credential, session, and delegated-run boundaries |
+| [Security model](SECURITY_MODEL.md) | Implemented security contract | Workspace, process, network, plugin, credential, session, and delegated-run boundaries |
 | [Context management](CONTEXT_MANAGEMENT.md) | Implemented design record | Budget accounting, checkpoints, overflow recovery, invariants, and evaluation gates |
 | [Product definition](PRODUCT.md) | Product rationale | Target users, principles, scope, and deliberate non-goals |
 

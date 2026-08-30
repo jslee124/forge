@@ -39,7 +39,7 @@ describe("Forge product documentation", () => {
     for (const reference of [
       "../../package.json",
       "/etc/passwd",
-      "docs/SECURITY.md",
+      "docs/SECURITY_MODEL.md",
     ]) {
       await expect(read.execute({ reference }, context)).resolves.toMatchObject(
         {

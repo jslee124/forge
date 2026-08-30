@@ -7,7 +7,7 @@ Forge 是用于学习 coding-agent 工程的项目，但改动仍按生产级标
 ## 开始之前
 
 - 阅读[快速上手](docs/zh-CN/GETTING_STARTED.md)，亲自运行一次 checkout。
-- 修改 tools、审批、plugins、credentials、persistence、网络或委派模型运行前，阅读[安全模型](docs/zh-CN/SECURITY.md)。
+- 修改 tools、审批、plugins、credentials、persistence、网络或委派模型运行前，阅读[安全模型](docs/zh-CN/SECURITY_MODEL.md)。
 - 查看[路线图](docs/zh-CN/ROADMAP.md)，区分已完成验收标准与 deferred scope。
 - 修 bug 时保留最小复现和第一条可操作错误。
 - 加 feature 时先定义用户可见结果和验证方法，再考虑新 abstraction 或 dependency。

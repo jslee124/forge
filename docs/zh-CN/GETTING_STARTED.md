@@ -186,7 +186,7 @@ Session 保存规范 conversation context；run 是一次带独立 ID 和 JSONL 
 
 - 在 [CLI UI](CLI_UI.md) 中学习全部快捷键和斜杠命令。
 - 通过[配置参考](CONFIGURATION.md)定制模型、limits 与 context。
-- 在打开不受信任仓库或信任 plugin 前阅读[安全模型](SECURITY.md)。
+- 在打开不受信任仓库或信任 plugin 前阅读[安全模型](SECURITY_MODEL.md)。
 - 通过[项目上下文](PROJECT_CONTEXT.md)添加 `AGENTS.md` 或 Skill。
 - 通过[插件开发](PLUGINS.md)扩展 Forge。
 - 运行 `pnpm eval:deterministic` 并阅读[评测指南](EVALUATION.md)，复现不产生付费调用的证据。

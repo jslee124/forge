@@ -116,7 +116,7 @@ effort.
 | `limits.maxToolOutputBytes` | `65536` | Positive integer | Maximum retained output from one tool execution. |
 
 Forge does not implement a `full-access` profile. An approved child process is
-still not OS-sandboxed; see [Security](SECURITY.md).
+still not OS-sandboxed; see [Security model](SECURITY_MODEL.md).
 
 Permission grants are not configuration. Choosing the numbered session option
 stores a normalized scope only in the active process. Project configuration,

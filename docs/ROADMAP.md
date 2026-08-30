@@ -259,7 +259,7 @@ Traces](SESSIONS.md).
 - [x] Record duration, model steps, tool calls, token usage, and terminal status
 - [x] Test external paths, symlinks, missing approval UI, decision precedence,
   command timeouts, and representative destructive programs
-- [x] Keep `docs/SECURITY.md` aligned with implemented behavior
+- [x] Keep `docs/SECURITY_MODEL.md` aligned with implemented behavior
 
 Acceptance criteria:
 

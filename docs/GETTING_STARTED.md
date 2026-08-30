@@ -233,7 +233,7 @@ state. See [Sessions and traces](SESSIONS.md).
 
 - Learn every terminal control in [CLI UI](CLI_UI.md).
 - Customize models and limits with [Configuration](CONFIGURATION.md).
-- Read [Security](SECURITY.md) before opening an untrusted repository or
+- Read [Security model](SECURITY_MODEL.md) before opening an untrusted repository or
   trusting a plugin.
 - Add repository instructions or a Skill with [Project context](PROJECT_CONTEXT.md).
 - Build an extension with [Plugin authoring](PLUGINS.md).

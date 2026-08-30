@@ -920,7 +920,7 @@
           "title": "Next steps",
           "level": 2,
           "start": 7307,
-          "end": 7761,
+          "end": 7767,
           "keywords": [
             "add",
             "an",
@@ -949,6 +949,7 @@
             "instructions",
             "learn",
             "limits",
+            "model",
             "models",
             "next",
             "not",
@@ -1024,7 +1025,7 @@
         "you"
       ],
       "path": "en/GETTING_STARTED.md",
-      "sha256": "f29845e8b62eafd25ad5949e80dbfad6ff011d0268173ce2947c4c68a8d4877d"
+      "sha256": "a4839a89bb14fa7bb37df94ab2c2ecf9ad2ff955a863e724f069cf707d76ce0d"
     },
     {
       "id": "configuration",
@@ -1394,7 +1395,7 @@
           "title": "Permission and runtime limits",
           "level": 3,
           "start": 3822,
-          "end": 4994,
+          "end": 5000,
           "keywords": [
             "12",
             "40",
@@ -1482,8 +1483,8 @@
           "id": "traces-and-plugins",
           "title": "Traces and plugins",
           "level": 3,
-          "start": 4994,
-          "end": 5577,
+          "start": 5000,
+          "end": 5583,
           "keywords": [
             "an",
             "and",
@@ -1545,8 +1546,8 @@
           "id": "context-budget",
           "title": "Context budget",
           "level": 3,
-          "start": 5577,
-          "end": 6994,
+          "start": 5583,
+          "end": 7000,
           "keywords": [
             "000",
             "1200",
@@ -1626,8 +1627,8 @@
           "id": "safe-project-configuration",
           "title": "Safe project configuration",
           "level": 2,
-          "start": 6994,
-          "end": 7572,
+          "start": 7000,
+          "end": 7578,
           "keywords": [
             "12000",
             "20",
@@ -1678,8 +1679,8 @@
           "id": "environment-variables",
           "title": "Environment variables",
           "level": 2,
-          "start": 7572,
-          "end": 7598,
+          "start": 7578,
+          "end": 7604,
           "keywords": [
             "environment",
             "variables"
@@ -1689,8 +1690,8 @@
           "id": "configuration-selection",
           "title": "Configuration selection",
           "level": 3,
-          "start": 7598,
-          "end": 8106,
+          "start": 7604,
+          "end": 8112,
           "keywords": [
             "and",
             "configuration",
@@ -1740,8 +1741,8 @@
           "id": "credentials",
           "title": "Credentials",
           "level": 3,
-          "start": 8106,
-          "end": 8650,
+          "start": 8112,
+          "end": 8656,
           "keywords": [
             "an",
             "api",
@@ -1794,8 +1795,8 @@
           "id": "optional-plugin-networking",
           "title": "Optional plugin networking",
           "level": 3,
-          "start": 8650,
-          "end": 8993,
+          "start": 8656,
+          "end": 8999,
           "keywords": [
             "affect",
             "aliases",
@@ -1842,8 +1843,8 @@
           "id": "openai-compatible-routes",
           "title": "OpenAI-compatible routes",
           "level": 2,
-          "start": 8993,
-          "end": 9724,
+          "start": 8999,
+          "end": 9730,
           "keywords": [
             "11434",
             "127",
@@ -1908,8 +1909,8 @@
           "id": "common-mistakes",
           "title": "Common mistakes",
           "level": 2,
-          "start": 9724,
-          "end": 10568,
+          "start": 9730,
+          "end": 10574,
           "keywords": [
             "adding",
             "an",
@@ -1997,8 +1998,8 @@
           "id": "skill-invocation-preferences",
           "title": "Skill invocation preferences",
           "level": 2,
-          "start": 10568,
-          "end": 10957,
+          "start": 10574,
+          "end": 10963,
           "keywords": [
             "an",
             "and",
@@ -2076,7 +2077,7 @@
         "variables"
       ],
       "path": "en/CONFIGURATION.md",
-      "sha256": "11bfbb08dee724d4dbcde07538eda1caa77f3711d5e77b4c1dfd32fbf418b8e8"
+      "sha256": "0cb7a2f78366ee3623f1beddf2e501bb6d7bf057a0fd3fb5dd47e99c745d5d8c"
     },
     {
       "id": "authentication",
@@ -8521,7 +8522,7 @@
       "sha256": "5c098d344bf95941ce1065d1300d307f45d25d4fabbbc3246c8fc7bf0a2c8e16"
     },
     {
-      "id": "security",
+      "id": "security-model",
       "locale": "en",
       "title": "Security Model",
       "headings": [
@@ -9898,7 +9899,7 @@
         "visibility",
         "workspace-write"
       ],
-      "path": "en/SECURITY.md",
+      "path": "en/SECURITY_MODEL.md",
       "sha256": "c542d199177b9f794b30bcb03b47231d3e1e3f089934f9684dd577bffdc1566e"
     },
     {
@@ -20587,7 +20588,7 @@
       "sha256": "38d3f2c4d26bf6e131ca920b4d58001eeb93648bb4b712a6895be79607a540e6"
     },
     {
-      "id": "security",
+      "id": "security-model",
       "locale": "zh-CN",
       "title": "安全模型",
       "headings": [
@@ -21289,6 +21290,7 @@
       "keywords": [
         "credential",
         "full-access",
+        "model",
         "permission",
         "profile",
         "reasoning",
@@ -21309,7 +21311,7 @@
         "配置边界",
         "非交互操作"
       ],
-      "path": "zh-CN/SECURITY.md",
+      "path": "zh-CN/SECURITY_MODEL.md",
       "sha256": "cba4cc039e9f4efc365a6902ba48f7ea496bfe388bebf91f6a441ea6c06071f8"
     },
     {

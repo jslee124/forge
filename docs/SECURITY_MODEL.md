@@ -1,6 +1,6 @@
 # Security Model
 
-[简体中文](zh-CN/SECURITY.md) · [Documentation index](README.md)
+[简体中文](zh-CN/SECURITY_MODEL.md) · [Documentation index](README.md)
 
 ## Status
 

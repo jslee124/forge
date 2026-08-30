@@ -233,7 +233,7 @@ state. See Sessions and traces.
 
 - Learn every terminal control in CLI UI.
 - Customize models and limits with Configuration.
-- Read Security before opening an untrusted repository or
+- Read Security model before opening an untrusted repository or
   trusting a plugin.
 - Add repository instructions or a Skill with Project context.
 - Build an extension with Plugin authoring.

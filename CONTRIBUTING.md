@@ -9,7 +9,7 @@ boundary, deterministic tests, and evidence that matches the claim.
 ## Before you start
 
 - Read [Getting started](docs/GETTING_STARTED.md) and run the checkout once.
-- Read [Security](docs/SECURITY.md) before changing tools, approvals, plugins,
+- Read [Security model](docs/SECURITY_MODEL.md) before changing tools, approvals, plugins,
   credentials, persistence, network behavior, or delegated model runs.
 - Check the [Roadmap](docs/ROADMAP.md) for completed acceptance criteria and
   deferred scope.
