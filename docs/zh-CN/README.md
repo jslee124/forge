@@ -14,7 +14,7 @@ Forge 文档按“读者想完成什么”组织。第一次接触项目时无�
 | 恢复 conversation 或检查 run | [会话与 trace](SESSIONS.md) | [CLI UI](CLI_UI.md) |
 | 添加项目指令或 portable Skill | [项目上下文](PROJECT_CONTEXT.md) | [安全模型](SECURITY.md) |
 | 编写 plugin 或学习扩展示例 | [插件开发](PLUGINS.md) | [架构](ARCHITECTURE.md) |
-| 复现发布证据 | [评测指南](EVALUATION.md) | [v0.1 合约](V0.1_SPEC.md) |
+| 复现发布证据 | [评测指南](EVALUATION.md) | [v0.1 合约](history/v0.1/ACCEPTANCE.md) |
 | 为 Forge 贡献代码或文档 | [贡献指南](../../CONTRIBUTING.zh-CN.md) | [架构](ARCHITECTURE.md) · [路线图](ROADMAP.md) |
 | 发布 npm release | [npm 发布指南](RELEASING.md) | [评测指南](EVALUATION.md) · [安全模型](SECURITY.md) |
 | 排查错误 | [故障排查](TROUBLESHOOTING.md) | 再阅读对应症状链接的专题页 |
@@ -57,9 +57,13 @@ Forge 文档按“读者想完成什么”组织。第一次接触项目时无�
 | [评测指南](EVALUATION.md) | 运行确定性证据与显式 opt-in live trials |
 | [已发布报告](../../evals/reports/README.md) | 经过检查的 release 证据，包括保留的失败 |
 | [路线图](ROADMAP.md) | 已完成 milestone 的验收标准与后续方向 |
-| [结构化 Session History 实现方案](STRUCTURED_SESSION_HISTORY_IMPLEMENTATION_PLAN.md) | 已实现的 canonical tool history、provider projection、session v3 migration、忠实 resume 与 release gate |
-| [v0.3.3 详细实现记录](V0.3.3_IMPLEMENTATION_PLAN.md) | Milestone 13.0-13.5 的 context、scoped permission、prompt cache、update UX、架构、测试与离线 gate；不是发布声明 |
-| [v0.1 验收合约](V0.1_SPEC.md) | 历史首发范围、limits 与 release gates |
+| [结构化 Session History 实现方案](history/v0.3.3/STRUCTURED_SESSION_HISTORY.md) | 历史 Milestone 14 设计记录；当前行为仍以源码、测试、Sessions 与 Architecture 为准 |
+| [v0.3.3 详细实现记录](history/v0.3.3/LONG_SESSION_IMPLEMENTATION.md) | Milestone 13.0-13.5 的历史设计、架构、测试与离线 gate；不是发布声明 |
+| [v0.1 验收合约](history/v0.1/ACCEPTANCE.md) | 历史首发范围、limits 与 release gates |
+
+版本化 plan 与 acceptance record 位于 `docs/history/`，经过审查的 release
+evidence 与 codebase snapshot 位于 `evals/reports/<version>/`。机器可读的
+[文档 catalog](../catalog.json) 是文档角色与 product-help 打包范围的权威来源。
 
 Roadmap 与 acceptance 页面会保留历史决策。当前 CLI 行为、配置默认值和 public TypeScript shape 以 checkout 中的源码与测试为准。
 

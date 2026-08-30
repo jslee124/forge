@@ -63,6 +63,6 @@ JSON 报告记录 Forge commit、任务、trial、model、thinking、status、gr
 
 Milestone 13 增加了已检入的 [v0.3.2 对比基线](../../evals/reports/v0.3.2/M13_BASELINE.md)、stable prefix/失效 fixture、unavailable 与零值 cache accounting、压力触发压缩、低回收暂停，以及 session/default mode 测试；它们都保持离线。自动压缩可在 TUI 中发现并显式启用，但该基线不会把 extractive oracle 提升为默认行为。
 
-[v0.3.3 Milestone 13 release gate](../../evals/reports/v0.3.3/M13_RELEASE_GATES.md) 进一步覆盖 exact/near-match permission scope、deny feedback、canonical workspace 与高风险拒绝、异步更新与 dismiss、安装来源、受保护的 `FORGE_HOME` 和窄/宽 Ink 渲染。报告明确记录 live trial 需要 `eval:live` 显式 opt-in，本次离线 gate 没有付费调用。
+[v0.3.3 Milestone 13 release gate](../../evals/reports/v0.3.3/M13_RELEASE_GATES.md) 进一步覆盖 exact/near-match permission scope、deny feedback、canonical workspace 与高风险拒绝、异步更新与 dismiss、安装来源、受保护的 `FORGE_HOME` 和窄/宽 Ink 渲染。报告明确记录 live trial 需要 `eval:live` 显式 opt-in，本次离线 gate 没有付费调用。该报告早于 Milestone 14 structured history，只是历史 M13 证据。当前 deterministic release matrix 还会运行[跨层 session contract](../../evals/src/session-contract.test.ts)，覆盖 runtime canonical delta 到 save/load、resume projection、checkpoint validation、取消结果恢复、重复 provider call ID、不恢复 approval state，以及 durable-size 拒绝。
 
 资源评测默认同样确定性、离线运行。脚本化 fixtures 覆盖匹配、不匹配、歧义、显式调用、用户关闭自动调用、冲突、重复加载、超预算、对抗性 Skill、产品问题和未知问题。指标包括选择精确率/召回率、不必要加载、目录与已加载 token、引用准确率、延迟和任务完成率；真实供应商资源试验仍需显式启用。

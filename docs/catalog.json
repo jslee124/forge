@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "currentProduct": [
+    "GETTING_STARTED",
+    "CONFIGURATION",
+    "AUTHENTICATION",
+    "PLUGINS",
+    "PROJECT_CONTEXT",
+    "SESSIONS",
+    "CONTEXT_MANAGEMENT",
+    "SECURITY",
+    "RELEASING",
+    "TROUBLESHOOTING",
+    "CLI_UI",
+    "ARCHITECTURE",
+    "PRODUCT"
+  ],
+  "currentDevelopment": ["README", "EVALUATION", "ROADMAP"],
+  "history": [
+    {
+      "path": "history/v0.1/ACCEPTANCE.md",
+      "snapshot": "v0.1"
+    },
+    {
+      "path": "zh-CN/history/v0.1/ACCEPTANCE.md",
+      "snapshot": "v0.1"
+    },
+    {
+      "path": "history/v0.3.3/STRUCTURED_SESSION_HISTORY.md",
+      "snapshot": "v0.3.3"
+    },
+    {
+      "path": "zh-CN/history/v0.3.3/STRUCTURED_SESSION_HISTORY.md",
+      "snapshot": "v0.3.3"
+    },
+    {
+      "path": "zh-CN/history/v0.3.3/LONG_SESSION_IMPLEMENTATION.md",
+      "snapshot": "v0.3.3"
+    }
+  ],
+  "redirects": [
+    "zh-CN/V0.1_SPEC.md",
+    "zh-CN/STRUCTURED_SESSION_HISTORY_IMPLEMENTATION_PLAN.md",
+    "zh-CN/V0.3.3_CODEBASE_REVIEW.md",
+    "zh-CN/V0.3.3_IMPLEMENTATION_PLAN.md"
+  ]
+}

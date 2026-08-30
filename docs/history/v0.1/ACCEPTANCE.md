@@ -1,6 +1,9 @@
 # v0.1 Acceptance and Evaluation
 
-[简体中文](zh-CN/V0.1_SPEC.md) · [Documentation index](README.md)
+[简体中文](../../zh-CN/history/v0.1/ACCEPTANCE.md) · [Documentation index](../../README.md)
+
+> **Document role: historical.** This is the immutable v0.1 acceptance
+> contract, not the current product or release contract.
 
 ## Status
 

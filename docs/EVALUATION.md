@@ -151,6 +151,12 @@ adds exact/near-match permission scopes, denial feedback, canonical workspace
 and high-risk rejection, asynchronous update delivery and dismissal,
 installation provenance, protected `FORGE_HOME` fixtures, and narrow/wide Ink
 rendering. It records that live trials require explicit `eval:live` opt-in and
-that no paid call was made for the offline gate.
+that no paid call was made for the offline gate. That report predates Milestone
+14 structured history and is historical M13-only evidence. The current
+deterministic release matrix also runs the
+[cross-layer session contract](../evals/src/session-contract.test.ts), which
+exercises runtime canonical deltas through save/load, resume projection,
+checkpoint validation, cancellation outcome recovery, repeated provider call
+IDs, non-restored approval state, and durable-size rejection.
 
 Resource evaluation is deterministic and offline by default. Scripted fixtures cover matching, non-matching, ambiguous, explicit, user-disabled, collision, repeated-load, over-budget, adversarial Skill, product-question, and unsupported-question cases. Metrics include selection precision and recall, unnecessary loads, catalog and loaded tokens, citation accuracy, latency, and task completion. Live-provider resource trials remain explicit opt-in.

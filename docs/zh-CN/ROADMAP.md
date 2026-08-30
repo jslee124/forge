@@ -14,7 +14,7 @@
 - 默认测试套件不依赖付费模型调用。
 - 只有 milestone 需要时才新增 workspace package。
 - 实现证明计划错误时更新本文。
-- 以 [v0.1 验收与评测](V0.1_SPEC.md) 作为 release contract。
+- 以[历史 v0.1 验收与评测](history/v0.1/ACCEPTANCE.md)作为 v0.1 release contract。
 
 ## Milestone 0：项目基础（已完成）
 
@@ -54,7 +54,7 @@
 
 ## Milestone 7：评测与首个 release（已完成）
 
-保留规范 fixture，增加至少两个任务和 hidden grader；默认 suite 使用 fake model；付费 DeepSeek 试验显式 opt-in；多次运行记录 model/settings、通过率、耗时、步骤、工具调用和 token；加入 terminal demo、README setup/results/limitations、许可证、model ID 复核并打 `v0.1` tag。所有 v0.1 gate 见 [V0.1_SPEC](V0.1_SPEC.md)。
+保留规范 fixture，增加至少两个任务和 hidden grader；默认 suite 使用 fake model；付费 DeepSeek 试验显式 opt-in；多次运行记录 model/settings、通过率、耗时、步骤、工具调用和 token；加入 terminal demo、README setup/results/limitations、许可证、model ID 复核并打 `v0.1` tag。所有 v0.1 gate 见[历史 v0.1 验收合约](history/v0.1/ACCEPTANCE.md)。
 
 ## Milestone 8：受信任插件 API（v0.2，已完成）
 
@@ -206,7 +206,7 @@ Release criteria：
 
 ## Milestone 13：长会话效率与用户控制（v0.3.3，已实现并通过离线验证）
 
-目标：让用户在长时间 coding session 中持续使用 Forge，同时看得见 context 压力，减少重复审批打断，以不干扰工作的方式获知新版本，并能测量和改进 provider prompt cache。Milestone 10 已提供 context budget 和 checkpoint 底座；Milestone 13 要把这套底座变成可发现、受评测 gate 约束的默认体验。架构、UI flow、建议 TypeScript contract、模块映射、测试矩阵与分阶段交付顺序详见 [v0.3.3 详细实现方案](V0.3.3_IMPLEMENTATION_PLAN.md)。
+目标：让用户在长时间 coding session 中持续使用 Forge，同时看得见 context 压力，减少重复审批打断，以不干扰工作的方式获知新版本，并能测量和改进 provider prompt cache。Milestone 10 已提供 context budget 和 checkpoint 底座；Milestone 13 要把这套底座变成可发现、受评测 gate 约束的默认体验。架构、UI flow、建议 TypeScript contract、模块映射、测试矩阵与分阶段交付顺序详见[历史 v0.3.3 详细实现记录](history/v0.3.3/LONG_SESSION_IMPLEMENTATION.md)。
 
 本实现不会加入持久化的无限制权限，不会静默运行包管理器更新，不会删除规范 conversation transcript，不会对不报告 cache 的 endpoint 声称支持，也不会把 extractive checkpoint 当作生产质量的 semantic memory。可选的 live-provider 验证与 npm 发布仍是独立 release step，尚未由开发分支的离线 gate 完成。
 
@@ -342,7 +342,7 @@ Release criteria：
 目标：跨已完成工具交换保存完整、provider-neutral、模型可见的 conversation，使 resume
 后的模型能够利用之前的调用、输出与失败，同时不恢复 authority 或未完成执行。详细 contract、
 migration、provider mapping、安全规则、测试矩阵和交付顺序见[结构化 Session History 与
-Resume 实现方案](STRUCTURED_SESSION_HISTORY_IMPLEMENTATION_PLAN.md)。
+Resume 实现方案](history/v0.3.3/STRUCTURED_SESSION_HISTORY.md)。
 
 - [x] 在 `@forge/core` 增加 canonical user、assistant、tool-call 与配对 tool-result content block
 - [x] 在模型可见 runtime commit boundary 直接构建 canonical delta，而不是从 UI event 推导正常写入

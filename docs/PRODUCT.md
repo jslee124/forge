@@ -117,7 +117,7 @@ The first useful version will include:
 ## Success criteria for v0.1
 
 Forge v0.1 is successful when it meets the concrete release gates in
-[v0.1 Acceptance and Evaluation](V0.1_SPEC.md), including a small repository
+[v0.1 Acceptance and Evaluation](history/v0.1/ACCEPTANCE.md), including a small repository
 task from end to end:
 
 1. Inspect more than one relevant file.

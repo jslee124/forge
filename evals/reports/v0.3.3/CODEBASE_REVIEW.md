@@ -1,6 +1,10 @@
 # Forge v0.3.3 Codebase Review and Release Readiness
 
-[简体中文](zh-CN/V0.3.3_CODEBASE_REVIEW.md) · [Documentation index](README.md)
+[简体中文](CODEBASE_REVIEW.zh-CN.md) · [Documentation index](../../../docs/README.md)
+
+> **Evidence snapshot:** this review records commit `5b24a2e` before the
+> post-review fixes. Its findings and release recommendation are historical and
+> must not be treated as the current tree's status.
 
 ## Review snapshot
 

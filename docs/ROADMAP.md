@@ -18,7 +18,7 @@ Automatic compaction remains opt-in and this is not a published v0.3.3 claim.
 - Keep the default test suite independent from paid model calls.
 - Add a workspace package only when a milestone needs it.
 - Update this document when implementation teaches us that the plan is wrong.
-- Use [the v0.1 specification](V0.1_SPEC.md) as the release contract.
+- Use [the historical v0.1 specification](history/v0.1/ACCEPTANCE.md) as the v0.1 release contract.
 
 ## Milestone 0: Project foundation
 
@@ -291,7 +291,7 @@ Goal: publish a small, truthful, and reproducible v0.1 portfolio release.
 
 Acceptance criteria:
 
-- All mandatory gates in `docs/V0.1_SPEC.md` pass.
+- All mandatory gates in `docs/history/v0.1/ACCEPTANCE.md` pass.
 - Forge completes at least one repository-level task end to end with DeepSeek.
 - Reported evaluation numbers are reproducible from documented commands.
 - The README never claims capabilities that the release does not implement.
@@ -719,7 +719,7 @@ improved. Milestone 10 supplies the context-budget and checkpoint foundation;
 Milestone 13 turns that foundation into a discoverable, evaluation-gated
 default experience. The architecture, UI flows, proposed TypeScript contracts,
 module map, test matrix, and staged delivery sequence are preserved in the
-[Chinese v0.3.3 implementation record](zh-CN/V0.3.3_IMPLEMENTATION_PLAN.md).
+[Chinese v0.3.3 implementation record](zh-CN/history/v0.3.3/LONG_SESSION_IMPLEMENTATION.md).
 
 This implementation does not add persistent unrestricted permissions, silently run
 package-manager updates, delete canonical conversation history, promise cache
@@ -996,7 +996,7 @@ completed tool exchanges so a resumed model can use prior calls, outputs, and
 failures without restoring authority or an unfinished execution. The detailed
 contract, migration, provider mapping, security rules, test matrix, and delivery
 order live in [Structured Session History and Resume Implementation
-Plan](STRUCTURED_SESSION_HISTORY_IMPLEMENTATION_PLAN.md).
+Plan](history/v0.3.3/STRUCTURED_SESSION_HISTORY.md).
 
 - [x] Introduce canonical user, assistant, tool-call, and paired tool-result
   content blocks in `@forge/core`

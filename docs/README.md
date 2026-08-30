@@ -15,7 +15,7 @@ with the shortest path below instead of reading every page in order.
 | Resume a conversation or inspect a run | [Sessions and traces](SESSIONS.md) | [CLI UI](CLI_UI.md) |
 | Add project instructions or a portable Skill | [Project context](PROJECT_CONTEXT.md) | [Security](SECURITY.md) |
 | Build a plugin or study an extension example | [Plugin authoring](PLUGINS.md) | [Architecture](ARCHITECTURE.md) |
-| Reproduce the published evidence | [Evaluation](EVALUATION.md) | [v0.1 contract](V0.1_SPEC.md) |
+| Reproduce the published evidence | [Evaluation](EVALUATION.md) | [v0.1 contract](history/v0.1/ACCEPTANCE.md) |
 | Contribute to Forge | [Contributing](../CONTRIBUTING.md) | [Architecture](ARCHITECTURE.md) · [Roadmap](ROADMAP.md) |
 | Publish an npm release | [npm release guide](RELEASING.md) | [Evaluation](EVALUATION.md) · [Security](SECURITY.md) |
 | Diagnose a problem | [Troubleshooting](TROUBLESHOOTING.md) | The topic-specific guide linked from the symptom |
@@ -60,8 +60,13 @@ capabilities and per-tool approval are not an operating-system sandbox.
 | [Evaluation guide](EVALUATION.md) | Run deterministic evidence and explicit opt-in live trials |
 | [Published reports](../evals/reports/README.md) | Reviewed release evidence, including retained failures |
 | [Roadmap](ROADMAP.md) | Completed milestone acceptance criteria and later directions |
-| [Structured session history implementation](STRUCTURED_SESSION_HISTORY_IMPLEMENTATION_PLAN.md) | Canonical tool history, provider projection, session v3 migration, faithful resume, and release gates |
-| [v0.1 acceptance contract](V0.1_SPEC.md) | Historical first-release scope, limits, and gates |
+| [Structured session history implementation](history/v0.3.3/STRUCTURED_SESSION_HISTORY.md) | Historical Milestone 14 design record; current behavior remains in source, tests, Sessions, and Architecture |
+| [v0.1 acceptance contract](history/v0.1/ACCEPTANCE.md) | Historical first-release scope, limits, and gates |
+
+Versioned plans and acceptance records live under `docs/history/`. Reviewed
+release evidence and codebase snapshots live under `evals/reports/<version>/`.
+The machine-readable [documentation catalog](catalog.json) is the authority for
+document roles and product-help packaging.
 
 Roadmap and acceptance pages preserve historical decisions. For current CLI
 behavior, configuration defaults, or public TypeScript shapes, the checked-in
