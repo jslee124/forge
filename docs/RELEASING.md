@@ -46,6 +46,13 @@ Review `npm pack --dry-run` output and release notes before tagging. Never
 include API keys, auth files, local traces, `.env` files, or evaluation
 artifacts that were not explicitly reviewed for publication.
 
+Every public version must also include an English GitHub release body at
+`.github/releases/v<version>.md`. Keep it user-facing: summarize highlights,
+show the npm install command, link the reviewed verification evidence, and
+state material compatibility or validation limits. `pnpm check` verifies that
+the current-version file contains those sections and does not retain candidate
+status wording.
+
 ## One-time npm setup (completed)
 
 The first publication was completed for v0.3.0. The `@jslee124` scope is
@@ -75,7 +82,12 @@ git push origin v0.3.3
 The `Publish npm package` workflow verifies that the Git tag, root version,
 private workspace versions, runtime version, and generated npm package all
 match before it publishes with an explicit dist-tag. Stable semantic versions
-route to `latest`; versions with a prerelease component route to `next`.
+route to `latest`; versions with a prerelease component route to `next`. After
+the npm publication succeeds, the same workflow creates the GitHub Release
+from `.github/releases/v<version>.md`. Stable versions are marked `Latest`;
+prerelease versions are marked `Pre-release`. GitHub automatically adds source
+ZIP and tarball downloads for the immutable tag; Forge does not publish a
+separate standalone binary archive.
 
 Do not move a published Git tag or reuse an npm version. Fix a bad release with
 a new patch version and leave the prior artifact available for rollback.

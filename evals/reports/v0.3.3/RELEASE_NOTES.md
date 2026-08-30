@@ -2,8 +2,8 @@
 
 [简体中文](RELEASE_NOTES.zh-CN.md)
 
-Release status: candidate; not yet tagged or published
-Candidate date: 2026-08-30
+Release status: published to npm and GitHub
+Release date: 2026-08-30
 
 Forge v0.3.3 is a feature release focused on long-session reliability,
 faithful resume behavior, safer approvals, and clearer terminal feedback. It

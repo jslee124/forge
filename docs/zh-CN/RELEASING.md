@@ -43,6 +43,11 @@ API version，并验证 `forge --version`、`forge --help` 和 `forge config val
 打 tag 前必须检查 pack 内容和 release notes。API key、auth 文件、本地
 trace、`.env` 以及未经脱敏审核的 evaluation artifact 都不能发布。
 
+每个公开版本还必须包含英文 GitHub Release 正文：
+`.github/releases/v<版本>.md`。内容应面向用户：概述主要变化、给出 npm 安装命令、
+链接经过审查的验证证据，并说明重要的兼容性或验证边界。`pnpm check` 会验证当前
+版本文件包含这些章节，并且没有遗留候选版本状态。
+
 ## npm 一次性初始化（已完成）
 
 npm 首次发布已在 v0.3.0 完成。维护者拥有 `@jslee124` scope，
@@ -67,7 +72,11 @@ git push origin v0.3.3
 
 `Publish npm package` workflow 会先确认 Git tag、根版本、私有 workspace
 版本、runtime 版本和生成 npm package 完全一致，然后使用显式 dist-tag 发布。
-稳定语义版本路由到 `latest`；带 prerelease component 的版本路由到 `next`。
+稳定语义版本路由到 `latest`；带 prerelease component 的版本路由到 `next`。npm
+发布成功后，同一个 workflow 会读取 `.github/releases/v<版本>.md` 创建 GitHub
+Release。稳定版本会标记为 `Latest`，预发布版本会标记为 `Pre-release`。GitHub
+会为不可移动的 tag 自动提供源码 ZIP 和 tarball；Forge 不发布单独的
+standalone binary archive。
 
 不要移动已经发布的 Git tag，也不要复用 npm 版本。错误 release 应通过新的
 patch 版本修复，并保留旧版本供用户回滚。
