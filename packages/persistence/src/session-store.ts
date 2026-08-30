@@ -32,7 +32,7 @@ import {
   sessionSnapshotSchema,
 } from "./schema.js";
 
-const MAX_SESSION_BYTES = 4 * 1024 * 1024;
+export const MAX_SESSION_BYTES = 4 * 1024 * 1024;
 
 export class PersistenceError extends Error {
   readonly code = "PERSISTENCE_ERROR";
@@ -109,6 +109,12 @@ export class FileSessionStore {
     );
     const persistable = rehashCheckpoint(redactedValidated);
     const serialized = `${JSON.stringify(persistable, null, 2)}\n`;
+    const serializedBytes = Buffer.byteLength(serialized, "utf8");
+    if (serializedBytes > MAX_SESSION_BYTES) {
+      throw new PersistenceError(
+        `Could not save session ${validated.id}: the redacted snapshot is ${serializedBytes} bytes, exceeding the ${MAX_SESSION_BYTES}-byte durable session limit. No session file was replaced, so any previous valid snapshot remains resumable. Start a new session and archive the current session file before continuing.`,
+      );
+    }
     try {
       await writeFile(temporary, serialized, {
         encoding: "utf8",

@@ -70,11 +70,11 @@ git push origin v0.3.0
 
 The `Publish npm package` workflow verifies that the Git tag, root version,
 private workspace versions, runtime version, and generated npm package all
-match before it runs `npm publish --access public`.
+match before it publishes with an explicit dist-tag. Stable semantic versions
+route to `latest`; versions with a prerelease component route to `next`.
 
-Use `npm publish --tag next` only for deliberate prereleases. Do not move a
-published Git tag or reuse an npm version. Fix a bad release with a new patch
-version and leave the prior artifact available for rollback.
+Do not move a published Git tag or reuse an npm version. Fix a bad release with
+a new patch version and leave the prior artifact available for rollback.
 
 ## User updates
 

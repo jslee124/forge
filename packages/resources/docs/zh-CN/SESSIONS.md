@@ -31,6 +31,8 @@ $FORGE_HOME/
 
 Session snapshot 使用 `schemaVersion: 3`，读取时迁移 v1/v2；v3 保存 provider-neutral content block 与 fidelity 标记。trace envelope 使用 `schemaVersion: 1`。文件只能写入解析后的 Forge home。snapshot 原子替换，活跃 run 的 trace 追加写入。
 
+最终脱敏并序列化为 JSON 后，持久 session snapshot 的上限为 4 MiB。Forge 在保存与加载时使用同一 byte limit。超限保存会在原子替换前失败，因此之前可恢复的 snapshot 会保留。由于 canonical history 有意保持无损，checkpoint 也不会删除它，当前 retention 策略是在接近上限时开启新 session；若旧 JSON 不再需要出现在 resume 列表中，可将它归档到活动 `sessions/` 目录之外。
+
 每个 session 保存 session ID、创建和更新时间、规范 workspace root、工作目录、已完成对话、未完成运行的原始用户请求和有界无授权语义结果、provider 暴露的 reasoning 文本、run ID 顺序，以及可选的带来源和 hash 的 checkpoint。已完成但遇到工具失败的运行也会保留有界工具结果。每行 trace 包含 run ID、可选 session ID、序号、时间戳和一个结构化 `RunEvent`。Subagent trace envelope 还包含 `parentRunId` 和 `subagentName`，parent trace 则通过完成的 delegation tool result 反向关联 child run。
 
 ## 恢复行为

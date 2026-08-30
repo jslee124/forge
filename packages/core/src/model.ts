@@ -104,7 +104,10 @@ export function validateCanonicalConversation(
   history: readonly CanonicalConversationMessage[],
 ): void {
   const messageIds = new Set<string>();
-  const calls = new Map<string, { readonly name: string; paired: boolean }>();
+  const calls = new Map<
+    string,
+    { readonly id: string; readonly name: string; paired: boolean }
+  >();
   for (const message of history) {
     if (messageIds.has(message.id)) {
       throw new Error(`Duplicate canonical message ID: ${message.id}`);
@@ -122,25 +125,43 @@ export function validateCanonicalConversation(
             64_000,
           );
         }
-        if (calls.has(part.id)) {
+        const callKey = canonicalToolCallKey(
+          message.runId,
+          message.step,
+          part.id,
+        );
+        if (calls.has(callKey)) {
           throw new Error(`Duplicate canonical tool-call ID: ${part.id}`);
         }
-        calls.set(part.id, { name: part.name, paired: false });
+        calls.set(callKey, { id: part.id, name: part.name, paired: false });
       }
     } else if (message.role === "tool") {
-      const call = calls.get(message.toolCallId);
+      const callKey = canonicalToolCallKey(
+        message.runId,
+        message.step,
+        message.toolCallId,
+      );
+      const call = calls.get(callKey);
       if (!call || call.paired || call.name !== message.toolName) {
         throw new Error(
           `Orphan, duplicate, or mismatched canonical tool result: ${message.toolCallId}`,
         );
       }
-      calls.set(message.toolCallId, { ...call, paired: true });
+      calls.set(callKey, { ...call, paired: true });
     }
   }
   const dangling = [...calls].find(([, call]) => !call.paired);
   if (dangling) {
-    throw new Error(`Dangling canonical tool call: ${dangling[0]}`);
+    throw new Error(`Dangling canonical tool call: ${dangling[1].id}`);
   }
+}
+
+function canonicalToolCallKey(
+  runId: string,
+  step: number,
+  providerCallId: string,
+): string {
+  return JSON.stringify([runId, step, providerCallId]);
 }
 
 function assertJsonSafe(

@@ -15,7 +15,7 @@
   "scripts": {
     "build": "tsc -b",
     "build:package": "pnpm build && node scripts/build-package.mjs",
-    "check": "biome check . && pnpm typecheck",
+    "check": "biome check . && pnpm typecheck && pnpm release:verify-routing",
     "check:docs": "node scripts/check-docs.mjs && node scripts/build-doc-index.mjs --check",
     "clean": "tsc -b --clean",
     "eval:deterministic": "pnpm build && vitest run packages/tools/src/recovery.test.ts packages/core/src/approval.test.ts packages/core/src/cache.test.ts packages/core/src/context.test.ts packages/core/src/runtime.test.ts apps/cli/src/update.test.ts evals/src/resource-evaluation.test.ts evals/src/evaluation.test.ts evals/src/context-evaluation.test.ts evals/src/m13-baseline.test.ts evals/src/m13-release-gates.test.ts",
@@ -25,6 +25,7 @@
     "link:global": "pnpm build && npm link --workspace @forge/cli",
     "package:verify": "pnpm build:package && node scripts/verify-package.mjs",
     "release:verify-tag": "node scripts/verify-release-tag.mjs",
+    "release:verify-routing": "node scripts/verify-publish-routing.mjs",
     "lint": "biome lint .",
     "test": "pnpm build && vitest run",
     "test:watch": "vitest",

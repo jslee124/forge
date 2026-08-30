@@ -13,6 +13,7 @@ import {
   FileTraceStore,
   isCheckpointValid,
   JsonlTraceWriter,
+  MAX_SESSION_BYTES,
   previewSessionCompaction,
   recordRunInSession,
   redactValue,
@@ -151,6 +152,125 @@ describe("persistent sessions", () => {
     ]);
     expect(JSON.stringify(reloaded)).not.toContain(secret);
     expect(JSON.stringify(reloaded)).not.toContain("approvalStore");
+  });
+
+  it("persists independent runs that reuse a provider tool-call ID", async () => {
+    const store = new FileSessionStore(await forgeHome());
+    let snapshot = store.create({ root: "/workspace", cwd: "/workspace" });
+    for (const prompt of ["inspect a", "inspect b"]) {
+      const runId = randomUUID();
+      snapshot = recordRunInSession(snapshot, {
+        prompt,
+        finalText: "done",
+        status: "completed",
+        runId,
+        canonicalDelta: [
+          {
+            id: `${runId}:user`,
+            runId,
+            role: "user",
+            content: [{ type: "text", text: prompt }],
+          },
+          {
+            id: `${runId}:assistant:1`,
+            runId,
+            step: 1,
+            role: "assistant",
+            content: [
+              {
+                type: "tool-call",
+                id: "call-1",
+                name: "read_file",
+                input: { path: `${prompt.at(-1)}.ts` },
+              },
+            ],
+          },
+          {
+            id: `${runId}:tool:1:0`,
+            runId,
+            step: 1,
+            role: "tool",
+            toolCallId: "call-1",
+            toolName: "read_file",
+            content: [{ type: "text", text: '{"ok":true}' }],
+            isError: false,
+          },
+          {
+            id: `${runId}:assistant:2`,
+            runId,
+            step: 2,
+            role: "assistant",
+            content: [{ type: "text", text: "done" }],
+          },
+        ],
+      });
+    }
+
+    await expect(store.save(snapshot)).resolves.toBeUndefined();
+    await expect(store.load(snapshot.id)).resolves.toEqual(snapshot);
+  });
+
+  it("accepts the durable size limit and preserves the prior snapshot above it", async () => {
+    const home = await forgeHome();
+    const store = new FileSessionStore(home);
+    const created = store.create({ root: "/workspace", cwd: "/workspace" });
+    const runId = randomUUID();
+    const sizedSnapshot = (targetBytes: number) => {
+      const assistantContent = Array.from({ length: 5 }, () => ({
+        type: "text" as const,
+        text: "",
+      }));
+      const history = [
+        {
+          id: `${runId}:user`,
+          runId,
+          role: "user" as const,
+          content: [{ type: "text" as const, text: "size boundary" }],
+        },
+        {
+          id: `${runId}:assistant:1`,
+          runId,
+          step: 1,
+          role: "assistant" as const,
+          content: assistantContent,
+        },
+      ];
+      const persisted = {
+        schemaVersion: 3 as const,
+        id: created.id,
+        createdAt: created.createdAt,
+        updatedAt: created.updatedAt,
+        workspaceRoot: created.workspaceRoot,
+        workingDirectory: created.workingDirectory,
+        history,
+        reasoning: [],
+        runIds: [runId],
+        historyFidelity: "structured" as const,
+        lastRunStatus: "completed" as const,
+      };
+      const emptyBytes = Buffer.byteLength(
+        `${JSON.stringify(persisted, null, 2)}\n`,
+        "utf8",
+      );
+      let remaining = targetBytes - emptyBytes;
+      for (const part of assistantContent) {
+        const length = Math.min(1_000_000, remaining);
+        part.text = "x".repeat(length);
+        remaining -= length;
+      }
+      expect(remaining).toBe(0);
+      return { ...created, ...persisted };
+    };
+
+    const atLimit = sizedSnapshot(MAX_SESSION_BYTES);
+    await expect(store.save(atLimit)).resolves.toBeUndefined();
+    await expect(store.load(created.id)).resolves.toEqual(atLimit);
+
+    const aboveLimit = sizedSnapshot(MAX_SESSION_BYTES + 1);
+    await expect(store.save(aboveLimit)).rejects.toThrow(
+      "previous valid snapshot remains resumable",
+    );
+    await expect(store.load(created.id)).resolves.toEqual(atLimit);
   });
 
   it("records failed runs as bounded, authority-free conversation context", async () => {

@@ -1051,6 +1051,30 @@ describe("native agent runtime", () => {
 
     expect(result).toMatchObject({ status: "cancelled", exitCode: 130 });
     expect(model.requests).toHaveLength(1);
+    expect(result.canonicalDelta).toHaveLength(2);
+    expect(result.canonicalDelta?.[1]).toMatchObject({
+      role: "assistant",
+      content: [
+        {
+          type: "text",
+          text: expect.stringContaining(
+            "were not returned to the model: read_file",
+          ),
+        },
+      ],
+    });
+    expect(result.canonicalDelta?.[1]).toEqual(
+      expect.objectContaining({
+        content: [
+          expect.objectContaining({
+            text: expect.stringContaining("Re-inspect relevant"),
+          }),
+        ],
+      }),
+    );
+    expect(JSON.stringify(result.canonicalDelta)).not.toContain(
+      '"type":"tool-call"',
+    );
   });
 
   it("forwards images without exposing their bytes in run events", async () => {

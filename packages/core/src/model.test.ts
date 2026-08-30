@@ -116,4 +116,15 @@ describe("canonical conversation history", () => {
       "not JSON-safe",
     );
   });
+
+  it("allows provider tool-call IDs to repeat across independent exchanges", () => {
+    const repeated = closedHistory.map((message) => ({
+      ...structuredClone(message),
+      id: message.id.replace("run", "run-2"),
+      runId: "run-2",
+    })) as CanonicalConversationMessage[];
+    expect(() =>
+      validateCanonicalConversation([...closedHistory, ...repeated]),
+    ).not.toThrow();
+  });
 });

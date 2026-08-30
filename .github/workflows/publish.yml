@@ -51,6 +51,9 @@ jobs:
       - name: Verify tag and package versions
         run: pnpm release:verify-tag "$GITHUB_REF_NAME"
 
+      - name: Select npm dist-tag
+        run: echo "NPM_DIST_TAG=$(node scripts/release-version.mjs \"$GITHUB_REF_NAME\")" >> "$GITHUB_ENV"
+
       - name: Publish with npm trusted publishing
         working-directory: dist/npm/forge
-        run: npm publish --access public
+        run: npm publish --access public --tag "$NPM_DIST_TAG"

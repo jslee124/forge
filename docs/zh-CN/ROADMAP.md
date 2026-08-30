@@ -204,11 +204,11 @@ Release criteria：
 - 干净打包的 `0.3.2` CLI 能依据自身版本匹配文档答疑，并能 scaffold 与随包 API 匹配的插件。
 - release claim 不会把 model-invocable Skill 描述成受信任 executable code，也不声称 Forge 尚未提供的 OS sandboxing。
 
-## Milestone 13：长会话效率与用户控制（v0.3.3，计划中）
+## Milestone 13：长会话效率与用户控制（v0.3.3，已实现并通过离线验证）
 
 目标：让用户在长时间 coding session 中持续使用 Forge，同时看得见 context 压力，减少重复审批打断，以不干扰工作的方式获知新版本，并能测量和改进 provider prompt cache。Milestone 10 已提供 context budget 和 checkpoint 底座；Milestone 13 要把这套底座变成可发现、受评测 gate 约束的默认体验。架构、UI flow、建议 TypeScript contract、模块映射、测试矩阵与分阶段交付顺序详见 [v0.3.3 详细实现方案](V0.3.3_IMPLEMENTATION_PLAN.md)。
 
-本 milestone 不会加入持久化的无限制权限，不会静默运行包管理器更新，不会删除规范 conversation transcript，不会对不报告 cache 的 endpoint 声称支持，也不会把 extractive checkpoint 当作生产质量的 semantic memory。尚未实现的计划行为在通过 release gate 前保持未勾选。
+本实现不会加入持久化的无限制权限，不会静默运行包管理器更新，不会删除规范 conversation transcript，不会对不报告 cache 的 endpoint 声称支持，也不会把 extractive checkpoint 当作生产质量的 semantic memory。可选的 live-provider 验证与 npm 发布仍是独立 release step，尚未由开发分支的离线 gate 完成。
 
 ### 13.0 跨功能 contract 与基线
 

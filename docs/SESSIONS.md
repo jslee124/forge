@@ -45,6 +45,14 @@ envelopes retain `schemaVersion: 1`. Files are written only under the resolved
 Forge home. Session snapshots are replaced atomically. Run traces are append-only
 while their run is active.
 
+A durable session snapshot is limited to 4 MiB after redaction and final JSON
+serialization. Forge checks the same byte limit on save and load. An oversized
+save fails before the atomic replacement, so the previous resumable snapshot is
+preserved. Because canonical history is intentionally lossless and checkpoints
+do not delete it, the current retention strategy is to start a new session as
+the limit approaches and archive the old JSON file outside the active
+`sessions/` directory if it no longer needs to appear in resume listings.
+
 Each session stores:
 
 - Session ID, creation time, and last-updated time

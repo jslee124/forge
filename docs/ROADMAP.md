@@ -710,7 +710,7 @@ Release criteria:
 - No release claim treats model-invocable Skills as trusted executable code or
   claims OS sandboxing that Forge does not provide.
 
-## Milestone 13: Long-session efficiency and user control (v0.3.3, planned)
+## Milestone 13: Long-session efficiency and user control (v0.3.3, implemented and offline-validated)
 
 Goal: let a user keep Forge running through long coding sessions with visible
 context pressure, fewer repetitive approval interruptions, non-disruptive
@@ -721,11 +721,12 @@ default experience. The architecture, UI flows, proposed TypeScript contracts,
 module map, test matrix, and staged delivery sequence are preserved in the
 [Chinese v0.3.3 implementation record](zh-CN/V0.3.3_IMPLEMENTATION_PLAN.md).
 
-This milestone does not add persistent unrestricted permissions, silently run
+This implementation does not add persistent unrestricted permissions, silently run
 package-manager updates, delete canonical conversation history, promise cache
 support from an endpoint that does not report it, or treat an extractive
-checkpoint as production-quality semantic memory. Remaining planned behavior
-stays unchecked until its implementation and release gates pass.
+checkpoint as production-quality semantic memory. Optional live-provider
+validation and npm publication remain separate release steps and have not been
+completed by the offline development-branch gates.
 
 ### 13.0 Cross-cutting contracts and baseline
 

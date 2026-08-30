@@ -109,6 +109,32 @@ describe("session approval scopes", () => {
     }
   });
 
+  it("normalizes absolute executables and blocks command wrappers from reuse", async () => {
+    const root = await workspace();
+    const fixtures = [
+      { program: "/bin/rm", args: ["-rf", "build"] },
+      { program: "/usr/bin/curl", args: ["https://example.com"] },
+      { program: "/usr/local/bin/npm", args: ["install", "x"] },
+      { program: "/usr/local/bin/npm", args: ["publish"] },
+      { program: "/usr/bin/printenv", args: ["API_SECRET"] },
+      { program: "/usr/bin/env", args: ["/bin/rm", "-rf", "build"] },
+      { program: "/bin/zsh", args: ["-c", "rm -rf build"] },
+      { program: "/usr/bin/python3", args: ["script.py"] },
+    ];
+    for (const fixture of fixtures) {
+      const descriptor = await describeApproval(
+        action("process", {
+          ...fixture,
+          cwd: ".",
+          timeoutMs: 1_000,
+        }),
+        toolContext(root),
+      );
+      expect(descriptor.riskFlags.length).toBeGreaterThan(0);
+      expect(descriptor.allowedScopes).toEqual([]);
+    }
+  });
+
   it("binds network grants to the tool and destination host", async () => {
     const root = await workspace();
     const store = new SessionApprovalStore({

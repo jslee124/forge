@@ -272,8 +272,17 @@ function riskFlagsFor(
         .filter((value): value is string => typeof value === "string")
         .map((value) => value.toLocaleLowerCase())
     : [];
-  const words = [program, ...args];
+  const executable = executableBasename(program);
+  const words = [executable, ...args.map(executableBasename)];
   const flags = new Set<ApprovalRiskFlag>();
+  if (
+    /^(?:a|ba|da|fi|k|tc|z)?sh$/u.test(executable) ||
+    /^(?:bun|deno|env|java|js|lua|luajit|node|nodejs|osascript|perl|php|powershell|pwsh|python\d*(?:\.\d+)?|qjs|rscript|ruby)$/u.test(
+      executable,
+    )
+  ) {
+    flags.add("broad-external-effect");
+  }
   if (words.some((word) => /^(?:rm|rmdir|shred|diskutil|mkfs)$/u.test(word)))
     flags.add("destructive");
   if (words.some((word) => /^(?:publish|deploy|release)$/u.test(word)))
@@ -282,9 +291,18 @@ function riskFlagsFor(
     flags.add("install");
   if (words.some((word) => /(?:token|credential|keychain|secret)/u.test(word)))
     flags.add("credential-sensitive");
-  if (words.some((word) => /^(?:sudo|ssh|scp|curl|wget)$/u.test(word)))
+  if (
+    words.some((word) =>
+      /^(?:curl|ftp|nc|ncat|rsync|scp|sftp|ssh|sudo|telnet|wget)$/u.test(word),
+    )
+  )
     flags.add("broad-external-effect");
   return [...flags].sort();
+}
+
+function executableBasename(value: string): string {
+  const normalized = value.replaceAll("\\", "/").replace(/\/+$/u, "");
+  return normalized.slice(normalized.lastIndexOf("/") + 1);
 }
 
 function asRecord(value: unknown): ApprovalInputFields {

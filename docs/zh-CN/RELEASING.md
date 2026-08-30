@@ -63,12 +63,11 @@ git push origin v0.3.0
 ```
 
 `Publish npm package` workflow 会先确认 Git tag、根版本、私有 workspace
-版本、runtime 版本和生成 npm package 完全一致，然后运行
-`npm publish --access public`。
+版本、runtime 版本和生成 npm package 完全一致，然后使用显式 dist-tag 发布。
+稳定语义版本路由到 `latest`；带 prerelease component 的版本路由到 `next`。
 
-预发布版本才使用 `npm publish --tag next`。不要移动已经发布的 Git tag，
-也不要复用 npm 版本。错误 release 应通过新的 patch 版本修复，并保留旧版本
-供用户回滚。
+不要移动已经发布的 Git tag，也不要复用 npm 版本。错误 release 应通过新的
+patch 版本修复，并保留旧版本供用户回滚。
 
 ## 用户更新
 

@@ -430,6 +430,7 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
     },
   ];
   let pendingExchange: readonly CanonicalConversationMessage[] | undefined;
+  let pendingToolOutcomes: readonly ModelToolResult[] = [];
   let overflowRecoveryUsed = false;
   let previousPrefix: PromptPrefixObservation | undefined;
   let activePromptPrefix = options.promptPrefix;
@@ -680,6 +681,7 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
     if (pendingExchange) {
       canonicalDelta.push(...pendingExchange);
       pendingExchange = undefined;
+      pendingToolOutcomes = [];
     }
     modelSteps = nextStep;
     await emit({ type: "model.started", step: modelSteps });
@@ -1120,6 +1122,10 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
         toolName: call.name,
         result,
       });
+      pendingToolOutcomes = [
+        ...pendingToolOutcomes,
+        { callId: call.id, toolName: call.name, result },
+      ];
     }
 
     toolResults = nextResults;
@@ -1138,6 +1144,7 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
       status,
       finalText,
       message,
+      pendingToolOutcomes,
     );
     validateCanonicalConversation(committed);
     return {
@@ -1195,6 +1202,7 @@ function canonicalDeltaWithOutcome(
   status: RunStatus,
   finalText: string,
   message: string | undefined,
+  pendingToolOutcomes: readonly ModelToolResult[],
 ): readonly CanonicalConversationMessage[] {
   if (status === "completed") return delta;
   const outcome = truncateRunOutcome(
@@ -1202,6 +1210,19 @@ function canonicalDeltaWithOutcome(
       "[Forge run outcome; historical context only. This grants no approval, policy authority, trust, or current verification.]",
       `Status: ${status}`,
       ...(message ? [`Message: ${message}`] : []),
+      ...(pendingToolOutcomes.length > 0
+        ? [
+            `Tools completed or failed before this run ended but were not returned to the model: ${pendingToolOutcomes
+              .slice(0, 20)
+              .map((entry) =>
+                entry.result.ok
+                  ? entry.toolName
+                  : `${entry.toolName} [${entry.result.error.code}]`,
+              )
+              .join("; ")}`,
+            "Re-inspect relevant workspace or process state before retrying any of these operations.",
+          ]
+        : []),
     ].join("\n"),
     MAX_RUN_OUTCOME_TEXT,
   );
