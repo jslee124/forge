@@ -84,6 +84,13 @@ filesystem permissions on platforms where that check is meaningful.
 
 ## Filesystem boundary
 
+Current model requests use one `edit_file` write tool. `create` uses exclusive
+creation and cannot replace an existing path; `replace` keeps exact unique-text
+and pre-commit re-read checks; `rewrite` requires the SHA-256 from a complete
+prior `read_file` and checks it before preview and commit. A truncated read
+cannot authorize rewrite. All operations still pass through the ordinary write
+policy, bounded diff preview, and approval path.
+
 Built-in file tools resolve canonical paths and symlinks before applying policy.
 Paths inside the selected workspace can follow the active permission profile.
 Paths outside it are denied.

@@ -13,6 +13,8 @@ export async function main(
       ...(options.model ? { modelId: options.model } : {}),
       ...(options.thinking ? { thinking: options.thinking } : {}),
       ...(options.output ? { outputDirectory: options.output } : {}),
+      ...(options.editContract ? { editContract: options.editContract } : {}),
+      ...(options.allowDirty ? { allowDirty: true } : {}),
       onProgress: (message) => process.stderr.write(`${message}\n`),
     });
     const passed = report.trials.filter((trial) => trial.passed).length;
@@ -34,15 +36,22 @@ interface CliOptions {
   readonly model?: string;
   readonly thinking?: "enabled" | "disabled";
   readonly output?: string;
+  readonly editContract?: "legacy" | "union" | "flat";
+  readonly allowDirty?: boolean;
 }
 
 function parseArguments(argv: readonly string[]): CliOptions {
   if (!argv.includes("--live"))
     throw new Error("Pass --live to run paid provider evaluations.");
   const values = new Map<string, string[]>();
+  let allowDirty = false;
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
     if (argument === "--live") continue;
+    if (argument === "--allow-dirty") {
+      allowDirty = true;
+      continue;
+    }
     if (!argument?.startsWith("--"))
       throw new Error(`Unexpected argument: ${argument ?? ""}`);
     const value = argv[index + 1];
@@ -59,6 +68,7 @@ function parseArguments(argv: readonly string[]): CliOptions {
     "--model",
     "--thinking",
     "--output",
+    "--edit-contract",
   ]);
   for (const key of values.keys()) {
     if (!known.has(key)) throw new Error(`Unknown option: ${key}`);
@@ -75,12 +85,23 @@ function parseArguments(argv: readonly string[]): CliOptions {
   const taskIds = values.get("--task");
   const model = single(values, "--model");
   const output = single(values, "--output");
+  const editContract = single(values, "--edit-contract");
+  if (
+    editContract !== undefined &&
+    editContract !== "legacy" &&
+    editContract !== "union" &&
+    editContract !== "flat"
+  ) {
+    throw new Error("Edit contract must be legacy, union, or flat.");
+  }
   return {
     ...(taskIds ? { taskIds } : {}),
     ...(trialsValue ? { trials: Number(trialsValue) } : {}),
     ...(model ? { model } : {}),
     ...(thinkingValue ? { thinking: thinkingValue } : {}),
     ...(output ? { output } : {}),
+    ...(editContract ? { editContract } : {}),
+    ...(allowDirty ? { allowDirty: true } : {}),
   };
 }
 

@@ -7,10 +7,12 @@
     "live": "node dist/cli.js --live"
   },
   "dependencies": {
+    "@forge/auth": "workspace:*",
     "@forge/cli": "workspace:*",
     "@forge/core": "workspace:*",
     "@forge/model-deepseek": "workspace:*",
     "@forge/persistence": "workspace:*",
+    "@forge/tools": "workspace:*",
     "zod": "^4.4.3"
   }
 }

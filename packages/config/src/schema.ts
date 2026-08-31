@@ -153,9 +153,15 @@ const resourcesSchema = z
   })
   .strict();
 
+const contextModeSchema = z.preprocess(
+  (value) =>
+    value === "warn" ? "manual" : value === "compact" ? "automatic" : value,
+  z.enum(["off", "manual", "automatic"]),
+);
+
 const contextSchema = z
   .object({
-    mode: z.enum(["off", "warn", "compact"]).optional(),
+    mode: contextModeSchema.optional(),
     reservedOutputTokens: z.number().int().positive().max(2_000_000).optional(),
     bufferTokens: z.number().int().positive().max(2_000_000).optional(),
     recentTailTokens: z.number().int().nonnegative().max(2_000_000).optional(),
@@ -215,7 +221,7 @@ export interface EffectiveForgeConfig {
   readonly plugins: { readonly enabled: readonly string[] };
   readonly resources: { readonly disabledModelInvocation: readonly string[] };
   readonly context: {
-    readonly mode: "off" | "warn" | "compact";
+    readonly mode: "off" | "manual" | "automatic";
     readonly reservedOutputTokens: number;
     readonly bufferTokens: number;
     readonly recentTailTokens: number;
@@ -247,7 +253,7 @@ export const DEFAULT_FORGE_CONFIG: EffectiveForgeConfig = {
   plugins: { enabled: [] },
   resources: { disabledModelInvocation: [] },
   context: {
-    mode: "warn",
+    mode: "manual",
     reservedOutputTokens: 4_096,
     bufferTokens: 8_192,
     recentTailTokens: 12_000,

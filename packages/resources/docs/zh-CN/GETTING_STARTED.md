@@ -112,7 +112,7 @@ pnpm forge config show
 pnpm forge plugins list
 ```
 
-`config show` 会展示每个有效值及其来源。全新配置默认使用 `safe` permission profile、12 个 model steps、40 个 tool calls、60 秒 command timeout、开启 trace，并使用 `warn` context mode。
+`config show` 会展示每个有效值及其来源。全新配置默认使用 `safe` permission profile、12 个 model steps、40 个 tool calls、60 秒 command timeout、开启 trace，并使用 `manual` context mode。
 
 如果结果与预期不同，先阅读配置参考。特别注意：项目 `.forge/config.json` 只能收紧 limits 和 context，不能选择模型、启用 plugin 或扩大权限。
 

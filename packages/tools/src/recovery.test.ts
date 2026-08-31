@@ -51,7 +51,8 @@ class RecoveryModel implements ModelAdapter {
       return;
     }
     if (step === 2) {
-      yield toolCall("incomplete-patch", "apply_patch", {
+      yield toolCall("incomplete-patch", "edit_file", {
+        operation: "replace",
         path: "src/parse-port.ts",
         edits: [
           {
@@ -76,7 +77,8 @@ class RecoveryModel implements ModelAdapter {
       return;
     }
     if (step === 4) {
-      yield toolCall("corrective-patch", "apply_patch", {
+      yield toolCall("corrective-patch", "edit_file", {
+        operation: "replace",
         path: "src/parse-port.ts",
         edits: [
           {

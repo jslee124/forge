@@ -287,18 +287,28 @@ The native tools and checked-in extension examples are:
 | Tool | Responsibility | Initial risk |
 | --- | --- | --- |
 | `list_files` | List a bounded part of the workspace | Read-only |
-| `read_file` | Read a workspace file with output limits | Read-only |
+| `read_file` | Read a workspace file with output limits and a rewrite version when complete | Read-only |
 | `search` | Search text within the workspace | Read-only |
-| `create_file` | Exclusively create a new UTF-8 workspace file | Write |
-| `apply_patch` | Apply a structured file change | Write |
+| `edit_file` | Safely create, exactly replace, or version-guard a whole-file rewrite | Write |
 | `run_command` | Spawn a program with structured arguments and limits | Variable |
 | `web_search` (example plugin) | Search through a configured or fallback public provider | Network |
 | `web_fetch` (example plugin) | Fetch bounded readable public HTTP(S) text | Network |
 | `delegate_code_review` (example plugin) | Run an isolated read-only review role | Model |
 
+`edit_file` uses a flat model-facing object with an `operation` enum so
+compatible endpoints do not need to accept `anyOf`/`oneOf`. The runtime then
+enforces the create, replace, and rewrite field combinations before approval or
+execution.
+
 Tools receive an explicit execution context instead of reading global process
 state. The context includes the workspace root, abort signal, limits, and event
 emitter.
+
+The interactive CLI keeps `interactive-ui.tsx` as a compatibility facade.
+Render lifecycle, application composition, and approval/diff presentation live
+under `apps/cli/src/interactive/`; one lifecycle owner creates and unmounts the
+Ink instance. Legacy `create_file` and `apply_patch` calls remain readable in
+session history but are not advertised or executable in current requests.
 
 ### Approval policy
 

@@ -763,11 +763,11 @@ function applyCli(
   if (cli.contextMode !== undefined) {
     if (
       cli.contextMode !== "off" &&
-      cli.contextMode !== "warn" &&
-      cli.contextMode !== "compact"
+      cli.contextMode !== "manual" &&
+      cli.contextMode !== "automatic"
     ) {
       throw new ForgeConfigError(
-        `Invalid --context-mode value "${cli.contextMode}". Use off, warn, or compact.`,
+        `Invalid --context-mode value "${cli.contextMode}". Use off, manual, or automatic.`,
       );
     }
     config = {
@@ -847,7 +847,7 @@ const CONTEXT_LIMIT_KEYS = [
   ["minimumReclaimRatio", "context.minimumReclaimRatio"],
 ] as const;
 
-const CONTEXT_MODE_STRENGTH = { off: 0, warn: 1, compact: 2 } as const;
+const CONTEXT_MODE_STRENGTH = { off: 0, manual: 1, automatic: 2 } as const;
 
 function parseThinking(value: string, source: string): "enabled" | "disabled" {
   if (value === "enabled" || value === "disabled") return value;

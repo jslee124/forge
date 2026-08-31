@@ -25,11 +25,24 @@ pnpm eval:deterministic
 live trial 显式 opt-in，因为会产生付费请求：
 
 ```bash
-export DEEPSEEK_API_KEY="your-api-key"
 FORGE_EVAL_LIVE=1 pnpm eval:live
 ```
 
+Evaluator 使用与 Forge 相同的 DeepSeek 凭据解析：优先使用
+`DEEPSEEK_API_KEY`，其次使用 `/login` 保存的 owner-readable credential。
+解析出的 key 只传给隔离的运行进程，不写入报告或 trace。
+
+Milestone 15 的文件编辑选择比较沿用同一显式 opt-in guard 和 task/trial 设置。分别使用 `--edit-contract legacy`、`union`、`flat` 并写入清楚标记的独立输出目录；legacy contract 只存在于 evaluator，正常 CLI 绝不广告它。选定 schema 前应比较 task success、首次 write-call 准确率、无效/失败 write、approval、step、token 与最终 filesystem grader。
+
+产品最终选择 `flat` encoding：单个 `edit_file` object 使用 `operation` enum 与 optional
+branch field，并在 runtime 严格执行 cross-field validation。Evaluator 只为对比保留
+`legacy` 与 `union`；省略 `--edit-contract` 时使用 `flat`。
+
 runner 使用 `deepseek-v4-flash`，每次复制 fixture 到新临时目录，使用窄审批通道，只允许 fixture 根目录的 `pnpm test`（超时 60 秒）。不匹配的命令或 workspace 外动作会被拒绝。Live 失败必须保留在报告中，不能为了提高通过率删除或重写。
+
+正式 release run 必须使用 clean Git checkout。开发阶段可传
+`--allow-dirty`，报告会记录 base commit 与 SHA-256 worktree fingerprint；
+这类输出不能复制到 `evals/reports/`，也不能作为 exact-HEAD release evidence。
 
 ## 报告与 trace
 
@@ -59,7 +72,7 @@ JSON 报告记录 Forge commit、任务、trial、model、thinking、status、gr
 
 ## Milestone 10 context gate
 
-默认套件在同一份合成长 session transcript 上比较 `off`、`warn` 和 `compact`，不调用 provider。它记录任务成功、估算与 fake provider input、估算误差、本地延迟、压缩次数、保留轮次和 summary 重生成；另有 fixture 覆盖 mandatory overflow、一次性恢复、部分输出不重试、tool-result projection、恶意 history 和 resume 完整性。`warn` 在 paid-provider estimator 和任务质量 gate 发布前保持默认。
+默认套件在同一份合成长 session transcript 上比较 `off`、`manual` 和 `automatic`，不调用 provider。它记录任务成功、估算与 fake provider input、估算误差、本地延迟、压缩次数、保留轮次和 summary 重生成；另有 fixture 覆盖 mandatory overflow、一次性恢复、部分输出不重试、tool-result projection、恶意 history 和 resume 完整性。`manual` 永久保持产品默认。
 
 Milestone 13 增加了已检入的 [v0.3.2 对比基线](../../evals/reports/v0.3.2/M13_BASELINE.md)、stable prefix/失效 fixture、unavailable 与零值 cache accounting、压力触发压缩、低回收暂停，以及 session/default mode 测试；它们都保持离线。自动压缩可在 TUI 中发现并显式启用，但该基线不会把 extractive oracle 提升为默认行为。
 

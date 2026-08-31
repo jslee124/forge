@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { open, stat } from "node:fs/promises";
 
 import type { ForgeTool, ToolContext, ToolResult } from "@forge/core";
@@ -11,7 +12,10 @@ import {
 } from "./path.js";
 
 export const readFileInputSchema = z.object({
-  path: z.string().min(1),
+  path: z
+    .string()
+    .min(1)
+    .describe("Workspace-relative path of the UTF-8 text file to read."),
 });
 
 export type ReadFileInput = z.infer<typeof readFileInputSchema>;
@@ -20,6 +24,8 @@ export interface ReadFileOutput {
   readonly path: string;
   readonly content: string;
   readonly bytes: number;
+  readonly sha256: string | null;
+  readonly rewriteAvailable: boolean;
 }
 
 export const readFileTool: ForgeTool = {
@@ -66,14 +72,20 @@ export async function readFile(
     }
 
     const outputBytes = Math.min(bytesRead, context.limits.maxOutputBytes);
+    const truncated = bytesRead > context.limits.maxOutputBytes;
+    const content = buffer.subarray(0, outputBytes).toString("utf8");
     return {
       ok: true,
       output: {
         path: relativeWorkspacePath(context.workspace, resolved.path),
-        content: buffer.subarray(0, outputBytes).toString("utf8"),
+        content,
         bytes: outputBytes,
+        sha256: truncated
+          ? null
+          : createHash("sha256").update(content, "utf8").digest("hex"),
+        rewriteAvailable: !truncated,
       },
-      truncated: bytesRead > context.limits.maxOutputBytes,
+      truncated,
     };
   } catch {
     return failure("io_error", "The file could not be read.", true);

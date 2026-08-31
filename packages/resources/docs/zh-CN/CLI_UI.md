@@ -54,9 +54,11 @@ editing
 
 输入区 footer 使用两行：第一行常驻 model/effort 与预计 context indicator，第二行保留现有键盘快捷键。Indicator 使用 `○`、`◔`、`◑`、`◕` 或 `●`，同时显示百分比和语义文字；估算值带 `~`，响应式渲染会先隐藏 label，再隐藏数字或圆环。
 
-`/context` 会打开使用同一 pressure snapshot 的键盘控制面板，展示 instruction、tool schema、active history、draft/image 估算、effective reserve、checkpoint 来源、阈值、strategy 和上次压缩。按 `p` 预览、`c` 立即压缩一次、`a` 只为当前进程启用自动压缩、`s` 明确保存为用户默认，Escape 关闭。`warn` 模式第一次越过阈值时会提供 compact once、session auto 或 dismiss，不会抢占正在运行的任务或审批输入。
+`/context` 会打开使用同一 pressure snapshot 的键盘控制面板，展示 instruction、tool schema、active history、draft/image 估算、effective reserve、checkpoint 来源、阈值、strategy 和上次压缩。按 `m` 可为当前 session 选择 **Manual**（压缩前询问）或 **Automatic**（需要时自动压缩），也可明确把任一模式保存为用户默认；`p` 预览、`c` 立即压缩一次，Escape 关闭。保存值与 project/CLI precedence 后的有效值会分别显示。Manual 第一次越过阈值时会提供 compact once、当前 session 使用 Automatic 或 dismiss，不会抢占正在运行的任务或审批输入。
 
-默认仍是 `warn`。自动压缩依据 projected pressure，而不是消息数量；取消、无效 projection 或低回收收益会让 auto 暂停。规范 transcript 始终无损保留。
+默认始终是 **Manual**，Automatic 只由用户主动开启。自动压缩依据 projected pressure，而不是消息数量；取消、无效 projection 或低回收收益会让 Automatic 暂停。规范 transcript 始终无损保留。配置使用 `manual` 与 `automatic`；旧版名称只在加载时迁移。
+
+当前模型请求只暴露一个 `edit_file` 操作族。create 绝不覆盖，exact replace 要求当前文本唯一匹配，整文件 rewrite 必须携带完整 `read_file` 返回的 SHA-256。Activity 与 diff panel 会在正常 write 审批前显示 operation 和 path。
 
 ## 斜杠命令补全
 

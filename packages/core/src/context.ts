@@ -9,7 +9,7 @@ import type {
   ModelRequest,
 } from "./model.js";
 
-export type ContextMode = "off" | "warn" | "compact";
+export type ContextMode = "off" | "manual" | "automatic";
 export type TokenEstimateMethod =
   | "provider-tokenizer"
   | "sdk"
@@ -49,7 +49,7 @@ export interface ContextConfiguration {
 }
 
 export const DEFAULT_CONTEXT_CONFIGURATION: ContextConfiguration = {
-  mode: "warn",
+  mode: "manual",
   reservedOutputTokens: 4_096,
   bufferTokens: 8_192,
   recentTailTokens: 12_000,
@@ -61,9 +61,9 @@ export const DEFAULT_CONTEXT_CONFIGURATION: ContextConfiguration = {
 
 export type ContextPressureMode =
   | "off"
-  | "warn"
-  | "auto-session"
-  | "auto-default"
+  | "manual"
+  | "automatic-session"
+  | "automatic-default"
   | "paused";
 
 export interface ContextPressureSnapshot {

@@ -16,6 +16,14 @@ export {
   previewCreateFile,
 } from "./create-file.js";
 export {
+  type EditFileInput,
+  type EditFileOutput,
+  editFile,
+  editFileInputSchema,
+  editFileTool,
+  previewEditFile,
+} from "./edit-file.js";
+export {
   type ListFilesInput,
   type ListFilesOutput,
   listFiles,

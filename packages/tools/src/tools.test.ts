@@ -16,8 +16,10 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   applyPatch,
   createFile,
+  editFile,
   executeToolCall,
   listFiles,
+  previewEditFile,
   proposeToolCall,
   readFile,
   resolveWorkspace,
@@ -113,8 +115,28 @@ describe("read-only tools", () => {
 
     expect(result).toEqual({
       ok: true,
-      output: { path: "README.md", content: "The answer", bytes: 10 },
+      output: {
+        path: "README.md",
+        content: "The answer",
+        bytes: 10,
+        sha256: null,
+        rewriteAvailable: false,
+      },
       truncated: true,
+    });
+  });
+
+  it("returns a rewrite version only for a complete read", async () => {
+    const { context } = await fixture();
+    const result = await readFile({ path: "README.md" }, context);
+
+    expect(result).toMatchObject({
+      ok: true,
+      output: {
+        rewriteAvailable: true,
+        sha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+      },
+      truncated: false,
     });
   });
 
@@ -435,6 +457,95 @@ describe("process commands", () => {
 });
 
 describe("tool proposal and execution", () => {
+  it("creates, exactly replaces, and guardedly rewrites through edit_file", async () => {
+    const { root, context } = await fixture();
+    const created = await editFile(
+      { operation: "create", path: "new.txt", content: "one\n" },
+      context,
+    );
+    expect(created).toMatchObject({
+      ok: true,
+      output: { operation: "create", path: "new.txt" },
+    });
+
+    const replaced = await editFile(
+      {
+        operation: "replace",
+        path: "new.txt",
+        edits: [{ oldText: "one", newText: "two" }],
+      },
+      context,
+    );
+    expect(replaced).toMatchObject({
+      ok: true,
+      output: { operation: "replace", replacements: 1 },
+    });
+
+    const read = await readFile({ path: "new.txt" }, context);
+    expect(read.ok).toBe(true);
+    if (!read.ok || read.output.sha256 === null) return;
+    const rewritten = await editFile(
+      {
+        operation: "rewrite",
+        path: "new.txt",
+        content: "three\n",
+        expectedSha256: read.output.sha256,
+      },
+      context,
+    );
+    expect(rewritten).toMatchObject({
+      ok: true,
+      output: { operation: "rewrite", path: "new.txt" },
+    });
+    expect(await readTextFile(path.join(root, "new.txt"), "utf8")).toBe(
+      "three\n",
+    );
+  });
+
+  it("rejects stale and unsafe edit_file operations", async () => {
+    const { root, context } = await fixture();
+    const read = await readFile({ path: "README.md" }, context);
+    expect(read.ok).toBe(true);
+    if (!read.ok || read.output.sha256 === null) return;
+    await writeFile(path.join(root, "README.md"), "user change\n");
+
+    await expect(
+      editFile(
+        {
+          operation: "rewrite",
+          path: "README.md",
+          content: "replacement\n",
+          expectedSha256: read.output.sha256,
+        },
+        context,
+      ),
+    ).resolves.toMatchObject({ ok: false, error: { code: "stale_file" } });
+    await expect(
+      editFile(
+        { operation: "create", path: "README.md", content: "replacement\n" },
+        context,
+      ),
+    ).resolves.toMatchObject({ ok: false, error: { code: "already_exists" } });
+  });
+
+  it("preserves a truncated create preview so it cannot be approved", async () => {
+    const { context } = await fixture();
+    const preview = await previewEditFile(
+      {
+        operation: "create",
+        path: "large.txt",
+        content: "content that exceeds the preview",
+      },
+      { ...context, limits: { ...context.limits, maxOutputBytes: 12 } },
+    );
+
+    expect(preview).toMatchObject({
+      ok: true,
+      output: { operation: "create", path: "large.txt" },
+      truncated: true,
+    });
+  });
+
   it("validates a model call before explicitly executing it", async () => {
     const { context } = await fixture();
     const call = {
@@ -469,12 +580,20 @@ describe("tool proposal and execution", () => {
       "list_files",
       "read_file",
       "search",
-      "create_file",
-      "apply_patch",
+      "edit_file",
       "run_command",
     ]);
     expect(definitions.every((definition) => !("execute" in definition))).toBe(
       true,
     );
+    expect(
+      proposeToolCall({ id: "legacy", name: "apply_patch", input: {} }),
+    ).toMatchObject({
+      ok: false,
+      error: {
+        code: "unknown_tool",
+        message: expect.stringContaining("edit_file"),
+      },
+    });
   });
 });

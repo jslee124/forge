@@ -81,6 +81,9 @@ importers:
 
   evals:
     dependencies:
+      '@forge/auth':
+        specifier: workspace:*
+        version: link:../packages/auth
       '@forge/cli':
         specifier: workspace:*
         version: link:../apps/cli
@@ -93,6 +96,9 @@ importers:
       '@forge/persistence':
         specifier: workspace:*
         version: link:../packages/persistence
+      '@forge/tools':
+        specifier: workspace:*
+        version: link:../packages/tools
       zod:
         specifier: ^4.4.3
         version: 4.4.3

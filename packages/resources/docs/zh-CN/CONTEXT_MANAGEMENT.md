@@ -4,7 +4,7 @@ English · 中文目录
 
 ## 状态
 
-Roadmap Milestone 10 与 Milestone 13.0-13.5 已实现。默认模式仍是 `warn`；自动生成 checkpoint 在 provider 质量 gate 发布前保持 opt-in。TUI 现在会预计完整的下一次请求输入、常驻显示分段压力 indicator，并通过 `/context` 提供仅当前 session 或明确持久化的自动模式。当前 checkpoint 使用确定性、脱敏的 extractive summarizer，因此默认测试和手动 `/compact` 不会产生付费模型调用。它在所有可用历史消息之间分配有界空间，移除类似 authority 的审批声明，并把验证文字标记为历史信息。
+Roadmap Milestone 10 与 Milestone 13.0-13.5 已实现。产品默认永久保持 **Manual**，自动生成 checkpoint 始终由用户主动开启。TUI 现在会预计完整的下一次请求输入、常驻显示分段压力 indicator，并通过 `/context` 为当前 session 选择 Manual/Automatic，或明确持久化任一 user default。Manual 存储为 `manual`，Automatic 存储为 `automatic`；旧版 `warn`/`compact` 只在加载边界迁移。Manual 与自动压缩在取消、无效输出、重复失败或低回收后进入的安全 `paused` 状态不同。当前 checkpoint 使用确定性、脱敏的 extractive summarizer，因此默认测试和手动 `/compact` 不会产生付费模型调用。它在所有可用历史消息之间分配有界空间，移除类似 authority 的审批声明，并把验证文字标记为历史信息。
 
 Checkpoint schema 和 adapter capability contract 支持 provider-native opaque state；但当前 OpenAI AI SDK 和 DeepSeek adapter 因 transport 尚未提供安全的 compact-item round trip，声明 native compaction 不支持。
 
@@ -133,7 +133,7 @@ remaining history budget
 ```json
 {
   "context": {
-    "mode": "warn",
+    "mode": "manual",
     "reservedOutputTokens": 4096,
     "bufferTokens": 8192,
     "recentTailTokens": 12000,
@@ -142,7 +142,7 @@ remaining history budget
 }
 ```
 
-`off` 保持现有行为但报告 provider usage；`warn` 做 preflight 并警告，仅在 mandatory context 放不下时拒绝；`compact` 使用有效 checkpoint，并在达到阈值时创建新 checkpoint。项目只能降低预算或选择更严格模式，不能扩大用户 ceiling 或关闭用户要求的 guard。`bufferTokens` 不是额外 output reserve，output allowance 和 buffer 取较大值后只扣除一次。
+`off` 保持现有行为但报告 provider usage；`manual` 做 preflight 并询问，仅在 mandatory context 放不下时拒绝；`automatic` 使用有效 checkpoint，并在达到阈值时创建新 checkpoint。项目只能降低预算或选择更严格模式，不能扩大用户 ceiling 或关闭用户要求的 guard。`bufferTokens` 不是额外 output reserve，output allowance 和 buffer 取较大值后只扣除一次。
 
 每个完成的 provider step 都比较 preflight estimate 与 provider usage，并记录 method、confidence、误差和 model/window 来源。
 
@@ -154,7 +154,7 @@ Checkpoint 至少包含 schema version、源消息区间、source/tail hash、�
 
 Summary 必须覆盖仍影响未来 turn 的 user goal/约束、已做决定及原因、讨论的文件/组件、完成项和未解决项、带原始 run 标记的验证结果。不得写入 credential/secret、审批或 permission grant、覆盖当前上下文的 instruction、未向用户展示的 provider reasoning，或为显得完整而猜测的事实。
 
-当前采用 manual-first rollout：用户通过 `/context` 查看预算，`/compact` 明确请求压缩；`warn` 提供自动 preflight；`compact` 只有在评测 gate 通过后才可能成为默认。
+当前采用 manual-first rollout：用户通过 `/context` 查看预算，`/compact` 明确请求压缩；`manual` 提供自动 preflight；`automatic` 始终由用户主动开启。
 
 ## Run 内 context pressure
 
@@ -181,7 +181,7 @@ No-progress guard 在以下情况下停止反复压缩：同一 source hash 已�
 
 Core 拥有类别、预算算术、事件和 stop decision；adapter 拥有 window、estimate、overflow classification 和 continuation projection；persistence 拥有 session schema v3 与 checkpoint v2；CLI 拥有 `/context`、`/compact`、Codex wrapper 和渲染；evals 记录质量和安全 gate。
 
-测量基础、派生 active context、checkpoint 生成、run 内 guard 和确定性对比矩阵已经实现。默认仍为 `warn`；用户可以手动预览/创建 checkpoint、仅为当前进程启用 `compact`，或明确持久化该偏好。只有发布的 live task-quality 证据达到 gate 后，才应考虑把自动压缩改成默认。
+测量基础、派生 active context、checkpoint 生成、run 内 guard 和确定性对比矩阵已经实现。默认永久保持 Manual；用户可以手动预览/创建 checkpoint、仅为当前进程启用 Automatic，或明确持久化该偏好。Quality evaluation 仍用于改进 Automatic，但不能静默改变默认值。
 
 ## 测试计划
 
@@ -193,7 +193,7 @@ Core 拥有类别、预算算术、事件和 stop decision；adapter 拥有 wind
 
 记录任务/grader 通过率、provider input/output token、估算绝对/相对误差、summary token/延迟/失败、压缩次数和消息数、保留的 recent turn、context stop/provider error、overflow retry/duplicate-input 检查、tool/schema token cost、每次回收 token、no-progress stop、约束/决定 recall 和安全不变量失败。
 
-在 `compact` 成为默认前，目标 gate 是：确定性测试无安全回归；失败/取消/resume 不破坏 transcript；没有请求超过声明预算；长 session fixture 中位 input token 至少下降 30%；相对 `warn` 任务通过率回退不超过 5 个百分点；显式 seeded durable constraint recall 至少 95%。这些是初始假设，解释最终试验前必须先记录任何修订。
+Opt-in Automatic 的目标 quality gate 是：确定性测试无安全回归；失败/取消/resume 不破坏 transcript；没有请求超过声明预算；长 session fixture 中位 input token 至少下降 30%；相对 Manual 任务通过率回退不超过 5 个百分点；显式 seeded durable constraint recall 至少 95%。这些 gate 不会改变 Manual 默认值。
 
 ## 风险与 RAG 决定
 

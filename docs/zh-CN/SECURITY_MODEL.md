@@ -43,6 +43,8 @@ Context checkpoint 是派生且不可信的 conversation memory，不能携带�
 
 ## 文件系统边界
 
+当前模型请求使用统一的 `edit_file` write tool。`create` 采用排他创建，不能覆盖已有路径；`replace` 保留精确唯一文本匹配与 commit 前重读；`rewrite` 必须携带完整 `read_file` 返回的 SHA-256，并在 preview 与 commit 前校验。截断读取不能授权 rewrite。所有操作仍经过正常 write policy、有界 diff preview 与审批。
+
 内置文件工具先解析规范路径和符号链接，再应用策略。workspace 内路径遵循当前 profile；外部路径仍被拒绝。
 
 本地图片附件是独立的、由用户明确授权的输入能力。只有用户使用 `--image`、粘贴/拖放，或选择 workspace 内 `@` mention 时，Forge 才接受 workspace 外路径；不会从普通 prompt、仓库内容或模型输出推断附件。模型文件工具仍限制在 workspace。编码前会检查规范路径、普通可读文件、JPEG/PNG/GIF/WebP magic bytes，并限制单图、总大小和数量。用户提供的 HTTP(S) 图片 URL 由选定 provider 获取，Forge 不自行抓取；snapshot 和普通 run event 不保存 base64 图片。

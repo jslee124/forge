@@ -41,8 +41,8 @@ This is not unrestricted last-writer-wins behavior:
 - Project configuration may set only `limits` and `context`.
 - A project limit is applied only when it is stricter than the active user
   value.
-- Project context mode may move only from `off` to `warn` or `compact`, or from
-  `warn` to `compact`.
+- Project context mode may move only from `off` to `manual` or `automatic`, or
+  from `manual` to `automatic`.
 - Model selection, permission profile, trace persistence, enabled user plugins,
   and provider routes are user-only and are rejected in project configuration.
 - Unknown fields and unsupported schema versions are errors.
@@ -75,7 +75,7 @@ values keep their defaults.
   "trace": { "enabled": true },
   "plugins": { "enabled": [] },
   "context": {
-    "mode": "warn",
+    "mode": "manual",
     "reservedOutputTokens": 4096,
     "bufferTokens": 8192,
     "recentTailTokens": 12000,
@@ -138,7 +138,7 @@ toggle. See [Plugin authoring and trust](PLUGINS.md).
 
 | Field | Default | Valid range | Project merge rule |
 | --- | ---: | --- | --- |
-| `context.mode` | `warn` | `off`, `warn`, `compact` | A project may select only a stricter mode. |
+| `context.mode` | `manual` | `off`, `manual`, `automatic` | A project may select only a stricter mode. |
 | `context.reservedOutputTokens` | `4096` | 1–2,000,000 | A project may increase the reserve. |
 | `context.bufferTokens` | `8192` | 1–2,000,000 | A project may increase the safety buffer. |
 | `context.recentTailTokens` | `12000` | 0–2,000,000 | A project may reduce the verbatim recent-history budget. |
@@ -147,12 +147,16 @@ toggle. See [Plugin authoring and trust](PLUGINS.md).
 | `context.minimumReclaimTokens` | `8000` | 0–2,000,000 | A project may lower the no-progress floor, never raise it. |
 | `context.minimumReclaimRatio` | `0.2` | 0–0.9 | A project may lower the no-progress ratio, never raise it. |
 
-`warn` measures projected next-request pressure and offers non-blocking TUI
-controls at the activation threshold. `compact` permits pressure-driven
-checkpoint generation. `/context` can enable automatic compaction for only the
-current process, or explicitly save `compact` to user configuration;
-session-only state is never restored. `/compact` remains available in every
-mode. The canonical session transcript is retained separately. See
+`manual` measures projected next-request pressure and offers non-blocking
+controls at the activation threshold. `automatic` permits pressure-driven
+checkpoint generation.
+Manual is always the product default; Automatic is user opt-in. `/context` can
+select either behavior for only the current process, or explicitly save either
+mode to user configuration without replacing unrelated fields. Session-only
+state is
+never restored, and the panel reports when project or CLI precedence leaves an
+effective mode different from the saved user value. `/compact` remains
+available in every mode. The canonical session transcript is retained separately. See
 [Context management](CONTEXT_MANAGEMENT.md).
 
 ## Safe project configuration
@@ -168,7 +172,7 @@ A repository may check in a smaller, stricter configuration such as:
     "commandTimeoutMs": 30000
   },
   "context": {
-    "mode": "compact",
+    "mode": "automatic",
     "bufferTokens": 12000,
     "recentTailTokens": 8000
   }

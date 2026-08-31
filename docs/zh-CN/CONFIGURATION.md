@@ -32,7 +32,7 @@ built-in defaults
 - 用户配置可以设置全部 schema 字段。
 - 项目配置只能设置 `limits` 和 `context`。
 - 项目 limit 只有比用户当前值更严格时才会生效。
-- 项目 context mode 只能从 `off` 收紧到 `warn`/`compact`，或从 `warn` 收紧到 `compact`。
+- 项目 context mode 只能从 `off` 收紧到 `manual`/`automatic`，或从 `manual` 收紧到 `automatic`。
 - Model、permission、trace、用户 plugin enablement 和 provider route 都是 user-only 字段；写入项目配置会直接报错。
 - 未知字段和不支持的 schema version 都是错误。
 
@@ -62,7 +62,7 @@ built-in defaults
   "trace": { "enabled": true },
   "plugins": { "enabled": [] },
   "context": {
-    "mode": "warn",
+    "mode": "manual",
     "reservedOutputTokens": 4096,
     "bufferTokens": 8192,
     "recentTailTokens": 12000,
@@ -114,7 +114,7 @@ Permission grant 不是配置。编号 session 选项只在当前进程保存 ho
 
 | 字段 | 默认值 | 有效范围 | 项目 merge 规则 |
 | --- | ---: | --- | --- |
-| `context.mode` | `warn` | `off`、`warn`、`compact` | 项目只能选择更严格模式。 |
+| `context.mode` | `manual` | `off`、`manual`、`automatic` | 项目只能选择更严格模式。 |
 | `context.reservedOutputTokens` | `4096` | 1–2,000,000 | 项目可以增加 reserve。 |
 | `context.bufferTokens` | `8192` | 1–2,000,000 | 项目可以增加 safety buffer。 |
 | `context.recentTailTokens` | `12000` | 0–2,000,000 | 项目可以减少原样保留的近期历史预算。 |
@@ -123,7 +123,7 @@ Permission grant 不是配置。编号 session 选项只在当前进程保存 ho
 | `context.minimumReclaimTokens` | `8000` | 0–2,000,000 | 项目只能降低 no-progress token 下限，不能提高。 |
 | `context.minimumReclaimRatio` | `0.2` | 0–0.9 | 项目只能降低 no-progress 比率，不能提高。 |
 
-`warn` 会测量预计下一次请求的压力，并在越过 activation threshold 时给出非阻塞 TUI 控制；`compact` 允许按压力生成 checkpoint。`/context` 可以只为当前进程启用自动压缩，也可以在用户明确选择后把 `compact` 保存到用户配置；session-only 状态不会恢复。`/compact` 在所有模式下仍可显式使用。规范 session transcript 始终独立保留。详见[上下文管理](CONTEXT_MANAGEMENT.md)。
+`manual` 会测量预计下一次请求的压力，并在越过 activation threshold 时给出非阻塞控制；`automatic` 允许按压力生成 checkpoint。Manual 始终是产品默认，Automatic 只由用户主动开启。`/context` 可以只为当前进程选择任一行为，也可以明确保存对应模式，同时保留无关字段；session-only 状态不会恢复。旧版 `warn`/`compact` 在加载时迁移，并在下次保存时写成新名称。若 project 或 CLI precedence 使有效模式不同于用户保存值，面板会分别报告两者。`/compact` 在所有模式下仍可显式使用。规范 session transcript 始终独立保留。详见[上下文管理](CONTEXT_MANAGEMENT.md)。
 
 ## 安全的项目配置
 
@@ -138,7 +138,7 @@ Permission grant 不是配置。编号 session 选项只在当前进程保存 ho
     "commandTimeoutMs": 30000
   },
   "context": {
-    "mode": "compact",
+    "mode": "automatic",
     "bufferTokens": 12000,
     "recentTailTokens": 8000
   }

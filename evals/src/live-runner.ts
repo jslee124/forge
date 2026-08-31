@@ -1,7 +1,9 @@
-import { copyFile, cp, mkdir, mkdtemp, rm } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { copyFile, cp, mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
+import { AuthenticationManager } from "@forge/auth";
 import { type RunMetadata, runTask } from "@forge/cli/run";
 import type { ProposedAction, RunResult } from "@forge/core";
 import { DEFAULT_DEEPSEEK_MODEL } from "@forge/model-deepseek";
@@ -10,7 +12,10 @@ import {
   summarizeTrace,
   type TraceEnvelope,
 } from "@forge/persistence";
-
+import {
+  type EditToolContract,
+  toolsForEditContract,
+} from "./edit-tool-contract.js";
 import { gradeWorkspace } from "./grader.js";
 import { repositoryRoot } from "./paths.js";
 import { runProcess } from "./process.js";
@@ -29,6 +34,8 @@ export interface LiveEvaluationOptions {
   readonly thinking?: "enabled" | "disabled";
   readonly outputDirectory?: string;
   readonly onProgress?: (message: string) => void;
+  readonly editContract?: EditToolContract;
+  readonly allowDirty?: boolean;
 }
 
 export interface EvaluationEnvironment extends NodeJS.ProcessEnv {
@@ -39,7 +46,7 @@ export interface EvaluationEnvironment extends NodeJS.ProcessEnv {
 export async function runLiveEvaluation(
   options: LiveEvaluationOptions,
 ): Promise<{ readonly report: EvaluationReport; readonly output: string }> {
-  assertLiveOptIn(options.env);
+  const liveEnv = resolveLiveEnvironment(options.env);
   const root = repositoryRoot();
   const allTasks = await loadTaskManifests(root);
   const tasks = selectTasks(allTasks, options.taskIds);
@@ -61,7 +68,7 @@ export async function runLiveEvaluation(
     recursive: true,
     mode: 0o700,
   });
-  const commit = await currentCommit(root);
+  const revision = await currentRevision(root, options.allowDirty ?? false);
   const trials: TrialReport[] = [];
   for (const task of tasks) {
     for (let trial = 1; trial <= trialsPerTask; trial += 1) {
@@ -72,11 +79,12 @@ export async function runLiveEvaluation(
         await runOneTrial({
           root,
           output,
-          env: options.env,
+          env: liveEnv,
           task,
           trial,
           modelId,
           thinking,
+          editContract: options.editContract ?? "flat",
         }),
       );
     }
@@ -84,7 +92,11 @@ export async function runLiveEvaluation(
   const report: EvaluationReport = {
     schemaVersion: 1,
     generatedAt: timestamp,
-    forgeCommit: commit,
+    forgeCommit: revision.commit,
+    workspaceState: revision.state,
+    ...(revision.fingerprint
+      ? { workspaceFingerprint: revision.fingerprint }
+      : {}),
     provider: "deepseek",
     modelId,
     thinking,
@@ -94,19 +106,17 @@ export async function runLiveEvaluation(
   return { report, output };
 }
 
-function assertLiveOptIn(env: NodeJS.ProcessEnv): void {
+function resolveLiveEnvironment(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   // biome-ignore lint/complexity/useLiteralKeys: ProcessEnv is an index signature under strict TypeScript.
   if (env["FORGE_EVAL_LIVE"] !== "1") {
     throw new Error(
       "Live evaluation is disabled. Set FORGE_EVAL_LIVE=1 to acknowledge paid model calls.",
     );
   }
-  // biome-ignore lint/complexity/useLiteralKeys: ProcessEnv is an index signature under strict TypeScript.
-  if (!env["DEEPSEEK_API_KEY"]?.trim()) {
-    throw new Error(
-      "Live evaluation requires DEEPSEEK_API_KEY; no trial was started.",
-    );
-  }
+  const authentication = new AuthenticationManager(env).requireApiKey(
+    "deepseek",
+  );
+  return { ...env, DEEPSEEK_API_KEY: authentication.apiKey };
 }
 
 function selectTasks(
@@ -132,6 +142,7 @@ async function runOneTrial(options: {
   readonly trial: number;
   readonly modelId: string;
   readonly thinking: "enabled" | "disabled";
+  readonly editContract: EditToolContract;
 }): Promise<TrialReport> {
   const parent = await mkdtemp(path.join(tmpdir(), "forge-live-eval-"));
   const workspace = path.join(parent, options.task.id);
@@ -161,6 +172,7 @@ async function runOneTrial(options: {
           request: async (action) => approveEvaluationAction(action),
         },
         renderEventsToOutput: false,
+        tools: toolsForEditContract(options.editContract),
         onResult: (nextResult, nextMetadata) => {
           result = nextResult;
           metadata = nextMetadata;
@@ -266,7 +278,14 @@ function approveEvaluationAction(action: ProposedAction): boolean {
   );
 }
 
-async function currentCommit(root: string): Promise<string> {
+async function currentRevision(
+  root: string,
+  allowDirty: boolean,
+): Promise<{
+  readonly commit: string;
+  readonly state: "clean" | "dirty";
+  readonly fingerprint?: string;
+}> {
   const [commit, status] = await Promise.all([
     runProcess({
       program: "git",
@@ -275,16 +294,39 @@ async function currentCommit(root: string): Promise<string> {
     }),
     runProcess({
       program: "git",
-      args: ["status", "--porcelain"],
+      args: ["status", "--porcelain=v1", "-z", "--untracked-files=all"],
       cwd: root,
     }),
   ]);
   if (commit.exitCode !== 0)
     throw new Error("Could not resolve the Forge commit for the report.");
-  if (status.exitCode !== 0 || status.stdout.trim() !== "") {
+  if (status.exitCode !== 0)
+    throw new Error("Could not inspect the Forge worktree for the report.");
+  if (status.stdout === "") {
+    return { commit: commit.stdout.trim(), state: "clean" };
+  }
+  if (!allowDirty) {
     throw new Error(
-      "Live release trials require a clean Git checkout so the report is reproducible.",
+      "Live release trials require a clean Git checkout. Pass --allow-dirty only for development evidence.",
     );
   }
-  return commit.stdout.trim();
+  const diff = await runProcess({
+    program: "git",
+    args: ["diff", "--no-ext-diff", "--binary", "HEAD"],
+    cwd: root,
+  });
+  if (diff.exitCode !== 0)
+    throw new Error("Could not fingerprint the Forge worktree for the report.");
+  const hash = createHash("sha256").update(status.stdout).update(diff.stdout);
+  for (const entry of status.stdout.split("\0").filter(Boolean)) {
+    if (!entry.startsWith("?? ")) continue;
+    const relativePath = entry.slice(3);
+    hash.update(relativePath);
+    hash.update(await readFile(path.join(root, relativePath)));
+  }
+  return {
+    commit: commit.stdout.trim(),
+    state: "dirty",
+    fingerprint: hash.digest("hex"),
+  };
 }

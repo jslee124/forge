@@ -44,7 +44,7 @@ describe("context budgeting", () => {
       model: new ContextModel(),
       request: { prompt: "hello" },
       configuration: {
-        mode: "warn",
+        mode: "manual",
         reservedOutputTokens: 100,
         bufferTokens: 250,
         recentTailTokens: 100,
@@ -120,14 +120,14 @@ describe("context budgeting", () => {
       model: new ContextModel(),
       request: { prompt: "hello" },
       configuration: {
-        mode: "warn",
+        mode: "manual",
         reservedOutputTokens: 100,
         bufferTokens: 250,
         recentTailTokens: 100,
         summaryTargetTokens: 50,
       },
     });
-    const snapshot = contextPressureSnapshot(budget, "warn");
+    const snapshot = contextPressureSnapshot(budget, "manual");
     expect(snapshot.availableInputTokens).toBe(750);
     expect(snapshot.ratio).toBe(
       budget.estimatedInputTokens / budget.availableInputTokens,

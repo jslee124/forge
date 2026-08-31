@@ -52,9 +52,25 @@ acknowledgement. The root script supplies `--live`; the environment variable
 prevents an accidental paid run:
 
 ```bash
-export DEEPSEEK_API_KEY="your-api-key"
 FORGE_EVAL_LIVE=1 pnpm eval:live
 ```
+
+The evaluator uses the same DeepSeek credential resolution as Forge:
+`DEEPSEEK_API_KEY` takes precedence, then the owner-readable credential saved
+by `/login`. The resolved key is passed only to the isolated run process and is
+not written to reports or traces.
+
+Milestone 15 file-edit selection comparisons use the same opt-in guard and
+task/trial settings. Run separate, clearly labeled output directories for
+`--edit-contract legacy`, `union`, and `flat`; the legacy contract exists only
+inside this evaluator and is never advertised by the normal CLI. Compare task
+success, first write-call accuracy, invalid/failed writes, approvals, steps,
+tokens, and the final filesystem grader before selecting a schema.
+
+The selected product encoding is `flat`: one `edit_file` object with an
+`operation` enum and optional branch fields, followed by strict runtime
+cross-field validation. The evaluator retains `legacy` and `union` only as
+comparison contracts; an omitted `--edit-contract` uses `flat`.
 
 The default is three trials for each of the three tasks. Start with one paid
 smoke trial when validating credentials or provider behavior:
@@ -68,6 +84,10 @@ FORGE_EVAL_LIVE=1 pnpm eval:live \
 Repeat `--task` to select multiple tasks. `--model`, `--thinking`, and
 `--output` override their defaults. A release run must use a clean Git checkout
 so its recorded commit identifies the exact evaluated code.
+
+During development, `--allow-dirty` permits a non-release trial and records the
+base commit plus a SHA-256 worktree fingerprint. Such output must not be copied
+to `evals/reports/` or presented as exact-HEAD release evidence.
 
 The runner grants the first workspace write and only the exact structured
 verification command `pnpm test` from the fixture root with a 60-second timeout.
@@ -128,7 +148,7 @@ terminal-status consistency, and the configured API key was not present.
 
 ## Milestone 10 context gate
 
-The default suite compares `off`, `warn`, and `compact` on the same synthetic
+The default suite compares `off`, `manual`, and `automatic` on the same synthetic
 long-session transcript without a provider call. It records task success,
 estimated and fake-provider-reported input, estimation error, local latency,
 compaction count, retained turns, and summary regeneration. Separate runtime
@@ -136,7 +156,7 @@ fixtures cover mandatory overflow, clean one-shot recovery, partial-output
 non-retry, tool-result projection, hostile history, and resume integrity.
 
 See the [Milestone 10 release gate](../evals/reports/v0.2/CONTEXT_MANAGEMENT.md).
-`warn` remains the default until paid-provider estimator and task-quality gates
+`manual` remains the permanent default; paid-provider estimator and task-quality gates
 are published.
 
 Milestone 13 adds the checked-in

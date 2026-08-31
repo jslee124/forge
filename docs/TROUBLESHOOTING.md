@@ -1,5 +1,19 @@
 # Troubleshooting
 
+## A guarded rewrite reports `stale_file`
+
+Read the file again and retry with the new SHA-256 from the complete
+`read_file` result. Forge rejects rewrite after any intervening content change;
+a truncated read intentionally reports that rewrite versioning is unavailable.
+
+## Terminal listener warnings
+
+Current interactive lifecycle ownership unmounts its Ink instance on every
+exit path and regression tests repeat mount/unmount against one output stream.
+When diagnosing a warning, use `node --trace-warnings` and distinguish stdout
+`resize` listeners from process-level listeners; do not raise the listener
+limit to hide growth.
+
 [简体中文](zh-CN/TROUBLESHOOTING.md) · [Documentation index](README.md)
 
 Start with the read-only checks below. They reveal most setup problems without

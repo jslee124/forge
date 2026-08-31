@@ -335,7 +335,7 @@ Release criteria：
 3. 交付常驻 context 圆环与交互 `/context` control，再加入按压力 compact 和 quality/no-progress gate。
 4. 将 structured update service、live TUI banner、dismissal 和 install provenance 作为隔离的 vertical slice 交付。
 5. 运行跨功能矩阵：compaction 可预测地使 cache 失效；update UI 不抢占 approval/editor input；resume 恢复 context checkpoint 但不恢复 grant。
-6. 只有记录的 evaluation gate 通过后才把默认从 `warn` 改为自动 compact；否则发布可发现的 session opt-in，并诚实保留默认值。
+6. 交付可发现的 Automatic session/user opt-in，同时永久保持 Manual 产品默认；evaluation gate 用于改进 Automatic 质量，而不是改变默认值。
 
 ## Milestone 14：结构化 Session History 与忠实 Resume（已完成）
 
@@ -366,15 +366,15 @@ Resume 实现方案](history/v0.3.3/STRUCTURED_SESSION_HISTORY.md)。
 boundary 拆分 interactive UI，并证明 terminal lifecycle cleanup。完整 contract、迁移规则、
 测试矩阵、rollout gate 与 rollback 见 [v0.3.4 详细实现方案](V0_3_4_IMPLEMENTATION_PLAN.md)。
 
-- [ ] 改变 model-facing schema 前，增加 deterministic 与显式 opt-in live file-edit selection baseline
-- [ ] 只暴露一个 `edit_file`，支持 safe create、exact replace 与 guarded rewrite，并保留现有内部 write primitive
-- [ ] 为 rewrite 增加 content-version metadata；不削弱 workspace approval 的前提下拒绝 stale/unseen whole-file replacement
-- [ ] 停止广告 legacy edit tool，但不重写 canonical historical call，也不恢复旧执行 authority
-- [ ] 保留 diff preview、write policy、trace、resume、cache invalidation、plugin reserved-name 与 cross-provider schema projection
-- [ ] 把 `interactive-ui.tsx` 变为兼容 facade，在其后拆出 lifecycle、prompt、transcript、context、approval、provider 与 resource
-- [ ] 用 mode selector 替代单向 `/context` shortcut，支持 session warn/auto 与 persisted warn/auto，并显示 effective provenance
-- [ ] 复现并消除反复 render、exit、resume 的 resize-listener 增长，不能提高 EventEmitter listener limit
-- [ ] 在最终代码上比较 deterministic 与经明确授权的 live `warn`/`compact` quality，再决定是否改默认
+- [x] 改变 model-facing schema 前，增加 deterministic 与显式 opt-in live file-edit selection baseline
+- [x] 只暴露一个 `edit_file`，支持 safe create、exact replace 与 guarded rewrite，并保留现有内部 write primitive
+- [x] 为 rewrite 增加 content-version metadata；不削弱 workspace approval 的前提下拒绝 stale/unseen whole-file replacement
+- [x] 停止广告 legacy edit tool，但不重写 canonical historical call，也不恢复旧执行 authority
+- [x] 保留 diff preview、write policy、trace、resume、cache invalidation、plugin reserved-name 与 cross-provider schema projection
+- [x] 把 `interactive-ui.tsx` 变为兼容 facade，在其后拆出 lifecycle、prompt、transcript、context、approval、provider 与 resource
+- [x] 用 mode selector 替代单向 `/context` shortcut，支持 session Manual/Automatic 与 persisted Manual/Automatic，并显示 effective provenance
+- [x] 复现并消除反复 render、exit、resume 的 resize-listener 增长，不能提高 EventEmitter listener limit
+- [x] 自动压缩明确保持 opt-in；默认 Manual 模式会在压缩前询问，任何 live quality 结果都不会静默改变默认值
 - [ ] 对应实现验证完成后才更新 current-product 中英文与 exact-HEAD release evidence
 
 验收标准：
@@ -382,9 +382,9 @@ boundary 拆分 interactive UI，并证明 terminal lifecycle cleanup。完整 c
 - DeepSeek 不再需要在两个 create/update tool name 间选择；最终 structured schema 有 baseline 对照证据。
 - Create 不覆盖、rewrite 不创建，任何 edit 都不丢弃用户并发变化或绕过正常 write approval。
 - v0.3.3 session history 保持可读且不变，当前 request 只广告新 tool contract。
-- 每个 auto context state 都有可见回 warn 路径，warn/auto 都能保存为 user default 且不覆盖其他配置。
+- 每个 Automatic context state 都有可见回 Manual 路径，Manual/Automatic 都能保存为 user default 且不覆盖其他配置。
 - Interactive facade 保留 keyboard/render 行为，反复 lifecycle test 与 Ghostty resume smoke 无 listener-growth warning。
-- 只有预先记录的 quality threshold 全部通过，auto compact 才成为默认；否则 v0.3.4 交付可逆 opt-in 并诚实保持 `warn`。
+- 自动压缩始终是可逆的用户 opt-in；默认 Manual 模式无论未来 quality 结果如何都会在压缩前询问。
 
 ## 后续扩展
 

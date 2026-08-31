@@ -8,9 +8,11 @@
     "types": ["node"]
   },
   "references": [
+    { "path": "../packages/auth" },
     { "path": "../packages/core" },
     { "path": "../packages/model-deepseek" },
     { "path": "../packages/persistence" },
+    { "path": "../packages/tools" },
     { "path": "../apps/cli" }
   ],
   "include": ["src/**/*.ts"],

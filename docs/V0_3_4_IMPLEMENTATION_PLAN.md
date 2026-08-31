@@ -18,15 +18,15 @@ provider or broaden Forge's authority:
 2. Split the 4,646-line `apps/cli/src/interactive-ui.tsx` by responsibility
    while preserving terminal behavior and keeping one compatibility facade.
 3. Make `/context` mode changes reversible: users must be able to move between
-   `warn` and automatic compaction for the current session and save either as
+   Manual and Automatic compaction for the current session and save either as
    their user default.
 4. Reproduce and eliminate the `MaxListenersExceededWarning` observed after an
    interactive resume instead of hiding it by raising the listener limit.
 
-The automatic-compaction product default remains `warn` at the start of this
-work. v0.3.4 may change that default only if the recorded deterministic and
-explicit opt-in live quality gates in this plan pass. The other three work
-streams do not depend on that default changing.
+The product default is permanently **Manual** (`manual` in configuration).
+Automatic compaction remains an explicit session or saved-user
+opt-in. Quality gates may improve or pause Automatic behavior, but cannot
+silently change the default.
 
 ## Evidence that motivates the release
 
@@ -239,6 +239,12 @@ The same prompts, model settings, and executor are used for both candidates.
 Selection is based on valid-call rate and first-call operation accuracy for
 DeepSeek, then confirmed against deterministic schema projection for OpenAI and
 compatible adapters. TypeScript elegance alone is not the selection criterion.
+
+Implementation outcome: the product uses the flat JSON Schema encoding with
+strict runtime cross-field validation while retaining the discriminated
+TypeScript semantic type. A bounded authorized DeepSeek development comparison
+accepted flat calls and rejected the discriminated-union request with HTTP 400;
+legacy and union remain evaluator-only baselines.
 
 ### A.2 Operation semantics
 
@@ -475,8 +481,8 @@ combine the mechanical move with new context behavior or tool UI semantics.
 Separate three concepts that the current UI partially conflates:
 
 ```ts
-type ConfiguredContextMode = "off" | "warn" | "compact";
-type SessionContextOverride = "warn" | "compact" | undefined;
+type ConfiguredContextMode = "off" | "manual" | "automatic";
+type SessionContextOverride = "manual" | "automatic" | undefined;
 type AutoCompactionState = "inactive" | "armed" | "compacting" | "paused";
 ```
 
@@ -489,11 +495,11 @@ Replace one-way persistence methods with symmetric intent methods:
 
 ```ts
 interface InteractiveSessionPersistence {
-  setContextModeForSession?(mode: "warn" | "compact"): void;
-  saveContextModeDefault?(mode: "warn" | "compact"): Promise<{
+  setContextModeForSession?(mode: "manual" | "automatic"): void;
+  saveContextModeDefault?(mode: "manual" | "automatic"): Promise<{
     readonly path: string;
-    readonly savedMode: "warn" | "compact";
-    readonly effectiveMode: "off" | "warn" | "compact";
+    readonly savedMode: "manual" | "automatic";
+    readonly effectiveMode: "off" | "manual" | "automatic";
     readonly effectiveSource: string;
   }>;
   compact?(dryRun: boolean): Promise<string>;
@@ -516,10 +522,10 @@ m change mode · c compact now · p preview · Esc close
 ```text
 Context mode
 
-› Warn for this session
-  Auto for this session
-  Save warn as user default
-  Save auto as user default
+› Manual · ask before compacting
+  Automatic · compact when needed
+  Save Manual as user default
+  Save Automatic as user default
 ```
 
 When auto is paused by the no-progress guard, also offer `Resume auto for this
@@ -529,16 +535,16 @@ After every action, refresh the same `ContextStatus` snapshot used by the footer
 and panel. Render explicit confirmation:
 
 ```text
-Context mode · warn for this session
-Context mode · auto for this session
-Saved context mode "warn" in /…/.forge/config.json
+Context mode · Manual for this session
+Context mode · Automatic for this session
+Saved Manual as the user default in /…/.forge/config.json
 ```
 
 If a project-level `compact` setting remains effective after saving the user
 default `warn`, render:
 
 ```text
-Saved user default: warn
+Saved user default: Manual
 Effective mode: auto · project .forge/config.json
 ```
 
@@ -546,9 +552,9 @@ Do not claim that the effective mode changed when precedence prevented it.
 
 ### C.3 Session and resume behavior
 
-- `Warn for this session` immediately prevents pressure-driven checkpoint
+- `Manual · ask before compacting` immediately prevents pressure-driven checkpoint
   generation but keeps manual `/compact` available.
-- `Auto for this session` arms pressure-driven compaction until exit, explicit
+- `Automatic · compact when needed` arms pressure-driven compaction until exit, explicit
   warn selection, or a safety pause.
 - Neither session choice is serialized or restored.
 - Saving a user default updates `$FORGE_HOME/config.json` while preserving all

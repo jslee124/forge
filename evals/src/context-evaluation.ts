@@ -25,9 +25,9 @@ export function evaluateContextModes(options: {
   const fullTokens = conservativeTextTokens(
     JSON.stringify(options.session.messages),
   );
-  return (["off", "warn", "compact"] as const).map((mode) => {
+  return (["off", "manual", "automatic"] as const).map((mode) => {
     const started = performance.now();
-    if (mode !== "compact") {
+    if (mode !== "automatic") {
       const taskSuccess = JSON.stringify(options.session.messages).includes(
         options.seededConstraint,
       );

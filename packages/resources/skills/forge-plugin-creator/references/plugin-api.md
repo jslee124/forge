@@ -23,7 +23,8 @@ Export `default` or named `activate`. The frozen API exposes `apiVersion`, `z`,
 
 Tool names use lower snake case and match `^[a-z][a-z0-9_]{0,63}$`. Command and
 subagent names use lowercase kebab-case. Built-in tool names such as
-`list_files`, `read_file`, `search`, `create_file`, `apply_patch`,
+`list_files`, `read_file`, `search`, `edit_file`, legacy-reserved
+`create_file`/`apply_patch`,
 `run_command`, and `load_skill` are reserved.
 
 Tool risks are `read`, `write`, `process`, `network`, and `model`. The active

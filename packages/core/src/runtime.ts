@@ -449,8 +449,8 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
     options.contextConfiguration ?? DEFAULT_CONTEXT_CONFIGURATION;
   const pressureMode =
     options.contextPressureMode ??
-    (contextConfiguration.mode === "compact"
-      ? "auto-default"
+    (contextConfiguration.mode === "automatic"
+      ? "automatic-default"
       : contextConfiguration.mode);
 
   for (const event of options.initialEvents ?? []) await emit(event);
@@ -525,7 +525,7 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
     const activationThreshold =
       contextConfiguration.activationThreshold ?? 0.78;
     if (
-      contextConfiguration.mode === "compact" &&
+      contextConfiguration.mode === "automatic" &&
       !autoCompactionPaused &&
       pressure.ratio >= activationThreshold &&
       continuation &&
@@ -667,7 +667,7 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
     if (!budget.fits) {
       const message = contextLimitMessage(budget, "complete request");
       await emit({ type: "context.warning", step: nextStep, message, budget });
-      if (contextConfiguration.mode === "compact") {
+      if (contextConfiguration.mode === "automatic") {
         await emit({
           type: "context.limit_reached",
           step: nextStep,

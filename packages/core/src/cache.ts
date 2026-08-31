@@ -2,7 +2,7 @@ import { z } from "zod";
 import { sha256 } from "./context.js";
 import type { ModelRequest } from "./model.js";
 
-export const FORGE_PROMPT_SCHEMA_VERSION = 2;
+export const FORGE_PROMPT_SCHEMA_VERSION = 3;
 
 export type PromptCacheMode =
   | "automatic"

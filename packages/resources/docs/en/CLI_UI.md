@@ -99,14 +99,24 @@ before it drops the number or ring.
 `/context` opens a keyboard-owned panel backed by the same pressure snapshot.
 It shows instructions, tool schemas, active history, draft/image estimates,
 the effective reserve, checkpoint provenance, threshold, strategy, and last
-compaction. Press `p` to preview, `c` to compact once, `a` to enable automatic
-compaction for this process, `s` to explicitly save it as the user default, or
-Escape to close. A first `warn`-mode threshold crossing offers compact once,
-session auto, or dismiss without stealing an active run or approval prompt.
+compaction. Press `m` to choose **Manual** (ask before compacting) or
+**Automatic** (compact when needed) for this session, or explicitly save either
+as the user default; `p` previews, `c` compacts once, and Escape closes the
+panel. Saved preference and effective project/CLI precedence are shown
+separately. A first Manual-mode threshold crossing offers compact once,
+Automatic for this session, or dismiss without stealing an active run or
+approval prompt.
 
-The default remains `warn`. Automatic compaction uses projected pressure, not
-message count, and pauses after cancellation, invalid projection, or low
-reclamation. The canonical transcript remains lossless.
+The default is always **Manual**; Automatic is user opt-in. Automatic
+compaction uses projected pressure, not message count, and pauses after
+cancellation, invalid projection, or low reclamation. The canonical transcript
+remains lossless. Configuration uses the canonical values `manual` and
+`automatic`; legacy v0.3.3 names are normalized while loading.
+
+Current model requests expose one `edit_file` action family. Create never
+replaces, exact replace requires unique current text, and whole-file rewrite
+requires the SHA-256 from a complete `read_file`. Activity and diff panels show
+the selected operation and path before normal write approval.
 
 ## Slash-command completion
 

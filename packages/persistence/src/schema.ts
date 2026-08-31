@@ -413,7 +413,23 @@ const contextPressureSchema = z
     availableInputTokens: z.number().int().nonnegative(),
     ratio: z.number().nonnegative(),
     confidence: z.enum(["exact", "estimated", "unavailable"]),
-    mode: z.enum(["off", "warn", "auto-session", "auto-default", "paused"]),
+    mode: z.preprocess(
+      (value) =>
+        value === "warn"
+          ? "manual"
+          : value === "auto-session"
+            ? "automatic-session"
+            : value === "auto-default"
+              ? "automatic-default"
+              : value,
+      z.enum([
+        "off",
+        "manual",
+        "automatic-session",
+        "automatic-default",
+        "paused",
+      ]),
+    ),
     state: z.enum([
       "normal",
       "elevated",

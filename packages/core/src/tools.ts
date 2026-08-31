@@ -60,6 +60,7 @@ export type ToolErrorCode =
   | "output_limit"
   | "process_error"
   | "stale_patch"
+  | "stale_file"
   | "timed_out"
   | "unknown_tool";
 

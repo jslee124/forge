@@ -14,14 +14,14 @@ v0.3.4 聚焦四个已经观察到的产品问题，不新增 provider，也不�
    精确替换和带版本保护的整文件重写。
 2. 按职责拆分 4,646 行的 `apps/cli/src/interactive-ui.tsx`，保留一个兼容 facade，
    且不改变终端交互行为。
-3. 让 `/context` mode 可逆：用户既能在当前 session 的 `warn` 与 auto 间切换，
+3. 让 `/context` mode 可逆：用户既能在当前 session 的 Manual 与 Automatic 间切换，
    也能把任一模式保存为 user default。
 4. 复现并消除 interactive resume 后出现的 `MaxListenersExceededWarning`，不能通过
    提高 listener 上限隐藏问题。
 
-本轮开发开始时，自动压缩产品默认值仍为 `warn`。只有本文定义的 deterministic 与
-显式 opt-in live quality gate 全部通过后，v0.3.4 才可以把默认改为 auto。其余三项
-交付不依赖默认值变化。
+产品默认永久保持 **Manual**（配置值为 `manual`）。Automatic
+compaction 只通过当前 session 或明确保存的 user opt-in 开启。Quality gate 可以改进或
+暂停 Automatic 行为，但不能静默改变默认值。
 
 ## Release 依据
 
@@ -202,6 +202,11 @@ schema 前比较两种 JSON Schema 表达：
 两者使用相同 prompt、model settings 与 executor。最终依据 DeepSeek schema-valid rate 与
 first-call operation accuracy 决定，再确认 OpenAI/compatible adapter 的 deterministic
 projection。不能只按 TypeScript 类型是否漂亮选择。
+
+实现结果：产品采用 flat JSON Schema encoding，并在 runtime 严格执行 cross-field
+validation，同时保留 discriminated TypeScript semantic type。一次有界、明确授权的
+DeepSeek development 对比可正常接受 flat call，而 discriminated-union request 被
+HTTP 400 拒绝；legacy 与 union 只保留为 evaluator baseline。
 
 ### A.2 Operation 语义
 
@@ -402,8 +407,8 @@ interactive/lifecycle.tsx ---> interactive/app.tsx
 区分当前 UI 混在一起的三个概念：
 
 ```ts
-type ConfiguredContextMode = "off" | "warn" | "compact";
-type SessionContextOverride = "warn" | "compact" | undefined;
+type ConfiguredContextMode = "off" | "manual" | "automatic";
+type SessionContextOverride = "manual" | "automatic" | undefined;
 type AutoCompactionState = "inactive" | "armed" | "compacting" | "paused";
 ```
 
@@ -414,11 +419,11 @@ type AutoCompactionState = "inactive" | "armed" | "compacting" | "paused";
 
 ```ts
 interface InteractiveSessionPersistence {
-  setContextModeForSession?(mode: "warn" | "compact"): void;
-  saveContextModeDefault?(mode: "warn" | "compact"): Promise<{
+  setContextModeForSession?(mode: "manual" | "automatic"): void;
+  saveContextModeDefault?(mode: "manual" | "automatic"): Promise<{
     readonly path: string;
-    readonly savedMode: "warn" | "compact";
-    readonly effectiveMode: "off" | "warn" | "compact";
+    readonly savedMode: "manual" | "automatic";
+    readonly effectiveMode: "off" | "manual" | "automatic";
     readonly effectiveSource: string;
   }>;
   compact?(dryRun: boolean): Promise<string>;
@@ -441,10 +446,10 @@ m change mode · c compact now · p preview · Esc close
 ```text
 Context mode
 
-› Warn for this session
-  Auto for this session
-  Save warn as user default
-  Save auto as user default
+› Manual · ask before compacting
+  Automatic · compact when needed
+  Save Manual as user default
+  Save Automatic as user default
 ```
 
 No-progress guard 导致 paused 时额外显示 `Resume auto for this session`。Session mode 与
@@ -453,15 +458,15 @@ No-progress guard 导致 paused 时额外显示 `Resume auto for this session`�
 每次动作后刷新 footer 与 panel 共用的 `ContextStatus`，并显示明确反馈：
 
 ```text
-Context mode · warn for this session
-Context mode · auto for this session
-Saved context mode "warn" in /…/.forge/config.json
+Context mode · Manual for this session
+Context mode · Automatic for this session
+Saved Manual as the user default in /…/.forge/config.json
 ```
 
 如果 project `compact` 仍让 effective mode 为 auto，则显示：
 
 ```text
-Saved user default: warn
+Saved user default: Manual
 Effective mode: auto · project .forge/config.json
 ```
 
@@ -469,9 +474,9 @@ Precedence 没有改变 effective mode 时，不能假装切换成功。
 
 ### C.3 Session 与 resume
 
-- `Warn for this session` 立即禁止 pressure-driven checkpoint generation，但手动
+- `Manual · ask before compacting` 立即禁止 pressure-driven checkpoint generation，但手动
   `/compact` 仍可用。
-- `Auto for this session` 持续到退出、显式 warn 或 safety pause。
+- `Automatic · compact when needed` 持续到退出、显式 Manual 或 safety pause。
 - 两种 session choice 都不序列化、不恢复。
 - 保存 default 更新 `$FORGE_HOME/config.json` 且保留其他字段。
 - 新进程加载 default 并重新应用 project/CLI precedence。

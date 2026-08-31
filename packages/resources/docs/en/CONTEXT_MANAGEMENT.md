@@ -4,11 +4,16 @@
 
 ## Status
 
-Roadmap Milestone 10 and Milestone 13.0-13.5 are implemented. The default
-remains `warn`; automatic checkpoint generation is opt-in until published
-provider-quality gates pass. The TUI now projects the complete next-request
-input, keeps a segmented pressure indicator visible, and exposes session-only
-or explicitly persisted automatic mode through `/context`.
+Roadmap Milestone 10 and Milestone 13.0-13.5 are implemented. The product
+default is permanently **Manual**; automatic checkpoint generation is always
+user opt-in. The TUI now projects the complete next-request input, keeps a
+segmented pressure indicator visible, and lets `/context` select session-only
+Manual/Automatic behavior or explicitly persist either user default. Manual is
+stored as `manual`, while Automatic is stored as `automatic`. Existing v0.3.3
+`warn`/`compact` values are normalized at load and rewritten with canonical
+names on the next configuration save. Manual is distinct from `paused`, which remains an
+automatic-compaction safety state after cancellation, invalid output, repeated
+failure, or low reclamation.
 
 The first shipped Forge checkpoint uses a deterministic, redacted extractive
 summarizer so default tests and manual `/compact` make no paid model call. It
@@ -260,7 +265,7 @@ The current defaults expose only values users can reason about:
 ```json
 {
   "context": {
-    "mode": "warn",
+    "mode": "manual",
     "reservedOutputTokens": 4096,
     "bufferTokens": 8192,
     "recentTailTokens": 12000,
@@ -272,8 +277,8 @@ The current defaults expose only values users can reason about:
 Implemented modes:
 
 - `off`: preserve current behavior but continue reporting provider usage.
-- `warn`: run preflight and warn; reject only when mandatory context cannot fit.
-- `compact`: use a valid checkpoint and create a new one when thresholds require
+- `manual`: run preflight and ask; reject only when mandatory context cannot fit.
+- `automatic`: use a valid checkpoint and create a new one when thresholds require
   it. This remains opt-in until evaluation gates pass.
 
 Project configuration may lower budgets or select a stricter mode, but it must
@@ -525,11 +530,10 @@ remain adapter-local without duplication.
 ## Implementation and rollout state
 
 Measurement, derived active views, checkpoint generation, in-run guards, and
-the deterministic comparison matrix are implemented. The default remains
-`warn`: users can preview or create a checkpoint manually, enable `compact` for
-the current process, or explicitly persist that preference. Moving automatic
-compaction to the default still requires published live task-quality evidence;
-feature availability alone is not that evidence.
+the deterministic comparison matrix are implemented. The default is permanently
+Manual: users can preview or create a checkpoint manually, enable Automatic for
+the current process, or explicitly persist that preference. Quality evaluation
+continues to improve Automatic behavior, but cannot silently change the default.
 
 ## Test plan
 
@@ -598,13 +602,13 @@ Record at least:
 - Recall accuracy for seeded constraints and decisions
 - Safety-invariant failures
 
-Proposed gates before `compact` becomes the default:
+Quality gates for the opt-in Automatic mode:
 
 - No safety-invariant regression in deterministic tests
 - No transcript corruption across failure, cancellation, or resume tests
 - No known provider request exceeds its declared input budget
 - Median input-token reduction of at least 30% on long-session fixtures
-- No more than a 5 percentage-point task pass-rate regression against `warn`
+- No more than a 5 percentage-point task pass-rate regression against `manual`
 - At least 95% recall of explicitly seeded durable constraints in the
   long-session evaluation set
 

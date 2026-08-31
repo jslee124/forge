@@ -49,7 +49,7 @@ function longSession(): SessionSnapshot {
 }
 
 describe("Milestone 10 deterministic long-session evaluation", () => {
-  it("compares off, warn, and compact with the same metrics", () => {
+  it("compares off, manual, and automatic with the same metrics", () => {
     const metrics = evaluateContextModes({
       session: longSession(),
       seededConstraint: "DURABLE_CONSTRAINT",
@@ -57,7 +57,11 @@ describe("Milestone 10 deterministic long-session evaluation", () => {
       summaryTargetTokens: 1_200,
     });
 
-    expect(metrics.map(({ mode }) => mode)).toEqual(["off", "warn", "compact"]);
+    expect(metrics.map(({ mode }) => mode)).toEqual([
+      "off",
+      "manual",
+      "automatic",
+    ]);
     expect(metrics.every(({ taskSuccess }) => taskSuccess)).toBe(true);
     expect(metrics.every(({ latencyMs }) => latencyMs >= 0)).toBe(true);
     expect(

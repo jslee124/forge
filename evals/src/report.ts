@@ -25,6 +25,8 @@ export interface EvaluationReport {
   readonly schemaVersion: 1;
   readonly generatedAt: string;
   readonly forgeCommit: string;
+  readonly workspaceState?: "clean" | "dirty";
+  readonly workspaceFingerprint?: string;
   readonly provider: "deepseek";
   readonly modelId: string;
   readonly thinking: "enabled" | "disabled";
@@ -69,6 +71,7 @@ export function formatEvaluationReport(report: EvaluationReport): string {
 
 - Generated: ${report.generatedAt}
 - Commit: \`${report.forgeCommit}\`
+- Workspace: ${report.workspaceState ?? "clean"}${report.workspaceFingerprint ? ` (development fingerprint \`${report.workspaceFingerprint}\`)` : ""}
 - Provider: ${report.provider}
 - Model: \`${report.modelId}\`
 - Thinking: ${report.thinking}

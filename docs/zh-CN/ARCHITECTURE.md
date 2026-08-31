@@ -108,7 +108,13 @@ Subagent 声明会变成 `model` risk 的 parent tool。由宿主而非插件创
 
 ### Tools 与审批策略
 
-每个工具有唯一名称、model-facing 描述、Zod input schema、执行函数、risk 分类和结构化结果。初始工具包括 `list_files`、`read_file`、`search`、`create_file`、`apply_patch`、`run_command`，以及示例 plugin 的 `web_search`/`web_fetch` 和 `delegate_code_review`。
+每个工具有唯一名称、model-facing 描述、Zod input schema、执行函数、risk 分类和结构化结果。当前工具包括 `list_files`、带完整读取版本信息的 `read_file`、`search`、统一的 `edit_file`（安全 create、精确 replace、版本保护 rewrite）和 `run_command`，以及示例 plugin 的 `web_search`/`web_fetch` 与 `delegate_code_review`。历史 session 中的 `create_file`/`apply_patch` 仍可读取，但当前请求不再广告或执行它们。
+
+`edit_file` 的 model-facing schema 是带 `operation` enum 的 flat object，因此 compatible
+endpoint 不需要接受 `anyOf`/`oneOf`。Runtime 会在审批或执行前严格校验 create、replace
+与 rewrite 的字段组合。
+
+交互 CLI 保留 `interactive-ui.tsx` 作为兼容 facade；应用组合、Ink lifecycle 和 approval/diff 展示位于 `apps/cli/src/interactive/`。每次交互 invocation 只有一个 lifecycle owner 创建并 unmount Ink instance。
 
 策略在执行前返回：
 

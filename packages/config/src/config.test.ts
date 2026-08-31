@@ -48,6 +48,48 @@ async function fixture(): Promise<{
 }
 
 describe("Forge configuration", () => {
+  it("normalizes legacy context names and writes only canonical names on the next save", async () => {
+    const { nested, forgeHome } = await fixture();
+    const configPath = path.join(forgeHome, "config.json");
+    await writeFile(
+      configPath,
+      `${JSON.stringify({ schemaVersion: 1, context: { mode: "compact" }, trace: { enabled: false } })}\n`,
+    );
+
+    const loaded = await loadForgeConfig({
+      cwd: nested,
+      env: { FORGE_HOME: forgeHome },
+    });
+    expect(loaded.config.context.mode).toBe("automatic");
+
+    await saveUserModelSelection({
+      cwd: nested,
+      env: { FORGE_HOME: forgeHome },
+      selection: {
+        engine: "forge",
+        provider: "deepseek",
+        id: "deepseek-v4-flash",
+      },
+    });
+    expect(JSON.parse(await readFile(configPath, "utf8"))).toMatchObject({
+      context: { mode: "automatic" },
+      trace: { enabled: false },
+    });
+  });
+
+  it("normalizes the legacy warn mode to manual", async () => {
+    const { nested, forgeHome } = await fixture();
+    await writeFile(
+      path.join(forgeHome, "config.json"),
+      `${JSON.stringify({ schemaVersion: 1, context: { mode: "warn" } })}\n`,
+    );
+    const loaded = await loadForgeConfig({
+      cwd: nested,
+      env: { FORGE_HOME: forgeHome },
+    });
+    expect(loaded.config.context.mode).toBe("manual");
+  });
+
   it("atomically persists only ordinary model selection", async () => {
     const { nested, forgeHome } = await fixture();
     await writeFile(
@@ -122,7 +164,7 @@ describe("Forge configuration", () => {
       JSON.stringify({
         schemaVersion: 1,
         context: {
-          mode: "warn",
+          mode: "manual",
           bufferTokens: 4_000,
           recentTailTokens: 2_000,
           activationThreshold: 0.78,
@@ -136,7 +178,7 @@ describe("Forge configuration", () => {
       JSON.stringify({
         schemaVersion: 1,
         context: {
-          mode: "compact",
+          mode: "automatic",
           bufferTokens: 8_000,
           recentTailTokens: 1_000,
           activationThreshold: 0.9,
@@ -151,7 +193,7 @@ describe("Forge configuration", () => {
       env: { FORGE_HOME: forgeHome },
     });
     expect(loaded.config.context).toMatchObject({
-      mode: "compact",
+      mode: "automatic",
       bufferTokens: 8_000,
       recentTailTokens: 1_000,
       activationThreshold: 0.78,

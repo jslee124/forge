@@ -50,11 +50,9 @@ import {
   selectSkills,
 } from "@forge/resources";
 import {
-  type ApplyPatchInput,
   builtinTools,
-  type CreateFileInput,
-  previewCreateFile,
-  previewPatch,
+  type EditFileInput,
+  previewEditFile,
   resolveWorkspace,
   WorkspaceResolutionError,
 } from "@forge/tools";
@@ -88,6 +86,8 @@ export interface RunDependencies {
   readonly createAdapter?: (
     options: CreateForgeModelAdapterOptions,
   ) => ModelAdapter;
+  /** Explicit evaluation/test override; normal CLI requests use builtinTools. */
+  readonly tools?: readonly ForgeTool[];
 }
 
 export interface RunMetadata {
@@ -170,15 +170,18 @@ export async function runTask(
     const forgeDocsTools = await createForgeDocsTools({
       locale: preferredForgeDocsLocale(dependencies.env),
     });
+    const activeBuiltinTools = dependencies.tools ?? builtinTools;
     const pluginHost = await loadPluginHost({
       forgeHome: loaded.forgeHome,
       workspaceRoot: loaded.workspaceRoot,
       enabledUserPlugins: loaded.config.plugins.enabled,
       reservedToolNames: [
-        ...builtinTools,
+        ...activeBuiltinTools,
         loadSkillTool,
         ...forgeDocsTools,
-      ].map(({ name }) => name),
+      ]
+        .map(({ name }) => name)
+        .concat("create_file", "apply_patch"),
     });
     for (const warning of pluginHost.warnings) {
       dependencies.stderr.write(`Plugin warning: ${warning}\n`);
@@ -265,7 +268,7 @@ export async function runTask(
       },
     };
     const childTools = [
-      ...builtinTools,
+      ...activeBuiltinTools,
       loadSkillTool,
       ...forgeDocsTools,
       ...pluginHost.tools,
@@ -440,15 +443,15 @@ export async function runTask(
       },
       contextConfiguration: {
         ...loaded.config.context,
-        ...(dependencies.contextPressureMode === "auto-session" ||
-        dependencies.contextPressureMode === "auto-default"
-          ? { mode: "compact" as const }
+        ...(dependencies.contextPressureMode === "automatic-session" ||
+        dependencies.contextPressureMode === "automatic-default"
+          ? { mode: "automatic" as const }
           : {}),
       },
       contextPressureMode:
         dependencies.contextPressureMode ??
-        (loaded.config.context.mode === "compact"
-          ? "auto-default"
+        (loaded.config.context.mode === "automatic"
+          ? "automatic-default"
           : loaded.config.context.mode),
       promptPrefix: {
         provider: loaded.config.model.provider,
@@ -745,18 +748,18 @@ export function createApprovalChannel(
     if (signal.aborted) {
       return { kind: "deny" };
     }
-    if (action.tool.name === "apply_patch") {
-      const preview = await previewPatch(
-        action.input as ApplyPatchInput,
+    if (action.tool.name === "edit_file") {
+      const preview = await previewEditFile(
+        action.input as EditFileInput,
         context,
       );
       if (!preview.ok) {
-        output.write(`Cannot preview patch: ${preview.error.message}\n`);
+        output.write(`Cannot preview file edit: ${preview.error.message}\n`);
         return { kind: "preflight-failed", result: preview };
       }
       if (preview.truncated) {
         output.write(
-          "Cannot approve patch because its diff exceeds the display limit.\n",
+          "Cannot approve file edit because its diff exceeds the display limit.\n",
         );
         return {
           kind: "preflight-failed",
@@ -764,41 +767,7 @@ export function createApprovalChannel(
             ok: false,
             error: {
               code: "output_limit",
-              message: "The patch preview exceeds the display limit.",
-              retryable: true,
-            },
-          },
-        };
-      }
-      if (options.onDiffPreview) {
-        options.onDiffPreview({ diff: preview.output.diff });
-      } else {
-        output.write(
-          `${formatDiffPanel(preview.output.diff, options.color === true)}\n`,
-        );
-      }
-    } else if (action.tool.name === "create_file") {
-      const preview = await previewCreateFile(
-        action.input as CreateFileInput,
-        context,
-      );
-      if (!preview.ok) {
-        output.write(
-          `Cannot preview file creation: ${preview.error.message}\n`,
-        );
-        return { kind: "preflight-failed", result: preview };
-      }
-      if (preview.truncated) {
-        output.write(
-          "Cannot approve file creation because its diff exceeds the display limit.\n",
-        );
-        return {
-          kind: "preflight-failed",
-          result: {
-            ok: false,
-            error: {
-              code: "output_limit",
-              message: "The file creation preview exceeds the display limit.",
+              message: "The file edit preview exceeds the display limit.",
               retryable: true,
             },
           },

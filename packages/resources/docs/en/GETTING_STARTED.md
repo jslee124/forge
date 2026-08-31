@@ -141,7 +141,7 @@ pnpm forge plugins list
 `config show` prints the effective value and source for each public setting. A
 fresh configuration begins with the `safe` permission profile, 12 model steps,
 40 tool calls, a 60-second command timeout, trace persistence enabled, and
-context mode `warn`.
+context mode `manual`.
 
 If the output is surprising, read Configuration before
 starting a run. In particular, project `.forge/config.json` may only tighten

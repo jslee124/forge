@@ -1,5 +1,13 @@
 # 故障排查
 
+## Guarded rewrite 报告 `stale_file`
+
+重新读取文件，并使用完整 `read_file` 结果中的新 SHA-256 重试。任何中间内容变化都会让 Forge 拒绝 rewrite；截断读取会明确表示版本不可用于 rewrite。
+
+## Terminal listener warning
+
+当前 interactive lifecycle 会在每条退出路径 unmount 自己的 Ink instance，回归测试会针对同一 output stream 重复 mount/unmount。诊断 warning 时使用 `node --trace-warnings`，并区分 stdout `resize` listener 与 process-level listener；不要通过提高 listener limit 隐藏增长。
+
 [English](../TROUBLESHOOTING.md) · [中文文档目录](README.md)
 
 先运行下面这些只读检查。它们不会联系模型，也不会修改仓库，却能定位大多数安装和配置问题：

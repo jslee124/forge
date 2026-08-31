@@ -351,8 +351,8 @@ export async function runCodexTask(
       const contextConfiguration = {
         ...DEFAULT_CONTEXT_CONFIGURATION,
         ...(options.contextMode === "off" ||
-        options.contextMode === "warn" ||
-        options.contextMode === "compact"
+        options.contextMode === "manual" ||
+        options.contextMode === "automatic"
           ? { mode: options.contextMode }
           : {}),
         ...(options.reservedOutputTokens !== undefined

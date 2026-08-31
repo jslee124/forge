@@ -1,5 +1,12 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, mkdtemp, readFile, realpath, rm } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  realpath,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { FileSessionStore, JsonlTraceWriter } from "@forge/persistence";
@@ -380,8 +387,8 @@ describe("persistent interactive session", () => {
     expect(session.contextDetails("continue").pressure.ratio).toBeGreaterThan(
       0.78,
     );
-    session.enableAutoForSession();
-    expect(session.contextDetails().pressure.mode).toBe("auto-session");
+    session.setContextModeForSession("automatic");
+    expect(session.contextDetails().pressure.mode).toBe("automatic-session");
 
     const id = await session.prepareRun("continue");
     expect(session.contextCheckpoint).toBeDefined();
@@ -391,7 +398,7 @@ describe("persistent interactive session", () => {
       env,
       sessionId: id,
     });
-    expect(resumed.contextDetails().pressure.mode).toBe("warn");
+    expect(resumed.contextDetails().pressure.mode).toBe("manual");
     expect(resumed.contextCheckpoint).toBeDefined();
   });
 
@@ -405,14 +412,58 @@ describe("persistent interactive session", () => {
       cwd: root,
       env,
     });
-    session.enableAutoForSession();
+    session.setContextModeForSession("automatic");
     await expect(
       readFile(path.join(forgeHome, "config.json"), "utf8"),
     ).rejects.toThrow();
-    const savedPath = await session.saveAutoDefault();
-    expect(savedPath).toBe(path.join(forgeHome, "config.json"));
-    expect(JSON.parse(await readFile(savedPath, "utf8"))).toMatchObject({
-      context: { mode: "compact" },
+    const saved = await session.saveContextModeDefault("automatic");
+    expect(saved.path).toBe(path.join(forgeHome, "config.json"));
+    expect(saved.effectiveMode).toBe("automatic");
+    expect(JSON.parse(await readFile(saved.path, "utf8"))).toMatchObject({
+      context: { mode: "automatic" },
+    });
+
+    session.setContextModeForSession("manual");
+    expect(session.contextDetails().pressure.mode).toBe("manual");
+    const manualSaved = await session.saveContextModeDefault("manual");
+    expect(manualSaved.savedMode).toBe("manual");
+    expect(JSON.parse(await readFile(manualSaved.path, "utf8"))).toMatchObject({
+      context: { mode: "manual" },
+    });
+  });
+
+  it("preserves unrelated user config and reports stricter project provenance", async () => {
+    const root = await mkdtemp(
+      path.join(tmpdir(), "forge-session-provenance-"),
+    );
+    temporaryDirectories.push(root);
+    const forgeHome = path.join(root, "forge-home");
+    await mkdir(path.join(root, ".git"));
+    await mkdir(path.join(root, ".forge"));
+    await mkdir(forgeHome);
+    await writeFile(
+      path.join(forgeHome, "config.json"),
+      `${JSON.stringify({ schemaVersion: 1, context: { mode: "automatic" }, limits: { maxSteps: 9 } }, null, 2)}\n`,
+    );
+    await writeFile(
+      path.join(root, ".forge", "config.json"),
+      `${JSON.stringify({ schemaVersion: 1, context: { mode: "automatic" } }, null, 2)}\n`,
+    );
+    const session = await createPersistentInteractiveSession({
+      cwd: root,
+      env: { FORGE_HOME: forgeHome },
+    });
+
+    const saved = await session.saveContextModeDefault("manual");
+
+    expect(saved).toMatchObject({
+      savedMode: "manual",
+      effectiveMode: "automatic",
+    });
+    expect(saved.effectiveSource).toContain(".forge/config.json");
+    expect(JSON.parse(await readFile(saved.path, "utf8"))).toMatchObject({
+      context: { mode: "manual" },
+      limits: { maxSteps: 9 },
     });
   });
 });

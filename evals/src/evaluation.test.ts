@@ -80,8 +80,12 @@ describe("live evaluation guard", () => {
   });
 
   it("requires a DeepSeek API key after opt-in", async () => {
+    const forgeHome = await mkdtemp(path.join(tmpdir(), "forge-eval-auth-"));
+    temporaryDirectories.push(forgeHome);
     await expect(
-      runLiveEvaluation({ env: { FORGE_EVAL_LIVE: "1" } }),
+      runLiveEvaluation({
+        env: { FORGE_EVAL_LIVE: "1", FORGE_HOME: forgeHome },
+      }),
     ).rejects.toThrow("DEEPSEEK_API_KEY");
   });
 });

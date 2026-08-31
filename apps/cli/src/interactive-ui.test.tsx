@@ -366,7 +366,7 @@ describe("Ink interactive terminal", () => {
     const contextStatus: ContextStatus = {
       provider: "deepseek",
       modelId: "deepseek-v4-flash",
-      mode: "warn",
+      mode: "manual",
       activationThreshold: 0.78,
       pressure: {
         schemaVersion: 1,
@@ -376,7 +376,7 @@ describe("Ink interactive terminal", () => {
         availableInputTokens: 24_576,
         ratio: 14_336 / 24_576,
         confidence: "estimated",
-        mode: "warn",
+        mode: "manual",
         state: "elevated",
         estimates: {
           instructions: 2_000,
@@ -419,11 +419,11 @@ describe("Ink interactive terminal", () => {
         ...contextStatus,
         pressure: {
           ...contextStatus.pressure,
-          mode: autoEnabled ? "auto-session" : "warn",
+          mode: autoEnabled ? "automatic-session" : "manual",
         },
       }),
-      enableAutoForSession: () => {
-        autoEnabled = true;
+      setContextModeForSession: (mode) => {
+        autoEnabled = mode === "automatic";
       },
     };
     const instance = render(
@@ -448,12 +448,16 @@ describe("Ink interactive terminal", () => {
     expect(frame).toContain("deepseek/deepseek-v4-flash");
     expect(frame).toContain("Conversation");
     expect(frame).toContain("forge-summary ready");
-    expect(frame).toContain("a auto this session");
-    expect(frame).toContain("◑ ~58% context · warn");
+    expect(frame).toContain("m change mode");
+    expect(frame).toContain("◑ ~58% context · manual");
     expect(frame).not.toContain("Configured categories:");
-    instance.stdin.write("a");
+    instance.stdin.write("m");
     await settle();
-    expect(instance.lastFrame()).toContain("automatic for this session");
+    instance.stdin.write("\u001b[B");
+    await settle();
+    instance.stdin.write("\r");
+    await settle();
+    expect(instance.lastFrame()).toContain("Automatic for this session");
     instance.unmount();
   });
 
@@ -1621,11 +1625,12 @@ describe("Ink interactive terminal", () => {
     const root = await createWorkspace();
     const workspaceRoot = await realpath(root);
     const input = {
+      operation: "replace",
       path: "src/example file.ts",
       edits: [{ oldText: "export {};", newText: "export const value = 1;" }],
     } as const;
     const patchTool = {
-      name: "apply_patch",
+      name: "edit_file",
       risk: "write",
     } as ForgeTool;
     const instance = render(
@@ -1636,7 +1641,7 @@ describe("Ink interactive terminal", () => {
         executeTask={async (_prompt, _options, dependencies) => {
           await dependencies.approvalChannel?.request(
             {
-              call: { id: "patch-color-1", name: "apply_patch", input },
+              call: { id: "patch-color-1", name: "edit_file", input },
               tool: patchTool,
               input,
             },

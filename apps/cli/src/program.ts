@@ -239,7 +239,7 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
       "maximum retained tool output",
       parsePositiveInteger,
     )
-    .option("--context-mode <mode>", "context mode: off, warn, or compact")
+    .option("--context-mode <mode>", "context mode: off, manual, or automatic")
     .option(
       "--reserved-output-tokens <count>",
       "tokens reserved for model output",

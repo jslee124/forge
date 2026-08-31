@@ -11,7 +11,7 @@ import {
   type ModelStreamEvent,
   type RunEvent,
 } from "@forge/core";
-import { applyPatchTool, createFileTool, resolveWorkspace } from "@forge/tools";
+import { editFileTool, resolveWorkspace } from "@forge/tools";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
@@ -88,8 +88,12 @@ class CreateThenAnswerModel implements ModelAdapter {
         type: "tool.call",
         call: {
           id: "create-1",
-          name: "create_file",
-          input: { path: "hello.md", content: "hello, world\n" },
+          name: "edit_file",
+          input: {
+            operation: "create",
+            path: "hello.md",
+            content: "hello, world\n",
+          },
         },
       };
       yield {
@@ -498,14 +502,16 @@ describe("forge run", () => {
     const action = {
       call: {
         id: "patch-1",
-        name: "apply_patch",
+        name: "edit_file",
         input: {
+          operation: "replace",
           path: "answer.ts",
           edits: [{ oldText: "answer = 42", newText: "answer = 43" }],
         },
       },
-      tool: applyPatchTool,
+      tool: editFileTool,
       input: {
+        operation: "replace",
         path: "answer.ts",
         edits: [{ oldText: "answer = 42", newText: "answer = 43" }],
       },
@@ -540,16 +546,20 @@ describe("forge run", () => {
     });
     input.end("y\n");
     const controller = new AbortController();
-    const toolInput = { path: "hello.md", content: "hello, world\n" };
+    const toolInput = {
+      operation: "create" as const,
+      path: "hello.md",
+      content: "hello, world\n",
+    };
 
     const approved = await createTerminalApprovalChannel(input, output).request(
       {
         call: {
           id: "create-1",
-          name: "create_file",
+          name: "edit_file",
           input: toolInput,
         },
-        tool: createFileTool,
+        tool: editFileTool,
         input: toolInput,
       },
       controller.signal,
@@ -577,14 +587,18 @@ describe("forge run", () => {
       questions += 1;
       return "1";
     }, output.output);
-    const toolInput = { path: "hello.md", content: "replacement\n" };
+    const toolInput = {
+      operation: "create" as const,
+      path: "hello.md",
+      content: "replacement\n",
+    };
     const action = {
       call: {
         id: "create-existing",
-        name: "create_file",
+        name: "edit_file",
         input: toolInput,
       },
-      tool: createFileTool,
+      tool: editFileTool,
       input: toolInput,
     };
     const context = {
@@ -601,7 +615,7 @@ describe("forge run", () => {
       result: { ok: false, error: { code: "already_exists" } },
     });
     expect(questions).toBe(0);
-    expect(output.read()).toContain("Cannot preview file creation");
+    expect(output.read()).toContain("Cannot preview file edit");
   });
 
   it("shows the external destination before network approval", async () => {

@@ -99,7 +99,7 @@ export async function createFile(
     if (isNodeError(error) && error.code === "EEXIST") {
       return failure(
         "already_exists",
-        "The requested path already exists; use apply_patch to modify it.",
+        "The requested path already exists; use edit_file replace or guarded rewrite.",
       );
     }
     return failure("io_error", "The file could not be created.", true);
@@ -126,7 +126,7 @@ async function resolveCreateTarget(
     await lstat(resolved.path);
     return failure(
       "already_exists",
-      "The requested path already exists; use apply_patch to modify it.",
+      "The requested path already exists; use edit_file replace or guarded rewrite.",
     );
   } catch (error) {
     if (isNodeError(error) && error.code === "ENOENT") {

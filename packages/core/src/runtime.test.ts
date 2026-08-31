@@ -184,7 +184,7 @@ describe("native agent runtime", () => {
       toolContext,
       signal: toolContext.signal,
       contextConfiguration: {
-        mode: "warn",
+        mode: "manual",
         reservedOutputTokens: 20,
         bufferTokens: 20,
         recentTailTokens: 10,
@@ -309,9 +309,9 @@ describe("native agent runtime", () => {
       policy: new ReadOnlyPolicy(),
       toolContext,
       signal: toolContext.signal,
-      contextPressureMode: "auto-session",
+      contextPressureMode: "automatic-session",
       contextConfiguration: {
-        mode: "compact",
+        mode: "automatic",
         reservedOutputTokens: 2_000,
         bufferTokens: 1_000,
         recentTailTokens: 1_000,

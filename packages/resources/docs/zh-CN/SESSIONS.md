@@ -50,7 +50,7 @@ forge resume --last
 2. 新 prompt 总是以新的 run ID 开始新的有界运行。
 3. 重新加载当前配置和 `AGENTS.md` 指令。
 4. 每次恢复都创建新的审批状态，并在加载历史前清除内存 session grant。
-5. 不恢复 provider continuation、部分完成的工具调用或子进程；闭合的历史工具交换会成为模型可见上下文，但只是 untrusted historical observation，新运行仍须重新检查 workspace 并重新取得审批。
+5. 不恢复 provider continuation、部分完成的工具调用或子进程；闭合的历史工具交换会成为模型可见上下文，但只是 untrusted historical observation，新运行仍须重新检查 workspace 并重新取得审批。Tool name 与 input 保持不可变历史数据：v0.3.3 的 `create_file`/`apply_patch` exchange 仍可读取，而当前请求只广告 `edit_file`，不会让 legacy tool 可执行。
 6. 其他 workspace 的 session 会被拒绝。
 7. 缺失或无效 snapshot 在发起模型请求前以可操作的配置错误结束。
 8. 有效 checkpoint 恢复同一个有界 active view；过期 checkpoint 被忽略，不改变规范 transcript。

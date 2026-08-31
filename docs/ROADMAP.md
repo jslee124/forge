@@ -986,9 +986,9 @@ Release criteria:
 5. Run the cross-feature matrix: compaction invalidates cache predictably,
    update UI never steals approval/editor input, and resumed sessions restore
    context checkpoints but never grants.
-6. Change the default from `warn` to automatic compaction only if the recorded
-   evaluation gate passes; otherwise ship the discoverable session opt-in and
-   keep the default honest.
+6. Ship discoverable Automatic session/user opt-in while keeping Manual as the
+   permanent product default; evaluation gates improve Automatic quality rather
+   than changing that default.
 
 ## Milestone 14: Structured session history and faithful resume (completed)
 
@@ -1035,25 +1035,25 @@ and prove terminal lifecycle cleanup. The complete contracts, migration rules,
 test matrix, rollout gates, and rollback strategy live in the
 [v0.3.4 implementation plan](V0_3_4_IMPLEMENTATION_PLAN.md).
 
-- [ ] Add deterministic and explicit opt-in live baselines for file-edit tool
+- [x] Add deterministic and explicit opt-in live baselines for file-edit tool
   selection before changing the model-facing schema
-- [ ] Expose one `edit_file` tool with safe create, exact replace, and guarded
+- [x] Expose one `edit_file` tool with safe create, exact replace, and guarded
   rewrite operations while retaining existing internal write primitives
-- [ ] Add content-version metadata for rewrite and reject stale or unseen
+- [x] Add content-version metadata for rewrite and reject stale or unseen
   whole-file replacement without weakening workspace approval
-- [ ] Stop advertising legacy edit tools without rewriting canonical historical
+- [x] Stop advertising legacy edit tools without rewriting canonical historical
   tool calls or restoring old execution authority
-- [ ] Preserve diff previews, write policy, trace, resume, cache invalidation,
+- [x] Preserve diff previews, write policy, trace, resume, cache invalidation,
   plugin reserved-name handling, and cross-provider schema projection
-- [ ] Turn `interactive-ui.tsx` into a compatibility facade and extract
+- [x] Turn `interactive-ui.tsx` into a compatibility facade and extract
   lifecycle, prompt, transcript, context, approval, provider, and resource
   responsibilities behind it
-- [ ] Replace one-way `/context` shortcuts with a mode selector that supports
-  session warn/auto and persisted warn/auto choices with effective provenance
-- [ ] Reproduce and eliminate resize-listener growth across repeated render,
+- [x] Replace one-way `/context` shortcuts with a mode selector that supports
+  session Manual/Automatic and persisted Manual/Automatic choices with effective provenance
+- [x] Reproduce and eliminate resize-listener growth across repeated render,
   exit, and resume paths without raising the EventEmitter listener limit
-- [ ] Compare final `warn` and `compact` behavior on deterministic and explicitly
-  authorized live quality tasks before deciding whether to change the default
+- [x] Keep automatic compaction explicitly opt-in; the default Manual mode asks
+  before compacting, so no live quality result can silently flip the default
 - [ ] Update current-product bilingual documentation and exact-HEAD release
   evidence only after the corresponding implementation is verified
 
@@ -1069,9 +1069,8 @@ Acceptance criteria:
   mode can be saved as the user default without overwriting unrelated config.
 - The interactive facade preserves keyboard/render behavior, and repeated
   lifecycle tests plus a Ghostty resume smoke show no listener growth warning.
-- Automatic compaction becomes the default only if the pre-recorded quality
-  thresholds pass; otherwise v0.3.4 ships reversible opt-in controls and keeps
-  `warn` honestly.
+- Automatic compaction remains a reversible user opt-in. The default Manual
+  mode asks before compacting regardless of future quality results.
 
 ## Later extensions
 

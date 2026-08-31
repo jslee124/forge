@@ -8,8 +8,7 @@ import type {
   ToolResult,
 } from "@forge/core";
 
-import { applyPatchTool } from "./apply-patch.js";
-import { createFileTool } from "./create-file.js";
+import { editFileTool } from "./edit-file.js";
 import { listFilesTool } from "./list-files.js";
 import { failure } from "./path.js";
 import { readFileTool } from "./read-file.js";
@@ -20,8 +19,7 @@ export const builtinTools: readonly ForgeTool[] = [
   listFilesTool,
   readFileTool,
   searchTool,
-  createFileTool,
-  applyPatchTool,
+  editFileTool,
   runCommandTool,
 ];
 
@@ -41,6 +39,12 @@ export function proposeToolCall(
 ): ToolProposalResult {
   const tool = tools.find((candidate) => candidate.name === call.name);
   if (!tool) {
+    if (call.name === "create_file" || call.name === "apply_patch") {
+      return failure(
+        "unknown_tool",
+        `Tool "${call.name}" is no longer advertised; use "edit_file".`,
+      );
+    }
     return failure("unknown_tool", `Unknown tool "${call.name}".`);
   }
 

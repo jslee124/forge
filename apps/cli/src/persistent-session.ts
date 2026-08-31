@@ -54,8 +54,10 @@ export interface InteractiveSessionPersistence {
   contextDetails?(draft?: string, imageCount?: number): ContextStatus;
   contextStatus?(): string;
   compact?(dryRun: boolean): Promise<string>;
-  enableAutoForSession?(): void;
-  saveAutoDefault?(): Promise<string>;
+  setContextModeForSession?(mode: "manual" | "automatic"): void;
+  saveContextModeDefault?(
+    mode: "manual" | "automatic",
+  ): Promise<ContextModeSaveResult>;
   pauseAuto?(): void;
   selectModel?(
     provider: string,
@@ -64,8 +66,15 @@ export interface InteractiveSessionPersistence {
   ): void;
 }
 
+export interface ContextModeSaveResult {
+  readonly path: string;
+  readonly savedMode: "manual" | "automatic";
+  readonly effectiveMode: "off" | "manual" | "automatic";
+  readonly effectiveSource: string;
+}
+
 interface PersistentContextOptions {
-  readonly mode: "off" | "warn" | "compact";
+  readonly mode: "off" | "manual" | "automatic";
   readonly provider: string;
   readonly modelId: string;
   readonly recentTailTokens: number;
@@ -149,8 +158,8 @@ export class PersistentInteractiveSession
     this.#cwd = options.cwd;
     this.#env = options.env;
     this.#sessionMode =
-      options.context.mode === "compact"
-        ? "auto-default"
+      options.context.mode === "automatic"
+        ? "automatic-default"
         : options.context.mode;
   }
 
@@ -184,8 +193,8 @@ export class PersistentInteractiveSession
     }
     const pressure = this.contextDetails(prompt, imageCount).pressure;
     if (
-      (this.#sessionMode === "auto-session" ||
-        this.#sessionMode === "auto-default") &&
+      (this.#sessionMode === "automatic-session" ||
+        this.#sessionMode === "automatic-default") &&
       pressure.ratio >= this.#context.activationThreshold &&
       this.#snapshot.history.length > 0 &&
       !isCheckpointValid(this.#snapshot)
@@ -457,28 +466,40 @@ export class PersistentInteractiveSession
     return `Context compacted · ${preview.estimatedBeforeTokens} -> ${preview.estimatedAfterTokens} tokens · Forge summary · retained ${preview.retainedMessageCount} recent messages. The full canonical transcript is unchanged.`;
   }
 
-  enableAutoForSession(): void {
-    this.#sessionMode = "auto-session";
+  setContextModeForSession(mode: "manual" | "automatic"): void {
+    this.#sessionMode = mode === "automatic" ? "automatic-session" : "manual";
   }
 
   pauseAuto(): void {
     this.#sessionMode = "paused";
   }
 
-  async saveAutoDefault(): Promise<string> {
-    const saved = await saveUserContextMode({
+  async saveContextModeDefault(
+    mode: "manual" | "automatic",
+  ): Promise<ContextModeSaveResult> {
+    const path = await saveUserContextMode({
       cwd: this.#cwd,
       env: this.#env,
-      mode: "compact",
+      mode,
     });
-    this.#context = { ...this.#context, mode: "compact" };
-    this.#sessionMode = "auto-default";
-    return saved;
+    const loaded = await loadForgeConfig({ cwd: this.#cwd, env: this.#env });
+    const effectiveMode = loaded.config.context.mode;
+    this.#context = { ...this.#context, mode: effectiveMode };
+    this.#sessionMode =
+      effectiveMode === "automatic" ? "automatic-default" : effectiveMode;
+    return {
+      path,
+      savedMode: mode,
+      effectiveMode,
+      effectiveSource: loaded.provenance["context.mode"].label,
+    };
   }
 
   #resetTransientContext(): void {
     this.#sessionMode =
-      this.#context.mode === "compact" ? "auto-default" : this.#context.mode;
+      this.#context.mode === "automatic"
+        ? "automatic-default"
+        : this.#context.mode;
     this.#lastPressure = undefined;
     this.#lastCompaction = undefined;
   }

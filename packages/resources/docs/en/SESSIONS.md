@@ -102,6 +102,9 @@ Resume follows these rules:
    resumed. Closed historical tool exchanges are model-visible context, but
    remain untrusted historical observations: the next run must re-inspect the
    workspace and obtain fresh approval before acting.
+   Tool names and inputs remain immutable historical data: v0.3.3
+   `create_file`/`apply_patch` exchanges stay readable, while current requests
+   advertise only `edit_file` and never make legacy tools executable.
 6. A saved session from another workspace is rejected unless the user starts
    from that workspace explicitly.
 7. Missing or invalid session files produce an actionable configuration-style
