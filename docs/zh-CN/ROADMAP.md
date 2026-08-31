@@ -360,7 +360,7 @@ Resume 实现方案](history/v0.3.3/STRUCTURED_SESSION_HISTORY.md)。
 - Trace 缺失只降低展示细节，不删除 canonical structured history，也不阻止安全续聊。
 - 所有 native provider 与 Codex Engine 通过 offline projection/resume contract；live provider 仍只能显式 opt-in。
 
-## Milestone 15：可靠文件编辑与可维护 Interactive CLI（v0.3.4，计划中）
+## Milestone 15：可靠文件编辑与可维护 Interactive CLI（v0.3.4，已完成）
 
 目标：消除已观察到的模型文件编辑工具误选，让 context 控制可逆，按真实 ownership
 boundary 拆分 interactive UI，并证明 terminal lifecycle cleanup。完整 contract、迁移规则、
@@ -375,7 +375,9 @@ boundary 拆分 interactive UI，并证明 terminal lifecycle cleanup。完整 c
 - [x] 用 mode selector 替代单向 `/context` shortcut，支持 session Manual/Automatic 与 persisted Manual/Automatic，并显示 effective provenance
 - [x] 复现并消除反复 render、exit、resume 的 resize-listener 增长，不能提高 EventEmitter listener limit
 - [x] 自动压缩明确保持 opt-in；默认 Manual 模式会在压缩前询问，任何 live quality 结果都不会静默改变默认值
-- [ ] 对应实现验证完成后才更新 current-product 中英文与 exact-HEAD release evidence
+- [x] 对应实现验证完成后更新 current-product 中英文文档
+- [x] 在已提交 candidate 上记录 [exact-HEAD release evidence](../../evals/reports/v0.3.4/M15_RELEASE_GATES.zh-CN.md)
+  与真实 Ghostty resume smoke
 
 验收标准：
 
@@ -383,6 +385,7 @@ boundary 拆分 interactive UI，并证明 terminal lifecycle cleanup。完整 c
 - Create 不覆盖、rewrite 不创建，任何 edit 都不丢弃用户并发变化或绕过正常 write approval。
 - v0.3.3 session history 保持可读且不变，当前 request 只广告新 tool contract。
 - 每个 Automatic context state 都有可见回 Manual 路径，Manual/Automatic 都能保存为 user default 且不覆盖其他配置。
+- 旧版 v0.3.3 `warn`/`compact` 配置和 pressure record 在加载时规范化为 `manual`/`automatic`，后续保存只写 canonical name。
 - Interactive facade 保留 keyboard/render 行为，反复 lifecycle test 与 Ghostty resume smoke 无 listener-growth warning。
 - 自动压缩始终是可逆的用户 opt-in；默认 Manual 模式无论未来 quality 结果如何都会在压缩前询问。
 

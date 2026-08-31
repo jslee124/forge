@@ -1027,7 +1027,7 @@ Acceptance criteria:
 - All native providers and the Codex Engine pass offline projection and resume
   contracts; live-provider checks remain explicit opt-in.
 
-## Milestone 15: Reliable editing and maintainable interactive CLI (v0.3.4, planned)
+## Milestone 15: Reliable editing and maintainable interactive CLI (v0.3.4, completed)
 
 Goal: remove an observed model-facing file-edit choice failure, make context
 controls reversible, split the interactive UI along real ownership boundaries,
@@ -1054,8 +1054,10 @@ test matrix, rollout gates, and rollback strategy live in the
   exit, and resume paths without raising the EventEmitter listener limit
 - [x] Keep automatic compaction explicitly opt-in; the default Manual mode asks
   before compacting, so no live quality result can silently flip the default
-- [ ] Update current-product bilingual documentation and exact-HEAD release
-  evidence only after the corresponding implementation is verified
+- [x] Update current-product bilingual documentation after the corresponding
+  implementation is verified
+- [x] Capture [exact-HEAD release evidence](../evals/reports/v0.3.4/M15_RELEASE_GATES.md)
+  and a real Ghostty resume smoke on the committed candidate
 
 Acceptance criteria:
 
@@ -1065,8 +1067,10 @@ Acceptance criteria:
   concurrent user change or bypasses normal write approval.
 - v0.3.3 session history remains readable and unchanged while current requests
   advertise only the new tool contract.
-- Every automatic context state has a visible route back to warn, and either
+- Every Automatic context state has a visible route back to Manual, and either
   mode can be saved as the user default without overwriting unrelated config.
+- Existing v0.3.3 `warn`/`compact` configuration and pressure records normalize
+  to `manual`/`automatic` at load; subsequent saves write canonical names only.
 - The interactive facade preserves keyboard/render behavior, and repeated
   lifecycle tests plus a Ghostty resume smoke show no listener growth warning.
 - Automatic compaction remains a reversible user opt-in. The default Manual
