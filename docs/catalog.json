@@ -15,7 +15,12 @@
     "ARCHITECTURE",
     "PRODUCT"
   ],
-  "currentDevelopment": ["README", "EVALUATION", "ROADMAP"],
+  "currentDevelopment": [
+    "README",
+    "EVALUATION",
+    "ROADMAP",
+    "V0_3_4_IMPLEMENTATION_PLAN"
+  ],
   "history": [
     {
       "path": "history/v0.3.0/RELEASE_NOTES.md",

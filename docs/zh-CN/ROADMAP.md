@@ -4,7 +4,7 @@
 
 ## 当前 milestone
 
-**Milestone 14：结构化 Session History 与忠实 Resume 已完成，v0.3.3 已发布。** 该版本包含 Milestone 13 的长会话、作用域 permission、cache 可观测性与更新体验，也会在 resume 时恢复规范的已完成工具交换。自动 compact 仍为 opt-in；真实 provider 验证、npm 发布与离线验收证据仍需分别陈述。
+**Milestone 15 是当前 v0.3.4 开发目标；v0.3.3 仍是当前已发布版本。** 计划中的 release 会统一模型侧文件编辑、拆分 interactive CLI、让 context mode 可逆，并修复 terminal listener lifecycle。除非 v0.3.4 记录的 quality gate 通过，自动 compact 继续保持 opt-in。详见 [v0.3.4 详细实现方案](V0_3_4_IMPLEMENTATION_PLAN.md)。
 
 ## 工作规则
 
@@ -359,6 +359,32 @@ Resume 实现方案](history/v0.3.3/STRUCTURED_SESSION_HISTORY.md)。
 - Snapshot、migration、compaction 与 provider projection 都不能产生 orphan result、dangling call、恢复审批或可执行 pending state。
 - Trace 缺失只降低展示细节，不删除 canonical structured history，也不阻止安全续聊。
 - 所有 native provider 与 Codex Engine 通过 offline projection/resume contract；live provider 仍只能显式 opt-in。
+
+## Milestone 15：可靠文件编辑与可维护 Interactive CLI（v0.3.4，计划中）
+
+目标：消除已观察到的模型文件编辑工具误选，让 context 控制可逆，按真实 ownership
+boundary 拆分 interactive UI，并证明 terminal lifecycle cleanup。完整 contract、迁移规则、
+测试矩阵、rollout gate 与 rollback 见 [v0.3.4 详细实现方案](V0_3_4_IMPLEMENTATION_PLAN.md)。
+
+- [ ] 改变 model-facing schema 前，增加 deterministic 与显式 opt-in live file-edit selection baseline
+- [ ] 只暴露一个 `edit_file`，支持 safe create、exact replace 与 guarded rewrite，并保留现有内部 write primitive
+- [ ] 为 rewrite 增加 content-version metadata；不削弱 workspace approval 的前提下拒绝 stale/unseen whole-file replacement
+- [ ] 停止广告 legacy edit tool，但不重写 canonical historical call，也不恢复旧执行 authority
+- [ ] 保留 diff preview、write policy、trace、resume、cache invalidation、plugin reserved-name 与 cross-provider schema projection
+- [ ] 把 `interactive-ui.tsx` 变为兼容 facade，在其后拆出 lifecycle、prompt、transcript、context、approval、provider 与 resource
+- [ ] 用 mode selector 替代单向 `/context` shortcut，支持 session warn/auto 与 persisted warn/auto，并显示 effective provenance
+- [ ] 复现并消除反复 render、exit、resume 的 resize-listener 增长，不能提高 EventEmitter listener limit
+- [ ] 在最终代码上比较 deterministic 与经明确授权的 live `warn`/`compact` quality，再决定是否改默认
+- [ ] 对应实现验证完成后才更新 current-product 中英文与 exact-HEAD release evidence
+
+验收标准：
+
+- DeepSeek 不再需要在两个 create/update tool name 间选择；最终 structured schema 有 baseline 对照证据。
+- Create 不覆盖、rewrite 不创建，任何 edit 都不丢弃用户并发变化或绕过正常 write approval。
+- v0.3.3 session history 保持可读且不变，当前 request 只广告新 tool contract。
+- 每个 auto context state 都有可见回 warn 路径，warn/auto 都能保存为 user default 且不覆盖其他配置。
+- Interactive facade 保留 keyboard/render 行为，反复 lifecycle test 与 Ghostty resume smoke 无 listener-growth warning。
+- 只有预先记录的 quality threshold 全部通过，auto compact 才成为默认；否则 v0.3.4 交付可逆 opt-in 并诚实保持 `warn`。
 
 ## 后续扩展
 

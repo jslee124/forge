@@ -15,7 +15,7 @@ Forge 文档按“读者想完成什么”组织。第一次接触项目时无�
 | 添加项目指令或 portable Skill | [项目上下文](PROJECT_CONTEXT.md) | [安全模型](SECURITY_MODEL.md) |
 | 编写 plugin 或学习扩展示例 | [插件开发](PLUGINS.md) | [架构](ARCHITECTURE.md) |
 | 复现发布证据 | [评测指南](EVALUATION.md) | [v0.1 合约](history/v0.1/ACCEPTANCE.md) |
-| 为 Forge 贡献代码或文档 | [贡献指南](../../CONTRIBUTING.zh-CN.md) | [架构](ARCHITECTURE.md) · [路线图](ROADMAP.md) |
+| 为 Forge 贡献代码或文档 | [贡献指南](../../CONTRIBUTING.zh-CN.md) | [架构](ARCHITECTURE.md) · [路线图](ROADMAP.md) · [v0.3.4 详细实现方案](V0_3_4_IMPLEMENTATION_PLAN.md) |
 | 发布 npm release | [npm 发布指南](RELEASING.md) | [评测指南](EVALUATION.md) · [安全模型](SECURITY_MODEL.md) |
 | 查看当前版本 | [v0.3.3 发布说明](../../evals/reports/v0.3.3/RELEASE_NOTES.zh-CN.md) | [release 证据](../../evals/reports/v0.3.3/) |
 | 查看首个公开版本 | [v0.3.0 发布说明](history/v0.3.0/RELEASE_NOTES.md) | [npm 发布指南](RELEASING.md) |
@@ -59,6 +59,7 @@ Forge 文档按“读者想完成什么”组织。第一次接触项目时无�
 | [评测指南](EVALUATION.md) | 运行确定性证据与显式 opt-in live trials |
 | [已发布报告](../../evals/reports/README.md) | 经过检查的 release 证据，包括保留的失败 |
 | [路线图](ROADMAP.md) | 已完成 milestone 的验收标准与后续方向 |
+| [v0.3.4 详细实现方案](V0_3_4_IMPLEMENTATION_PLAN.md) | 统一文件编辑、CLI 拆分、可逆 context 控制与 terminal lifecycle 修复的当前开发合同 |
 | [v0.3.3 发布说明](../../evals/reports/v0.3.3/RELEASE_NOTES.zh-CN.md) | 当前已发布版本的行为与升级说明 |
 | [v0.3.0 发布说明](history/v0.3.0/RELEASE_NOTES.md) | 首个公共 npm 分发、显式更新和发布边界 |
 | [结构化 Session History 实现方案](history/v0.3.3/STRUCTURED_SESSION_HISTORY.md) | 历史 Milestone 14 设计记录；当前行为仍以源码、测试、Sessions 与 Architecture 为准 |

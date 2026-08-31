@@ -4,11 +4,12 @@
 
 ## Current milestone
 
-**Milestone 14: structured session history and faithful resume is complete, and
-v0.3.3 is published.** The release includes the Milestone 13 long-session,
-scoped-permission, cache-observability, and update work plus canonical completed
-tool exchanges across resume. Automatic compaction remains opt-in; live-provider
-validation and npm publication remain separate from offline acceptance evidence.
+**Milestone 15 is the active v0.3.4 development target; v0.3.3 remains the
+current published release.** The planned release unifies model-facing file
+editing, decomposes the interactive CLI, makes context mode changes reversible,
+and repairs terminal listener lifecycle. Automatic compaction remains opt-in
+unless the recorded v0.3.4 quality gate passes. See the
+[v0.3.4 implementation plan](V0_3_4_IMPLEMENTATION_PLAN.md).
 
 ## Working rules
 
@@ -1025,6 +1026,52 @@ Acceptance criteria:
   history or block a safe continuation.
 - All native providers and the Codex Engine pass offline projection and resume
   contracts; live-provider checks remain explicit opt-in.
+
+## Milestone 15: Reliable editing and maintainable interactive CLI (v0.3.4, planned)
+
+Goal: remove an observed model-facing file-edit choice failure, make context
+controls reversible, split the interactive UI along real ownership boundaries,
+and prove terminal lifecycle cleanup. The complete contracts, migration rules,
+test matrix, rollout gates, and rollback strategy live in the
+[v0.3.4 implementation plan](V0_3_4_IMPLEMENTATION_PLAN.md).
+
+- [ ] Add deterministic and explicit opt-in live baselines for file-edit tool
+  selection before changing the model-facing schema
+- [ ] Expose one `edit_file` tool with safe create, exact replace, and guarded
+  rewrite operations while retaining existing internal write primitives
+- [ ] Add content-version metadata for rewrite and reject stale or unseen
+  whole-file replacement without weakening workspace approval
+- [ ] Stop advertising legacy edit tools without rewriting canonical historical
+  tool calls or restoring old execution authority
+- [ ] Preserve diff previews, write policy, trace, resume, cache invalidation,
+  plugin reserved-name handling, and cross-provider schema projection
+- [ ] Turn `interactive-ui.tsx` into a compatibility facade and extract
+  lifecycle, prompt, transcript, context, approval, provider, and resource
+  responsibilities behind it
+- [ ] Replace one-way `/context` shortcuts with a mode selector that supports
+  session warn/auto and persisted warn/auto choices with effective provenance
+- [ ] Reproduce and eliminate resize-listener growth across repeated render,
+  exit, and resume paths without raising the EventEmitter listener limit
+- [ ] Compare final `warn` and `compact` behavior on deterministic and explicitly
+  authorized live quality tasks before deciding whether to change the default
+- [ ] Update current-product bilingual documentation and exact-HEAD release
+  evidence only after the corresponding implementation is verified
+
+Acceptance criteria:
+
+- DeepSeek no longer has to choose between separate create/update tool names;
+  the selected structured schema is validated against the recorded baseline.
+- Create never replaces, rewrite never creates, and no edit discards a
+  concurrent user change or bypasses normal write approval.
+- v0.3.3 session history remains readable and unchanged while current requests
+  advertise only the new tool contract.
+- Every automatic context state has a visible route back to warn, and either
+  mode can be saved as the user default without overwriting unrelated config.
+- The interactive facade preserves keyboard/render behavior, and repeated
+  lifecycle tests plus a Ghostty resume smoke show no listener growth warning.
+- Automatic compaction becomes the default only if the pre-recorded quality
+  thresholds pass; otherwise v0.3.4 ships reversible opt-in controls and keeps
+  `warn` honestly.
 
 ## Later extensions
 
