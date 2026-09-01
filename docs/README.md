@@ -18,7 +18,7 @@ with the shortest path below instead of reading every page in order.
 | Reproduce the published evidence | [Evaluation](EVALUATION.md) | [v0.1 contract](history/v0.1/ACCEPTANCE.md) |
 | Contribute to Forge | [Contributing](../CONTRIBUTING.md) | [Architecture](ARCHITECTURE.md) · [Roadmap](ROADMAP.md) · [v0.3.4 implementation plan](V0_3_4_IMPLEMENTATION_PLAN.md) |
 | Publish an npm release | [npm release guide](RELEASING.md) | [Evaluation](EVALUATION.md) · [Security model](SECURITY_MODEL.md) |
-| Review the current release | [v0.3.3 release notes](../evals/reports/v0.3.3/RELEASE_NOTES.md) | [release evidence](../evals/reports/v0.3.3/) |
+| Review the current release | [v0.3.4 release notes](../evals/reports/v0.3.4/RELEASE_NOTES.md) | [release evidence](../evals/reports/v0.3.4/) |
 | Review the first public release | [v0.3.0 release notes](history/v0.3.0/RELEASE_NOTES.md) | [npm release guide](RELEASING.md) |
 | Diagnose a problem | [Troubleshooting](TROUBLESHOOTING.md) | The topic-specific guide linked from the symptom |
 
@@ -62,8 +62,8 @@ capabilities and per-tool approval are not an operating-system sandbox.
 | [Evaluation guide](EVALUATION.md) | Run deterministic evidence and explicit opt-in live trials |
 | [Published reports](../evals/reports/README.md) | Reviewed release evidence, including retained failures |
 | [Roadmap](ROADMAP.md) | Completed milestone acceptance criteria and later directions |
-| [v0.3.4 implementation plan](V0_3_4_IMPLEMENTATION_PLAN.md) | Current development contract for unified file editing, CLI decomposition, reversible context controls, and terminal lifecycle repair |
-| [v0.3.3 release notes](../evals/reports/v0.3.3/RELEASE_NOTES.md) | Current published release behavior and upgrade notes |
+| [v0.3.4 release notes](../evals/reports/v0.3.4/RELEASE_NOTES.md) | Current release behavior, migration, and verification boundary |
+| [v0.3.4 implementation plan](V0_3_4_IMPLEMENTATION_PLAN.md) | Completed development contract for unified file editing, CLI decomposition, reversible context controls, and terminal lifecycle repair |
 | [v0.3.0 release notes](history/v0.3.0/RELEASE_NOTES.md) | First public npm distribution, explicit updates, and release boundaries |
 | [Structured session history implementation](history/v0.3.3/STRUCTURED_SESSION_HISTORY.md) | Historical Milestone 14 design record; current behavior remains in source, tests, Sessions, and Architecture |
 | [v0.1 acceptance contract](history/v0.1/ACCEPTANCE.md) | Historical first-release scope, limits, and gates |

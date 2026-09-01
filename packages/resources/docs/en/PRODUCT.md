@@ -92,7 +92,7 @@ A narrow, reliable workflow is more valuable than many incomplete features.
 
 ## Shipped product surface
 
-The v0.3.3 release includes:
+The v0.3.4 release includes:
 
 - A TypeScript command-line interface
 - A multi-line interactive terminal UI with slash-command discovery,
@@ -104,7 +104,8 @@ The v0.3.3 release includes:
 - User-wide configuration through `~/.forge/config.json`
 - Hierarchical repository instructions through `AGENTS.md`
 - Inspectable configuration provenance through `forge config show`
-- Tools for listing, reading, searching, patching, and running commands
+- Tools for listing, reading, searching, unified guarded file editing, and
+  running commands
 - Workspace path validation
 - Command timeout and cancellation
 - Approval decisions for sensitive actions

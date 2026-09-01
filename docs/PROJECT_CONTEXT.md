@@ -143,7 +143,7 @@ starting an Agent run.
 ## Project-level `.forge/`
 
 The selected workspace root's `.forge/` is reserved for Forge-specific project
-customization. The current 0.3.3 layout is:
+customization. The current 0.3.4 layout is:
 
 ```text
 .forge/

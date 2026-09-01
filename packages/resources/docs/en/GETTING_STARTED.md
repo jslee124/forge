@@ -47,7 +47,7 @@ pnpm build
 pnpm forge --version
 ```
 
-The final command builds the workspace and should print `0.3.3` for the current
+The final command builds the workspace and should print `0.3.4` for the current
 source release. It does not contact a model provider.
 
 During development you can keep using `pnpm forge`. To expose the same checkout

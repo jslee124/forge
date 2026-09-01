@@ -23,18 +23,18 @@ development-only files cannot enter the registry by accident.
 
 ## Prepare a release
 
-Start from a clean checkout and choose a semantic version. Replace `0.3.3`
+Start from a clean checkout and choose a semantic version. Replace `0.3.4`
 below with the release being prepared:
 
 ```bash
-pnpm version:set 0.3.3
+pnpm version:set 0.3.4
 pnpm install --frozen-lockfile
 pnpm check
 pnpm check:docs
 pnpm test
 pnpm eval:deterministic
 pnpm package:verify
-pnpm release:verify-tag v0.3.3
+pnpm release:verify-tag v0.3.4
 ```
 
 `package:verify` builds the public artifact, inspects the tarball, installs it
@@ -75,8 +75,8 @@ Commit the version, release notes, and generated-input changes, then create an
 annotated immutable tag:
 
 ```bash
-git tag -a v0.3.3 -m "Forge v0.3.3"
-git push origin v0.3.3
+git tag -a v0.3.4 -m "Forge v0.3.4"
+git push origin v0.3.4
 ```
 
 The `Publish npm package` workflow verifies that the Git tag, root version,
@@ -99,7 +99,7 @@ Installed users can check or update explicitly:
 ```bash
 forge update check
 forge update
-forge update 0.3.3
+forge update 0.3.4
 ```
 
 Interactive startup publishes cached, refreshing, available, current, failed,

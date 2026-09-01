@@ -13,7 +13,7 @@
 
 <p align="center">
   <a href="https://github.com/jslee124/forge/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/jslee124/forge/ci.yml?branch=main&amp;style=flat-square&amp;label=CI" alt="CI status"></a>
-  <img src="https://img.shields.io/badge/source-v0.3.3-0e7490?style=flat-square" alt="Source version 0.3.3">
+  <img src="https://img.shields.io/badge/source-v0.3.4-0e7490?style=flat-square" alt="Source version 0.3.4">
   <img src="https://img.shields.io/badge/Node.js-%3E%3D24-3c873a?style=flat-square&amp;logo=nodedotjs&amp;logoColor=white" alt="Node.js 24 or newer">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-7c3aed?style=flat-square" alt="MIT license"></a>
 </p>
@@ -308,9 +308,10 @@ Start at the [documentation hub](docs/README.md), which routes readers by task.
 
 ## Current status and limitations
 
-Forge is under active development. Source version `0.3.3` is published on npm
-under the `latest` dist-tag. See the [v0.3.3 release
-notes](evals/reports/v0.3.3/RELEASE_NOTES.md) for the current release and the
+Forge is under active development. The source version is `0.3.4`; verify the
+current npm `latest` dist-tag rather than inferring publication from the
+checkout. See the [v0.3.4 release
+notes](evals/reports/v0.3.4/RELEASE_NOTES.md) for this release and the
 [v0.3.0 release notes](docs/history/v0.3.0/RELEASE_NOTES.md) for the first public
 feature baseline. Automatic context checkpoint generation remains opt-in while
 live provider-quality evidence is collected.

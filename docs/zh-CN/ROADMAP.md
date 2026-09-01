@@ -4,7 +4,7 @@
 
 ## 当前 milestone
 
-**Milestone 15 是当前 v0.3.4 开发目标；v0.3.3 仍是当前已发布版本。** 计划中的 release 会统一模型侧文件编辑、拆分 interactive CLI、让 context mode 可逆，并修复 terminal listener lifecycle。除非 v0.3.4 记录的 quality gate 通过，自动 compact 继续保持 opt-in。详见 [v0.3.4 详细实现方案](V0_3_4_IMPLEMENTATION_PLAN.md)。
+**作为 v0.3.4 release 目标的 Milestone 15 已完成。** 它统一模型侧文件编辑、拆分 interactive CLI、让 context mode 可逆，并修复 terminal listener lifecycle。自动 compact 始终是用户显式 opt-in。详见 [v0.3.4 详细实现方案](V0_3_4_IMPLEMENTATION_PLAN.md)。
 
 ## 工作规则
 

@@ -4,8 +4,8 @@
 
 ## Status
 
-This document defines Forge's implemented security model through v0.3.3,
-including Milestones 10-14.
+This document defines Forge's implemented security model through v0.3.4,
+including Milestones 10-15.
 Built-in tools stay inside the selected workspace, every valid tool action
 passes through a policy decision, and approval-required actions are denied when
 no approval channel is available. The `safe` and `workspace-write` permission

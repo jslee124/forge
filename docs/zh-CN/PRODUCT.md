@@ -60,7 +60,7 @@ Forge 可以使用成熟库消除偶然复杂度，但核心运行时概念必�
 
 ## 已发布产品能力
 
-v0.3.3 包括：
+v0.3.4 包括：
 
 - TypeScript CLI 和多行交互式终端。
 - 斜杠命令发现、workspace 文件引用和可读的 diff 审查。
@@ -70,7 +70,7 @@ v0.3.3 包括：
 - 有明确停止条件的多步骤 agent 循环。
 - `~/.forge/config.json` 用户级配置和分层 `AGENTS.md` 指令。
 - `forge config show` 可检查配置来源。
-- 列出、读取、搜索、补丁和运行命令工具。
+- 列出、读取、搜索、统一 guarded 文件编辑和运行命令工具。
 - workspace 路径校验、命令超时和取消。
 - 敏感操作审批、provider reasoning 展示、结构化事件和 JSONL trace。
 - 可在重启后恢复的本地会话。

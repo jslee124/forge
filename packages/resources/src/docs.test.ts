@@ -1,4 +1,5 @@
 import {
+  FORGE_VERSION,
   type ModelAdapter,
   type ModelStreamEvent,
   ReadOnlyPolicy,
@@ -26,7 +27,9 @@ describe("Forge product documentation", () => {
     if (!searched.ok) throw new Error("Expected search results.");
     const result = (searched.output as { results: { reference: string }[] })
       .results[0];
-    expect(result?.reference).toMatch(/^forge-doc:0\.3\.3:zh-CN:/u);
+    expect(
+      result?.reference?.startsWith(`forge-doc:${FORGE_VERSION}:zh-CN:`),
+    ).toBe(true);
     const loaded = await read.execute(
       { reference: result?.reference },
       context,

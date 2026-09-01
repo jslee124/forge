@@ -4,11 +4,10 @@
 
 ## Current milestone
 
-**Milestone 15 is the active v0.3.4 development target; v0.3.3 remains the
-current published release.** The planned release unifies model-facing file
-editing, decomposes the interactive CLI, makes context mode changes reversible,
-and repairs terminal listener lifecycle. Automatic compaction remains opt-in
-unless the recorded v0.3.4 quality gate passes. See the
+**Milestone 15, the v0.3.4 release target, is complete.** It unifies
+model-facing file editing, decomposes the interactive CLI, makes context mode
+changes reversible, and repairs terminal listener lifecycle. Automatic
+compaction remains an explicit user opt-in. See the
 [v0.3.4 implementation plan](V0_3_4_IMPLEMENTATION_PLAN.md).
 
 ## Working rules

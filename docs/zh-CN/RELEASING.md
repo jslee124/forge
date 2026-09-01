@@ -22,18 +22,18 @@ registry。
 
 ## 准备 release
 
-从干净 checkout 开始，并选择 SemVer。下面以 `0.3.3` 为例，实际执行时替换为
+从干净 checkout 开始，并选择 SemVer。下面以 `0.3.4` 为例，实际执行时替换为
 准备发布的版本：
 
 ```bash
-pnpm version:set 0.3.3
+pnpm version:set 0.3.4
 pnpm install --frozen-lockfile
 pnpm check
 pnpm check:docs
 pnpm test
 pnpm eval:deterministic
 pnpm package:verify
-pnpm release:verify-tag v0.3.3
+pnpm release:verify-tag v0.3.4
 ```
 
 `package:verify` 会构建公共产物、检查 tarball、在全新临时 prefix 中禁用
@@ -66,8 +66,8 @@ publisher。一次性 bootstrap 使用 `0.3.0-bootstrap.0` 和 `bootstrap` dist-
 提交版本、release notes 和构建输入，然后创建不可移动的 annotated tag：
 
 ```bash
-git tag -a v0.3.3 -m "Forge v0.3.3"
-git push origin v0.3.3
+git tag -a v0.3.4 -m "Forge v0.3.4"
+git push origin v0.3.4
 ```
 
 `Publish npm package` workflow 会先确认 Git tag、根版本、私有 workspace
@@ -88,7 +88,7 @@ patch 版本修复，并保留旧版本供用户回滚。
 ```bash
 forge update check
 forge update
-forge update 0.3.3
+forge update 0.3.4
 ```
 
 交互启动在 Ink 内发布 cached、refreshing、available、current、failed 或 disabled 状态，并最多每 24 小时刷新一次 npm metadata；晚到结果不会进入对话历史。启动永不安装更新，`/update-dismiss` 只 dismiss 当前版本。`FORGE_DISABLE_UPDATE_CHECK=1` 可关闭启动检查。显式命令仍可重复，会先解析精确 SemVer；只有识别 npm/pnpm 全局安装来源后才用 argument array 与 `--ignore-scripts` 安装，未知来源只报告版本和 release notes。成功后仍需 restart。

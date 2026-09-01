@@ -4,7 +4,7 @@
 
 ## 状态
 
-本文描述截至 v0.3.3（Milestone 10-14）的已实现安全模型：内置工具留在选定 workspace 内，每个有效工具操作都经过策略决策，没有审批通道时需要审批的操作会被拒绝。`safe` 与 `workspace-write` 已实现；恢复 session 只恢复已完成对话，每次恢复都会获得新的策略和审批状态；`full-access` 仍延后。
+本文描述截至 v0.3.4（Milestone 10-15）的已实现安全模型：内置工具留在选定 workspace 内，每个有效工具操作都经过策略决策，没有审批通道时需要审批的操作会被拒绝。`safe` 与 `workspace-write` 已实现；恢复 session 只恢复已完成对话，每次恢复都会获得新的策略和审批状态；`full-access` 仍延后。
 
 Context checkpoint 是派生且不可信的 conversation memory，不能携带审批、信任决定、permission profile 或当前验证状态。新指令和当前请求始终有效；规范 transcript 另外保留。Provider-native opaque context 属于敏感状态，不暴露给 plugin observer 或普通 trace payload。
 

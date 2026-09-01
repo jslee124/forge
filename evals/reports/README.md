@@ -26,6 +26,9 @@ artifacts are written to the ignored `evals/artifacts/` directory first.
 - [v0.3.4 Milestone 15 release gates](v0.3.4/M15_RELEASE_GATES.md) ·
   [简体中文](v0.3.4/M15_RELEASE_GATES.zh-CN.md) — exact-candidate offline
   implementation evidence and a user-executed real Ghostty smoke
+- [v0.3.4 release notes](v0.3.4/RELEASE_NOTES.md) ·
+  [简体中文](v0.3.4/RELEASE_NOTES.zh-CN.md) — user-visible changes, migration,
+  and verification boundaries
 
 The v0.1 report contains the required successful and failed live trials and
 parseable redacted traces. The v0.2.0 release adds deterministic context

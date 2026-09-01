@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "forgeVersion": "0.3.3",
+  "forgeVersion": "0.3.4",
   "documents": [
     {
       "id": "getting-started",
@@ -1025,7 +1025,7 @@
         "you"
       ],
       "path": "en/GETTING_STARTED.md",
-      "sha256": "c253bd565c20fbc4ffaf224cf4a03cb9e22e3cd5692b966b06445350a4ac8167"
+      "sha256": "1475296a09d40d701a8f63b27a09dcb6b2f930049ec9a21d1d5e9c39c332bb3d"
     },
     {
       "id": "configuration",
@@ -4597,7 +4597,7 @@
         "web"
       ],
       "path": "en/PLUGINS.md",
-      "sha256": "a162f065594b905d5dc588a2d3304f8c8075d12f3558486b4289029a98dfb325"
+      "sha256": "24951f4f7019d012a2bb2b0a53e16160a18527d7b0d251462c66b5b4b7517bae"
     },
     {
       "id": "project-context",
@@ -5305,7 +5305,7 @@
         "user-level"
       ],
       "path": "en/PROJECT_CONTEXT.md",
-      "sha256": "b718c7afdcdb4b65a83c55e4b35cf42bc5cac4b4d884fa5717bc4a8f1b098e7d"
+      "sha256": "d36822b85b5eb90518e89ed29e14eeae34176e9255cf1b44bae3ca52744a8204"
     },
     {
       "id": "sessions",
@@ -8540,7 +8540,7 @@
           "start": 46,
           "end": 974,
           "keywords": [
-            "10-14",
+            "10-15",
             "action",
             "actions",
             "and",
@@ -9893,7 +9893,7 @@
         "workspace-write"
       ],
       "path": "en/SECURITY_MODEL.md",
-      "sha256": "8ffc2d060b8e924067ff205d8af0fdd05d18e9182973e457aadf4bc09aca4e48"
+      "sha256": "600d8fa60c9107d0f0bd4fc2ad8de6714af402f5f8f784ec5a391e62aff8ac18"
     },
     {
       "id": "releasing",
@@ -10382,7 +10382,7 @@
         "user"
       ],
       "path": "en/RELEASING.md",
-      "sha256": "8ef7715f5cf74e0916f59d731df8b517856149fdfbefb1b2e4eddd86efbc8a19"
+      "sha256": "d5a92a663b8b941e141a893269448a7a353f4b631f84bb495d9ae92cc3f608a5"
     },
     {
       "id": "troubleshooting",
@@ -15004,7 +15004,7 @@
           "title": "Shipped product surface",
           "level": 2,
           "start": 3547,
-          "end": 5065,
+          "end": 5087,
           "keywords": [
             "across",
             "actions",
@@ -15026,7 +15026,6 @@
             "cancellation",
             "canonical",
             "chatgpt-subscription",
-            "checkpoints",
             "codex",
             "command",
             "command-line",
@@ -15042,11 +15041,14 @@
             "deepseek",
             "diff",
             "discovery",
+            "editing",
             "events",
             "execution",
             "explicit",
+            "file",
             "for",
             "forge",
+            "guarded",
             "hierarchical",
             "history",
             "includes",
@@ -15059,7 +15061,6 @@
             "listing",
             "local",
             "loop",
-            "manual",
             "md",
             "mentions",
             "model",
@@ -15069,7 +15070,6 @@
             "openai",
             "openai-compatible",
             "or",
-            "patching",
             "path",
             "pending",
             "persistent",
@@ -15092,8 +15092,8 @@
           "id": "historical-v0-1-baseline",
           "title": "Historical v0.1 baseline",
           "level": 2,
-          "start": 5065,
-          "end": 5691,
+          "start": 5087,
+          "end": 5713,
           "keywords": [
             "acceptance",
             "actions",
@@ -15166,8 +15166,8 @@
           "id": "current-limitations",
           "title": "Current limitations",
           "level": 2,
-          "start": 5691,
-          "end": 6391,
+          "start": 5713,
+          "end": 6413,
           "keywords": [
             "an",
             "and",
@@ -15248,8 +15248,8 @@
           "id": "later-direction",
           "title": "Later direction",
           "level": 2,
-          "start": 6391,
-          "end": 6863,
+          "start": 6413,
+          "end": 6885,
           "keywords": [
             "about",
             "actually",
@@ -15347,7 +15347,7 @@
         "without"
       ],
       "path": "en/PRODUCT.md",
-      "sha256": "e5d2d4e578d24fa2683063db943c4af33b4197f1b4db37cc36fa74744ea91bed"
+      "sha256": "b253b8389604bc9d8ee4054475b563579057537b92463a33d62263047356329a"
     },
     {
       "id": "getting-started",
@@ -16010,7 +16010,7 @@
         "通过"
       ],
       "path": "zh-CN/GETTING_STARTED.md",
-      "sha256": "6507b7b1d8afdd2f5383b9f4fa15815bfc940045b3c92960e2988595ff557eb6"
+      "sha256": "7c32139a82804ac41e50aef982188ee413b294b41e50d63185772cfe8ad84a94"
     },
     {
       "id": "configuration",
@@ -18545,7 +18545,7 @@
         "自定义工具"
       ],
       "path": "zh-CN/PLUGINS.md",
-      "sha256": "374167574f1edcd07ea730715d3b2324b12b5b1516133c16927ee969c158f779"
+      "sha256": "385e18ab932d4b7d543669b6d95fe596b90b6d99915a7b5bf9c7bbdcde4a25e6"
     },
     {
       "id": "project-context",
@@ -20686,7 +20686,7 @@
           "start": 24,
           "end": 413,
           "keywords": [
-            "10-14",
+            "10-15",
             "checkpoint",
             "context",
             "conversation",
@@ -21413,7 +21413,7 @@
         "非交互操作"
       ],
       "path": "zh-CN/SECURITY_MODEL.md",
-      "sha256": "3e03e3f02b5c6c0c5ec909a85ef415f6ead5e143c7f98ffa37b3846f74191780"
+      "sha256": "848b73fcac88feb1ba62051e9594bc3ee6faa470fedc905c0f10b22ba7271514"
     },
     {
       "id": "releasing",
@@ -21784,7 +21784,7 @@
         "用户更新"
       ],
       "path": "zh-CN/RELEASING.md",
-      "sha256": "39d2c7305fa67ba3bfa7081fc6f3edf319add6c0abbc9827b4444fb6b8a5f66a"
+      "sha256": "dbdf572c7b55c7a6c9ad65102282385c3c9b685fb5f291c56f0a6045d4198c6a"
     },
     {
       "id": "troubleshooting",
@@ -24824,7 +24824,7 @@
           "title": "已发布产品能力",
           "level": 2,
           "start": 1195,
-          "end": 1931,
+          "end": 1944,
           "keywords": [
             "action",
             "adapter",
@@ -24845,6 +24845,7 @@
             "fixture",
             "forge",
             "grant",
+            "guarded",
             "history",
             "json",
             "jsonl",
@@ -24897,23 +24898,22 @@
             "搜索",
             "敏感操作审批",
             "文件引用和可读的",
+            "文件编辑和运行命令工具",
             "斜杠命令发现",
             "时恢复规范的已完成",
             "有明确停止条件的多步骤",
             "流式输出",
             "版本化产品文档",
             "用户级配置和分层",
-            "的独立路径",
-            "确定性恢复场景和可复现发布评测",
-            "结构化事件和"
+            "的独立路径"
           ]
         },
         {
           "id": "历史-v0-1-基线",
           "title": "历史 v0.1 基线",
           "level": 2,
-          "start": 1931,
-          "end": 2063,
+          "start": 1944,
+          "end": 2076,
           "keywords": [
             "gate",
             "trace",
@@ -24940,8 +24940,8 @@
           "id": "当前限制",
           "title": "当前限制",
           "level": 2,
-          "start": 2063,
-          "end": 2395,
+          "start": 2076,
+          "end": 2408,
           "keywords": [
             "agent",
             "anthropic",
@@ -24995,8 +24995,8 @@
           "id": "后续方向",
           "title": "后续方向",
           "level": 2,
-          "start": 2395,
-          "end": 2534,
+          "start": 2408,
+          "end": 2547,
           "keywords": [
             "adapter",
             "api",
@@ -25043,7 +25043,7 @@
         "默认安全"
       ],
       "path": "zh-CN/PRODUCT.md",
-      "sha256": "fdcbc82aeadf811209d19561eaff8d9c5e5dcdd52202fc5568b76fff8ba578dc"
+      "sha256": "9a1b95376e226272c69667a5a633c0e8f092bc62c5ecfec9bbc0b4d2737ba69b"
     }
   ]
 }
