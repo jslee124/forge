@@ -59,6 +59,8 @@ Forge 文档按“读者想完成什么”组织。第一次接触项目时无�
 | [评测指南](EVALUATION.md) | 运行确定性证据与显式 opt-in live trials |
 | [已发布报告](../../evals/reports/README.md) | 经过检查的 release 证据，包括保留的失败 |
 | [路线图](ROADMAP.md) | 已完成 milestone 的验收标准与后续方向 |
+| [桌面端设计与实施合同](DESKTOP_APP_PLAN.md) | 已确定的桌面流程、TUI 共享架构、双语界面与 coding agent 验收要求 |
+| [开发任务清单](DESKTOP_APP_TASKS.md) | 按依赖排序的桌面开发任务、交付物和独立验收标准 |
 | [v0.3.4 发布说明](../../evals/reports/v0.3.4/RELEASE_NOTES.zh-CN.md) | 当前 release 行为、迁移与验证边界 |
 | [v0.3.4 详细实现方案](V0_3_4_IMPLEMENTATION_PLAN.md) | 统一文件编辑、CLI 拆分、可逆 context 控制与 terminal lifecycle 修复的已完成开发合同 |
 | [v0.3.0 发布说明](history/v0.3.0/RELEASE_NOTES.md) | 首个公共 npm 分发、显式更新和发布边界 |

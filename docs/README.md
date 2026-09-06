@@ -62,6 +62,8 @@ capabilities and per-tool approval are not an operating-system sandbox.
 | [Evaluation guide](EVALUATION.md) | Run deterministic evidence and explicit opt-in live trials |
 | [Published reports](../evals/reports/README.md) | Reviewed release evidence, including retained failures |
 | [Roadmap](ROADMAP.md) | Completed milestone acceptance criteria and later directions |
+| [Desktop design and implementation contract](DESKTOP_APP_PLAN.md) | Planned desktop workflows, shared TUI architecture, bilingual UI, and coding-agent acceptance gates |
+| [Development task checklist](DESKTOP_APP_TASKS.md) | Dependency-ordered desktop implementation tasks and acceptance gates |
 | [v0.3.4 release notes](../evals/reports/v0.3.4/RELEASE_NOTES.md) | Current release behavior, migration, and verification boundary |
 | [v0.3.4 implementation plan](V0_3_4_IMPLEMENTATION_PLAN.md) | Completed development contract for unified file editing, CLI decomposition, reversible context controls, and terminal lifecycle repair |
 | [v0.3.0 release notes](history/v0.3.0/RELEASE_NOTES.md) | First public npm distribution, explicit updates, and release boundaries |
