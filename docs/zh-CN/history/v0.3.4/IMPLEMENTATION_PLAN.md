@@ -1,10 +1,11 @@
 # Forge v0.3.4 详细实现方案
 
-[English](../V0_3_4_IMPLEMENTATION_PLAN.md) · [路线图](ROADMAP.md)
+[English](../../../history/v0.3.4/IMPLEMENTATION_PLAN.md) · [路线图](../../ROADMAP.md)
 
-> **文档角色：当前开发计划。** 本文定义 v0.3.4 拟实现的 contract、交付顺序与
-> 验收标准，不描述已发布行为，也不能证明 release、package 或 live-provider 状态。
-> 在各阶段真正实现前，当前源码与测试仍是权威事实。
+> **文档角色：历史设计记录（v0.3.4）。** Milestone 15 已完成；本文保留实施前的
+> 问题描述、方案和验收合同，因此正文中的“当前”与“拟实现”指当时的设计基线。
+> 当前行为以源码、测试和当前产品指南为准；版本验证见
+> [v0.3.4 发布证据](../../../../evals/reports/v0.3.4/)。
 
 ## 状态与决策摘要
 

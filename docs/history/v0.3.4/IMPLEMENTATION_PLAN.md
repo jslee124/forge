@@ -1,11 +1,12 @@
 # Forge v0.3.4 Implementation Plan
 
-[简体中文](zh-CN/V0_3_4_IMPLEMENTATION_PLAN.md) · [Roadmap](ROADMAP.md)
+[简体中文](../../zh-CN/history/v0.3.4/IMPLEMENTATION_PLAN.md) · [Roadmap](../../ROADMAP.md)
 
-> **Document role: current development plan.** This document defines the
-> proposed v0.3.4 implementation and acceptance contract. It does not describe
-> shipped behavior or prove release, package, or live-provider status. Current
-> source and tests remain authoritative until each stage is implemented.
+> **Document role: historical design record (v0.3.4).** Milestone 15 is complete.
+> This preserves the pre-implementation problem statements, proposal, and acceptance
+> contract; “current” and future-tense wording below refer to that design baseline.
+> Current behavior is defined by source, tests, and current product guides. See
+> [v0.3.4 release evidence](../../../evals/reports/v0.3.4/) for versioned validation.
 
 ## Status and decision summary
 

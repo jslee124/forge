@@ -19,7 +19,6 @@
     "README",
     "EVALUATION",
     "ROADMAP",
-    "V0_3_4_IMPLEMENTATION_PLAN",
     "DESKTOP_APP_PLAN",
     "DESKTOP_APP_TASKS"
   ],
@@ -49,16 +48,29 @@
       "snapshot": "v0.3.3"
     },
     {
+      "path": "history/v0.3.3/LONG_SESSION_IMPLEMENTATION.md",
+      "snapshot": "v0.3.3"
+    },
+    {
       "path": "zh-CN/history/v0.3.3/LONG_SESSION_IMPLEMENTATION.md",
       "snapshot": "v0.3.3"
+    },
+    {
+      "path": "history/v0.3.4/IMPLEMENTATION_PLAN.md",
+      "snapshot": "v0.3.4"
+    },
+    {
+      "path": "history/v0.3.4/MILESTONES.md",
+      "snapshot": "v0.3.4"
+    },
+    {
+      "path": "zh-CN/history/v0.3.4/IMPLEMENTATION_PLAN.md",
+      "snapshot": "v0.3.4"
+    },
+    {
+      "path": "zh-CN/history/v0.3.4/MILESTONES.md",
+      "snapshot": "v0.3.4"
     }
   ],
-  "redirects": [
-    "releases/v0.3.0.md",
-    "zh-CN/releases/v0.3.0.md",
-    "zh-CN/V0.1_SPEC.md",
-    "zh-CN/STRUCTURED_SESSION_HISTORY_IMPLEMENTATION_PLAN.md",
-    "zh-CN/V0.3.3_CODEBASE_REVIEW.md",
-    "zh-CN/V0.3.3_IMPLEMENTATION_PLAN.md"
-  ]
+  "redirects": []
 }

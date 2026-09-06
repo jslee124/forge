@@ -1,6 +1,6 @@
 # Forge v0.3.3 详细实现方案
 
-[路线图](../../ROADMAP.md) · [上下文管理](../../CONTEXT_MANAGEMENT.md)
+[English](../../../history/v0.3.3/LONG_SESSION_IMPLEMENTATION.md) · [路线图](../../ROADMAP.md) · [上下文管理](../../CONTEXT_MANAGEMENT.md)
 
 > **文档角色：历史设计记录。** 本文保留 Milestone 13 的设计与交付决策，
 > 不能单独证明当前实现、发布状态或 live-provider 质量。

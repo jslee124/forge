@@ -14,8 +14,8 @@ Forge 文档按“读者想完成什么”组织。第一次接触项目时无�
 | 恢复 conversation 或检查 run | [会话与 trace](SESSIONS.md) | [CLI UI](CLI_UI.md) |
 | 添加项目指令或 portable Skill | [项目上下文](PROJECT_CONTEXT.md) | [安全模型](SECURITY_MODEL.md) |
 | 编写 plugin 或学习扩展示例 | [插件开发](PLUGINS.md) | [架构](ARCHITECTURE.md) |
-| 复现发布证据 | [评测指南](EVALUATION.md) | [v0.1 合约](history/v0.1/ACCEPTANCE.md) |
-| 为 Forge 贡献代码或文档 | [贡献指南](../../CONTRIBUTING.zh-CN.md) | [架构](ARCHITECTURE.md) · [路线图](ROADMAP.md) · [v0.3.4 详细实现方案](V0_3_4_IMPLEMENTATION_PLAN.md) |
+| 复现发布证据 | [评测指南](EVALUATION.md) | [版本报告](../../evals/reports/README.md) |
+| 为 Forge 贡献代码或文档 | [贡献指南](../../CONTRIBUTING.zh-CN.md) | [架构](ARCHITECTURE.md) · [路线图](ROADMAP.md) |
 | 发布 npm release | [npm 发布指南](RELEASING.md) | [评测指南](EVALUATION.md) · [安全模型](SECURITY_MODEL.md) |
 | 查看当前版本 | [v0.3.4 发布说明](../../evals/reports/v0.3.4/RELEASE_NOTES.zh-CN.md) | [release 证据](../../evals/reports/v0.3.4/) |
 | 查看首个公开版本 | [v0.3.0 发布说明](history/v0.3.0/RELEASE_NOTES.md) | [npm 发布指南](RELEASING.md) |
@@ -52,27 +52,33 @@ Forge 文档按“读者想完成什么”组织。第一次接触项目时无�
 
 `web_search` 与 `web_fetch` 是可选示例 plugin 工具，不是 Forge 内置默认能力。项目 plugin 是受信任的进程内代码；manifest capability 与逐次工具审批都不是操作系统 sandbox。
 
-## 证据与项目历史
+## 当前开发
+
+计划与任务清单描述开发合同，不代表功能已实现；完成状态以源码、测试和实际验收记录为准。
 
 | 文档 | 用途 |
 | --- | --- |
 | [评测指南](EVALUATION.md) | 运行确定性证据与显式 opt-in live trials |
-| [已发布报告](../../evals/reports/README.md) | 经过检查的 release 证据，包括保留的失败 |
-| [路线图](ROADMAP.md) | 已完成 milestone 的验收标准与后续方向 |
+| [路线图](ROADMAP.md) | 当前开发、已完成 milestone 摘要与后续方向 |
 | [桌面端设计与实施合同](DESKTOP_APP_PLAN.md) | 已确定的桌面流程、TUI 共享架构、双语界面与 coding agent 验收要求 |
 | [开发任务清单](DESKTOP_APP_TASKS.md) | 按依赖排序的桌面开发任务、交付物和独立验收标准 |
+
+## 历史与发布证据
+
+| 文档 | 用途 |
+| --- | --- |
+| [已发布报告](../../evals/reports/README.md) | 经过检查的 release 证据，包括保留的失败 |
 | [v0.3.4 发布说明](../../evals/reports/v0.3.4/RELEASE_NOTES.zh-CN.md) | 当前 release 行为、迁移与验证边界 |
-| [v0.3.4 详细实现方案](V0_3_4_IMPLEMENTATION_PLAN.md) | 统一文件编辑、CLI 拆分、可逆 context 控制与 terminal lifecycle 修复的已完成开发合同 |
+| [v0.3.4 详细实现方案](history/v0.3.4/IMPLEMENTATION_PLAN.md) | 统一文件编辑、CLI 拆分、可逆 context 控制与 terminal lifecycle 修复的已完成开发合同 |
 | [v0.3.0 发布说明](history/v0.3.0/RELEASE_NOTES.md) | 首个公共 npm 分发、显式更新和发布边界 |
 | [结构化 Session History 实现方案](history/v0.3.3/STRUCTURED_SESSION_HISTORY.md) | 历史 Milestone 14 设计记录；当前行为仍以源码、测试、Sessions 与 Architecture 为准 |
 | [v0.3.3 详细实现记录](history/v0.3.3/LONG_SESSION_IMPLEMENTATION.md) | Milestone 13.0-13.5 的历史设计、架构、测试与离线 gate；不是发布声明 |
 | [v0.1 验收合约](history/v0.1/ACCEPTANCE.md) | 历史首发范围、limits 与 release gates |
+| [Milestone 0–15 验收记录](history/v0.3.4/MILESTONES.md) | 截至 v0.3.4 的历史目标、验收条目与验证边界 |
 
-版本化 plan 与 acceptance record 位于 `docs/history/`，经过审查的 release
-evidence 与 codebase snapshot 位于 `evals/reports/<version>/`。机器可读的
-[文档 catalog](../catalog.json) 是文档角色与 product-help 打包范围的权威来源。
+当前使用指南位于 `docs/`，中文镜像位于 `docs/zh-CN/`。已完成的版本计划与验收记录归档到各语言的 `history/<version>/`；发布证据与代码审查快照位于 `evals/reports/<version>/`。
 
-Roadmap 与 acceptance 页面会保留历史决策。当前 CLI 行为、配置默认值和 public TypeScript shape 以 checkout 中的源码与测试为准。
+[文档 catalog](../catalog.json) 管理角色与 product-help 打包范围。只打包当前产品指南；开发计划和历史记录不进入产品帮助。当前行为以源码、测试和当前产品指南为准。
 
 ## 文档约定
 
@@ -82,6 +88,8 @@ Roadmap 与 acceptance 页面会保留历史决策。当前 CLI 行为、配置�
 - 默认 tests 和 deterministic evaluation 不产生付费模型请求；live provider 命令一定标为 opt-in。
 - English 页面是规范详细版本；中文页面保持相同命令、配置名、limits 和安全边界，部分历史设计记录会有意压缩。
 - 不要把 API key、token、完整本地 trace 或仓库敏感输出粘贴到文档与 issue。
+- 版本计划完成后，中英文一起归档到 `history/<version>/`，添加历史角色说明，保留当时的设计正文。
+- 新增、移动或删除文档时，同步更新 catalog、双语导航和所有仓库内链接；不为已无引用的旧路径保留空跳转页。
 
 提交文档改动前运行：
 
