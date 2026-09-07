@@ -16,6 +16,9 @@ npm-debug.log*
 coverage/
 .nyc_output/
 evals/artifacts/
+apps/desktop/dist/
+apps/desktop/out/
+apps/desktop/release/
 
 .vscode/
 .idea/

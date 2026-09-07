@@ -17,8 +17,8 @@
 
 | ID | 任务 | 前置 | 状态 |
 | --- | --- | --- | --- |
-| D01 | 基线与技术验证 | 无 | 未开始 |
-| D02 | Electron 工程与打包冒烟 | D01 | 未开始 |
+| D01 | 基线与技术验证 | 无 | 已完成 |
+| D02 | Electron 工程与打包冒烟 | D01 | 已完成 |
 | D03 | 双语界面与可交互原型 | D02 | 未开始 |
 | D04 | 共享应用服务抽取 | D01 | 未开始 |
 | D05 | Agent 进程和通信协议 | D02、D04 | 未开始 |
@@ -49,6 +49,18 @@ D07 与 D08 分别验收，完成一种不能代替另一种。表中顺序是�
 [会话服务](../../apps/cli/src/persistent-session.ts)、[Codex 路径](../../apps/cli/src/codex-command.ts)。
 **验证**：读取当前测试，选择最小离线基线；记录命令和结果，不搬用旧验收数字。
 
+**完成记录（2026-09-06，Complete）**：基线、引擎路径、依赖矩阵、Electron 44.2.0
+（内置 Node 24.20.0）、动态插件/资源、react-diff-view 样例验证与全部 D01 决策
+（进程/IPC、macOS 13+、arm64+x64、打包与分发、关窗/退出、跨引擎续接）记录于
+[基线文档](DESKTOP_BASELINE.md)。验证命令与结果：`CI=true pnpm build && CI=true
+pnpm exec vitest run`（58 文件/360 测试通过）、`CI=true pnpm check` 通过；Electron
+Node 下 CLI、假适配器 runAgent 回合、会话/运行迹往返、web-tools 插件加载、
+Skill/docs 发现全部实测通过。react-diff-view 3.3.3 四类样例行数精确匹配；
+发现并记录 git `core.quotepath` 八进制路径限制。未验证项（在线 provider、签名/
+公证、GUI 启动环境）在基线文档第 7 节标注。一处代码变更：`biome.json` 将
+vendored 的 `**/.agents` 排除出 Biome（与本任务无关的既有检查失败），
+`CI=true pnpm check` 恢复通过。
+
 ## D02 · Electron 工程与打包冒烟
 
 **交付**：在现有 monorepo 增加桌面入口（建议 `apps/desktop`），使用已选 Electron、
@@ -58,6 +70,20 @@ React、TypeScript、electron-vite。配置主进程、preload、renderer 和最
 **验收**：窗口和子进程启动、通信、关闭可验证；renderer 不获得任意 Node/IPC 能力；
 开发态与一个本地打包产物都能找到进程入口和必需资源。无须签名或发布即可先暴露打包问题。
 **验证**：构建、类型检查、无网络的进程启动/退出冒烟，检查错误与监听清理。
+
+**完成记录（2026-09-07，Complete）**：新增 private 的 `apps/desktop`，锁定
+Electron 44.2.0、electron-vite 5.0.0、React 19.2.8，接入 TypeScript project
+references、独立的根级 `desktop:*` 命令，以及 electron-builder 26.15.3 的
+macOS 13+ arm64/x64 DMG/zip 配置。主进程持有一个 `utilityProcess`；最小 Agent
+只接受校验过的 D02 健康检查/关闭消息，关闭会等待子进程退出并保留 kill 兜底。
+renderer 启用 sandbox/context isolation、禁用 Node integration；preload 只暴露
+一个固定健康检查方法，不暴露裸 IPC。Agent 与内置 Skill/docs 资源均位于 ASAR
+之外。验证结果：2 个聚焦测试文件/5 个测试通过（非法消息、资源缺失/存在、通信、
+异常退出、监听清理）；`CI=true pnpm check` 通过；最终 electron-vite 构建通过。
+开发态隐藏窗口与本地未签名 arm64 `.app` 均实际加载 renderer、连通 Agent、找到
+资源、完成关闭并以 0 退出。打包冒烟复用已安装 Electron 分发包，无须重复联网下载。
+签名/公证、x64 实机执行、DMG/zip 产物生成及发布仍未验证并留给 D13；D02 只要求
+一个本地打包产物，不代表这些 D13 结果已成立。
 
 ## D03 · 双语界面与可交互原型
 

@@ -1,0 +1,40 @@
+:root {
+  color: #e8e8e8;
+  background: #171717;
+  font-family:
+    ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+body {
+  margin: 0;
+}
+
+main {
+  min-height: 100vh;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 12px;
+}
+
+.mark {
+  display: grid;
+  width: 52px;
+  height: 52px;
+  place-items: center;
+  border-radius: 14px;
+  background: #f0a35e;
+  color: #20150c;
+  font-size: 28px;
+  font-weight: 750;
+}
+
+h1,
+p {
+  margin: 0;
+}
+
+p,
+output {
+  color: #a7a7a7;
+}

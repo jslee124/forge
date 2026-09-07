@@ -9,6 +9,7 @@
       "**",
       "!!**/dist",
       "!!**/coverage",
+      "!!**/.agents",
       "!!packages/resources/docs/index.json"
     ]
   },

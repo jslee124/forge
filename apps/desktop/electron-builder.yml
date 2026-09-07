@@ -1,0 +1,30 @@
+appId: dev.forge.desktop
+productName: Forge Desktop
+asar: true
+directories:
+  output: release
+files:
+  - out/main/index.js
+  - out/preload/**
+  - out/renderer/**
+  - package.json
+extraResources:
+  - from: out/main/agent.js
+    to: agent/index.js
+  - from: ../../packages/resources/skills
+    to: forge-resources/skills
+  - from: ../../packages/resources/docs
+    to: forge-resources/docs
+mac:
+  category: public.app-category.developer-tools
+  minimumSystemVersion: "13.0"
+  target:
+    - target: dmg
+      arch:
+        - arm64
+        - x64
+    - target: zip
+      arch:
+        - arm64
+        - x64
+artifactName: forge-desktop-${version}-${arch}.${ext}

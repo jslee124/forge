@@ -13,6 +13,7 @@
     { "path": "./packages/resources" },
     { "path": "./packages/tools" },
     { "path": "./apps/cli" },
+    { "path": "./apps/desktop" },
     { "path": "./evals" }
   ]
 }

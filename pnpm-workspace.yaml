@@ -3,6 +3,8 @@ packages:
   - packages/*
   - evals
 allowBuilds:
+  electron: true
+  electron-winstaller: false
   esbuild: true
 minimumReleaseAgeExclude:
   - '@ai-sdk/openai@4.0.43'

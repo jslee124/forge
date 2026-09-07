@@ -19,8 +19,8 @@ offline work. This checklist does not request multiple agents.
 
 | ID | Task | Depends on | Status |
 | --- | --- | --- | --- |
-| D01 | Baseline and technical verification | None | Not started |
-| D02 | Electron scaffold and packaging smoke | D01 | Not started |
+| D01 | Baseline and technical verification | None | Complete |
+| D02 | Electron scaffold and packaging smoke | D01 | Complete |
 | D03 | Bilingual interactive prototype | D02 | Not started |
 | D04 | Shared application services | D01 | Not started |
 | D05 | Agent process and protocol | D02, D04 | Not started |
@@ -52,6 +52,22 @@ and large changes before locking it.
 **Entry points:** [run.ts](../apps/cli/src/run.ts), [TUI](../apps/cli/src/interactive/app.tsx),
 [sessions](../apps/cli/src/persistent-session.ts), [Codex](../apps/cli/src/codex-command.ts).
 
+**Completion record (2026-09-06, Complete):** baseline, engine paths, dependency
+matrix, Electron 44.2.0 (bundled Node 24.20.0), dynamic plugin/resource checks,
+react-diff-view sample validation, and all D01 decisions (process/IPC, macOS 13+,
+arm64+x64, packaging and distribution, window-close/exit, cross-engine
+continuation) are recorded in the [baseline document](DESKTOP_BASELINE.md).
+Verification: `CI=true pnpm build && CI=true pnpm exec vitest run` (58 files /
+360 tests passed), `CI=true pnpm check` passed; under Electron's Node the CLI,
+a fake-adapter `runAgent` turn, session/trace round-trips, `web-tools` plugin
+loading, and Skill/docs discovery all passed live checks. react-diff-view 3.3.3
+matched expected rows exactly on all four sample classes; the git
+`core.quotepath` octal-path limitation was found and recorded. Unverified items
+(live providers, signing/notarization, GUI-launched environment) are labeled in
+baseline section 7. One code change: `biome.json` now excludes vendored
+`**/.agents` from Biome (pre-existing check failure unrelated to desktop work),
+so `CI=true pnpm check` passes.
+
 ## D02 · Electron scaffold and packaging smoke
 
 **Deliver:** desktop entry in the monorepo (suggested apps/desktop), selected stack,
@@ -61,6 +77,25 @@ private and its commands separate from TUI commands.
 access in renderer. Both development and a local packaged artifact locate entries
 and resources. Signing/publication is unnecessary for early packaging smoke.
 **Verify:** build/types and offline lifecycle/error/listener checks.
+
+**Completion record (2026-09-07, Complete):** added private
+`apps/desktop` with Electron 44.2.0, electron-vite 5.0.0, React 19.2.8,
+TypeScript project references, separate root `desktop:*` commands, and
+electron-builder 26.15.3 DMG/zip configuration for macOS 13+ arm64/x64. Main
+owns one `utilityProcess`; the bundled Agent supports only validated D02
+health/shutdown messages, and shutdown waits for process exit with a kill
+fallback. The sandboxed/context-isolated renderer has no Node integration;
+preload exposes one fixed health method rather than raw IPC. The Agent and
+builtin Skill/docs resources are outside ASAR. Verification: 2 focused files / 5
+tests passed (invalid messages, missing/present resources, communication,
+unexpected exit, listener cleanup); `CI=true pnpm check` passed; the final
+electron-vite build passed. A development-mode hidden-window smoke and an
+unsigned local arm64 packaged `.app` smoke both loaded the renderer, reached the
+Agent, found resources, shut down, and exited 0. The package smoke reuses the
+installed Electron distribution and therefore runs without downloading a second
+runtime. Signing/notarization, x64 execution, DMG/zip artifact generation, and
+publication remain unverified/deferred; D02 requires only one local packaged
+artifact and does not establish those D13 outcomes.
 
 ## D03 · Bilingual interactive prototype
 
