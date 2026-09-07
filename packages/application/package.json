@@ -1,0 +1,52 @@
+{
+  "name": "@forge/application",
+  "version": "0.3.4",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./run": {
+      "types": "./dist/run.d.ts",
+      "import": "./dist/run.js"
+    },
+    "./codex": {
+      "types": "./dist/codex.d.ts",
+      "import": "./dist/codex.js"
+    },
+    "./persistent-session": {
+      "types": "./dist/persistent-session.d.ts",
+      "import": "./dist/persistent-session.js"
+    },
+    "./model-adapter": {
+      "types": "./dist/model-adapter.d.ts",
+      "import": "./dist/model-adapter.js"
+    },
+    "./image-input": {
+      "types": "./dist/image-input.d.ts",
+      "import": "./dist/image-input.js"
+    },
+    "./options": {
+      "types": "./dist/options.d.ts",
+      "import": "./dist/options.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@forge/auth": "workspace:*",
+    "@forge/codex-app-server": "workspace:*",
+    "@forge/config": "workspace:*",
+    "@forge/core": "workspace:*",
+    "@forge/model-deepseek": "workspace:*",
+    "@forge/model-compat": "workspace:*",
+    "@forge/model-openai": "workspace:*",
+    "@forge/persistence": "workspace:*",
+    "@forge/plugin-api": "workspace:*",
+    "@forge/resources": "workspace:*",
+    "@forge/tools": "workspace:*"
+  }
+}

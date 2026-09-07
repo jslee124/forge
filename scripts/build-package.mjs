@@ -18,6 +18,7 @@ const outputFile = path.join(outputRoot, "dist", "index.js");
 const packageName = "@jslee124/forge";
 const workspacePackagePaths = [
   "apps/cli/package.json",
+  "packages/application/package.json",
   "packages/auth/package.json",
   "packages/codex-app-server/package.json",
   "packages/config/package.json",

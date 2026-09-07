@@ -26,6 +26,9 @@ importers:
 
   apps/cli:
     dependencies:
+      '@forge/application':
+        specifier: workspace:*
+        version: link:../../packages/application
       '@forge/auth':
         specifier: workspace:*
         version: link:../../packages/auth
@@ -169,6 +172,42 @@ importers:
       zod:
         specifier: ^4.4.3
         version: 4.4.3
+
+  packages/application:
+    dependencies:
+      '@forge/auth':
+        specifier: workspace:*
+        version: link:../auth
+      '@forge/codex-app-server':
+        specifier: workspace:*
+        version: link:../codex-app-server
+      '@forge/config':
+        specifier: workspace:*
+        version: link:../config
+      '@forge/core':
+        specifier: workspace:*
+        version: link:../core
+      '@forge/model-compat':
+        specifier: workspace:*
+        version: link:../model-compat
+      '@forge/model-deepseek':
+        specifier: workspace:*
+        version: link:../model-deepseek
+      '@forge/model-openai':
+        specifier: workspace:*
+        version: link:../model-openai
+      '@forge/persistence':
+        specifier: workspace:*
+        version: link:../persistence
+      '@forge/plugin-api':
+        specifier: workspace:*
+        version: link:../plugin-api
+      '@forge/resources':
+        specifier: workspace:*
+        version: link:../resources
+      '@forge/tools':
+        specifier: workspace:*
+        version: link:../tools
 
   packages/auth:
     dependencies:

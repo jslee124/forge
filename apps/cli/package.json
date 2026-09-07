@@ -34,7 +34,8 @@
     "commander": "^15.0.0",
     "ink": "^7.1.1",
     "react": "^19.2.8",
-    "undici": "^7.29.0"
+    "undici": "^7.29.0",
+    "@forge/application": "workspace:*"
   },
   "devDependencies": {
     "@types/react": "^19.2.18",

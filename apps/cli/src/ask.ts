@@ -10,10 +10,7 @@ import {
   ModelProviderError,
   type ModelUsage,
 } from "@forge/core";
-import {
-  DEFAULT_DEEPSEEK_MODEL,
-  type DeepSeekThinkingMode,
-} from "@forge/model-deepseek";
+import { DEFAULT_DEEPSEEK_MODEL } from "@forge/model-deepseek";
 import { resolveImageInputs } from "./image-input.js";
 import {
   type CreateForgeModelAdapterOptions,
@@ -21,29 +18,15 @@ import {
 } from "./model-adapter.js";
 import { createSigintCancellationScope } from "./signals.js";
 
-export interface WritableOutput {
-  write(chunk: string): unknown;
-}
+export type { AskOptions, WritableOutput } from "@forge/application";
 
-export interface AskOptions {
-  readonly engine?: string;
-  readonly provider?: string;
-  readonly model?: string;
-  readonly reasoningEffort?: string;
-  readonly thinking?: string;
-  readonly permissionProfile?: string;
-  readonly maxSteps?: number;
-  readonly maxToolCalls?: number;
-  readonly commandTimeoutMs?: number;
-  readonly maxToolOutputBytes?: number;
-  readonly contextMode?: string;
-  readonly reservedOutputTokens?: number;
-  readonly bufferTokens?: number;
-  readonly recentTailTokens?: number;
-  readonly summaryTargetTokens?: number;
-  readonly image?: readonly string[];
-}
+import {
+  type AskOptions,
+  parseThinkingMode,
+  type WritableOutput,
+} from "@forge/application";
 
+export { parseThinkingMode } from "@forge/application";
 export interface AskDependencies {
   readonly env: NodeJS.ProcessEnv;
   readonly stdout: WritableOutput;
@@ -283,16 +266,6 @@ function renderUsage(usage: ModelUsage, stderr: WritableOutput): void {
       `[usage] ${entries.map(([name, value]) => `${name}=${value}`).join(" ")}\n`,
     );
   }
-}
-
-export function parseThinkingMode(value: string): DeepSeekThinkingMode {
-  if (value === "enabled" || value === "disabled") {
-    return value;
-  }
-
-  throw new ModelConfigurationError(
-    `Invalid thinking mode "${value}". Use "enabled" or "disabled".`,
-  );
 }
 
 function parseReasoningEffort(

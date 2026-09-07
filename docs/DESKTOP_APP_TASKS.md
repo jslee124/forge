@@ -22,7 +22,7 @@ offline work. This checklist does not request multiple agents.
 | D01 | Baseline and technical verification | None | Complete |
 | D02 | Electron scaffold and packaging smoke | D01 | Complete |
 | D03 | Bilingual interactive prototype | D02 | Complete |
-| D04 | Shared application services | D01 | Not started |
+| D04 | Shared application services | D01 | Complete |
 | D05 | Agent process and protocol | D02, D04 | Not started |
 | D06 | Workspaces and sessions | D03, D05 | Not started |
 | D07 | Native Forge execution | D06 | Not started |
@@ -132,6 +132,31 @@ shared services, retaining thin compatible CLI entrypoints and injectable fakes.
 **Accept:** no React/Ink in core, unchanged engine auth/policy/resources/context,
 no string-derived protocol or parallel task entity. Revert without data migration.
 **Verify:** focused CLI/session/provider tests, pnpm check, deterministic contracts.
+
+**Completion record (2026-09-07, Complete):** extracted private
+`@forge/application` in `packages/application`. It owns native run assembly,
+Codex execution/auth/model discovery, model-adapter selection, image resolution,
+and persistent session/context operations; its root also exposes the existing
+configuration/instruction loaders. CLI paths retain compatible exports/wrappers.
+Terminal event rendering, approval previews/questions, SIGINT, browser opening,
+and terminal hyperlink formatting remain in CLI and are injected where needed.
+The shared services have no CLI/React/Ink/Electron dependency or terminal stream
+access. Native `RunEvent`/`RunResult`, existing Codex structured output, adapter/client
+fakes, approvals and cancellation are retained; output sinks remain compatibility
+interfaces, not a desktop wire protocol. No loop, session schema, authority, provider
+credentials, resource policy, or task entity was added or migrated. D05 must define
+and validate the actual process protocol, including existing Codex bridge limits.
+
+Verification: focused application/CLI/session/config/provider regressions passed
+14 files / 91 tests, including a direct terminal-free execution/save/restart test
+and an application dependency-boundary test; `CI=true pnpm check` and
+`CI=true pnpm eval:deterministic` (13 files / 71 tests) passed. Workspace references,
+lockfile links, package bundling and version/tag manifest lists include the private
+package. `CI=true pnpm package:verify` passed the packed-install checks
+(336,459-byte tarball); a separate retry encountered registry HTTP 503.
+Existing third-party lock versions are unchanged. Desktop real execution
+and live-provider/auth checks are deferred to D05–D08. Reverting this extraction
+requires no user-data migration.
 
 ## D05 · Agent process and protocol
 

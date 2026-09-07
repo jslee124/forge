@@ -9,6 +9,7 @@
     "jsx": "react-jsx"
   },
   "references": [
+    { "path": "../../packages/application" },
     { "path": "../../packages/auth" },
     { "path": "../../packages/codex-app-server" },
     { "path": "../../packages/config" },

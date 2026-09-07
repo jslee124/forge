@@ -1,6 +1,7 @@
 {
   "files": [],
   "references": [
+    { "path": "./packages/application" },
     { "path": "./packages/auth" },
     { "path": "./packages/config" },
     { "path": "./packages/codex-app-server" },

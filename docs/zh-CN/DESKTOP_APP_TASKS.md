@@ -20,7 +20,7 @@
 | D01 | 基线与技术验证 | 无 | 已完成 |
 | D02 | Electron 工程与打包冒烟 | D01 | 已完成 |
 | D03 | 双语界面与可交互原型 | D02 | 已完成 |
-| D04 | 共享应用服务抽取 | D01 | 未开始 |
+| D04 | 共享应用服务抽取 | D01 | 已完成 |
 | D05 | Agent 进程和通信协议 | D02、D04 | 未开始 |
 | D06 | 工作空间与会话接入 | D03、D05 | 未开始 |
 | D07 | 原生 Forge 真实执行 | D06 | 未开始 |
@@ -116,6 +116,24 @@ electron-vite 生产构建通过。这仍是仅展示状态的 D03 原型，不�
 不用终端字符串重建协议，不新增平行任务实体。为依赖注入保留离线 fake 能力。
 **验证**：相关 CLI/session/provider 回归、`CI=true pnpm check`、跨层确定性评估。
 回退该提取应不需要用户数据迁移。
+
+**完成记录（2026-09-07，已完成）**：新增私有 `@forge/application`
+（`packages/application`），承接原生执行组装、Codex 执行/认证/模型发现、adapter
+选择、图片解析和持久会话/上下文操作；根入口也导出现有配置与指令加载函数。
+CLI 原路径保留兼容导出与薄包装。终端事件渲染、审批预览/提问、SIGINT、浏览器打开
+和终端超链接格式化留在 CLI，按需注入。共享服务不依赖 CLI、React、Ink 或 Electron，
+不访问终端输入输出；保留原生 `RunEvent`/`RunResult`、现有 Codex 结构化输出、
+adapter/client fake 注入、审批与取消。输出 sink 仍是兼容接口，不是桌面通信协议。
+没有新增或迁移 agent loop、会话 schema、权限、provider 凭据、资源策略或任务实体。
+D05 仍需定义并校验真实进程协议，并处理现有 Codex bridge 的能力限制。
+
+验证：application/CLI/session/config/provider 定向回归 14 文件 / 91 项通过，
+包含不依赖终端的执行/保存/重启恢复及应用层依赖边界测试；`CI=true pnpm check`、
+`CI=true pnpm eval:deterministic`（13 文件 / 71 项）通过。工作区引用、锁文件链接、
+打包及版本/tag manifest 列表均纳入新私有包；`CI=true pnpm package:verify`
+打包安装验证通过（tarball 336,459 字节），另一次重试遇到 registry HTTP 503。
+现有第三方锁定版本未改变。
+桌面真实执行与真实 provider/认证检查留待 D05–D08，回退此次抽取不需要用户数据迁移。
 
 ## D05 · Agent 进程和通信协议
 
