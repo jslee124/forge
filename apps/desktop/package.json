@@ -7,6 +7,7 @@
   "scripts": {
     "build": "electron-vite build",
     "dev": "electron-vite dev",
+    "preview:renderer": "vite preview --outDir out/renderer --host 127.0.0.1",
     "package": "pnpm build && electron-builder --mac",
     "package:dir": "pnpm build && electron-builder --dir --mac --config.electronDist=node_modules/electron/dist",
     "smoke": "pnpm smoke:development && pnpm smoke:packaged",
@@ -16,16 +17,28 @@
     "typecheck": "tsc -b"
   },
   "dependencies": {
+    "@phosphor-icons/react": "^2.1.10",
+    "@radix-ui/react-select": "^2.2.6",
+    "clsx": "^2.1.1",
+    "i18next": "^25.5.2",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "react-i18next": "^15.7.3",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
+    "shiki": "^3.12.2",
+    "tailwind-merge": "^3.3.1",
+    "zustand": "^5.0.8"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4.1.13",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.2.0",
     "electron": "44.2.0",
     "electron-builder": "^26.15.3",
     "electron-vite": "5.0.0",
+    "tailwindcss": "^4.1.13",
     "vite": "^7.3.6"
   }
 }

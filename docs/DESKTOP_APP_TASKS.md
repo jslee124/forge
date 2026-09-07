@@ -21,7 +21,7 @@ offline work. This checklist does not request multiple agents.
 | --- | --- | --- | --- |
 | D01 | Baseline and technical verification | None | Complete |
 | D02 | Electron scaffold and packaging smoke | D01 | Complete |
-| D03 | Bilingual interactive prototype | D02 | Not started |
+| D03 | Bilingual interactive prototype | D02 | Complete |
 | D04 | Shared application services | D01 | Not started |
 | D05 | Agent process and protocol | D02, D04 | Not started |
 | D06 | Workspaces and sessions | D03, D05 | Not started |
@@ -108,6 +108,22 @@ in settings and covers menus/status/errors. Simulated approval/stop/failure make
 no real model calls or file changes.
 **Verify:** rendered screenshots in both locales, long text/tables/code, narrow
 windows, keyboard focus; record and correct visual differences.
+
+**Completion record (2026-09-07, Complete):** implemented the D03 renderer in
+`apps/desktop` with shared Tailwind CSS variables, a selective Radix-based Select,
+Zustand view/draft/panel state, centralized i18next English and Simplified Chinese
+resources, react-markdown/remark-gfm, and a TSX-only Shiki highlighter. Home,
+workbench, and settings are interactive; task switching retains drafts, panels
+collapse, folder/model/engine controls respond, and three simulated tasks cover
+running/stop, approval, and failure/retry without model calls, commands, or file
+operations. Browser checks covered both locales, the generated task flow, Markdown
+table/code, 840 px narrow layout with no document overflow, visible keyboard focus,
+and a 1486 × 1027 same-state comparison against the contract image. The comparison
+history and intentional P3 differences are recorded in
+[`apps/desktop/design-qa.md`](../apps/desktop/design-qa.md), whose final result is
+`passed`. Verification: 3 desktop files / 9 tests passed; `CI=true pnpm check` and
+the final electron-vite production build passed. This is still a display-only D03
+prototype and does not establish any D05–D11 real execution capability.
 
 ## D04 · Shared application services
 
