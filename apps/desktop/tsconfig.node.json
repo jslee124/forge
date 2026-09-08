@@ -14,5 +14,19 @@
     "src/preload/**/*.ts",
     "src/shared/**/*.ts"
   ],
-  "exclude": ["src/**/*.test.ts"]
+  "exclude": ["src/**/*.test.ts"],
+  "references": [
+    {
+      "path": "../../packages/application"
+    },
+    {
+      "path": "../../packages/core"
+    },
+    {
+      "path": "../../packages/persistence"
+    },
+    {
+      "path": "../../packages/codex-app-server"
+    }
+  ]
 }

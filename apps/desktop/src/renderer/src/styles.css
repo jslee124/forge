@@ -861,3 +861,154 @@ textarea:focus-visible,
     animation: none;
   }
 }
+
+.live-shell button,
+.live-shell select,
+.live-shell input {
+  font: inherit;
+}
+.live-shell button {
+  padding: 9px 12px;
+  border: 1px solid #e2e2de;
+  border-radius: 8px;
+  background: #fafaf8;
+  cursor: pointer;
+}
+.live-shell button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.live-shell .sidebar {
+  gap: 14px;
+  padding: 22px 16px;
+  width: 220px;
+}
+.live-path {
+  overflow-wrap: anywhere;
+}
+.live-sessions {
+  flex: 1;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.live-sessions button {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: left;
+}
+.live-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+.live-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 18px 24px;
+  border-bottom: 1px solid #e8e8e4;
+}
+.live-toolbar input {
+  width: 180px;
+}
+.live-transcript {
+  flex: 1;
+  overflow: auto;
+  padding: 28px max(24px, calc((100% - 780px) / 2));
+}
+.live-user {
+  margin: 20px 0 20px auto;
+  width: fit-content;
+  max-width: 85%;
+  padding: 12px 18px;
+  background: #f0f0ec;
+  border-radius: 16px;
+  overflow-wrap: anywhere;
+}
+.live-answer {
+  margin: 20px 0;
+  overflow-wrap: anywhere;
+}
+.live-composer {
+  margin: 12px 24px 24px;
+  padding: 14px;
+  border: 1px solid #deded8;
+  border-radius: 16px;
+}
+.live-composer textarea {
+  width: 100%;
+  min-height: 70px;
+  resize: vertical;
+  border: 0;
+  background: transparent;
+  font: inherit;
+}
+.live-composer p,
+.live-panel p {
+  color: #777;
+  font-size: 12px;
+}
+.live-panel {
+  width: 280px;
+  flex-shrink: 0;
+  padding: 18px;
+  border-left: 1px solid #e8e8e4;
+  overflow: auto;
+}
+.live-panel pre,
+.live-shell .approval-card pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+.live-panel details {
+  padding: 10px 0;
+}
+.live-settings {
+  padding: 30px;
+  overflow: auto;
+}
+.live-settings button {
+  margin: 4px;
+}
+@media (max-width: 1050px) {
+  .live-panel {
+    width: 220px;
+  }
+  .live-shell .sidebar {
+    width: 170px;
+  }
+}
+@media (max-width: 850px) {
+  .live-panel {
+    display: none;
+  }
+}
+.live-shell .app-frame {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  grid-template-columns: none;
+  overflow: hidden;
+}
+.live-shell .sidebar {
+  flex-shrink: 0;
+}
+.live-shell .live-panel {
+  min-height: 0;
+}
+.live-shell .live-toolbar input {
+  border: 1px solid #deded8;
+  border-radius: 6px;
+  padding: 5px 8px;
+}
+.live-shell select {
+  border: 1px solid #deded8;
+  border-radius: 6px;
+  padding: 5px 8px;
+}

@@ -250,6 +250,8 @@ export const sessionSnapshotSchema = z
     lastRunStatus: z
       .enum(["completed", "failed", "cancelled", "denied", "limit_reached"])
       .optional(),
+    lastEngine: z.enum(["native", "codex"]).optional(),
+    engineHistoryStart: z.number().int().nonnegative().optional(),
     contextCheckpoint: contextCheckpointSchema.optional(),
   })
   .strict()
@@ -272,6 +274,11 @@ export const sessionSnapshotSchema = z
         });
       }
     }
+    if ((session.engineHistoryStart ?? 0) > session.history.length)
+      context.addIssue({
+        code: "custom",
+        message: "Invalid engine history boundary.",
+      });
     const checkpoint = session.contextCheckpoint;
     if (
       checkpoint &&
@@ -305,6 +312,8 @@ export interface SessionSnapshot {
   readonly runIds: readonly string[];
   readonly historyFidelity: "structured" | "text-only-migrated";
   readonly lastRunStatus?: RunStatus;
+  readonly lastEngine?: "native" | "codex";
+  readonly engineHistoryStart?: number;
   readonly contextCheckpoint?: ContextCheckpoint;
 }
 

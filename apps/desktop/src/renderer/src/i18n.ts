@@ -6,6 +6,66 @@ export type Locale = "en" | "zh-CN";
 export const resources = {
   en: {
     translation: {
+      live: {
+        errors: {
+          "workspace-unavailable":
+            "The workspace directory is missing or inaccessible. Choose an existing directory.",
+          "workspace-changed":
+            "The workspace boundary has changed. Restore the original directory before resuming.",
+          "auto-workspace-boundary":
+            "An ancestor Git repository would expose more than this task's directory. Choose a separate workspace.",
+          "session-busy":
+            "This session is occupied. Wait for the other run to finish.",
+          "session-conflict":
+            "The saved session changed. Reload it before continuing.",
+          "session-storage-failed":
+            "The session could not be read or saved. Check disk access and session integrity; reload before retrying.",
+          "configuration-invalid":
+            "Forge configuration is invalid. Correct it before retrying.",
+        },
+
+        send: "Send",
+        "new": "New task",
+        folder: "Choose workspace",
+        automatic: "A private workspace is created on submission",
+        engine: "Engine",
+        model: "Model",
+        defaultModel: "Codex default",
+        context: "Context",
+        error:
+          "The operation failed. Check configuration, directory access and session ownership; inspect activity details.",
+        nativeConfig:
+          "Forge reads your existing Forge configuration and credentials inside the Agent process.",
+        authCheck: "Check status and models",
+        login: "Sign in to Codex",
+        cancelLogin: "Cancel sign-in",
+        openLogin: "Open sign-in page",
+        codexLimits:
+          "Codex uses its own tools and sandbox. Command/file approval is supported; full patches, sources and tool counts are not provided by this bridge.",
+        approval: "Approve this action once",
+        switchNotice:
+          "Switching engines carries text history only; tool state and approvals do not transfer.",
+        stopping: "Stopping…",
+        stop: "Stop",
+        compact: "Compact context",
+        activity: "Run activity",
+        verification:
+          "Completion reports the run outcome. Inspect tool output for actual verification; changes are not rolled back on cancellation.",
+        ready: "Ready",
+        running: "Running",
+        completed: "Completed",
+        cancelled: "Stopped",
+        failed: "Failed",
+        interrupted: "Interrupted",
+        auth: {
+          unknown: "Status not checked",
+          unavailable: "Codex unavailable; install/configure the Codex CLI",
+          "signed-out": "Not signed in",
+          authenticated: "Signed in",
+          "signing-in": "Signing in…",
+          failed: "Sign-in failed",
+        },
+      },
       common: {
         forge: "Forge",
         simulation: "Interactive prototype · no real actions",
@@ -21,6 +81,7 @@ export const resources = {
         retry: "Retry simulation",
       },
       status: {
+        interrupted: "Run interrupted: Agent disconnected",
         running: "Running",
         approval: "Needs approval",
         failed: "Failed",
@@ -104,6 +165,59 @@ export const resources = {
   },
   "zh-CN": {
     translation: {
+      live: {
+        errors: {
+          "workspace-unavailable": "工作目录缺失或无法访问，请选择现有目录。",
+          "workspace-changed": "工作空间边界已变化，请恢复原目录后再续聊。",
+          "auto-workspace-boundary":
+            "祖先 Git 仓库会扩大自动目录的访问范围，请选择独立工作空间。",
+          "session-busy": "会话已被占用，请等待另一运行结束。",
+          "session-conflict": "已保存的会话发生变化，请重新加载后继续。",
+          "session-storage-failed":
+            "无法读取或保存会话，请检查磁盘权限和会话文件，重新加载后重试。",
+          "configuration-invalid": "Forge 配置无效，请修正后重试。",
+        },
+
+        send: "发送",
+        "new": "新任务",
+        folder: "选择工作空间",
+        automatic: "提交时创建独立工作空间",
+        engine: "引擎",
+        model: "模型",
+        defaultModel: "Codex 默认模型",
+        context: "上下文",
+        error:
+          "操作失败。请检查配置、目录权限和会话占用，查看运行活动中的详情。",
+        nativeConfig: "Forge 在 Agent 进程中读取已有的 Forge 配置和凭据。",
+        authCheck: "检查状态与模型",
+        login: "登录 Codex",
+        cancelLogin: "取消登录",
+        openLogin: "打开登录页面",
+        codexLimits:
+          "Codex 使用自己的工具与沙箱。支持命令/文件审批；当前桥接不提供完整补丁、来源和工具计数。",
+        approval: "批准这一次操作",
+        switchNotice: "跨引擎续聊只携带文本历史，不传递工具状态和审批授权。",
+        stopping: "正在停止…",
+        stop: "停止",
+        compact: "压缩上下文",
+        activity: "运行活动",
+        verification:
+          "完成状态表示运行结果；验证依据请查看工具输出。取消不会回滚已发生的修改。",
+        ready: "就绪",
+        running: "运行中",
+        completed: "已完成",
+        cancelled: "已停止",
+        failed: "失败",
+        interrupted: "已中断",
+        auth: {
+          unknown: "尚未检查状态",
+          unavailable: "Codex 不可用，请安装或配置 Codex CLI",
+          "signed-out": "未登录",
+          authenticated: "已登录",
+          "signing-in": "正在登录…",
+          failed: "登录失败",
+        },
+      },
       common: {
         forge: "Forge",
         simulation: "交互原型 · 不执行真实操作",
@@ -119,6 +233,7 @@ export const resources = {
         retry: "重新模拟",
       },
       status: {
+        interrupted: "运行中断：Agent 连接已断开",
         running: "正在执行",
         approval: "需要批准",
         failed: "失败",

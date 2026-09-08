@@ -22,6 +22,7 @@ import { useTranslation } from "react-i18next";
 import type { AgentHealth } from "../../shared/desktop-api.js";
 import logoUrl from "./assets/forge-logo.svg";
 import i18n, { type Locale } from "./i18n.js";
+import { LiveWorkbench } from "./live-workbench.js";
 import { Markdown } from "./markdown.js";
 import { Select } from "./select.js";
 import {
@@ -582,6 +583,18 @@ function App(): React.JSX.Element {
       )
       .catch(() => setAgentStatus(t("status.unavailable")));
   }, [t]);
+  React.useEffect(
+    () =>
+      window.forgeDesktop?.onRunEvent((event) => {
+        if (
+          event.payload.type === "complete" &&
+          event.payload.outcome === "interrupted"
+        ) {
+          setAgentStatus(t("status.interrupted"));
+        }
+      }),
+    [t],
+  );
   return (
     <main className="app-shell">
       <div className="prototype-banner">
@@ -608,6 +621,6 @@ const root = document.getElementById("root");
 if (!root) throw new Error("Forge Desktop renderer root is missing");
 ReactDOM.createRoot(root).render(
   <React.StrictMode>
-    <App />
+    {window.forgeDesktop ? <LiveWorkbench /> : <App />}
   </React.StrictMode>,
 );

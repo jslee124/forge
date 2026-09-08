@@ -23,10 +23,10 @@ offline work. This checklist does not request multiple agents.
 | D02 | Electron scaffold and packaging smoke | D01 | Complete |
 | D03 | Bilingual interactive prototype | D02 | Complete |
 | D04 | Shared application services | D01 | Complete |
-| D05 | Agent process and protocol | D02, D04 | Not started |
-| D06 | Workspaces and sessions | D03, D05 | Not started |
-| D07 | Native Forge execution | D06 | Not started |
-| D08 | Codex execution and authentication | D06 | Not started |
+| D05 | Agent process and protocol | D02, D04 | Complete |
+| D06 | Workspaces and sessions | D03, D05 | Complete; DeepSeek live two-turn check passed |
+| D07 | Native Forge execution | D06 | Offline complete; DeepSeek two-turn smoke passed |
+| D08 | Codex execution and authentication | D06 | Offline complete; local auth checked |
 | D09 | File operations and change review | D07, D08 | Not started |
 | D10 | Content reading and previews | D09 | Not started |
 | D11 | Search plugins and sourced reports | D07, D08, D10 | Not started |
@@ -168,6 +168,28 @@ credentials. Crashes release waiting UI without replaying effects; no process/li
 **Verify:** offline ordering/duplicate/late events, approval cancellation, disconnects
 and termination. Do not describe process isolation as a sandbox.
 
+**Completion record (2026-09-07)**: Added strictly validated start/cancel/approve
+messages, request/session/run correlation, monotonic event sequences, disposable
+subscriptions, and an injectable single-run executor. Duplicate requests and used
+run IDs never replay; cross-run, duplicate and late events are ignored. Sequence
+gaps and acknowledgement timeouts interrupt the connection and terminate the Agent.
+Cancellation/shutdown deny pending approvals; cancellation completion waits for the
+executor. Crashes settle pending requests and emit an interruption shown bilingually.
+The fixed preload bridge checks the owning window/main frame in main and rejects
+extra credential/authority fields. Concurrent shutdown is coalesced with exit waiting
+and kill fallback. Shared chunks are included in both packaged process locations.
+
+Validation: `CI=true pnpm check` and `CI=true pnpm exec vitest run apps/desktop/src`
+passed (4 files / 17 tests), including approval acceptance/cancellation, cross-run
+messages, replay, late events, sequence gaps, crashes and 20 lifecycle cleanup cycles.
+`CI=true pnpm desktop:smoke` hit SIGABRT inside the sandbox; outside it both development
+and unsigned local arm64 packaged application smoke passed. No live provider was called.
+The production entry has no executor yet and returns false for start. D06 connects
+sessions; D07/D08 connect shared application execution, detailed tool events, results
+and engine-specific approval semantics. The bounded text/approval/complete DTOs do
+not replace the full RunEvent/RunResult contract or establish full Codex bridge approval
+support. Process isolation is not a security sandbox.
+
 ## D06 · Workspaces and sessions
 
 **Deliver:** folder selection, shared cwd/root semantics, automatic
@@ -178,6 +200,46 @@ boundary. Missing/corrupt directories/history, overrides, writes and conflicts r
 errors while preserving snapshots. No full Forge-home access or mandatory task.json/input/output layout.
 **Verify:** config/workspace/persistence regressions and temporary-directory restart/conflict tests.
 
+**Dependency integration (2026-09-08)**: Connected directory selection, private automatic
+workspaces, shared Session creation/list/resume, per-session drafts, Forge home display,
+and compaction for D07/D08. Automatic paths are canonicalized and reject expansion to
+an ancestor Git root; execution rechecks workspace boundaries. Exclusive desktop
+session locks and snapshot hashes reject occupied sessions and changed snapshots.
+These are not a takeover service; a crash lock requires manual handling after verifying
+no owner remains. This was the initial dependency subset; full acceptance follows.
+
+**Completion (2026-09-08)**: Startup lists existing Sessions across workspaces, making
+private automatic-workspace tasks discoverable after restart. Resume uses the saved
+workingDirectory and revalidates its current root, retaining Git subdirectories.
+Missing/non-directory paths, changed boundaries and invalid configuration reject the
+transition without replacing the active session. Drafts are scoped to a session or
+new-task working directory within the current window. Management failures have bilingual
+categories; raw parser errors and credentials never cross into the renderer.
+
+FileSessionStore now takes a short exclusive write lock and checks the loaded revision
+before atomic replacement. Stale desktop/CLI clients cannot overwrite a newer snapshot
+written through the same protocol, and listing never refreshes an active writer's revision.
+The desktop's longer run lock still rejects occupied sessions. No automatic takeover:
+crash-left `.desktop-lock` / `.json.write-lock` files require manual removal after checking
+that no owner remains. External writers bypassing this version's store do not honor its lock.
+
+Validation: 97 focused desktop/application/config/workspace/persistence/CLI tests and
+71 deterministic cross-layer checks passed. Nine new workspace/session cases cover Git
+subdirectories, ordinary/missing directories, corrupt/missing history, configuration
+restrictions, automatic boundaries, stale/concurrent writers and unwritable-directory
+snapshot preservation. Live DeepSeek `deepseek-v4-flash` passed: create/read a file and
+run `pwd`, recreate the desktop service, discover/resume from the startup list, then
+read/edit the same file. Assertions cover final contents, two persisted runs, successful
+tool exchanges, approvals and streaming text. Live calls use DesktopApplication and the
+shared native executor; separate Electron smoke covers the bridge/UI. This is not a
+live-model GUI interaction test. Temporary files/sessions were removed and credentials
+stayed inside the test process. Explicit reproduction:
+`CI=true FORGE_DESKTOP_LIVE_DEEPSEEK=1 pnpm exec vitest run apps/desktop/src/agent/deepseek-live.test.ts`.
+Default test runs skip live calls. `pnpm check`, `pnpm check:docs` and
+`pnpm package:verify` passed (CLI package: 337194 bytes). Electron hit SIGABRT inside
+the restricted sandbox; development and local unsigned arm64 packaged smoke both passed
+outside it. No signing, notarization or publication was performed.
+
 ## D07 · Native Forge execution
 
 **Deliver:** real submission, streaming, activity, approval/cancel, persistence/context display.
@@ -186,6 +248,21 @@ no new actions after cancellation, stopping until confirmed. Recover complete ex
 distinguish completion from verification, preserve TUI behavior.
 **Verify:** fake-adapter end-to-end first, then authorized configured live-provider smoke;
 record separately and finish independent offline work when credentials are unavailable.
+
+**Implementation and offline completion (2026-09-08)**: The real Electron workbench
+calls `@forge/application.runTask` in the Agent through the fixed bridge, with streaming
+text/reasoning, tool activity, one-time approval/denial, confirmed cancellation, session
+saving, and context. Engine/workspace/session switching is disabled during execution.
+Native execution keeps the existing safe policy, tools and agent loop. A denied tool
+never executes; the model may still answer afterward, so tool failure is distinct from
+run outcome. Shutdown cancels and drains the executor with main's termination fallback.
+
+Offline tests exercise actual read_file, edit_file create/replace, and run_command,
+approval/denial/cancellation, two turns, restart with four complete tool exchanges,
+occupied/stale sessions, and automatic-workspace execution. Optional engine and history
+boundary fields extend schema v3 while accepting old snapshots. Switching engines sends
+text only; restoring does not reintroduce earlier tool state. No approval authority is
+persisted. Live paid-provider execution remains a separately authorized acceptance step.
 
 ## D08 · Codex execution and authentication
 
@@ -196,6 +273,29 @@ Forge plugins as Codex tools or infer complete approvals/sources from exit-code 
 Identify and address bridge gaps or label limits. No active-run engine switch; continuation
 follows D01 decisions.
 **Verify:** current transport/CLI offline checks separately from authorized local integration.
+
+**Implementation and offline completion (2026-09-08)**: Connected `runCodexTask`, model
+catalog/status, browser login and login cancellation to the same workbench. Credentials
+remain with the existing Codex App Server. A non-terminal host approval callback supports
+one-time command/file acceptance or denial. Unknown operations remain unsupported.
+Startup cancellation races, completion-listener cleanup and late approval acceptance
+are covered; Agent shutdown closes owned Codex clients. Offline coverage includes text,
+reasoning, errors, cancellation, saving and restart/resume.
+
+The bridge does not expose complete patches, sources, tool counts or native Forge tool
+exchanges; the UI states these limits without claiming Forge plugins or falling back to
+native execution. A read-only check through the local Codex CLI outside the sandbox
+reported authenticated and 5 available models (unavailable inside the sandbox). No live
+model turn or fresh browser login was performed, so neither is claimed as verified.
+
+**Shared validation**: Focused regression passed (11 files / 72 tests), as did
+`CI=true pnpm check`, `CI=true pnpm eval:deterministic` (13 files / 71 tests), and
+`CI=true pnpm package:verify` (336,873 bytes). `CI=true pnpm desktop:smoke` passed for
+development and the unsigned arm64 `.app`, including real preload/main/Agent state RPC.
+Application dependencies/resources are packaged and preload schemas are bundled for
+sandbox compatibility. Chinese/English screenshots and fixes for initial-window identity,
+panel layout and send wording are recorded in [desktop QA](../apps/desktop/design-qa.md).
+No commit, release, signing or notarization was performed.
 
 ## D09 · File operations and change review
 

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import {
   mkdir,
+  open,
   readdir,
   readFile,
   rename,
@@ -46,6 +47,7 @@ export class PersistenceError extends Error {
 export class FileSessionStore {
   readonly #sessionsDirectory: string;
   readonly #secrets: readonly string[];
+  readonly #revisions = new Map<string, string>();
 
   constructor(
     forgeHome: string,
@@ -57,9 +59,11 @@ export class FileSessionStore {
 
   create(workspace: WorkspaceContext): SessionSnapshot {
     const now = new Date().toISOString();
+    const id = randomUUID();
+    this.#revisions.set(id, "");
     return withLegacyMessages({
       schemaVersion: 3,
-      id: randomUUID(),
+      id,
       createdAt: now,
       updatedAt: now,
       workspaceRoot: workspace.root,
@@ -115,18 +119,46 @@ export class FileSessionStore {
         `Could not save session ${validated.id}: the redacted snapshot is ${serializedBytes} bytes, exceeding the ${MAX_SESSION_BYTES}-byte durable session limit. No session file was replaced, so any previous valid snapshot remains resumable. Start a new session and archive the current session file before continuing.`,
       );
     }
+    const lockPath = `${target}.write-lock`;
+    const lock = await open(lockPath, "wx", 0o600).catch((cause) => {
+      throw new PersistenceError("Session is being saved by another writer.", {
+        cause,
+      });
+    });
     try {
+      const expected = this.#revisions.get(validated.id);
+      if (
+        expected !== undefined &&
+        expected !== (await this.#revision(target))
+      ) {
+        throw new PersistenceError(
+          "Session changed since it was loaded; reload before saving.",
+        );
+      }
       await writeFile(temporary, serialized, {
         encoding: "utf8",
         mode: 0o600,
         flag: "wx",
       });
       await rename(temporary, target);
+      this.#revisions.set(validated.id, sha256(serialized));
     } catch (error) {
       await unlink(temporary).catch(() => undefined);
       throw new PersistenceError(`Could not save session ${validated.id}.`, {
         cause: error,
       });
+    } finally {
+      await lock.close();
+      await unlink(lockPath);
+    }
+  }
+
+  async #revision(target: string): Promise<string> {
+    try {
+      return sha256(await readFile(target, "utf8"));
+    } catch (error) {
+      if (isNotFound(error)) return "";
+      throw error;
     }
   }
 
@@ -147,6 +179,9 @@ export class FileSessionStore {
     }
     try {
       const persisted = persistedSessionSnapshotSchema.parse(JSON.parse(text));
+      if (persisted.id !== sessionId)
+        throw new PersistenceError("Session ID does not match its filename.");
+      this.#revisions.set(sessionId, sha256(text));
       if (persisted.schemaVersion === 3) {
         return withLegacyMessages(
           persisted as Omit<SessionSnapshot, "messages">,
@@ -191,7 +226,7 @@ export class FileSessionStore {
     return snapshot;
   }
 
-  async list(workspaceRoot: string): Promise<readonly SessionSummary[]> {
+  async list(workspaceRoot?: string): Promise<readonly SessionSummary[]> {
     let entries: string[];
     try {
       entries = await readdir(this.#sessionsDirectory);
@@ -206,8 +241,16 @@ export class FileSessionStore {
       .filter((name) => name.endsWith(".json"))
       .slice(0, 1_000)) {
       try {
-        const snapshot = await this.load(entry.slice(0, -5));
-        if (snapshot.workspaceRoot === workspaceRoot) snapshots.push(snapshot);
+        const reader = new FileSessionStore(
+          path.dirname(this.#sessionsDirectory),
+          { secrets: this.#secrets },
+        );
+        const snapshot = await reader.load(entry.slice(0, -5));
+        if (
+          workspaceRoot === undefined ||
+          snapshot.workspaceRoot === workspaceRoot
+        )
+          snapshots.push(snapshot);
       } catch {
         // A corrupt unrelated snapshot must not make every valid session unavailable.
       }

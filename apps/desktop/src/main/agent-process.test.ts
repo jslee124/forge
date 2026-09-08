@@ -49,6 +49,43 @@ describe("AgentProcess", () => {
     expect(child.listenerCount("exit")).toBe(0);
   });
 
+  it("repeated startup and concurrent shutdown leave no listeners", async () => {
+    for (let index = 0; index < 20; index++) {
+      const child = new FakeUtilityProcess();
+      const agent = new AgentProcess(child as unknown as UtilityProcess);
+      child.emit("message", { type: "ready", pid: 42 });
+      await agent.waitUntilReady();
+      await Promise.all([agent.close(), agent.close()]);
+      expect(child.listenerCount("message")).toBe(0);
+      expect(child.listenerCount("exit")).toBe(0);
+      expect(child.postMessage).toHaveBeenCalledTimes(1);
+    }
+  });
+
+  it("crash interrupts the active run and resolves its pending acknowledgement", async () => {
+    const child = new FakeUtilityProcess();
+    const agent = new AgentProcess(child as unknown as UtilityProcess);
+    child.emit("message", { type: "ready", pid: 42 });
+    const events = vi.fn();
+    agent.runs.subscribe(events);
+    const pending = agent.runs.request({
+      type: "start",
+      requestId: "r",
+      sessionId: "s",
+      runId: "run",
+      engine: "native",
+      prompt: "test",
+    });
+    child.emit("exit", 1);
+    expect(await pending).toBe(false);
+    expect(events).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payload: { type: "complete", outcome: "interrupted" },
+      }),
+    );
+    await agent.close();
+  });
+
   it("rejects pending work and removes listeners after an unexpected exit", async () => {
     const child = new FakeUtilityProcess();
     child.postMessage.mockImplementation(() => undefined);

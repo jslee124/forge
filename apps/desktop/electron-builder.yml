@@ -5,12 +5,15 @@ directories:
   output: release
 files:
   - out/main/index.js
+  - out/main/chunks/**
   - out/preload/**
   - out/renderer/**
   - package.json
 extraResources:
   - from: out/main/agent.js
     to: agent/index.js
+  - from: out/main/chunks
+    to: agent/chunks
   - from: ../../packages/resources/skills
     to: forge-resources/skills
   - from: ../../packages/resources/docs

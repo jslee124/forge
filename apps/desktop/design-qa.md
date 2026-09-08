@@ -48,3 +48,32 @@ No actionable P0, P1, or P2 visual differences remain.
 ## Final result
 
 final result: passed
+
+## D07/D08 execution workbench — 2026-09-08
+
+This is a separate integration check of the real Electron workbench; the D03
+prototype comparison above remains historical evidence for the prototype.
+
+- Passed: actual sandboxed preload → main → utilityProcess application-state RPC
+  in both development and the unsigned local arm64 application.
+- Captured and inspected at a 1100 × 728 content viewport (2× pixels):
+  [Chinese workbench](qa/d07-workbench-zh.png) and
+  [English settings](qa/d08-settings-en.png). The settings language control updates
+  the surrounding UI without recreating the task. English settings has no document
+  horizontal overflow. The captures contain no provider credentials.
+- Corrected during inspection: set the owning window before renderer initialization,
+  override the prototype grid for the third panel, and replace the prototype send
+  label with the real Send/发送 label. The sidebar, transcript, composer, and context
+  panel remain in their intended columns after the layout correction.
+- Run streaming/approval/cancellation and both engine resume paths are covered by
+  offline integration tests. These screenshots show initial/settings states, not a
+  completed live-provider run. No fresh browser sign-in, live model call, or complete
+  D12 visual/failure matrix was performed.
+- Codex approval and interruption routing was checked against the
+  [official App Server reference](https://learn.chatgpt.com/docs/app-server),
+  then validated with the repository's fake transport. Existing bridge limitations
+  remain visible in settings.
+
+Reproduce with `CI=true pnpm desktop:smoke` outside the restricted sandbox.
+The smoke command writes its latest screenshots to the OS temporary directory;
+these checked-in captures preserve the inspected UI state.

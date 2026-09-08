@@ -5,7 +5,17 @@ import { defineConfig, externalizeDepsPlugin } from "electron-vite";
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin()],
+    plugins: [
+      externalizeDepsPlugin({
+        exclude: [
+          "@forge/application",
+          "@forge/core",
+          "@forge/persistence",
+          "@forge/codex-app-server",
+          "zod",
+        ],
+      }),
+    ],
     build: {
       rollupOptions: {
         input: {
@@ -19,7 +29,7 @@ export default defineConfig({
     },
   },
   preload: {
-    plugins: [externalizeDepsPlugin()],
+    plugins: [externalizeDepsPlugin({ exclude: ["zod"] })],
     build: {
       rollupOptions: {
         output: {

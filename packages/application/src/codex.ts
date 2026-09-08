@@ -81,6 +81,8 @@ export interface CodexCommandDependencies {
   readonly connect?: () => Promise<CodexClient>;
   readonly openUrl?: (url: string) => Promise<void>;
   readonly confirm?: (prompt: string) => Promise<boolean>;
+  /** Non-terminal host approval; only one-time accept/decline is supported. */
+  readonly approve?: (description: string) => Promise<boolean>;
 }
 
 export interface CodexAuthOptions {
@@ -279,7 +281,9 @@ export async function runCodexTask(
   dependencies: CodexCommandDependencies,
 ): Promise<number> {
   return withClient(dependencies, async (client) => {
+    if (dependencies.signal.aborted) return 130;
     const account = await readAccount(client, false);
+    if (dependencies.signal.aborted) return 130;
     if (account.account?.type !== "chatgpt") {
       dependencies.stderr.write(
         "ChatGPT subscription sign-in is required. Run `forge auth login openai`.\n",
@@ -288,6 +292,7 @@ export async function runCodexTask(
     }
 
     const models = await listModels(client);
+    if (dependencies.signal.aborted) return 130;
     const selection = selectModel(
       models,
       options.model,
@@ -343,85 +348,95 @@ export async function runCodexTask(
           ephemeral: true,
         },
       );
-      const completion = createTurnCompletion(client, thread.thread.id);
-      const contextConfiguration = {
-        ...DEFAULT_CONTEXT_CONFIGURATION,
-        ...(options.contextMode === "off" ||
-        options.contextMode === "manual" ||
-        options.contextMode === "automatic"
-          ? { mode: options.contextMode }
-          : {}),
-        ...(options.reservedOutputTokens !== undefined
-          ? { reservedOutputTokens: options.reservedOutputTokens }
-          : {}),
-        ...(options.bufferTokens !== undefined
-          ? { bufferTokens: options.bufferTokens }
-          : {}),
-        ...(options.recentTailTokens !== undefined
-          ? { recentTailTokens: options.recentTailTokens }
-          : {}),
-        ...(options.summaryTargetTokens !== undefined
-          ? { summaryTargetTokens: options.summaryTargetTokens }
-          : {}),
-      };
-      const wrapper = codexPrompt(
-        prompt,
-        dependencies.conversation,
-        dependencies.contextCheckpoint,
-        contextConfiguration.recentTailTokens,
-      );
-      if (wrapper instanceof Error) {
-        dependencies.stderr.write(`${wrapper.message}\n`);
-        return 3;
-      }
-      const wrapperTokens = conservativeTextTokens(wrapper.text);
-      const reserve = Math.max(
-        contextConfiguration.reservedOutputTokens,
-        contextConfiguration.bufferTokens,
-      );
-      const window = codexContextWindow(selection.model.id);
-      dependencies.stderr.write(
-        `[context] engine=codex wrapper=${wrapperTokens} retained=${wrapper.retainedMessageCount} omitted=${wrapper.omittedMessageCount} reserve=${reserve} window=${window} internal=opaque\n`,
-      );
-      if (wrapperTokens > window - reserve) {
-        dependencies.stderr.write(
-          `The Forge-owned Codex wrapper is estimated at ${wrapperTokens} tokens and cannot fit before the App Server turn. Compact the session or select a larger-context model.\n`,
-        );
-        return 3;
-      }
-      const turn = await client.request<CodexTurnStartResponse>("turn/start", {
-        threadId: thread.thread.id,
-        input: [
-          {
-            type: "text",
-            text: wrapper.text,
-            text_elements: [],
-          },
-        ],
-        effort: selection.effort,
-        summary: "detailed",
-      });
-      completion.expect(turn.turn.id);
-      const abort = () => {
-        void client
-          .request("turn/interrupt", {
-            threadId: thread.thread.id,
-            turnId: turn.turn.id,
-          })
-          .catch(() => undefined);
-      };
-      dependencies.signal.addEventListener("abort", abort, { once: true });
+      if (dependencies.signal.aborted) return 130;
+      let completion: ReturnType<typeof createTurnCompletion> | undefined;
       try {
-        const completed = await completion.promise;
-        if (completed.turn.status === "completed") return 0;
-        if (completed.turn.status === "interrupted") return 130;
-        dependencies.stderr.write(
-          `Codex turn failed${completed.turn.error?.message ? `: ${redactCodexMessage(completed.turn.error.message)}` : "."}\n`,
+        const contextConfiguration = {
+          ...DEFAULT_CONTEXT_CONFIGURATION,
+          ...(options.contextMode === "off" ||
+          options.contextMode === "manual" ||
+          options.contextMode === "automatic"
+            ? { mode: options.contextMode }
+            : {}),
+          ...(options.reservedOutputTokens !== undefined
+            ? { reservedOutputTokens: options.reservedOutputTokens }
+            : {}),
+          ...(options.bufferTokens !== undefined
+            ? { bufferTokens: options.bufferTokens }
+            : {}),
+          ...(options.recentTailTokens !== undefined
+            ? { recentTailTokens: options.recentTailTokens }
+            : {}),
+          ...(options.summaryTargetTokens !== undefined
+            ? { summaryTargetTokens: options.summaryTargetTokens }
+            : {}),
+        };
+        const wrapper = codexPrompt(
+          prompt,
+          dependencies.conversation,
+          dependencies.contextCheckpoint,
+          contextConfiguration.recentTailTokens,
         );
-        return 1;
+        if (wrapper instanceof Error) {
+          dependencies.stderr.write(`${wrapper.message}\n`);
+          return 3;
+        }
+        const wrapperTokens = conservativeTextTokens(wrapper.text);
+        const reserve = Math.max(
+          contextConfiguration.reservedOutputTokens,
+          contextConfiguration.bufferTokens,
+        );
+        const window = codexContextWindow(selection.model.id);
+        dependencies.stderr.write(
+          `[context] engine=codex wrapper=${wrapperTokens} retained=${wrapper.retainedMessageCount} omitted=${wrapper.omittedMessageCount} reserve=${reserve} window=${window} internal=opaque\n`,
+        );
+        if (wrapperTokens > window - reserve) {
+          dependencies.stderr.write(
+            `The Forge-owned Codex wrapper is estimated at ${wrapperTokens} tokens and cannot fit before the App Server turn. Compact the session or select a larger-context model.\n`,
+          );
+          return 3;
+        }
+        if (dependencies.signal.aborted) return 130;
+        completion = createTurnCompletion(client, thread.thread.id);
+        const turn = await client.request<CodexTurnStartResponse>(
+          "turn/start",
+          {
+            threadId: thread.thread.id,
+            input: [
+              {
+                type: "text",
+                text: wrapper.text,
+                text_elements: [],
+              },
+            ],
+            effort: selection.effort,
+            summary: "detailed",
+          },
+        );
+        completion.expect(turn.turn.id);
+        const abort = () => {
+          void client
+            .request("turn/interrupt", {
+              threadId: thread.thread.id,
+              turnId: turn.turn.id,
+            })
+            .catch(() => undefined);
+        };
+        dependencies.signal.addEventListener("abort", abort, { once: true });
+        if (dependencies.signal.aborted) abort();
+        try {
+          const completed = await completion.promise;
+          if (completed.turn.status === "completed") return 0;
+          if (completed.turn.status === "interrupted") return 130;
+          dependencies.stderr.write(
+            `Codex turn failed${completed.turn.error?.message ? `: ${redactCodexMessage(completed.turn.error.message)}` : "."}\n`,
+          );
+          return 1;
+        } finally {
+          dependencies.signal.removeEventListener("abort", abort);
+        }
       } finally {
-        dependencies.signal.removeEventListener("abort", abort);
-        completion.dispose();
+        completion?.dispose();
       }
     } finally {
       unsubscribeRequests();
@@ -810,10 +825,22 @@ async function handleServerRequest(
       ? `Run command${typeof command === "string" ? `: ${safeTerminalText(command)}` : ""}`
       : "Apply the requested file change";
   const prompt = `[codex approval] ${description}${typeof reason === "string" ? ` (${safeTerminalText(reason)})` : ""}? [y/N] `;
-  const accepted = dependencies.isTTY
-    ? await dependencies.confirm?.(prompt)
-    : false;
-  client.respond(request.id, { decision: accepted ? "accept" : "decline" });
+  const accepted = dependencies.signal.aborted
+    ? false
+    : dependencies.approve
+      ? await dependencies.approve(
+          JSON.stringify({
+            operation: request.method,
+            command: typeof command === "string" ? command : null,
+            reason: typeof reason === "string" ? reason : null,
+          }),
+        )
+      : dependencies.isTTY
+        ? await dependencies.confirm?.(prompt)
+        : false;
+  client.respond(request.id, {
+    decision: accepted && !dependencies.signal.aborted ? "accept" : "decline",
+  });
 }
 
 function createTurnCompletion(
@@ -832,6 +859,7 @@ function createTurnCompletion(
     resolvePromise = resolve;
     rejectPromise = reject;
   });
+  void promise.catch(() => undefined);
   const unsubscribeFailure = client.onFailure(rejectPromise);
   const unsubscribe = client.onNotification((notification) => {
     if (notification.method !== "turn/completed") return;

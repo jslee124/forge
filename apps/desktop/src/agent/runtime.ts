@@ -21,7 +21,9 @@ export function parseAgentRequest(value: unknown): AgentRequest | undefined {
   const record = value as { type?: unknown; requestId?: unknown };
   if (
     (record.type !== "ping" && record.type !== "shutdown") ||
-    typeof record.requestId !== "string"
+    typeof record.requestId !== "string" ||
+    !/^[a-zA-Z0-9_-]{1,128}$/.test(record.requestId) ||
+    Object.keys(value).length !== 2
   ) {
     return undefined;
   }

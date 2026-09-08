@@ -84,6 +84,18 @@ importers:
 
   apps/desktop:
     dependencies:
+      '@forge/application':
+        specifier: workspace:*
+        version: link:../../packages/application
+      '@forge/codex-app-server':
+        specifier: workspace:*
+        version: link:../../packages/codex-app-server
+      '@forge/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@forge/persistence':
+        specifier: workspace:*
+        version: link:../../packages/persistence
       '@phosphor-icons/react':
         specifier: ^2.1.10
         version: 2.1.10(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -117,6 +129,9 @@ importers:
       tailwind-merge:
         specifier: ^3.3.1
         version: 3.6.0
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
       zustand:
         specifier: ^5.0.8
         version: 5.0.15(@types/react@19.2.18)(react@19.2.8)

@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { join } from "node:path";
 
 import {
   ForgeConfigError,
@@ -67,6 +68,7 @@ export interface RunDependencies {
   readonly conversation?: readonly ModelConversationMessage[];
   readonly contextCheckpoint?: ContextCheckpoint;
   readonly contextPressureMode?: import("@forge/core").ContextPressureMode;
+  readonly builtinResourceRoot?: string;
   readonly sessionId?: string;
   readonly runId?: string;
   readonly onResult?: (result: RunResult, metadata?: RunMetadata) => void;
@@ -79,6 +81,7 @@ export interface RunDependencies {
 }
 
 export interface RunMetadata {
+  readonly engine?: "native" | "codex";
   readonly runId: string;
   readonly sessionId?: string;
   readonly tracePersisted: boolean;
@@ -140,6 +143,9 @@ export async function runTask(
       );
     }
     const skillCatalog = await discoverSkillCatalog({
+      ...(dependencies.builtinResourceRoot
+        ? { builtinRoot: join(dependencies.builtinResourceRoot, "skills") }
+        : {}),
       forgeHome: loaded.forgeHome,
       workspaceRoot: loaded.workspaceRoot,
       disabledModelInvocation: loaded.config.resources.disabledModelInvocation,
@@ -157,6 +163,9 @@ export async function runTask(
     });
     const forgeDocsTools = await createForgeDocsTools({
       locale: preferredForgeDocsLocale(dependencies.env),
+      ...(dependencies.builtinResourceRoot
+        ? { docsRoot: join(dependencies.builtinResourceRoot, "docs") }
+        : {}),
     });
     const activeBuiltinTools = dependencies.tools ?? builtinTools;
     const pluginHost = await loadPluginHost({

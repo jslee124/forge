@@ -163,6 +163,24 @@ export class PersistentInteractiveSession
         : options.context.mode;
   }
 
+  conversationForEngine(
+    engine: "native" | "codex",
+  ): readonly ModelConversationMessage[] {
+    if (engine === "codex" || this.#snapshot?.lastEngine !== engine)
+      return this.messages;
+    const boundary = this.#snapshot.engineHistoryStart ?? 0;
+    return [
+      ...this.history
+        .slice(0, boundary)
+        .flatMap((message) =>
+          message.role === "tool"
+            ? []
+            : [{ role: message.role, content: canonicalText(message) }],
+        ),
+      ...this.history.slice(boundary),
+    ];
+  }
+
   get messages(): readonly ModelConversationMessage[] {
     return this.#snapshot?.messages ?? [];
   }
@@ -240,7 +258,8 @@ export class PersistentInteractiveSession
     if (!this.#snapshot) {
       this.#snapshot = this.#store.create(this.#workspace);
     }
-    this.#snapshot = recordRunInSession(this.#snapshot, {
+    const previous = this.#snapshot;
+    const next = recordRunInSession(this.#snapshot, {
       prompt,
       finalText: result.finalText,
       reasoning: persistedReasoning(result.events),
@@ -252,6 +271,17 @@ export class PersistentInteractiveSession
         : {}),
       ...(result.message ? { message: result.message } : {}),
     });
+    this.#snapshot = metadata.engine
+      ? {
+          ...next,
+          messages: next.messages,
+          lastEngine: metadata.engine,
+          engineHistoryStart:
+            previous.lastEngine === metadata.engine
+              ? (previous.engineHistoryStart ?? 0)
+              : previous.history.length,
+        }
+      : next;
     if (this.#historyEvents) {
       this.#historyEvents = [...this.#historyEvents, ...result.events];
     }
@@ -284,7 +314,12 @@ export class PersistentInteractiveSession
       this.#sessionMode = "paused";
     }
     if (this.#snapshot.history.length > 0) {
-      await this.#store.save(this.#snapshot);
+      try {
+        await this.#store.save(this.#snapshot);
+      } catch (error) {
+        this.#snapshot = previous;
+        throw error;
+      }
     }
   }
 

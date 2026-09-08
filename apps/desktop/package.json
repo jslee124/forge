@@ -28,7 +28,12 @@
     "remark-gfm": "^4.0.1",
     "shiki": "^3.12.2",
     "tailwind-merge": "^3.3.1",
-    "zustand": "^5.0.8"
+    "zustand": "^5.0.8",
+    "@forge/application": "workspace:*",
+    "@forge/core": "workspace:*",
+    "@forge/persistence": "workspace:*",
+    "@forge/codex-app-server": "workspace:*",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.13",
