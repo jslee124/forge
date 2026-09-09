@@ -200,26 +200,37 @@ export class DesktopApplication {
         await unlink(lock);
       }
     } else if (command.type === "auth-status") {
-      const controller = new AbortController();
-      const dependencies = this.#codexDependencies(controller.signal);
-      const code = await runCodexAuthCommand(
-        "status",
-        "openai",
-        {},
-        dependencies,
+      if (this.#login) return this.state();
+      const dependencies = this.#codexDependencies(
+        new AbortController().signal,
       );
-      this.#auth = code === 0 ? "authenticated" : "signed-out";
+      let client: CodexClient | undefined;
       try {
-        this.#models = (await discoverCodexModels(dependencies)).map(
-          (model) => model.id,
-        );
+        client = await dependencies.connect();
+        const result = await client.request<{
+          account: { type?: string } | null;
+        }>("account/read", { refreshToken: false });
+        if (!result || !("account" in result))
+          throw new Error("invalid-account-response");
+        // Native API-key authentication does not authorize the ChatGPT execution path.
+        this.#auth =
+          result.account?.type === "chatgpt" ? "authenticated" : "signed-out";
+        this.#models = [];
+        if (this.#auth === "authenticated") {
+          this.#models = await discoverCodexModels({ ...dependencies, client })
+            .then((models) => models.map((model) => model.id))
+            .catch(() => []);
+        }
       } catch {
         this.#auth = "unavailable";
         this.#models = [];
+      } finally {
+        client?.close();
       }
     } else if (command.type === "login") {
       if (!this.#login) {
         const controller = new AbortController();
+        const previousAuth = this.#auth;
         this.#login = controller;
         this.#auth = "signing-in";
         void runCodexAuthCommand(
@@ -229,7 +240,7 @@ export class DesktopApplication {
           {
             ...this.#codexDependencies(controller.signal),
             onOutput: (event) => {
-              if (event.type === "login") {
+              if (event.type === "login" && !controller.signal.aborted) {
                 this.#loginUrl = event.url;
                 this.#loginCode = event.userCode ?? "";
               }
@@ -237,7 +248,11 @@ export class DesktopApplication {
           },
         )
           .then((code) => {
-            this.#auth = code === 0 ? "authenticated" : "failed";
+            this.#auth = controller.signal.aborted
+              ? previousAuth
+              : code === 0
+                ? "authenticated"
+                : "failed";
           })
           .finally(() => {
             this.#login = undefined;

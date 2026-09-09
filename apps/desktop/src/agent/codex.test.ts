@@ -201,3 +201,120 @@ it("reports missing Codex without falling back to native execution", async () =>
     await rm(cwd, { recursive: true, force: true });
   }
 });
+
+it.each([null, "apiKey"])(
+  "does not report %s as a ChatGPT execution login",
+  async (type) => {
+    const cwd = await mkdtemp(join(tmpdir(), "forge-desktop-auth-"));
+    const client = new Client();
+    const request = client.request.bind(client);
+    client.request = async <T>(method: string): Promise<T> =>
+      method === "account/read"
+        ? ({ account: type ? { type } : null } as T)
+        : request<T>(method);
+    const app = new DesktopApplication({ FORGE_HOME: join(cwd, "home") }, cwd, {
+      connect: async () => client,
+    });
+    try {
+      const state = await app.manage({ type: "auth-status" });
+      expect(state.auth).toBe("signed-out");
+      expect(state.codexModels).toEqual([]);
+      expect(client.closed).toBe(true);
+    } finally {
+      app.close();
+      await rm(cwd, { recursive: true, force: true });
+    }
+  },
+);
+it("preserves authenticated status if only model discovery fails", async () => {
+  const cwd = await mkdtemp(join(tmpdir(), "forge-desktop-models-"));
+  const client = new Client();
+  const request = client.request.bind(client);
+  client.request = async <T>(method: string): Promise<T> => {
+    if (method === "model/list") throw new Error("model service unavailable");
+    return request<T>(method);
+  };
+  const app = new DesktopApplication({ FORGE_HOME: join(cwd, "home") }, cwd, {
+    connect: async () => client,
+  });
+  try {
+    expect((await app.manage({ type: "auth-status" })).auth).toBe(
+      "authenticated",
+    );
+  } finally {
+    app.close();
+    await rm(cwd, { recursive: true, force: true });
+  }
+});
+it.each([true, false])(
+  "settles browser login success=%s and clears the URL",
+  async (success) => {
+    const cwd = await mkdtemp(join(tmpdir(), "forge-desktop-login-"));
+    const client = new Client();
+    const request = client.request.bind(client);
+    client.request = async <T>(method: string): Promise<T> =>
+      method === "account/login/start"
+        ? ({
+            type: "chatgpt",
+            loginId: "login",
+            authUrl: "https://auth.openai.com/test",
+          } as T)
+        : request<T>(method);
+    client.waitForNotification = async <T>(): Promise<T> =>
+      ({ loginId: "login", success }) as T;
+    const app = new DesktopApplication({ FORGE_HOME: join(cwd, "home") }, cwd, {
+      connect: async () => client,
+    });
+    try {
+      await app.manage({ type: "login" });
+      await expect
+        .poll(async () => (await app.state()).auth)
+        .toBe(success ? "authenticated" : "failed");
+      expect((await app.state()).loginUrl).toBe("");
+      expect(client.closed).toBe(true);
+    } finally {
+      app.close();
+      await rm(cwd, { recursive: true, force: true });
+    }
+  },
+);
+
+it("keeps login state during refresh and restores it after cancellation", async () => {
+  const cwd = await mkdtemp(join(tmpdir(), "forge-desktop-cancel-login-"));
+  const client = new Client();
+  const request = client.request.bind(client);
+  client.request = async <T>(method: string): Promise<T> =>
+    method === "account/login/start"
+      ? ({
+          type: "chatgpt",
+          loginId: "login",
+          authUrl: "https://auth.openai.com/test",
+        } as T)
+      : request<T>(method);
+  client.waitForNotification = async <T>(options?: {
+    signal?: AbortSignal;
+  }): Promise<T> =>
+    new Promise((_resolve, reject) => {
+      const abort = () => reject(new Error("cancelled"));
+      options?.signal?.addEventListener("abort", abort, { once: true });
+      if (options?.signal?.aborted) abort();
+    });
+  const app = new DesktopApplication({ FORGE_HOME: join(cwd, "home") }, cwd, {
+    connect: async () => client,
+  });
+  try {
+    await app.manage({ type: "login" });
+    await expect
+      .poll(async () => (await app.state()).loginUrl)
+      .toBe("https://auth.openai.com/test");
+    expect((await app.manage({ type: "auth-status" })).auth).toBe("signing-in");
+    await app.manage({ type: "cancel-login" });
+    await expect.poll(async () => (await app.state()).auth).toBe("unknown");
+    expect((await app.state()).loginUrl).toBe("");
+    expect(client.calls).toContain("account/login/cancel");
+    expect(client.closed).toBe(true);
+  } finally {
+    app.close();
+    await rm(cwd, { recursive: true, force: true });
+  }
+});

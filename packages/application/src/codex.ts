@@ -145,6 +145,7 @@ export async function runCodexAuthCommand(
       return 0;
     }
 
+    if (dependencies.signal.aborted) return 130;
     const method = options.method ?? "browser";
     const rawResponse = await client.request<unknown>(
       "account/login/start",
@@ -158,6 +159,12 @@ export async function runCodexAuthCommand(
     );
     const response = validateLoginResponse(rawResponse);
     const loginId = response.loginId;
+    if (dependencies.signal.aborted) {
+      await client
+        .request("account/login/cancel", { loginId })
+        .catch(() => undefined);
+      return 130;
+    }
     const targetUrl =
       response.type === "chatgpt" ? response.authUrl : response.verificationUrl;
     const userCode =

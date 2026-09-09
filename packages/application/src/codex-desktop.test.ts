@@ -3,7 +3,11 @@ import type {
   JsonRpcServerRequest,
 } from "@forge/codex-app-server";
 import { describe, expect, it } from "vitest";
-import { type CodexClient, runCodexTask } from "./codex.js";
+import {
+  type CodexClient,
+  runCodexAuthCommand,
+  runCodexTask,
+} from "./codex.js";
 
 class Client implements CodexClient {
   readonly notifications = new Set<(n: JsonRpcNotification) => void>();
@@ -185,4 +189,47 @@ describe("non-terminal Codex host", () => {
       client.notifications.size + client.approvals.size + client.failures.size,
     ).toBe(0);
   });
+});
+
+it("does not start login for a cancelled request", async () => {
+  const client = new Client();
+  const controller = new AbortController();
+  controller.abort();
+  expect(
+    await runCodexAuthCommand(
+      "login",
+      "openai",
+      {},
+      deps(client, controller.signal),
+    ),
+  ).toBe(130);
+  expect(client.calls).not.toContain("account/login/start");
+});
+it("cancels a login that starts after abort without exposing its URL", async () => {
+  const client = new Client();
+  const controller = new AbortController();
+  const request = client.request.bind(client);
+  const output: unknown[] = [];
+  client.request = async <T>(method: string): Promise<T> => {
+    if (method === "account/login/start") {
+      controller.abort();
+      return {
+        type: "chatgpt",
+        loginId: "login",
+        authUrl: "https://auth.openai.com/test",
+      } as T;
+    }
+    return request<T>(method);
+  };
+  expect(
+    await runCodexAuthCommand(
+      "login",
+      "openai",
+      {},
+      { ...deps(client, controller.signal), onOutput: (e) => output.push(e) },
+    ),
+  ).toBe(130);
+  expect(client.calls).toContain("account/login/cancel");
+  expect(output).toEqual([]);
+  expect(client.closed).toBe(true);
 });

@@ -23,8 +23,8 @@
 | D04 | 共享应用服务抽取 | D01 | 已完成 |
 | D05 | Agent 进程和通信协议 | D02、D04 | 已完成 |
 | D06 | 工作空间与会话接入 | D03、D05 | 已完成，DeepSeek 真实两轮通过 |
-| D07 | 原生 Forge 真实执行 | D06 | 离线完成，DeepSeek 两轮 smoke 通过 |
-| D08 | Codex 执行与认证 | D06 | 离线完成，本地认证检查通过 |
+| D07 | 原生 Forge 真实执行 | D06 | 已完成，DeepSeek 执行/恢复/拒绝/取消通过 |
+| D08 | Codex 执行与认证 | D06 | 已完成，Codex 真实执行/恢复/取消通过 |
 | D09 | 文件操作与差异审查 | D07、D08 | 未开始 |
 | D10 | 内容读取与文档预览 | D09 | 未开始 |
 | D11 | 搜索插件与来源报告 | D07、D08、D10 | 未开始 |
@@ -227,6 +227,12 @@ Agent 中的 `@forge/application.runTask`，接入真实提交、流式文本/�
 跨引擎仅传文本，后续恢复也不会重新带入边界之前的工具历史。新增元数据不保存权限。
 未调用真实付费 provider，在线模型/工具链结果仍待独立授权验收。
 
+**完整验收（2026-09-09）**：沿用 D06 的真实执行测试并增加两条在线路径。
+DeepSeek `deepseek-v4-flash` 四回合测试通过（16.06 秒）：创建/读取/命令、重启续聊修改、
+拒绝写入、审批时取消。断言已完成文件内容与工具交换，拒绝和取消的目标文件均不存在，
+取消状态写入 Session。默认离线测试不会请求 provider；显式复现命令仍为 D06 所列命令。
+执行成功、工具被拒绝和取消分别验证，没有通过固定 UI 步骤推断完成。
+
 ## D08 · Codex 执行与认证
 
 **交付**：通过既有 Codex 执行与认证路径接入同一工作台，显示 engine/model，
@@ -255,6 +261,33 @@ Codex 工具；不能仅返回成功退出码就宣称审批和来源信息完�
 Agent/application 依赖与资源路径纳入打包，preload 内联 schema 避免 sandbox require。
 中英文窗口截图及已修正的首次窗口身份竞态、面板布局、真实发送文案记录于
 [桌面 QA](../../apps/desktop/design-qa.md)。没有提交、发布、签名或公证。
+
+**完整验收（2026-09-09）**：修正认证状态与执行要求不一致的问题：只有 ChatGPT
+登录显示为可用于 Codex；未登录和仅 API key 不再误报。认证检查复用一个 client，模型
+目录暂时失败不覆盖已确认的认证状态；登录期间刷新也不覆盖 signing-in。取消登录恢复
+之前状态并清空链接，取消后迟到的 login/start 响应会被撤销，不再展示或打开登录 URL。
+新增未登录/API key、目录失败、登录成功/失败、取消与迟到响应的离线回归。
+
+通过已有本地 Codex App Server 登录进行真实集成（132.34 秒）：第一轮创建并读取临时
+文件，重建桌面服务后恢复 Session，第二轮修改同一文件并正确回答上一轮独有标记；
+第三轮在 turn/start 后取消，断言收到 turn/completed 的 interrupted 状态及 Session
+cancelled 状态。未复制凭据、未降级到原生引擎；不把 Codex 文本历史伪造成 Forge 工具交换。
+测试采用本地默认可用 Codex 模型。显式复现：
+`CI=true FORGE_DESKTOP_LIVE_CODEX=1 pnpm exec vitest run apps/desktop/src/agent/codex-live.test.ts`。
+沙箱内认证检查为 unavailable；上述真实通过结果来自沙箱外。临时 Forge 会话和文件已清理。
+
+认证/取消契约核对了 [OpenAI App Server 文档](https://learn.chatgpt.com/docs/app-server)。
+没有重新完成浏览器人工登录；登录成功/失败/取消由离线客户端验证，已有登录由真实服务验证。
+实时模型测试覆盖 Agent/application 链路，Electron 界面与 IPC 单独 smoke；现有补丁、来源和
+工具计数限制仍保持明确，完整 GUI 状态矩阵属于 D12。
+
+当前验证：13 文件 / 91 项定向测试通过，2 个在线用例默认跳过且本次均已显式通过；
+`pnpm check` 的类型及发布路由检查通过；确定性验收 13 文件 / 71 项通过。
+沙箱外开发版和未签名 arm64 打包版 Electron smoke 均通过。
+`pnpm package:verify` 完成构建及 npm pack 检查，但临时安装在 registry 下载
+`wrap-ansi-10.0.1.tgz` 时经重试仍返回 HTTP 503 / E503；本次包安装验证未通过，
+不沿用 D06 的旧通过结果。`pnpm check:docs` 通过（151 文件 / 588 引用）。
+代码未提交或发布。
 
 ## D09 · 文件操作与差异审查
 

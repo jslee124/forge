@@ -25,8 +25,8 @@ offline work. This checklist does not request multiple agents.
 | D04 | Shared application services | D01 | Complete |
 | D05 | Agent process and protocol | D02, D04 | Complete |
 | D06 | Workspaces and sessions | D03, D05 | Complete; DeepSeek live two-turn check passed |
-| D07 | Native Forge execution | D06 | Offline complete; DeepSeek two-turn smoke passed |
-| D08 | Codex execution and authentication | D06 | Offline complete; local auth checked |
+| D07 | Native Forge execution | D06 | Complete; DeepSeek execute/resume/deny/cancel passed |
+| D08 | Codex execution and authentication | D06 | Complete; live Codex execute/resume/cancel passed |
 | D09 | File operations and change review | D07, D08 | Not started |
 | D10 | Content reading and previews | D09 | Not started |
 | D11 | Search plugins and sourced reports | D07, D08, D10 | Not started |
@@ -264,6 +264,13 @@ boundary fields extend schema v3 while accepting old snapshots. Switching engine
 text only; restoring does not reintroduce earlier tool state. No approval authority is
 persisted. Live paid-provider execution remains a separately authorized acceptance step.
 
+**Full acceptance (2026-09-09)**: Extended the D06 live test with denial and cancellation.
+DeepSeek `deepseek-v4-flash` passed four turns (16.06 seconds): create/read/command,
+restart and edit, deny a write, and cancel at approval. Assertions check file contents,
+complete tool exchanges, absence of denied/cancelled files and persisted cancelled status.
+Default offline runs never call the provider; use the explicit D06 reproduction command.
+Run completion, tool denial and cancellation are verified separately.
+
 ## D08 · Codex execution and authentication
 
 **Deliver:** existing Codex execution/auth in the workbench, engine/model identity,
@@ -296,6 +303,40 @@ Application dependencies/resources are packaged and preload schemas are bundled 
 sandbox compatibility. Chinese/English screenshots and fixes for initial-window identity,
 panel layout and send wording are recorded in [desktop QA](../apps/desktop/design-qa.md).
 No commit, release, signing or notarization was performed.
+
+**Full acceptance (2026-09-09)**: Corrected authentication reporting to match execution:
+only ChatGPT authentication enables the Codex path; signed-out/API-key accounts do not.
+Status uses one client, model-list failure preserves confirmed authentication, and refresh
+during login preserves signing-in. Cancelling login restores the prior state and clears
+the URL; a late login/start response is cancelled without displaying/opening its URL.
+Added offline signed-out/API-key, model-list failure, login success/failure, cancellation
+and late-response regressions.
+
+Live integration using existing local Codex App Server authentication passed (132.34 seconds):
+create/read a scratch file; recreate the desktop service and resume the Session; edit the
+file and correctly recall a marker unique to the previous turn; then cancel after turn/start
+and assert turn/completed interrupted plus persisted cancelled status. Credentials were not
+copied, no native fallback occurred, and Codex text was not presented as Forge tool history.
+The test used the locally available default Codex model. Explicit reproduction:
+`CI=true FORGE_DESKTOP_LIVE_CODEX=1 pnpm exec vitest run apps/desktop/src/agent/codex-live.test.ts`.
+Sandboxed auth reported unavailable; the passing live run was outside the sandbox.
+Temporary Forge sessions and files were removed.
+
+Authentication/cancellation contracts were checked against the
+[OpenAI App Server documentation](https://learn.chatgpt.com/docs/app-server).
+No fresh manual browser sign-in was completed: login success/failure/cancel have offline
+client coverage, while existing authentication was checked live. Live models exercise the
+Agent/application path; Electron UI/IPC smoke is separate. Patch/source/tool-count limits
+remain explicit and the full GUI state matrix belongs to D12.
+
+Current focused checks: 13 files / 91 tests passed, with two live cases skipped by default
+and both explicitly passed in this run. Type checking and release routing passed with
+`pnpm check`; deterministic checks passed 13 files / 71 tests. Development and unsigned
+arm64 packaged Electron smoke passed outside the sandbox. `pnpm package:verify` built
+and checked the tarball, but the temporary install exhausted registry retries downloading
+`wrap-ansi-10.0.1.tgz` with HTTP 503 / E503. This run's installed-package verification did
+not pass; D06's earlier success is not reused as current evidence. `pnpm check:docs`
+passed (151 files / 588 references). No commit or publication was performed.
 
 ## D09 · File operations and change review
 

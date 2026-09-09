@@ -11,7 +11,7 @@ const { FORGE_DESKTOP_LIVE_DEEPSEEK, FORGE_HOME, DEEPSEEK_API_KEY } =
 
 // Explicit opt-in only. Credentials stay in this process; temporary transcripts are removed.
 it.skipIf(FORGE_DESKTOP_LIVE_DEEPSEEK !== "1")(
-  "DeepSeek executes tools and resumes a desktop session after restart",
+  "DeepSeek executes, resumes, denies and cancels desktop tool calls",
   async () => {
     const sourceHome = FORGE_HOME || join(homedir(), ".forge");
     let key = DEEPSEEK_API_KEY;
@@ -38,6 +38,7 @@ it.skipIf(FORGE_DESKTOP_LIVE_DEEPSEEK !== "1")(
       toolEvents: number;
       outcomes: string[];
     } = { approvals: 0, textEvents: 0, toolEvents: 0, outcomes: [] };
+    let approvalMode: "allow" | "deny" | "cancel" = "allow";
     let app = new DesktopApplication(env, root);
     try {
       await writeFile(
@@ -68,6 +69,8 @@ it.skipIf(FORGE_DESKTOP_LIVE_DEEPSEEK !== "1")(
             },
             approve: async (description) => {
               metrics.approvals++;
+              if (approvalMode === "cancel") controller.abort();
+              if (approvalMode !== "allow") return false;
               // Only the scratch proof file and a read-only pwd command are authorized.
               return (
                 description.includes('"path": "d06-proof.txt"') ||
@@ -78,7 +81,9 @@ it.skipIf(FORGE_DESKTOP_LIVE_DEEPSEEK !== "1")(
           },
         );
         metrics.outcomes.push(outcome ?? "missing");
-        expect(outcome).toBe("completed");
+        expect(outcome).toBe(
+          approvalMode === "cancel" ? "cancelled" : "completed",
+        );
       };
       await execute(
         'Use edit_file to create d06-proof.txt containing exactly "D06 first turn\\n". Then read_file that file and run_command with program pwd and args []. Do not use any other command or file. Reply briefly.',
@@ -111,7 +116,27 @@ it.skipIf(FORGE_DESKTOP_LIVE_DEEPSEEK !== "1")(
       );
       expect(metrics.approvals).toBeGreaterThanOrEqual(3);
       expect(metrics.textEvents).toBeGreaterThan(0);
-      console.info("D06 DeepSeek live acceptance", JSON.stringify(metrics));
+      const approvalsBeforeDeny = metrics.approvals;
+      approvalMode = "deny";
+      await execute(
+        'Use edit_file to create d07-denied.txt containing "denied". If approval is refused, stop and explain briefly; do not retry or use another tool.',
+      );
+      expect(metrics.approvals).toBeGreaterThan(approvalsBeforeDeny);
+      await expect(
+        readFile(join(state.cwd, "d07-denied.txt")),
+      ).rejects.toThrow();
+      approvalMode = "cancel";
+      const approvalsBeforeCancel = metrics.approvals;
+      await execute(
+        'Use edit_file to create d07-cancelled.txt containing "cancelled". Do not use any other tool.',
+      );
+      expect(metrics.approvals).toBeGreaterThan(approvalsBeforeCancel);
+      await expect(
+        readFile(join(state.cwd, "d07-cancelled.txt")),
+      ).rejects.toThrow();
+      expect(
+        (await new FileSessionStore(root).load(state.sessionId)).lastRunStatus,
+      ).toBe("cancelled");
     } finally {
       clearTimeout(timer);
       controller.abort();
