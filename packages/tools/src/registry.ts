@@ -9,8 +9,10 @@ import type {
 } from "@forge/core";
 
 import { editFileTool } from "./edit-file.js";
+import { formatTableTool } from "./format-table.js";
 import { listFilesTool } from "./list-files.js";
 import { failure } from "./path.js";
+import { readDocumentTool } from "./read-document.js";
 import { readFileTool } from "./read-file.js";
 import { runCommandTool } from "./run-command.js";
 import { searchTool } from "./search.js";
@@ -18,6 +20,8 @@ import { searchTool } from "./search.js";
 export const builtinTools: readonly ForgeTool[] = [
   listFilesTool,
   readFileTool,
+  readDocumentTool,
+  formatTableTool,
   searchTool,
   editFileTool,
   runCommandTool,

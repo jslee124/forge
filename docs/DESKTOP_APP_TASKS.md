@@ -27,8 +27,8 @@ offline work. This checklist does not request multiple agents.
 | D06 | Workspaces and sessions | D03, D05 | Complete; DeepSeek live two-turn check passed |
 | D07 | Native Forge execution | D06 | Complete; DeepSeek execute/resume/deny/cancel passed |
 | D08 | Codex execution and authentication | D06 | Complete; live Codex execute/resume/cancel passed |
-| D09 | File operations and change review | D07, D08 | Not started |
-| D10 | Content reading and previews | D09 | Not started |
+| D09 | File operations and change review | D07, D08 | Complete |
+| D10 | Content reading and previews | D09 | Complete |
 | D11 | Search plugins and sourced reports | D07, D08, D10 | Not started |
 | D12 | End-to-end and failure acceptance | D09, D10, D11 | Not started |
 | D13 | macOS installer and handoff | D12 | Not started |
@@ -348,6 +348,26 @@ choice, originals/references stay intact. No source-directory authorization expa
 **Verify:** add/edit/delete/conflicts/symlink escapes/external concurrent changes and
 both engine attribution. Do not copy entire projects for tracking.
 
+**Completion record (2026-09-10, Complete):** the main process now owns a narrow,
+validated file bridge for importing an explicit external-file copy, workspace-relative
+preview/open/reveal, and Save as. Import conflicts require rename/replace/cancel; Save
+as cancellation writes nothing and replacing a destination requires a second explicit
+choice. Copies are hashed after transfer, so a concurrently changing source removes a
+new destination or leaves an existing overwrite target intact. Canonical-path checks
+deny traversal and symlink escapes; importing one file grants no access to its source
+directory.
+
+Each create, resume, or workspace selection records a bounded in-memory comparison
+baseline (5,000 files, 16 MiB total textual baselines, 1 MiB per text file; generated
+patches are separately bounded). This does not copy a project to persistent storage.
+The cumulative review labels task-start, resume-time, and workspace-selection baselines
+and describes all results as changes since that baseline, never as Agent authorship.
+Native Forge approval diffs remain separate. Codex exposes no authoritative per-edit
+patch through this bridge, so its cumulative view is explicitly baseline-only. Concurrent
+user and engine edits after the baseline cannot be separated and the UI says so.
+`react-diff-view` 3.3.3 renders textual cumulative patches; binary or oversized entries
+remain visible with metadata and a disclosed missing content diff.
+
 ## D10 · Content reading and previews
 
 **Deliver:** shared bounded reading interface, PDF.js pages/text, Papa Parse CSV/TSV,
@@ -358,6 +378,37 @@ leading-zero preservation, actual computation, distinct preview/analysis scope.
 DOCX/XLSX are not first-version gates.
 **Verify:** Chinese/multicolumn/textless PDFs and packaged workers/fonts, quoted/multiline
 CSV, TSV, malformed rows, partial views/full calculations, bounded cancellable large inputs.
+
+**Completion record (2026-09-10, Complete):** `@forge/tools` now advertises the shared
+`read_document` and `format_table` tools alongside `read_file`. PDF.js 6.3.289
+extracts bounded page ranges
+with page numbers and explicit textless/OCR-not-run state. Papa Parse 5.7.0 parses CSV
+and TSV without dynamic typing, retains values such as `00123`, returns malformed-row
+errors, distinguishes the selected preview rows from full-file parsing, and can perform
+an explicit full-file numeric sum/average/minimum/maximum while reporting invalid rows.
+`format_table` uses Papa Parse for quoted CSV/TSV generation and returns content to the
+existing separately approved `edit_file` write path rather than bypassing write policy.
+Text reads honor the existing output budget; PNG/JPEG reads return metadata and an
+engine-dependent image-analysis notice. Cancellation is checked before access, after
+bounded I/O, and between PDF pages; PDF and table inputs also have 32 MiB and 16 MiB
+ceilings, with at most 20 pages or 500 rows returned per call.
+
+The desktop main process calls that same reader and returns only validated preview data
+for a workspace-relative file; the sandboxed renderer has no filesystem API. It displays
+text, tables, images, PDF page text, and a PDF.js canvas. Vite emits the renderer worker,
+and the packaged app includes PDF.js CMaps, standard fonts, and WASM data. Native Forge
+models receive `read_document`; Codex keeps its own sandbox/tools, while desktop preview
+is shared UI rather than fabricated Codex tool coverage. DOCX/XLSX and OCR remain out of
+scope.
+
+Focused checks passed 2 files / 16 tests, including add/edit/delete, conflict choices,
+symlink escapes, concurrent-source preservation, quoted multiline CSV, malformed rows,
+TSV parsing/generation, leading zeros, a calculation extending beyond the preview range, positioned
+two-column PDF text, textless PDF pages, images, limits, and cancellation. A macOS
+`cupsfilter` Chinese text-layer PDF extracted Chinese text successfully. Production build
+emitted the PDF worker; unsigned arm64 packaging contained the CMaps/fonts/WASM resources,
+and packaged Electron smoke passed. These are offline/local checks, not real-provider
+proof. No commit, signing, publication, DOCX/XLSX, or OCR was performed.
 
 ## D11 · Search plugins and sourced reports
 

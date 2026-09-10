@@ -579,6 +579,8 @@ describe("tool proposal and execution", () => {
     expect(definitions.map(({ name }) => name)).toEqual([
       "list_files",
       "read_file",
+      "read_document",
+      "format_table",
       "search",
       "edit_file",
       "run_command",

@@ -1,5 +1,5 @@
-import { writeFile } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { lstat, writeFile } from "node:fs/promises";
+import { basename, join, resolve } from "node:path";
 import {
   app,
   BrowserWindow,
@@ -19,11 +19,23 @@ import {
   RUN_COMMAND_CHANNEL,
   RUN_EVENT_CHANNEL,
 } from "../shared/desktop-api.js";
+import {
+  CHANGE_REVIEW_CHANNEL,
+  FILE_IMPORT_CHANNEL,
+  FILE_OPEN_CHANNEL,
+  FILE_PREVIEW_CHANNEL,
+  FILE_REVEAL_CHANNEL,
+  FILE_SAVE_AS_CHANNEL,
+  previewRequestSchema,
+  relativeFilePathSchema,
+} from "../shared/file-protocol.js";
 import { AgentProcess } from "./agent-process.js";
+import { FileService } from "./file-service.js";
 
 let agent: AgentProcess | undefined;
 let mainWindow: BrowserWindow | undefined;
 let quitting = false;
+const files = new FileService();
 
 function agentEntry(): string {
   return app.isPackaged
@@ -37,9 +49,19 @@ function resourceRoot(): string {
     : resolve(app.getAppPath(), "../../packages/resources");
 }
 
+function pdfResourceRoot(): string {
+  return app.isPackaged
+    ? join(process.resourcesPath, "pdfjs")
+    : resolve(app.getAppPath(), "node_modules/pdfjs-dist");
+}
+
 function startAgent(): AgentProcess {
   const child = utilityProcess.fork(agentEntry(), [], {
-    env: { ...process.env, FORGE_DESKTOP_RESOURCE_ROOT: resourceRoot() },
+    env: {
+      ...process.env,
+      FORGE_DESKTOP_RESOURCE_ROOT: resourceRoot(),
+      FORGE_PDFJS_RESOURCE_ROOT: pdfResourceRoot(),
+    },
     serviceName: "Forge Desktop Agent",
   });
   return new AgentProcess(child);
@@ -85,6 +107,12 @@ async function shutdown(): Promise<void> {
     MANAGEMENT_CHANNEL,
     CHOOSE_WORKSPACE_CHANNEL,
     OPEN_LOGIN_CHANNEL,
+    FILE_IMPORT_CHANNEL,
+    FILE_PREVIEW_CHANNEL,
+    FILE_SAVE_AS_CHANNEL,
+    FILE_OPEN_CHANNEL,
+    FILE_REVEAL_CHANNEL,
+    CHANGE_REVIEW_CHANNEL,
   ])
     ipcMain.removeHandler(channel);
   await agent?.close();
@@ -93,6 +121,9 @@ async function shutdown(): Promise<void> {
 
 async function run(): Promise<void> {
   await app.whenReady();
+  // Main-process previews use the same packaged PDF.js data as the Agent process.
+  // biome-ignore lint/complexity/useLiteralKeys: ProcessEnv is index-signature-only under strict TypeScript.
+  process.env["FORGE_PDFJS_RESOURCE_ROOT"] = pdfResourceRoot();
   agent = startAgent();
   await agent.waitUntilReady();
   ipcMain.handle(AGENT_PING_CHANNEL, (event) => {
@@ -119,7 +150,14 @@ async function run(): Promise<void> {
       throw new Error("Invalid sender");
     const command = managementCommandSchema.parse(value);
     if (command.type === "workspace") throw new Error("Use directory picker");
-    return agent?.management.request(command);
+    return agent?.management.request(command).then(async (state) => {
+      if ((command.type === "create" || command.type === "resume") && state.cwd)
+        await files.setWorkspace(
+          state.cwd,
+          command.type === "create" ? "task-start" : "resume-time",
+        );
+      return state;
+    });
   });
   ipcMain.handle(CHOOSE_WORKSPACE_CHANNEL, async (event) => {
     if (
@@ -131,9 +169,10 @@ async function run(): Promise<void> {
       properties: ["openDirectory"],
     });
     const cwd = selection.filePaths[0];
-    return !cwd || selection.canceled
-      ? null
-      : agent?.management.request({ type: "workspace", cwd });
+    if (!cwd || selection.canceled) return null;
+    const state = await agent?.management.request({ type: "workspace", cwd });
+    if (state?.cwd) await files.setWorkspace(state.cwd, "workspace-selection");
+    return state;
   });
   ipcMain.handle(OPEN_LOGIN_CHANNEL, async (event) => {
     if (
@@ -152,6 +191,111 @@ async function run(): Promise<void> {
     )
       throw new Error("Invalid login URL");
     await shell.openExternal(url.toString());
+  });
+  ipcMain.handle(FILE_IMPORT_CHANNEL, async (event) => {
+    assertMainSender(event);
+    const owner = requireMainWindow();
+    const state = await agent?.management.request({ type: "state" });
+    if (!state?.cwd) throw new Error("workspace-unavailable");
+    const selection = await dialog.showOpenDialog(owner, {
+      properties: ["openFile"],
+      filters: [
+        {
+          name: "Supported files",
+          extensions: [
+            "md",
+            "txt",
+            "json",
+            "yaml",
+            "yml",
+            "pdf",
+            "csv",
+            "tsv",
+            "png",
+            "jpg",
+            "jpeg",
+          ],
+        },
+        { name: "All files", extensions: ["*"] },
+      ],
+    });
+    const source = selection.filePaths[0];
+    if (!source || selection.canceled) return null;
+    const target = join(state.cwd, basename(source));
+    const conflict = await lstat(target).then(
+      () => true,
+      () => false,
+    );
+    let choice: "rename" | "overwrite" | "cancel" = "rename";
+    if (conflict) {
+      const response = await dialog.showMessageBox(owner, {
+        type: "warning",
+        message: `A file named ${basename(source)} already exists.`,
+        detail:
+          "Choose whether to replace it or add the external file as a renamed copy.",
+        buttons: ["Add renamed copy", "Replace", "Cancel"],
+        defaultId: 0,
+        cancelId: 2,
+      });
+      choice =
+        response.response === 0
+          ? "rename"
+          : response.response === 1
+            ? "overwrite"
+            : "cancel";
+    }
+    return files.importFile(source, choice);
+  });
+  ipcMain.handle(FILE_PREVIEW_CHANNEL, async (event, value: unknown) => {
+    assertMainSender(event);
+    return files.preview(previewRequestSchema.parse(value));
+  });
+  ipcMain.handle(FILE_SAVE_AS_CHANNEL, async (event, value: unknown) => {
+    assertMainSender(event);
+    const owner = requireMainWindow();
+    const path = relativeFilePathSchema.parse(value);
+    const source = await files.workspaceFile(path);
+    const selection = await dialog.showSaveDialog(owner, {
+      defaultPath: basename(source),
+    });
+    if (selection.canceled || !selection.filePath) return null;
+    const destination = selection.filePath;
+    const conflict = await lstat(destination).then(
+      () => true,
+      () => false,
+    );
+    let overwrite = false;
+    if (conflict && resolve(destination) !== source) {
+      const response = await dialog.showMessageBox(owner, {
+        type: "warning",
+        message: `Replace ${basename(destination)}?`,
+        detail:
+          "The existing destination will be replaced. The workspace original remains intact.",
+        buttons: ["Replace", "Cancel"],
+        defaultId: 1,
+        cancelId: 1,
+      });
+      if (response.response !== 0) return null;
+      overwrite = true;
+    }
+    return files.saveAs(path, destination, overwrite);
+  });
+  ipcMain.handle(FILE_OPEN_CHANNEL, async (event, value: unknown) => {
+    assertMainSender(event);
+    const error = await shell.openPath(
+      await files.workspaceFile(relativeFilePathSchema.parse(value)),
+    );
+    if (error) throw new Error("open-failed");
+  });
+  ipcMain.handle(FILE_REVEAL_CHANNEL, async (event, value: unknown) => {
+    assertMainSender(event);
+    shell.showItemInFolder(
+      await files.workspaceFile(relativeFilePathSchema.parse(value)),
+    );
+  });
+  ipcMain.handle(CHANGE_REVIEW_CHANNEL, (event) => {
+    assertMainSender(event);
+    return files.review();
   });
   agent.runs.subscribe((event) => {
     if (mainWindow && !mainWindow.isDestroyed())
@@ -211,6 +355,20 @@ async function run(): Promise<void> {
   mainWindow.on("closed", () => {
     mainWindow = undefined;
   });
+}
+
+function assertMainSender(event: Electron.IpcMainInvokeEvent): void {
+  if (
+    event.sender !== mainWindow?.webContents ||
+    event.senderFrame !== mainWindow.webContents.mainFrame
+  )
+    throw new Error("Invalid sender");
+}
+
+function requireMainWindow(): BrowserWindow {
+  if (!mainWindow || mainWindow.isDestroyed())
+    throw new Error("window-unavailable");
+  return mainWindow;
 }
 
 app.on("window-all-closed", () => app.quit());

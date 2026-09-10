@@ -4,8 +4,10 @@ import type {
   DesktopState,
   ManagementCommand,
 } from "../../shared/application-protocol.js";
+import type { ChangeReview, FilePreview } from "../../shared/file-protocol.js";
 import type { RunEvent } from "../../shared/run-protocol.js";
 import logoUrl from "./assets/forge-logo.svg";
+import { ContentPreview, DiffViewer } from "./file-preview.js";
 import { Markdown } from "./markdown.js";
 
 export function LiveWorkbench(): React.JSX.Element {
@@ -34,6 +36,9 @@ export function LiveWorkbench(): React.JSX.Element {
   const [pending, setPending] = React.useState(false);
   const [settings, setSettings] = React.useState(false);
   const [panel, setPanel] = React.useState(true);
+  const [filePath, setFilePath] = React.useState("");
+  const [filePreview, setFilePreview] = React.useState<FilePreview>();
+  const [review, setReview] = React.useState<ChangeReview>();
   const key = state?.sessionId || `new:${state?.cwd ?? ""}`;
   const draft = drafts[key] ?? "";
   const busy = Boolean(active) || pending;
@@ -241,6 +246,26 @@ export function LiveWorkbench(): React.JSX.Element {
             }}
           >
             {t("live.new")}
+          </button>
+          <button
+            type="button"
+            disabled={busy || !state?.cwd || !api}
+            onClick={async () => {
+              try {
+                const imported = await api?.importFile();
+                if (imported) {
+                  setFilePath(imported.path);
+                  setFilePreview(
+                    await api?.previewFile({ path: imported.path }),
+                  );
+                  setPanel(true);
+                }
+              } catch (cause) {
+                setError(operationError(cause));
+              }
+            }}
+          >
+            {t("live.addMaterial")}
           </button>
           <button
             type="button"
@@ -474,6 +499,109 @@ export function LiveWorkbench(): React.JSX.Element {
         </section>
         {panel && (
           <aside className="live-panel">
+            <h3>{t("live.files")}</h3>
+            <input
+              aria-label={t("live.filePath")}
+              placeholder={t("live.filePath")}
+              value={filePath}
+              onChange={(event) => setFilePath(event.target.value)}
+            />
+            <div className="file-actions">
+              <button
+                type="button"
+                disabled={!filePath || !state?.cwd}
+                onClick={() => {
+                  void api
+                    ?.previewFile({ path: filePath })
+                    .then(setFilePreview)
+                    .catch((cause) => setError(operationError(cause)));
+                }}
+              >
+                {t("live.preview")}
+              </button>
+              <button
+                type="button"
+                disabled={!filePath}
+                onClick={() =>
+                  void api
+                    ?.openFile(filePath)
+                    .catch((cause) => setError(operationError(cause)))
+                }
+              >
+                {t("common.open")}
+              </button>
+              <button
+                type="button"
+                disabled={!filePath}
+                onClick={() =>
+                  void api
+                    ?.revealFile(filePath)
+                    .catch((cause) => setError(operationError(cause)))
+                }
+              >
+                {t("live.reveal")}
+              </button>
+              <button
+                type="button"
+                disabled={!filePath}
+                onClick={() =>
+                  void api
+                    ?.saveFileAs(filePath)
+                    .catch((cause) => setError(operationError(cause)))
+                }
+              >
+                {t("live.saveAs")}
+              </button>
+            </div>
+            {filePreview && (
+              <section className="artifact-preview">
+                <h4>{filePreview.document.source}</h4>
+                {filePreview.truncated && (
+                  <p className="preview-limit">{t("live.previewLimited")}</p>
+                )}
+                <ContentPreview preview={filePreview} />
+              </section>
+            )}
+            <h3>{t("live.changes")}</h3>
+            <button
+              type="button"
+              disabled={!state?.cwd}
+              onClick={() =>
+                void api
+                  ?.reviewChanges()
+                  .then(setReview)
+                  .catch((cause) => setError(operationError(cause)))
+              }
+            >
+              {t("live.refreshChanges")}
+            </button>
+            {review && (
+              <div className="change-review">
+                <small>
+                  {t("live.baseline")}: {t(`live.baselines.${review.baseline}`)}
+                </small>
+                {review.limitations.map((limit) => (
+                  <small key={limit}>{t(`live.reviewLimits.${limit}`)}</small>
+                ))}
+                <small>
+                  Forge:{" "}
+                  {t(`live.engineCoverage.${review.engineCoverage.native}`)}
+                </small>
+                <small>
+                  Codex:{" "}
+                  {t(`live.engineCoverage.${review.engineCoverage.codex}`)}
+                </small>
+                {!review.entries.length && <p>{t("live.noChanges")}</p>}
+                {review.entries.map((entry) => (
+                  <details key={entry.path}>
+                    <summary>
+                      {t(`live.changeStatus.${entry.status}`)} · {entry.path}
+                    </summary>
+                    <DiffViewer entry={entry} />
+                  </details>
+                ))}
+              </div>
+            )}
             <h3>{t("live.context")}</h3>
             <pre>{state?.context}</pre>
             <button
@@ -509,6 +637,12 @@ function operationError(error: unknown): string {
       "session-conflict",
       "session-storage-failed",
       "configuration-invalid",
+      "outside-workspace",
+      "outside_workspace",
+      "already-exists",
+      "limit_reached",
+      "io_error",
+      "source-changed",
     ].find((code) => message.includes(code)) ?? "management-failed"
   );
 }

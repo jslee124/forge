@@ -17,23 +17,26 @@
     "typecheck": "tsc -b"
   },
   "dependencies": {
+    "@forge/application": "workspace:*",
+    "@forge/codex-app-server": "workspace:*",
+    "@forge/core": "workspace:*",
+    "@forge/persistence": "workspace:*",
+    "@forge/tools": "workspace:*",
     "@phosphor-icons/react": "^2.1.10",
     "@radix-ui/react-select": "^2.2.6",
     "clsx": "^2.1.1",
     "i18next": "^25.5.2",
+    "pdfjs-dist": "^6.3.289",
     "react": "^19.2.8",
+    "react-diff-view": "^3.3.3",
     "react-dom": "^19.2.8",
     "react-i18next": "^15.7.3",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
     "shiki": "^3.12.2",
     "tailwind-merge": "^3.3.1",
-    "zustand": "^5.0.8",
-    "@forge/application": "workspace:*",
-    "@forge/core": "workspace:*",
-    "@forge/persistence": "workspace:*",
-    "@forge/codex-app-server": "workspace:*",
-    "zod": "^4.4.3"
+    "zod": "^4.4.3",
+    "zustand": "^5.0.8"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.13",

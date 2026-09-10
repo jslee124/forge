@@ -24,12 +24,26 @@ export {
   previewEditFile,
 } from "./edit-file.js";
 export {
+  type FormatTableInput,
+  type FormatTableOutput,
+  formatTable,
+  formatTableInputSchema,
+  formatTableTool,
+} from "./format-table.js";
+export {
   type ListFilesInput,
   type ListFilesOutput,
   listFiles,
   listFilesInputSchema,
   listFilesTool,
 } from "./list-files.js";
+export {
+  type ReadDocumentInput,
+  type ReadDocumentOutput,
+  readDocument,
+  readDocumentInputSchema,
+  readDocumentTool,
+} from "./read-document.js";
 export {
   type ReadFileInput,
   type ReadFileOutput,

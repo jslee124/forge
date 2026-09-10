@@ -2,13 +2,14 @@ import type {
   DesktopState,
   ManagementCommand,
 } from "./application-protocol.js";
+import type { FileApi } from "./file-protocol.js";
 import type { RunCommand, RunEvent } from "./run-protocol.js";
 export interface AgentHealth {
   readonly pid: number;
   readonly resourcesAvailable: boolean;
 }
 
-export interface DesktopApi {
+export interface DesktopApi extends FileApi {
   readonly versions: Readonly<{
     electron: string;
     chrome: string;

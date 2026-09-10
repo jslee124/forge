@@ -969,6 +969,62 @@ textarea:focus-visible,
 .live-panel details {
   padding: 10px 0;
 }
+.live-panel > input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 7px 8px;
+  border: 1px solid #deded8;
+  border-radius: 6px;
+}
+.file-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 8px 0 14px;
+}
+.artifact-preview {
+  padding: 10px;
+  border: 1px solid #e8e8e4;
+  border-radius: 8px;
+  background: #fff;
+}
+.artifact-preview h4 {
+  overflow-wrap: anywhere;
+}
+.file-content {
+  max-height: 360px;
+  overflow: auto;
+}
+.media-preview img,
+.pdf-preview canvas {
+  max-width: 100%;
+  height: auto;
+}
+.table-preview {
+  overflow: auto;
+}
+.table-preview table {
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.table-preview th,
+.table-preview td {
+  padding: 4px 6px;
+  border: 1px solid #deded8;
+  white-space: pre-wrap;
+}
+.live-panel .preview-limit {
+  color: #8a5800;
+}
+.change-review small {
+  display: block;
+  margin: 6px 0;
+  color: #666;
+}
+.change-review .diff {
+  font-size: 11px;
+  min-width: 520px;
+}
 .live-settings {
   padding: 30px;
   overflow: auto;

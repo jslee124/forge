@@ -22,6 +22,15 @@ export const resources = {
             "The session could not be read or saved. Check disk access and session integrity; reload before retrying.",
           "configuration-invalid":
             "Forge configuration is invalid. Correct it before retrying.",
+          "outside-workspace": "The file is outside the selected workspace.",
+          outside_workspace:
+            "The file resolves outside the selected workspace.",
+          "already-exists":
+            "The destination already exists; choose whether to replace it.",
+          limit_reached: "The file exceeds the supported preview limit.",
+          io_error: "The file could not be read or copied.",
+          "source-changed":
+            "The source changed while it was being copied. Nothing was replaced; retry from the current file.",
         },
 
         send: "Send",
@@ -51,6 +60,57 @@ export const resources = {
         activity: "Run activity",
         verification:
           "Completion reports the run outcome. Inspect tool output for actual verification; changes are not rolled back on cancellation.",
+        addMaterial: "Add file copy",
+        files: "Files and previews",
+        filePath: "Workspace-relative file path",
+        preview: "Preview",
+        reveal: "Show in folder",
+        saveAs: "Save as…",
+        previewLimited: "Partial preview — the source contains more content.",
+        changes: "Changes since baseline",
+        baseline: "Comparison baseline",
+        baselines: {
+          "task-start": "task start",
+          "resume-time": "resume time",
+          "workspace-selection": "workspace selection",
+          unavailable: "unavailable",
+        },
+        refreshChanges: "Refresh change review",
+        noChanges: "No changes since the task baseline.",
+        reviewLimits: {
+          "no-baseline":
+            "No in-memory baseline is available; no changes are attributed.",
+          "no-agent-attribution":
+            "These are baseline changes, not claims of Agent authorship.",
+          "concurrent-edits-indistinguishable":
+            "Concurrent user or external edits cannot be separated from engine edits.",
+          "bounded-snapshot":
+            "The bounded snapshot omitted some content; those entries have metadata only.",
+        },
+        engineCoverage: {
+          "approval-plus-baseline":
+            "approval diffs are separate; this is the cumulative workspace comparison.",
+          "baseline-only":
+            "no authoritative per-edit patch is available; only the workspace comparison is shown.",
+        },
+        changeStatus: {
+          added: "Added",
+          modified: "Modified",
+          deleted: "Deleted",
+        },
+        bytes: "{{count}} bytes",
+        imageScope:
+          "Preview is available; model analysis depends on the selected engine's image-input support.",
+        rowRange:
+          "Rows {{start}}–{{end}} of {{total}} · preview range; analysis uses the full parsed file",
+        calculation:
+          "{{operation}} column {{column}}: {{value}} · {{count}} rows calculated",
+        noNumericValues: "no numeric values",
+        rowError: "Row {{row}}: {{message}}",
+        pageRange: "Pages {{start}}–{{end}} of {{total}}",
+        page: "Page {{page}}",
+        noPdfText: "No extractable text (OCR was not performed).",
+        diffUnavailable: "Binary or oversized file: content diff unavailable.",
         ready: "Ready",
         running: "Running",
         completed: "Completed",
@@ -176,6 +236,13 @@ export const resources = {
           "session-storage-failed":
             "无法读取或保存会话，请检查磁盘权限和会话文件，重新加载后重试。",
           "configuration-invalid": "Forge 配置无效，请修正后重试。",
+          "outside-workspace": "该文件不在所选工作空间内。",
+          outside_workspace: "该文件解析后位于工作空间之外。",
+          "already-exists": "目标文件已存在，请明确选择是否覆盖。",
+          limit_reached: "文件超过支持的预览上限。",
+          io_error: "无法读取或复制文件。",
+          "source-changed":
+            "复制过程中源文件发生变化。没有覆盖任何目标，请基于当前文件重试。",
         },
 
         send: "发送",
@@ -203,6 +270,49 @@ export const resources = {
         activity: "运行活动",
         verification:
           "完成状态表示运行结果；验证依据请查看工具输出。取消不会回滚已发生的修改。",
+        addMaterial: "添加文件副本",
+        files: "文件与预览",
+        filePath: "工作空间相对路径",
+        preview: "预览",
+        reveal: "在文件夹中显示",
+        saveAs: "另存为…",
+        previewLimited: "当前为部分预览，源文件还有更多内容。",
+        changes: "比较基线后的更改",
+        baseline: "比较基线",
+        baselines: {
+          "task-start": "任务开始时",
+          "resume-time": "恢复会话时",
+          "workspace-selection": "选择工作空间时",
+          unavailable: "不可用",
+        },
+        refreshChanges: "刷新变更审查",
+        noChanges: "任务基线之后没有更改。",
+        reviewLimits: {
+          "no-baseline": "当前没有内存中的比较基线，因此不会归属任何更改。",
+          "no-agent-attribution":
+            "这些只是基线后的变化，不表示它们都由 Agent 产生。",
+          "concurrent-edits-indistinguishable":
+            "无法把同期用户或外部修改与引擎修改分离。",
+          "bounded-snapshot": "有界快照省略了部分内容；这些条目只提供元数据。",
+        },
+        engineCoverage: {
+          "approval-plus-baseline":
+            "单次审批差异单独显示；这里展示累计工作空间比较。",
+          "baseline-only": "没有权威的逐次编辑补丁，只展示工作空间基线比较。",
+        },
+        changeStatus: { added: "新增", modified: "修改", deleted: "删除" },
+        bytes: "{{count}} 字节",
+        imageScope: "可进行预览；模型分析能力取决于所选引擎是否支持图片输入。",
+        rowRange:
+          "第 {{start}}–{{end}} 行，共 {{total}} 行；预览为局部，分析使用完整解析结果",
+        calculation:
+          "第 {{column}} 列 {{operation}}：{{value}}；实际计算 {{count}} 行",
+        noNumericValues: "没有数值",
+        rowError: "第 {{row}} 行：{{message}}",
+        pageRange: "第 {{start}}–{{end}} 页，共 {{total}} 页",
+        page: "第 {{page}} 页",
+        noPdfText: "没有可提取文字（未执行 OCR）。",
+        diffUnavailable: "二进制或超大文件：无法提供内容差异。",
         ready: "就绪",
         running: "运行中",
         completed: "已完成",
