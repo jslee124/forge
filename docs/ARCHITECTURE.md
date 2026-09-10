@@ -160,13 +160,13 @@ The initial adapter uses Vercel AI SDK and `@ai-sdk/deepseek` for streaming and
 tool-call transport. It uses `deepseek-v4-flash` and explicitly enables thinking
 mode so a provider default change cannot silently alter behavior.
 
-The DeepSeek adapter selects the OpenAI-compatible Responses transport only for
-`deepseek-v4-flash-vision-exp`. Core requests carry provider-neutral URL or
-base64 image parts; the CLI owns local-file canonicalization, format validation,
-size limits, and encoding. The transport maps those parts to `input_image`
-content while keeping the runtime-owned tool loop and opaque continuation
-contract unchanged. Other DeepSeek models reject attached images before a
-provider call.
+The DeepSeek adapter uses the provider's Chat Completions transport for all
+three current model IDs. Core requests carry provider-neutral URL or base64
+image parts; the CLI owns local-file canonicalization, format validation, size
+limits, and encoding. `@ai-sdk/deepseek` maps those parts to DeepSeek's native
+vision content for `deepseek-v4-flash-vision-exp` while keeping the
+runtime-owned tool loop and opaque continuation contract unchanged. Other
+DeepSeek models reject attached images before a provider call.
 
 The model adapter performs exactly one provider turn and maps the AI SDK full
 stream into Forge model events. Forge controls the multi-step loop and does not

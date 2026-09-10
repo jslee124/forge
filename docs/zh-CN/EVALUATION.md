@@ -64,7 +64,7 @@ JSON 报告记录 Forge commit、任务、trial、model、thinking、status、gr
 
 ## 当前 provider 模型
 
-默认 `deepseek-v4-flash` 在 2026-08-19 根据[官方 DeepSeek API 文档](https://api-docs.deepseek.com/api/create-chat-completion)重新校验。当前代码也支持 `deepseek-v4-pro` 和仅 Responses 的实验性 `deepseek-v4-flash-vision-exp`。Thinking 由 Forge 显式选择。Vision transport 和本地图片校验有确定性测试，但 v0.1 报告不声称有付费 live vision 评测。
+默认 `deepseek-v4-flash` 在 2026-09-10 根据[官方 DeepSeek API 文档](https://api-docs.deepseek.com/api/create-chat-completion)重新校验。当前代码也支持 `deepseek-v4-pro` 和实验性 `deepseek-v4-flash-vision-exp`；三个模型均支持 Chat Completions 和 Responses，只有 vision 模型接受图片内容。Thinking 由 Forge 显式选择。Vision transport 和本地图片校验有确定性测试，但 v0.1 报告不声称有付费 live vision 评测。
 
 ## v0.1 证据
 

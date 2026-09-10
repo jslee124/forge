@@ -117,10 +117,11 @@ contain repository data and should be reviewed before publication.
 
 ## Current provider model
 
-The default `deepseek-v4-flash` ID was revalidated on 2026-08-19 against the
+The default `deepseek-v4-flash` ID was revalidated on 2026-09-10 against the
 [official DeepSeek API documentation](https://api-docs.deepseek.com/api/create-chat-completion).
 The API currently lists `deepseek-v4-flash`, `deepseek-v4-pro`, and the
-Responses-only experimental vision model `deepseek-v4-flash-vision-exp`.
+experimental vision model `deepseek-v4-flash-vision-exp`; all three support Chat
+Completions and Responses, while only the vision model accepts image content.
 Thinking mode is selected explicitly by Forge. Vision transport and local image
 validation have deterministic tests, but no paid live vision evaluation is
 claimed by the v0.1 report below.

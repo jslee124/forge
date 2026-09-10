@@ -153,7 +153,7 @@ Runtime dependencies (installed versions, Node engines):
 | ink / react | 7.1.1 / 19.2.8 | ≥22 / — | TUI-only for ink; React 19.2.8 shared with desktop renderer |
 | undici | 7.29.0 | ≥20.18.1 | HTTP dispatcher inside providers |
 | zod | 4.4.3 | — | validation; reuse for IPC message schemas |
-| ai / @ai-sdk/openai / @ai-sdk/deepseek | 7.0.66 / 4.0.43 / 3.0.28 | ≥22 | provider adapters (native engine) |
+| ai / @ai-sdk/openai / @ai-sdk/deepseek | 7.0.66 / 4.0.43 / 3.0.35 | ≥22 | provider adapters (native engine) |
 
 All engines constraints are satisfied by Node ≥22.12; the binding constraint
 is the repository's own `node >=24`. `node:` builtins used across the repo:

@@ -90,6 +90,8 @@ Runtime 拥有 run state/step count、conversation message、model/tool 循环�
 
 初始 adapter 使用 Vercel AI SDK 和 `@ai-sdk/deepseek` 流式传输。它只执行一次 provider turn 并把 stream 映射为 Forge event；多步骤循环由 Forge 控制，不交给 `ToolLoopAgent` 或 `stopWhen`。AI SDK tool definition 不带直接 execute callback；Forge 只有在 policy 记录决策后才验证和执行。
 
+DeepSeek adapter 对当前三个 model ID 统一使用 provider 的 Chat Completions transport。Core request 携带 provider-neutral URL 或 base64 图片；CLI 负责本地文件规范化、格式校验、大小限制和编码。`@ai-sdk/deepseek` 为 `deepseek-v4-flash-vision-exp` 映射 DeepSeek 原生 vision content，同时保持 runtime-owned tool loop 和 opaque continuation contract 不变。其他 DeepSeek 模型会在 provider call 前拒绝图片附件。
+
 DeepSeek thinking tool call 要把 provider reasoning content 原样放入后续 tool-result turn，因此 adapter 返回和可观察事件并列的 opaque continuation。Core 可以保存并交还同一个 adapter，但不能从终端文字重构或丢弃 metadata。Provider 返回的 reasoning 作为 typed response part 输出；没有返回时不得伪造。
 
 ### Authentication manager

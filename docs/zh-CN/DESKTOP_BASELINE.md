@@ -135,7 +135,7 @@
 | ink / react | 7.1.1 / 19.2.8 | ≥22 / — | ink 仅 TUI；React 19.2.8 与桌面渲染层共用 |
 | undici | 7.29.0 | ≥20.18.1 | 提供方内部的 HTTP 调度 |
 | zod | 4.4.3 | — | 校验；IPC 消息 schema 复用 |
-| ai / @ai-sdk/openai / @ai-sdk/deepseek | 7.0.66 / 4.0.43 / 3.0.28 | ≥22 | 原生引擎的提供方适配器 |
+| ai / @ai-sdk/openai / @ai-sdk/deepseek | 7.0.66 / 4.0.43 / 3.0.35 | ≥22 | 原生引擎的提供方适配器 |
 
 所有 engines 约束在 Node ≥22.12 即满足；真正的约束是仓库自身的
 `node >=24`。仓库使用的 `node:` 内建模块：`path`、`os`、`url`、`crypto`、

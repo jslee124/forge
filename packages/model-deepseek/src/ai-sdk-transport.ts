@@ -4,11 +4,6 @@ import {
   type DeepSeekProviderSettings,
 } from "@ai-sdk/deepseek";
 import {
-  createOpenAI,
-  type OpenAIProviderSettings,
-  type OpenAIResponsesProviderOptions,
-} from "@ai-sdk/openai";
-import {
   type ModelFinishReason,
   ModelProviderError,
   type ModelStreamEvent,
@@ -43,8 +38,7 @@ export class AiSdkDeepSeekTransport implements DeepSeekTransport {
       | StreamTextFunction
       | {
           readonly streamTextFunction?: StreamTextFunction;
-          readonly fetch?: DeepSeekProviderSettings["fetch"] &
-            OpenAIProviderSettings["fetch"];
+          readonly fetch?: DeepSeekProviderSettings["fetch"];
         } = {},
   ) {
     if (typeof options === "function") {
@@ -64,17 +58,6 @@ export class AiSdkDeepSeekTransport implements DeepSeekTransport {
       apiKey: request.apiKey,
       ...(this.#fetch ? { fetch: this.#fetch } : {}),
     });
-    const responses = createOpenAI({
-      apiKey: request.apiKey,
-      baseURL: "https://api.deepseek.com",
-      fetch: createDeepSeekResponsesFetch(
-        this.#fetch,
-        request.thinking === "disabled"
-          ? "none"
-          : (request.reasoningEffort ?? "high"),
-      ),
-    });
-    const usesResponsesApi = request.model === "deepseek-v4-flash-vision-exp";
     let providerMetadata: Readonly<Record<string, unknown>> | undefined;
     let finishPart:
       | {
@@ -86,9 +69,7 @@ export class AiSdkDeepSeekTransport implements DeepSeekTransport {
     try {
       const messages = buildMessages(request);
       const result = this.#streamText({
-        model: usesResponsesApi
-          ? responses.responses(request.model)
-          : deepSeek(request.model),
+        model: deepSeek(request.model),
         ...(request.instructions ? { instructions: request.instructions } : {}),
         messages,
         abortSignal: signal,
@@ -98,24 +79,18 @@ export class AiSdkDeepSeekTransport implements DeepSeekTransport {
         ...(request.tools && request.tools.length > 0
           ? { tools: toAiSdkTools(request.tools) }
           : {}),
-        providerOptions: usesResponsesApi
-          ? {
-              openai: {
-                store: false,
-              } satisfies OpenAIResponsesProviderOptions,
-            }
-          : {
-              deepseek: {
-                thinking: { type: request.thinking },
-                ...(request.thinking === "enabled"
-                  ? {
-                      reasoningEffort: toChatReasoningEffort(
-                        request.reasoningEffort ?? "high",
-                      ),
-                    }
-                  : {}),
-              } satisfies DeepSeekLanguageModelChatOptions,
-            },
+        providerOptions: {
+          deepseek: {
+            thinking: { type: request.thinking },
+            ...(request.thinking === "enabled"
+              ? {
+                  reasoningEffort: toChatReasoningEffort(
+                    request.reasoningEffort ?? "high",
+                  ),
+                }
+              : {}),
+          } satisfies DeepSeekLanguageModelChatOptions,
+        },
       });
 
       for await (const part of result.stream) {
@@ -213,42 +188,12 @@ export class AiSdkDeepSeekTransport implements DeepSeekTransport {
 
 function toChatReasoningEffort(
   effort: DeepSeekReasoningEffort,
-): "low" | "medium" | "high" | "xhigh" | "max" {
-  return effort === "none" || effort === "minimal" ? "low" : effort;
-}
-
-function createDeepSeekResponsesFetch(
-  fetchImplementation: OpenAIProviderSettings["fetch"],
-  reasoningEffort: DeepSeekReasoningEffort,
-): NonNullable<OpenAIProviderSettings["fetch"]> {
-  const nextFetch = (fetchImplementation ?? globalThis.fetch) as NonNullable<
-    OpenAIProviderSettings["fetch"]
-  >;
-  return async (input, init) => {
-    if (typeof init?.body !== "string") {
-      return nextFetch(input, init);
-    }
-    try {
-      const body = JSON.parse(init.body) as Record<string, unknown>;
-      return nextFetch(input, {
-        ...init,
-        body: JSON.stringify({
-          ...body,
-          // The OpenAI provider does not classify DeepSeek's custom vision
-          // model as a reasoning model, so it will not request a summary for
-          // us. Without one, usage includes reasoning tokens but the stream
-          // contains no reasoning deltas for Forge to render.
-          reasoning: {
-            effort: reasoningEffort,
-            ...(reasoningEffort === "none" ? {} : { summary: "detailed" }),
-          },
-          store: false,
-        }),
-      });
-    } catch {
-      return nextFetch(input, init);
-    }
-  };
+): "low" | "high" | "max" {
+  if (effort === "max") return "max";
+  if (effort === "none" || effort === "minimal" || effort === "low") {
+    return "low";
+  }
+  return "high";
 }
 
 interface DeepSeekContinuationData {

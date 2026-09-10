@@ -15,7 +15,7 @@ async function* streamParts(parts: readonly unknown[]): AsyncIterable<unknown> {
 }
 
 describe("AI SDK DeepSeek transport", () => {
-  it("uses the Responses API message shape for the vision model", async () => {
+  it("uses the DeepSeek message shape for the vision model", async () => {
     let capturedOptions: unknown;
     const streamTextStub = ((options: unknown) => {
       capturedOptions = options;
@@ -73,12 +73,15 @@ describe("AI SDK DeepSeek transport", () => {
         },
       ],
       providerOptions: {
-        openai: { store: false },
+        deepseek: {
+          thinking: { type: "enabled" },
+          reasoningEffort: "high",
+        },
       },
     });
   });
 
-  it("serializes vision input to DeepSeek's /responses endpoint", async () => {
+  it("serializes vision input to DeepSeek's Chat Completions endpoint", async () => {
     let requestUrl = "";
     let requestBody: unknown;
     const fetchMock: NonNullable<DeepSeekProviderSettings["fetch"]> = async (
@@ -117,10 +120,10 @@ describe("AI SDK DeepSeek transport", () => {
       }
     }).rejects.toThrow("HTTP 400");
 
-    expect(requestUrl).toBe("https://api.deepseek.com/responses");
+    expect(requestUrl).toBe("https://api.deepseek.com/chat/completions");
     expect(requestBody).toMatchObject({
       model: "deepseek-v4-flash-vision-exp",
-      input: [
+      messages: [
         {
           role: "system",
           content: "Follow repository instructions.",
@@ -128,21 +131,23 @@ describe("AI SDK DeepSeek transport", () => {
         {
           role: "user",
           content: [
-            { type: "input_text", text: "Inspect" },
+            { type: "text", text: "Inspect" },
             {
-              type: "input_image",
-              image_url: "data:image/png;base64,iVBORw0KGgo=",
+              type: "image_url",
+              image_url: {
+                url: "data:image/png;base64,iVBORw0KGgo=",
+              },
             },
           ],
         },
       ],
-      reasoning: { effort: "max", summary: "detailed" },
-      store: false,
+      thinking: { type: "enabled" },
+      reasoning_effort: "max",
       stream: true,
     });
   });
 
-  it("does not request a reasoning summary when vision thinking is disabled", async () => {
+  it("omits reasoning effort when vision thinking is disabled", async () => {
     let requestBody: unknown;
     const fetchMock: NonNullable<DeepSeekProviderSettings["fetch"]> = async (
       _input,
@@ -172,12 +177,51 @@ describe("AI SDK DeepSeek transport", () => {
     }).rejects.toThrow("HTTP 400");
 
     expect(requestBody).toMatchObject({
-      reasoning: { effort: "none" },
+      thinking: { type: "disabled" },
     });
-    expect(requestBody).not.toMatchObject({
-      reasoning: { summary: expect.anything() },
-    });
+    expect(requestBody).not.toHaveProperty("reasoning_effort");
   });
+
+  it.each([
+    ["minimal", "low"],
+    ["medium", "high"],
+    ["xhigh", "high"],
+    ["max", "max"],
+  ] as const)(
+    "maps %s effort to DeepSeek's %s level",
+    async (effort, expected) => {
+      let capturedOptions: unknown;
+      const streamTextStub = ((options: unknown) => {
+        capturedOptions = options;
+        return {
+          stream: streamParts([
+            { type: "finish", finishReason: "stop", totalUsage: usage() },
+          ]),
+          responseMessages: Promise.resolve([]),
+        };
+      }) as unknown as typeof streamText;
+      const transport = new AiSdkDeepSeekTransport(streamTextStub);
+
+      for await (const _event of transport.stream(
+        {
+          apiKey: "test-secret",
+          model: "deepseek-v4-flash",
+          thinking: "enabled",
+          reasoningEffort: effort,
+          prompt: "Inspect",
+        },
+        new AbortController().signal,
+      )) {
+        // Consume the response.
+      }
+
+      expect(capturedOptions).toMatchObject({
+        providerOptions: {
+          deepseek: { reasoningEffort: expected },
+        },
+      });
+    },
+  );
 
   it("places interactive conversation history before the current prompt", async () => {
     let capturedOptions: unknown;
