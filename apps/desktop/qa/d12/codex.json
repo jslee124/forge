@@ -1,0 +1,53 @@
+{
+  "engine": "codex",
+  "locale": "en",
+  "observedAt": "2026-09-11T05:49:34.742Z",
+  "status": "passed",
+  "outcome": "completed",
+  "approvals": 0,
+  "toolEvents": 8,
+  "codeBefore": "export function add(a, b) { return a - b; }\n",
+  "codeAfter": "export function add(a, b) { return a + b; }\n",
+  "codeSha256": "76f26bd292166033d02e77bdb8fe6aec01e915ccb8cb3f93b8971f9dcd78250e",
+  "review": {
+    "baseline": "task-start",
+    "attribution": "changed-since-baseline",
+    "entries": [
+      {
+        "path": "output.csv",
+        "status": "added",
+        "patch": "diff --git a/output.csv b/output.csv\n--- /dev/null\n+++ b/output.csv\n@@ -0,0 +1,4 @@\n+id,amount\n+001,10\n+002,20\n+TOTAL,30\n"
+      },
+      {
+        "path": "report.md",
+        "status": "added",
+        "patch": "diff --git a/report.md b/report.md\n--- /dev/null\n+++ b/report.md\n@@ -0,0 +1,6 @@\n+# Web Check\n+\n+- **Search snippets:** A web search for Mozilla Readability returned a snippet for the [Mozilla Readability repository](https://github.com/mozilla/readability), describing it as the standalone library used for Firefox Reader View. This was snippet evidence only; the repository page was not fetched.\n+- **Fetched body:** The web tool fetched [Example Domain](https://example.com/). Its body says the domain is intended for documentation examples and should not be used operationally.\n+- **Failed reads:** None.\n+- **Truncation:** None reported by the web tool for the fetched page. Search results were reviewed as snippets, not treated as complete page bodies.\n"
+      },
+      {
+        "path": "sum.js",
+        "status": "modified",
+        "patch": "diff --git a/sum.js b/sum.js\n--- a/sum.js\n+++ b/sum.js\n@@ -1,1 +1,1 @@\n-export function add(a, b) { return a - b; }\n+export function add(a, b) { return a + b; }\n"
+      }
+    ],
+    "truncated": false,
+    "limitations": [
+      "no-agent-attribution",
+      "concurrent-edits-indistinguishable"
+    ],
+    "engineCoverage": {
+      "native": "approval-plus-baseline",
+      "codex": "baseline-only"
+    }
+  },
+  "csvPreview": {
+    "kind": "table",
+    "truncated": true
+  },
+  "reportPreview": {
+    "kind": "text",
+    "truncated": false
+  },
+  "exportedCopyMatches": true,
+  "sourceEvidence": "model report; bridge has no structured source fields",
+  "answerProduced": true
+}

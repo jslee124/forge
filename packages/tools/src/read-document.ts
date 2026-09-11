@@ -225,7 +225,7 @@ async function readPdf(
     );
     const pages: { page: number; text: string; textless: boolean }[] = [];
     let outputBytes = 0;
-    let truncated = requestedEnd > end;
+    let truncated = start > 1;
     for (let pageNumber = start; pageNumber <= end; pageNumber++) {
       if (context.signal.aborted) return cancelled();
       const page = await document.getPage(pageNumber);
@@ -322,7 +322,7 @@ async function readTable(
       analysisScope: "full-file",
       ...(calculation ? { calculation } : {}),
     },
-    truncated: requestedEnd > end || end < totalRows,
+    truncated: start > 1 || end < totalRows,
   };
 }
 

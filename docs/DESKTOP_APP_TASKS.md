@@ -30,7 +30,7 @@ offline work. This checklist does not request multiple agents.
 | D09 | File operations and change review | D07, D08 | Complete |
 | D10 | Content reading and previews | D09 | Complete |
 | D11 | Search plugins and sourced reports | D07, D08, D10 | Complete; live limits recorded |
-| D12 | End-to-end and failure acceptance | D09, D10, D11 | Not started |
+| D12 | End-to-end and failure acceptance | D09, D10, D11 | Complete |
 | D13 | macOS installer and handoff | D12 | Not started |
 
 D04 can be prepared independently of prototype work. Real UI integration follows
@@ -448,6 +448,10 @@ Cover crashes/cancel/missing folders/storage/network/history/conflicts/unconfigu
 Mark unverified cells rather than using mocks as real support evidence.
 **Verify:** CI=true pnpm check, CI=true pnpm eval:deterministic, focused tests and rendered UI.
 Run CI=true pnpm package:verify for packaged-resource/public-artifact changes; record omissions.
+
+D12 completed 2026-09-11: [development acceptance and explicit gaps](../apps/desktop/d12-qa.md).
+Two live engine tests, 69 focused regressions, 71 deterministic checks, both-locale Electron
+captures, check and CLI packed-install verification passed. Installed GUI validation remains D13.
 
 ## D13 · macOS installer and handoff
 

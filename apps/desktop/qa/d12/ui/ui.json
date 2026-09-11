@@ -1,0 +1,85 @@
+{
+  "kind": "offline rendered UI with real IPC and file services; no model calls",
+  "results": [
+    {
+      "name": "zh-CN-settings",
+      "width": 1100,
+      "height": 728,
+      "overflow": false,
+      "locale": "zh-CN",
+      "fixture": true
+    },
+    {
+      "name": "zh-CN-code",
+      "width": 1100,
+      "height": 728,
+      "overflow": false,
+      "locale": "zh-CN",
+      "fixture": true
+    },
+    {
+      "name": "zh-CN-local",
+      "width": 1100,
+      "height": 728,
+      "overflow": false,
+      "locale": "zh-CN",
+      "fixture": true
+    },
+    {
+      "name": "zh-CN-research",
+      "width": 1100,
+      "height": 728,
+      "overflow": false,
+      "locale": "zh-CN",
+      "fixture": true
+    },
+    {
+      "name": "zh-CN-narrow-research",
+      "width": 840,
+      "height": 800,
+      "overflow": false,
+      "locale": "zh-CN",
+      "fixture": true
+    },
+    {
+      "name": "en-settings",
+      "width": 1100,
+      "height": 728,
+      "overflow": false,
+      "locale": "en",
+      "fixture": true
+    },
+    {
+      "name": "en-code",
+      "width": 1100,
+      "height": 728,
+      "overflow": false,
+      "locale": "en",
+      "fixture": true
+    },
+    {
+      "name": "en-local",
+      "width": 1100,
+      "height": 728,
+      "overflow": false,
+      "locale": "en",
+      "fixture": true
+    },
+    {
+      "name": "en-research",
+      "width": 1100,
+      "height": 728,
+      "overflow": false,
+      "locale": "en",
+      "fixture": true
+    },
+    {
+      "name": "en-narrow-research",
+      "width": 840,
+      "height": 800,
+      "overflow": false,
+      "locale": "en",
+      "fixture": true
+    }
+  ]
+}

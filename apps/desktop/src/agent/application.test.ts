@@ -177,6 +177,34 @@ describe("desktop native execution", () => {
     f.application.close();
   });
 
+  it("reports missing model credentials as a failed run without fallback or tool effects", async () => {
+    const f = await fixture([]);
+    const app = new DesktopApplication(
+      { ...f.env, FORGE_PROVIDER: "openai", OPENAI_API_KEY: "" },
+      f.cwd,
+    );
+    try {
+      await app.manage({ type: "workspace", cwd: f.cwd });
+      const state = await app.manage({
+        type: "create",
+        prompt: "No configured provider",
+      });
+      const result = await run(app, state.sessionId);
+      expect(result.final.payload).toEqual({
+        type: "complete",
+        outcome: "failed",
+      });
+      expect(
+        result.events.filter((e) => e.payload.type === "approval"),
+      ).toHaveLength(0);
+      expect(f.requests).toHaveLength(0);
+      expect((await app.state()).sessionId).toBe(state.sessionId);
+    } finally {
+      app.close();
+      f.application.close();
+    }
+  });
+
   it("performs real read/write/command tools, two turns, and restores complete exchanges", async () => {
     const f = await fixture([
       [

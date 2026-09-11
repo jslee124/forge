@@ -31,6 +31,7 @@ import {
   previewRequestSchema,
   relativeFilePathSchema,
 } from "../shared/file-protocol.js";
+import { runUiAcceptance } from "./acceptance-ui.js";
 import { AgentProcess } from "./agent-process.js";
 import { FileService } from "./file-service.js";
 
@@ -311,6 +312,24 @@ async function run(): Promise<void> {
     if (mainWindow && !mainWindow.isDestroyed())
       mainWindow.webContents.send(RUN_EVENT_CHANNEL, event);
   });
+
+  if (process.argv.includes("--desktop-acceptance")) {
+    const {
+      FORGE_D12_UI_HOME: home,
+      FORGE_D12_UI_OUTPUT: output,
+      FORGE_HOME,
+    } = process.env;
+    if (!home || home !== FORGE_HOME || !output)
+      throw new Error(
+        "Acceptance requires an explicit isolated home and output",
+      );
+    const window = await createWindow(false);
+    await runUiAcceptance(window, home, output);
+    window.destroy();
+    await shutdown();
+    app.exit(0);
+    return;
+  }
 
   if (process.argv.includes("--desktop-smoke")) {
     const health = await agent.ping();

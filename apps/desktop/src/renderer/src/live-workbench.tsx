@@ -39,6 +39,15 @@ export function LiveWorkbench(): React.JSX.Element {
   const [filePath, setFilePath] = React.useState("");
   const [filePreview, setFilePreview] = React.useState<FilePreview>();
   const [review, setReview] = React.useState<ChangeReview>();
+  const scope = `${state?.sessionId ?? ""}:${state?.cwd ?? ""}`;
+  const scopeRef = React.useRef(scope);
+  scopeRef.current = scope;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Changing tasks must invalidate the previous task's artifact state.
+  React.useEffect(() => {
+    setFilePath("");
+    setFilePreview(undefined);
+    setReview(undefined);
+  }, [scope]);
   const key = state?.sessionId || `new:${state?.cwd ?? ""}`;
   const draft = drafts[key] ?? "";
   const busy = Boolean(active) || pending;
@@ -297,6 +306,7 @@ export function LiveWorkbench(): React.JSX.Element {
               <button
                 type="button"
                 key={session.id}
+                data-session-id={session.id}
                 disabled={busy}
                 onClick={() => {
                   void manage({ type: "resume", sessionId: session.id });
@@ -574,6 +584,7 @@ export function LiveWorkbench(): React.JSX.Element {
           <aside className="live-panel">
             <h3>{t("live.files")}</h3>
             <input
+              data-testid="file-path"
               aria-label={t("live.filePath")}
               placeholder={t("live.filePath")}
               value={filePath}
@@ -582,12 +593,18 @@ export function LiveWorkbench(): React.JSX.Element {
             <div className="file-actions">
               <button
                 type="button"
+                data-testid="preview-file"
                 disabled={!filePath || !state?.cwd}
                 onClick={() => {
                   void api
                     ?.previewFile({ path: filePath })
-                    .then(setFilePreview)
-                    .catch((cause) => setError(operationError(cause)));
+                    .then((value) => {
+                      if (scopeRef.current === scope) setFilePreview(value);
+                    })
+                    .catch((cause) => {
+                      if (scopeRef.current === scope)
+                        setError(operationError(cause));
+                    });
                 }}
               >
                 {t("live.preview")}
@@ -638,12 +655,18 @@ export function LiveWorkbench(): React.JSX.Element {
             <h3>{t("live.changes")}</h3>
             <button
               type="button"
+              data-testid="refresh-review"
               disabled={!state?.cwd}
               onClick={() =>
                 void api
                   ?.reviewChanges()
-                  .then(setReview)
-                  .catch((cause) => setError(operationError(cause)))
+                  .then((value) => {
+                    if (scopeRef.current === scope) setReview(value);
+                  })
+                  .catch((cause) => {
+                    if (scopeRef.current === scope)
+                      setError(operationError(cause));
+                  })
               }
             >
               {t("live.refreshChanges")}
@@ -716,6 +739,10 @@ function operationError(error: unknown): string {
       "limit_reached",
       "io_error",
       "source-changed",
+      "web-settings-invalid",
+      "web-bundle-unavailable",
+      "web-plugin-exists",
+      "web-plugin-missing",
     ].find((code) => message.includes(code)) ?? "management-failed"
   );
 }

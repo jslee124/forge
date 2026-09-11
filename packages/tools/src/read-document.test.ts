@@ -87,6 +87,21 @@ describe("read_document", () => {
     });
   });
 
+  it("does not report EOF clamping as truncation, but marks omitted earlier rows", async () => {
+    const { root, context } = await fixture();
+    await writeFile(join(root, "short.csv"), "id,value\n001,10");
+    await expect(
+      readDocument({ path: "short.csv", rowEnd: 100 }, context),
+    ).resolves.toMatchObject({ ok: true, truncated: false });
+    await expect(
+      readDocument({ path: "short.csv", rowStart: 2, rowEnd: 100 }, context),
+    ).resolves.toMatchObject({ ok: true, truncated: true });
+    await writeFile(join(root, "short.pdf"), minimalPdf("Hello PDF"));
+    await expect(
+      readDocument({ path: "short.pdf", pageEnd: 100 }, context),
+    ).resolves.toMatchObject({ ok: true, truncated: false });
+  });
+
   it("serializes quoted CSV and TSV content for the existing approved file writer", async () => {
     const { context } = await fixture();
     await expect(

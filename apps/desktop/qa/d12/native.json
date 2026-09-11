@@ -1,0 +1,53 @@
+{
+  "engine": "native",
+  "locale": "zh-CN",
+  "observedAt": "2026-09-11T05:49:08.053Z",
+  "status": "passed",
+  "outcome": "completed",
+  "approvals": 5,
+  "toolEvents": 44,
+  "codeBefore": "export function add(a, b) { return a - b; }\n",
+  "codeAfter": "export function add(a, b) { return a + b; }\n",
+  "codeSha256": "76f26bd292166033d02e77bdb8fe6aec01e915ccb8cb3f93b8971f9dcd78250e",
+  "review": {
+    "baseline": "task-start",
+    "attribution": "changed-since-baseline",
+    "entries": [
+      {
+        "path": "output.csv",
+        "status": "added",
+        "patch": "diff --git a/output.csv b/output.csv\n--- /dev/null\n+++ b/output.csv\n@@ -0,0 +1,4 @@\n+id,amount\n+001,10\n+002,20\n+TOTAL,30\n"
+      },
+      {
+        "path": "report.md",
+        "status": "added",
+        "patch": "diff --git a/report.md b/report.md\n--- /dev/null\n+++ b/report.md\n@@ -0,0 +1,16 @@\n+# 检查报告\n+\n+## 1. sum.js\n+把 `a - b` 改为 `a + b`。最终内容：`export function add(a, b) { return a + b; }`（含末尾换行）。\n+\n+## 2. CSV\n+input.csv 保留 ID 001/002；output.csv 内容为 id,amount / 001,10 / 002,20 / TOTAL,30。\n+\n+## 3. Web 检查\n+- 搜索“Mozilla Readability”（DuckDuckGo，2026-09-11 05:49 UTC）：仅得搜索摘要（snippet-only），未抓取网页正文；结果列表被截断。\n+- 抓取 https://example.com/ 成功：HTTP 200，text/html，未截断，正文为示例域名说明文本。\n+- 读取失败：无。局限：该抓取无法做文章抽取，且不执行 JavaScript。\n+\n+## 来源\n+- 搜索摘要（snippet-only，未读正文）：https://github.com/mozilla/readability ；https://www.npmjs.com/package/@mozilla/readability\n+- 已抓取正文（2026-09-11 05:49 UTC，无发布日期）：https://example.com/\n"
+      },
+      {
+        "path": "sum.js",
+        "status": "modified",
+        "patch": "diff --git a/sum.js b/sum.js\n--- a/sum.js\n+++ b/sum.js\n@@ -1,1 +1,1 @@\n-export function add(a, b) { return a - b; }\n+export function add(a, b) { return a + b; }\n"
+      }
+    ],
+    "truncated": false,
+    "limitations": [
+      "no-agent-attribution",
+      "concurrent-edits-indistinguishable"
+    ],
+    "engineCoverage": {
+      "native": "approval-plus-baseline",
+      "codex": "baseline-only"
+    }
+  },
+  "csvPreview": {
+    "kind": "table",
+    "truncated": true
+  },
+  "reportPreview": {
+    "kind": "text",
+    "truncated": false
+  },
+  "exportedCopyMatches": true,
+  "sourceEvidence": "native tool events plus model report",
+  "answerProduced": true
+}
