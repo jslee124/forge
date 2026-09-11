@@ -21,6 +21,7 @@ export interface DesktopApi extends FileApi {
   ): Promise<DesktopState>;
   chooseWorkspace(): Promise<DesktopState | null>;
   openLogin(): Promise<void>;
+  openSource(url: string): Promise<void>;
   pingAgent(): Promise<AgentHealth>;
 }
 

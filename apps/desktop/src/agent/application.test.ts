@@ -2,9 +2,10 @@ import { randomUUID } from "node:crypto";
 import { mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { createPersistentInteractiveSession } from "@forge/application";
 import type { ModelAdapter, ModelRequest, ModelStreamEvent } from "@forge/core";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { RunChannel } from "../main/run-channel.js";
 import type { RunEvent } from "../shared/run-protocol.js";
 import { DesktopApplication } from "./application.js";
@@ -12,6 +13,7 @@ import { RunService } from "./run-service.js";
 
 const roots: string[] = [];
 afterEach(async () => {
+  vi.unstubAllGlobals();
   for (const root of roots.splice(0))
     await rm(root, { recursive: true, force: true });
 });
@@ -37,7 +39,12 @@ const call = (name: string, input: unknown): ModelStreamEvent => ({
 async function fixture(steps: ModelStreamEvent[][]) {
   const cwd = await mkdtemp(join(tmpdir(), "forge-desktop-execute-"));
   roots.push(cwd);
-  const env = { FORGE_HOME: join(cwd, "home") };
+  const env = {
+    FORGE_HOME: join(cwd, "home"),
+    FORGE_WEB_PLUGIN_ROOT: fileURLToPath(
+      new URL("../../../../examples/plugins/web-tools", import.meta.url),
+    ),
+  };
   const requests: ModelRequest[] = [];
   const model: ModelAdapter = {
     async *stream(request) {
@@ -99,6 +106,77 @@ async function run(
   return { events, final };
 }
 describe("desktop native execution", () => {
+  it("loads the installed web plugin and requires a separate approval for every network call", async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response("Consulted source body", {
+          headers: { "content-type": "text/plain" },
+        }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const f = await fixture([
+      [
+        call("web_fetch", { url: "https://93.184.216.34/one" }),
+        finish("tool-calls"),
+      ],
+      [
+        call("web_fetch", { url: "https://93.184.216.34/two" }),
+        finish("tool-calls"),
+      ],
+      [
+        call("edit_file", {
+          operation: "create",
+          path: "report.md",
+          content:
+            "# Report\n\nConsulted source body. [Source](https://93.184.216.34/one)\n\n## Sources\n\nRetrieved text; see tool provenance for access time.\n",
+        }),
+        finish("tool-calls"),
+      ],
+      [
+        {
+          type: "text.delta",
+          text: "Source: [Consulted page](https://93.184.216.34/one)",
+        },
+        finish("stop"),
+      ],
+    ]);
+    await f.application.manage({ type: "web-install" });
+    await f.application.manage({ type: "web-enable", enabled: true });
+    const result = await run(f.application, f.sessionId);
+    expect(
+      result.events.filter((e) => e.payload.type === "approval"),
+    ).toHaveLength(3);
+    expect(await readFile(join(f.cwd, "report.md"), "utf8")).toContain(
+      "[Source](https://93.184.216.34/one)",
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(JSON.stringify(f.requests)).toContain(
+      "Search snippets are not retrieved page bodies",
+    );
+    expect(JSON.stringify(result.events)).toContain("retrieved-text");
+    f.application.close();
+  });
+
+  it("denies web access before fetching and keeps an installed plugin disabled by default", async () => {
+    const fetchMock = vi.fn(async () => new Response("must not run"));
+    vi.stubGlobal("fetch", fetchMock);
+    const f = await fixture([
+      [
+        call("web_fetch", { url: "https://93.184.216.34/" }),
+        finish("tool-calls"),
+      ],
+    ]);
+    await f.application.manage({ type: "web-install" });
+    expect((await f.application.state()).web?.enabled).toBe(false);
+    await f.application.manage({ type: "web-enable", enabled: true });
+    const result = await run(f.application, f.sessionId, "deny");
+    expect(
+      result.events.filter((e) => e.payload.type === "approval"),
+    ).toHaveLength(1);
+    expect(fetchMock).not.toHaveBeenCalled();
+    f.application.close();
+  });
+
   it("performs real read/write/command tools, two turns, and restores complete exchanges", async () => {
     const f = await fixture([
       [

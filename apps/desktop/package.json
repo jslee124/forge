@@ -5,8 +5,8 @@
   "type": "module",
   "main": "out/main/index.js",
   "scripts": {
-    "build": "electron-vite build",
-    "dev": "electron-vite dev",
+    "build": "electron-vite build && node ../../scripts/build-web-plugin.mjs",
+    "dev": "node ../../scripts/build-web-plugin.mjs && electron-vite dev",
     "preview:renderer": "vite preview --outDir out/renderer --host 127.0.0.1",
     "package": "pnpm build && electron-builder --mac",
     "package:dir": "pnpm build && electron-builder --dir --mac --config.electronDist=node_modules/electron/dist",

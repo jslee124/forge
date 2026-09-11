@@ -5,6 +5,8 @@ import {
   MANAGEMENT_CHANNEL,
   type ManagementCommand,
   OPEN_LOGIN_CHANNEL,
+  OPEN_SOURCE_CHANNEL,
+  sourceUrlSchema,
 } from "../shared/application-protocol.js";
 import {
   AGENT_PING_CHANNEL,
@@ -61,6 +63,8 @@ const desktopApi: DesktopApi = Object.freeze({
     return value === null ? null : desktopStateSchema.parse(value);
   },
   openLogin: () => ipcRenderer.invoke(OPEN_LOGIN_CHANNEL),
+  openSource: (url: string) =>
+    ipcRenderer.invoke(OPEN_SOURCE_CHANNEL, sourceUrlSchema.parse(url)),
   pingAgent: () => ipcRenderer.invoke(AGENT_PING_CHANNEL),
   importFile: async () => {
     const value: unknown = await ipcRenderer.invoke(FILE_IMPORT_CHANNEL);

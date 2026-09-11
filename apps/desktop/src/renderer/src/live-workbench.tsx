@@ -383,6 +383,79 @@ export function LiveWorkbench(): React.JSX.Element {
                 Forge home: <code>{state?.forgeHome}</code>
               </p>
               <p>{t("live.nativeConfig")}</p>
+              <section
+                className="web-settings"
+                aria-label={t("live.web.title")}
+              >
+                <h3>{t("live.web.title")}</h3>
+                <p>
+                  {t("live.web.bundle")}: {state?.web?.provenance}
+                </p>
+                {state?.web?.configurationInvalid && (
+                  <p role="alert">{t("live.errors.web-settings-invalid")}</p>
+                )}
+                <p>{t("live.web.scope")}</p>
+                <button
+                  type="button"
+                  disabled={busy || state?.web?.installed}
+                  onClick={() => void manage({ type: "web-install" })}
+                >
+                  {t(
+                    state?.web?.installed
+                      ? "live.web.installed"
+                      : "live.web.install",
+                  )}
+                </button>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={state?.web?.enabled ?? false}
+                    disabled={busy || !state?.web?.installed}
+                    onChange={(event) =>
+                      void manage({
+                        type: "web-enable",
+                        enabled: event.target.checked,
+                      })
+                    }
+                  />
+                  {t("live.web.enable")}
+                </label>
+                <label>
+                  {t("live.web.provider")}
+                  <select
+                    value={state?.web?.provider ?? "auto"}
+                    disabled={busy || !state?.web?.installed}
+                    onChange={(event) =>
+                      void manage({
+                        type: "web-configure",
+                        provider: event.target.value as
+                          | "auto"
+                          | "brave"
+                          | "duckduckgo",
+                      })
+                    }
+                  >
+                    <option value="auto">Auto</option>
+                    <option value="brave">Brave Search</option>
+                    <option value="duckduckgo">DuckDuckGo HTML</option>
+                  </select>
+                </label>
+                <p>
+                  {t("live.web.actual")}:{" "}
+                  {state?.web?.actualProvider === "brave"
+                    ? "Brave Search"
+                    : "DuckDuckGo HTML"}
+                </p>
+                <p>
+                  {t(
+                    state?.web?.braveKeyConfigured
+                      ? "live.web.keyReady"
+                      : "live.web.keyMissing",
+                  )}
+                </p>
+                <p>{t("live.web.auto")}</p>
+                <p>{t("live.web.report")}</p>
+              </section>
               <h3>Codex</h3>
               <p>{t(`live.auth.${state?.auth ?? "unknown"}`)}</p>
               <button

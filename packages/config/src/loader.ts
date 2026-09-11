@@ -134,6 +134,28 @@ async function writeUserConfig(
   return loaded.userConfigPath;
 }
 
+/** Explicit user-plugin enablement; preserves unrelated configuration. */
+export async function setUserPluginEnabled(options: {
+  readonly cwd: string;
+  readonly env?: NodeJS.ProcessEnv;
+  readonly name: string;
+  readonly enabled: boolean;
+}): Promise<string> {
+  const loaded = await loadForgeConfig(options);
+  const existing = await readConfigFile(loaded.userConfigPath);
+  const names = new Set(existing?.plugins?.enabled ?? []);
+  if (options.enabled) names.add(options.name);
+  else names.delete(options.name);
+  return writeUserConfig(
+    loaded,
+    {
+      ...(existing ?? { schemaVersion: 1 }),
+      plugins: { enabled: [...names] },
+    },
+    "plugin enablement",
+  );
+}
+
 export async function saveUserModelSelection(options: {
   readonly cwd: string;
   readonly env?: NodeJS.ProcessEnv;

@@ -7,7 +7,32 @@ export const resources = {
   en: {
     translation: {
       live: {
+        web: {
+          title: "Web research",
+          bundle: "Available bundle",
+          install: "Install bundled plugin",
+          installed: "Plugin installed",
+          enable: "Enable web-tools in the shared Forge user configuration",
+          provider: "Default service",
+          actual: "Service selected for the next request",
+          keyReady: "Brave key is configured in the Agent environment.",
+          keyMissing:
+            "No Brave key in the Agent environment. Set BRAVE_SEARCH_API_KEY before launching Forge to use Brave; the key is never shown here.",
+          scope:
+            "Optional Forge Engine plugin. Installation alone does not enable it. Every network request requires approval. Codex uses its own tools; its search support and source metadata are not verified by this plugin.",
+          auto: "Auto selects Brave when a key exists, otherwise DuckDuckGo. A failed request never switches services. Tool activity shows the actual requested service.",
+          report:
+            "Ask for a sourced Markdown report and, if needed, a .md file. Reports distinguish snippets, retrieved text, truncation and failed reads; inspect source links beside claims and the Sources section.",
+        },
         errors: {
+          "web-settings-invalid":
+            "Web plugin settings are invalid. Choose a service to repair them; no search can run until repaired.",
+          "web-bundle-unavailable":
+            "The bundled web plugin is missing. Rebuild or reinstall the desktop app.",
+          "web-plugin-exists":
+            "A web-tools directory already exists; your plugin was preserved. Remove or move it yourself before installing the bundled version.",
+          "web-plugin-missing":
+            "Install the web plugin before enabling or configuring it.",
           "workspace-unavailable":
             "The workspace directory is missing or inaccessible. Choose an existing directory.",
           "workspace-changed":
@@ -226,7 +251,31 @@ export const resources = {
   "zh-CN": {
     translation: {
       live: {
+        web: {
+          title: "联网研究",
+          bundle: "随应用提供的版本",
+          install: "安装随应用提供的插件",
+          installed: "插件已安装",
+          enable: "在 Forge 共享用户配置中启用 web-tools",
+          provider: "默认搜索服务",
+          actual: "下一次请求将选择的服务",
+          keyReady: "Agent 环境中已配置 Brave 密钥。",
+          keyMissing:
+            "Agent 环境中没有 Brave 密钥。使用 Brave 前请在启动 Forge 的环境中设置 BRAVE_SEARCH_API_KEY；此处不会显示密钥。",
+          scope:
+            "可选的 Forge 引擎插件。安装不会自动启用，每次网络请求都需要审批。Codex 使用自己的工具；此插件的验证不代表 Codex 搜索或来源字段已验证。",
+          auto: "Auto 在有密钥时选择 Brave，否则选择 DuckDuckGo；请求失败不会切换服务。工具活动中可查看实际请求的服务。",
+          report:
+            "可以要求生成带来源的 Markdown 报告并保存为 .md 文件。报告区分搜索摘要、已读取正文、截断与读取失败；请检查事实旁的来源链接及来源清单。",
+        },
         errors: {
+          "web-settings-invalid":
+            "搜索插件配置无效。请重新选择服务修复配置；修复前搜索无法执行。",
+          "web-bundle-unavailable":
+            "未找到随应用提供的搜索插件，请重新构建或安装桌面应用。",
+          "web-plugin-exists":
+            "web-tools 目录已存在，已保留原插件。安装内置版本前请自行移走或删除原目录。",
+          "web-plugin-missing": "请先安装搜索插件，再启用或配置。",
           "workspace-unavailable": "工作目录缺失或无法访问，请选择现有目录。",
           "workspace-changed": "工作空间边界已变化，请恢复原目录后再续聊。",
           "auto-workspace-boundary":

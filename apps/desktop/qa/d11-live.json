@@ -1,0 +1,88 @@
+{
+  "observedAt": "2026-09-11",
+  "services": [
+    {
+      "input": {
+        "query": "Mozilla Readability jsdom",
+        "provider": "duckduckgo",
+        "maxResults": 3
+      },
+      "result": {
+        "ok": true,
+        "output": {
+          "query": "Mozilla Readability jsdom",
+          "requestedProvider": "duckduckgo",
+          "provider": "duckduckgo",
+          "accessedAt": "2026-09-11T05:35:01.022Z",
+          "readingExtent": "search-snippets",
+          "results": [
+            {
+              "title": "GitHub - mozilla/readability: A standalone version of the readability ...",
+              "url": "https://github.com/mozilla/readability",
+              "snippet": "A standalone version of the readability lib. Contribute to mozilla/readability development by creating an account on GitHub."
+            },
+            {
+              "title": "@mozilla/readability - npm",
+              "url": "https://www.npmjs.com/package/@mozilla/readability",
+              "snippet": "A standalone version of the readability library used for Firefox Reader View.. Latest version: 0.6.0, last published: a year ago. Start using @ mozilla/readability in your project by running `npm i @ mozilla/readability `. There are 1204 other projects in the npm registry using @ mozilla/readability ."
+            },
+            {
+              "title": "GitHub - mozilla/readability: A standalone version of the readability ...",
+              "url": "https://github.com/mozilla/readability/blob/master/",
+              "snippet": "A standalone version of the readability lib. Contribute to mozilla/readability development by creating an account on GitHub."
+            }
+          ]
+        },
+        "truncated": true
+      }
+    },
+    {
+      "input": {
+        "query": "Mozilla Readability jsdom",
+        "provider": "brave",
+        "maxResults": 3
+      },
+      "result": {
+        "ok": false,
+        "error": {
+          "code": "invalid_input",
+          "message": "BRAVE_SEARCH_API_KEY is required when web_search provider is brave.",
+          "retryable": false
+        }
+      }
+    },
+    {
+      "input": {
+        "url": "https://example.com/",
+        "timeoutMs": 10000
+      },
+      "result": {
+        "ok": true,
+        "output": {
+          "url": "https://example.com/",
+          "finalUrl": "https://example.com/",
+          "accessedAt": "2026-09-11T05:35:03.462Z",
+          "method": "basic-text",
+          "readingExtent": "retrieved-text",
+          "limitation": "Article extraction unavailable; static HTML only. JavaScript content is not executed.",
+          "status": 200,
+          "contentType": "text/html",
+          "title": "Example Domain",
+          "text": "Example Domain Example Domain\nThis domain is for use in documentation examples without needing permission. Avoid use in operations.\nLearn more"
+        },
+        "truncated": false
+      }
+    }
+  ],
+  "codex": {
+    "outcome": "completed",
+    "detailKinds": ["system", "error", "reasoning", "tool", "context"],
+    "nativeSourceMetadata": false,
+    "reportFile": "d11-codex-report.md"
+  },
+  "limitations": [
+    "Brave credential absent; no live Brave availability claim",
+    "Codex sources below are report content, not structured sources projected by the bridge",
+    "Single-query smoke is not a quality benchmark"
+  ]
+}

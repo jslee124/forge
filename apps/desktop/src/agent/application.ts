@@ -31,6 +31,7 @@ import type {
   ManagementCommand,
 } from "../shared/application-protocol.js";
 import type { RunExecutor } from "./run-service.js";
+import { WebPluginSettings } from "./web-plugin-settings.js";
 
 /** Electron-free orchestration. All credentials, configuration and persistence stay here. */
 export class DesktopApplication {
@@ -73,6 +74,10 @@ export class DesktopApplication {
     this.#home = loaded.forgeHome;
     const sessions = await new FileSessionStore(this.#home).list();
     return {
+      web: await new WebPluginSettings(
+        this.#env,
+        this.#cwd || this.#initialCwd,
+      ).state(),
       forgeHome: this.#home,
       cwd: this.#cwd,
       sessionId: this.#session?.sessionId ?? "",
@@ -106,7 +111,16 @@ export class DesktopApplication {
       return this.state();
     }
     if (this.#busy) throw new Error("busy");
-    if (command.type === "workspace") {
+    if (
+      command.type === "web-install" ||
+      command.type === "web-enable" ||
+      command.type === "web-configure"
+    ) {
+      await new WebPluginSettings(
+        this.#env,
+        this.#cwd || this.#initialCwd,
+      ).manage(command);
+    } else if (command.type === "workspace") {
       const cwd = await directoryPath(command.cwd);
       const session = await createPersistentInteractiveSession({
         cwd,

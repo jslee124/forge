@@ -44,6 +44,7 @@ describe("web-tools example plugin", () => {
     expect(host.loadedPlugins[0]?.manifest.capabilities).toEqual([
       "tools:register",
       "network:access",
+      "prompt:contribute",
     ]);
     expect(host.tools.map(({ name, risk }) => ({ name, risk }))).toEqual([
       { name: "web_search", risk: "network" },
@@ -87,6 +88,9 @@ describe("web-tools example plugin", () => {
       output: {
         query: "forge plugins",
         provider: "duckduckgo",
+        requestedProvider: "auto",
+        accessedAt: expect.any(String),
+        readingExtent: "search-snippets",
         results: [
           {
             title: "Example & Docs",
@@ -98,6 +102,28 @@ describe("web-tools example plugin", () => {
       truncated: true,
     });
     expect(String(fetchMock.mock.calls[0]?.[0])).toContain("q=forge+plugins");
+  });
+
+  it("marks a download-limited search even when its parsed result count is below the requested limit", async () => {
+    const module = await loadWebPluginModule();
+    const tool = requireTool(
+      module.createWebTools(
+        { z },
+        {
+          env: {},
+          lookupAll: publicLookup,
+          fetch: async () =>
+            htmlResponse(
+              '<a class="result__a" href="https://example.com/">Example</a>' +
+                " ".repeat(1_048_576),
+            ),
+        },
+      ),
+      0,
+    );
+    expect(
+      await tool.execute({ query: "test", maxResults: 5 }, toolContext()),
+    ).toMatchObject({ ok: true, truncated: true });
   });
 
   it("uses Brave Search when its key is configured without returning the key", async () => {
@@ -352,11 +378,11 @@ describe("web-tools example plugin", () => {
 
     const bounded = await fetchTool.execute(
       { url: "https://example.com/large.txt", maxCharacters: 10_000 },
-      toolContext(300),
+      toolContext(600),
     );
     expect(bounded).toMatchObject({ ok: true, truncated: true });
     expect(Buffer.byteLength(JSON.stringify(bounded), "utf8")).toBeLessThan(
-      400,
+      700,
     );
 
     const cancelledController = new AbortController();
@@ -385,6 +411,191 @@ describe("web-tools example plugin", () => {
       ok: false,
       error: { code: "invalid_input" },
     });
+  });
+  it("extracts article provenance without executing scripts or loading resources", async () => {
+    const module = await loadWebPluginModule();
+    const paragraph =
+      "A carefully sourced article explains a tested system and its limitations. ".repeat(
+        30,
+      );
+    const fetchMock = vi.fn(async () =>
+      htmlResponse(
+        `<html><head><title>Article</title><meta property="article:published_time" content="2026-09-01"/><link rel="stylesheet" href="https://evil.test/a.css"/></head><body><nav>UNRELATED NAV</nav><article><h1>Article</h1><p>${paragraph}</p><p>${paragraph}</p></article><script>globalThis.__forgeParserExecuted = true; fetch('https://evil.test/')</script><img src="https://evil.test/a.png"><iframe src="https://evil.test/"></iframe></body></html>`,
+      ),
+    );
+    const tool = requireTool(
+      module.createWebTools(
+        { z },
+        { env: {}, fetch: fetchMock, lookupAll: publicLookup },
+      ),
+      1,
+    );
+    const result = await tool.execute(
+      { url: "https://example.com/article" },
+      toolContext(),
+    );
+    expect(result).toMatchObject({
+      ok: true,
+      truncated: false,
+      output: {
+        method: "readability",
+        publishedTime: "2026-09-01",
+        accessedAt: expect.any(String),
+        readingExtent: "retrieved-text",
+      },
+    });
+    expect(JSON.stringify(result)).not.toContain("UNRELATED NAV");
+    expect(Reflect.get(globalThis, "__forgeParserExecuted")).toBeUndefined();
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  it("keeps list pages and labels static-only JavaScript shells", async () => {
+    const module = await loadWebPluginModule();
+    for (const body of [
+      "<ul><li>First link</li><li>Second link</li></ul>",
+      "<div id='root'></div><script src='/app.js'></script>",
+    ]) {
+      const tool = requireTool(
+        module.createWebTools(
+          { z },
+          {
+            env: {},
+            fetch: async () => htmlResponse(body),
+            lookupAll: publicLookup,
+          },
+        ),
+        1,
+      );
+      expect(
+        await tool.execute({ url: "https://example.com/" }, toolContext()),
+      ).toMatchObject({
+        ok: true,
+        output: {
+          method: "basic-text",
+          limitation: expect.stringContaining("JavaScript"),
+        },
+      });
+    }
+  });
+
+  it("falls back when the article parser exceeds its element bound", async () => {
+    const module = await loadWebPluginModule();
+    const tool = requireTool(
+      module.createWebTools(
+        { z },
+        {
+          env: {},
+          fetch: async () =>
+            htmlResponse(
+              `<article><p>${"Readable article sentence. ".repeat(80)}</p>${"<span>x</span>".repeat(20_001)}</article>`,
+            ),
+          lookupAll: publicLookup,
+        },
+      ),
+      1,
+    );
+    expect(
+      await tool.execute({ url: "https://example.com/" }, toolContext()),
+    ).toMatchObject({
+      ok: true,
+      truncated: true,
+      output: { method: "basic-text" },
+    });
+  });
+
+  it("does not fail over or forward Brave credentials to another origin", async () => {
+    const module = await loadWebPluginModule();
+    for (const response of [
+      new Response(null, { status: 503 }),
+      new Response(null, {
+        status: 302,
+        headers: { location: "https://other.example/" },
+      }),
+    ]) {
+      const fetchMock = vi.fn(async () => response);
+      const tool = requireTool(
+        module.createWebTools(
+          { z },
+          {
+            env: { BRAVE_SEARCH_API_KEY: "private-key" },
+            fetch: fetchMock,
+            lookupAll: publicLookup,
+          },
+        ),
+        0,
+      );
+      const result = await tool.execute({ query: "test" }, toolContext());
+      expect(result.ok).toBe(false);
+      expect(fetchMock).toHaveBeenCalledOnce();
+      expect(JSON.stringify(result)).not.toContain("private-key");
+    }
+  });
+
+  it("bounds downloads, redirect loops, stalled bodies and cancellation during reads", async () => {
+    const module = await loadWebPluginModule();
+    const large = requireTool(
+      module.createWebTools(
+        { z },
+        {
+          env: {},
+          fetch: async () =>
+            new Response("a".repeat(1_048_577), {
+              headers: { "content-type": "text/plain" },
+            }),
+          lookupAll: publicLookup,
+        },
+      ),
+      1,
+    );
+    expect(
+      await large.execute({ url: "https://example.com/" }, toolContext()),
+    ).toMatchObject({ ok: true, truncated: true });
+    const redirect = vi.fn(
+      async () =>
+        new Response(null, { status: 302, headers: { location: "/again" } }),
+    );
+    const loop = requireTool(
+      module.createWebTools(
+        { z },
+        { env: {}, fetch: redirect, lookupAll: publicLookup },
+      ),
+      1,
+    );
+    expect(
+      await loop.execute({ url: "https://example.com/" }, toolContext()),
+    ).toMatchObject({ ok: false });
+    expect(redirect).toHaveBeenCalledTimes(6);
+    for (const cancel of [false, true]) {
+      const controller = new AbortController();
+      const stalled = requireTool(
+        module.createWebTools(
+          { z },
+          {
+            env: {},
+            fetch: async () =>
+              new Response(
+                new ReadableStream({
+                  start() {
+                    if (cancel) setTimeout(() => controller.abort(), 10);
+                  },
+                }),
+                { headers: { "content-type": "text/plain" } },
+              ),
+            lookupAll: publicLookup,
+          },
+        ),
+        1,
+      );
+      expect(
+        await stalled.execute(
+          { url: "https://example.com/", timeoutMs: 1000 },
+          toolContext(16384, controller.signal),
+        ),
+      ).toMatchObject({
+        ok: false,
+        error: { code: cancel ? "cancelled" : "timed_out" },
+      });
+    }
   });
 });
 

@@ -29,7 +29,7 @@ offline work. This checklist does not request multiple agents.
 | D08 | Codex execution and authentication | D06 | Complete; live Codex execute/resume/cancel passed |
 | D09 | File operations and change review | D07, D08 | Complete |
 | D10 | Content reading and previews | D09 | Complete |
-| D11 | Search plugins and sourced reports | D07, D08, D10 | Not started |
+| D11 | Search plugins and sourced reports | D07, D08, D10 | Complete; live limits recorded |
 | D12 | End-to-end and failure acceptance | D09, D10, D11 | Not started |
 | D13 | macOS installer and handoff | D12 | Not started |
 
@@ -421,6 +421,23 @@ consulted sources. Verify Codex independently without fabricated source fields.
 Distribution remains compatible with plugin paths/resource packaging.
 **Verify:** web-tools regression plus article/list/JS-dependent/failure/redirect/limits
 fixtures; authorized live checks separately from extraction and quality claims.
+
+**Completion record (2026-09-11):** desktop settings now explicitly installs, enables
+and configures the optional web-tools plugin. Shared user configuration and plugin
+paths are preserved. Readability 0.6.0 / jsdom 26.1.0 extract only controlled downloads;
+static fallback, provenance, reading extent and truncation are model-visible. Markdown
+reports use normal plugin prompt contributions and file tools, with per-request network
+approval. CLI and desktop share HTTP proxy initialization. The bundled plugin includes
+its locked dependencies outside ASAR.
+
+Focused tests, repository checks, deterministic evaluation, docs/package checks and
+local arm64 packaging are recorded in [D11 development QA](../apps/desktop/d11-qa.md).
+Live DuckDuckGo search and Example Domain reading succeeded on 2026-09-11; Codex
+independently completed a Markdown report. Brave had no key and remains live-unverified.
+These are bounded smoke observations, not service recommendations or a research-quality
+benchmark. Codex report content is not fabricated into native source fields. Final
+English/narrow-layout visual acceptance, broader dual-engine research quality and
+installed GUI environment checks remain D12/D13 work. No signing or publication.
 
 ## D12 · End-to-end and failure acceptance
 

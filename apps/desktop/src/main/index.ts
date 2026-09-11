@@ -13,6 +13,8 @@ import {
   MANAGEMENT_CHANNEL,
   managementCommandSchema,
   OPEN_LOGIN_CHANNEL,
+  OPEN_SOURCE_CHANNEL,
+  sourceUrlSchema,
 } from "../shared/application-protocol.js";
 import {
   AGENT_PING_CHANNEL,
@@ -60,6 +62,9 @@ function startAgent(): AgentProcess {
     env: {
       ...process.env,
       FORGE_DESKTOP_RESOURCE_ROOT: resourceRoot(),
+      FORGE_WEB_PLUGIN_ROOT: app.isPackaged
+        ? join(process.resourcesPath, "web-tools")
+        : resolve(app.getAppPath(), "out/web-tools"),
       FORGE_PDFJS_RESOURCE_ROOT: pdfResourceRoot(),
     },
     serviceName: "Forge Desktop Agent",
@@ -107,6 +112,7 @@ async function shutdown(): Promise<void> {
     MANAGEMENT_CHANNEL,
     CHOOSE_WORKSPACE_CHANNEL,
     OPEN_LOGIN_CHANNEL,
+    OPEN_SOURCE_CHANNEL,
     FILE_IMPORT_CHANNEL,
     FILE_PREVIEW_CHANNEL,
     FILE_SAVE_AS_CHANNEL,
@@ -173,6 +179,10 @@ async function run(): Promise<void> {
     const state = await agent?.management.request({ type: "workspace", cwd });
     if (state?.cwd) await files.setWorkspace(state.cwd, "workspace-selection");
     return state;
+  });
+  ipcMain.handle(OPEN_SOURCE_CHANNEL, async (event, value: unknown) => {
+    assertMainSender(event);
+    await shell.openExternal(sourceUrlSchema.parse(value));
   });
   ipcMain.handle(OPEN_LOGIN_CHANNEL, async (event) => {
     if (

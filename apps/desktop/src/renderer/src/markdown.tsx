@@ -133,7 +133,17 @@ export function Markdown({
         },
         a({ href, children: linkChildren }) {
           return (
-            <a href={href} onClick={(event) => event.preventDefault()}>
+            <a
+              href={href}
+              title={href}
+              onClick={(event) => {
+                event.preventDefault();
+                if (href && event.isTrusted)
+                  void window.forgeDesktop
+                    ?.openSource(href)
+                    .catch(() => undefined);
+              }}
+            >
               {linkChildren}
             </a>
           );

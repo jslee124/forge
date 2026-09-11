@@ -1068,3 +1068,31 @@ textarea:focus-visible,
   border-radius: 6px;
   padding: 5px 8px;
 }
+
+.web-settings {
+  display: grid;
+  gap: 12px;
+  margin: 24px 0;
+  font-size: 14px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.web-settings h3,
+.web-settings p {
+  margin: 0;
+}
+.web-settings button {
+  justify-self: start;
+}
+.web-settings label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.web-settings input[type="checkbox"] {
+  flex: 0 0 auto;
+}
+.web-settings select {
+  max-width: 100%;
+}

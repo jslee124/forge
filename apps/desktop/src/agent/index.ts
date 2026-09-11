@@ -1,3 +1,4 @@
+import { configureHttpDispatcher } from "@forge/application";
 import { z } from "zod";
 import { managementCommandSchema } from "../shared/application-protocol.js";
 import { DesktopApplication, desktopError } from "./application.js";
@@ -10,6 +11,8 @@ if (!parentPort) {
     "Forge Desktop Agent must be started as an Electron utility process",
   );
 }
+
+configureHttpDispatcher(process.env);
 
 const application = new DesktopApplication(process.env, process.cwd());
 const runs = new RunService(

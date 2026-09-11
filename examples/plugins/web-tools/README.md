@@ -1,18 +1,32 @@
 # Web tools plugin
 
-This dependency-free example registers `web_search` and `web_fetch` through
+This optional plugin registers `web_search` and `web_fetch` through
 Forge's normal plugin API. Both tools use the `network` risk, so the model must
 receive an explicit approval for every request under both supported permission
 profiles.
 
 ## Install as a user plugin
 
-Copy the directory and enable it in the user configuration:
+In the desktop app, open **Settings → Web research**, install the bundled plugin,
+then explicitly enable it. Installation copies the application-supplied version into
+`$FORGE_HOME/plugins/web-tools`; it never downloads code or overwrites an existing
+plugin directory. Enablement updates the shared Forge user configuration, so it also
+applies to the TUI. Project configuration cannot enable plugins. No plugin is enabled by default.
+
+For a source checkout, install the locked workspace dependencies and prepare the
+self-contained distribution (Readability 0.6.0, jsdom 26.1.0 and their runtime dependencies):
 
 ```bash
+CI=true pnpm install --frozen-lockfile
+node scripts/build-web-plugin.mjs
 mkdir -p "${FORGE_HOME:-$HOME/.forge}/plugins"
-cp -R examples/plugins/web-tools "${FORGE_HOME:-$HOME/.forge}/plugins/web-tools"
+cp -R apps/desktop/out/web-tools "${FORGE_HOME:-$HOME/.forge}/plugins/web-tools"
 ```
+
+Only copy into a missing `web-tools` directory. Preserve or move an older/custom
+installation yourself before replacing it. Copy the complete prepared directory,
+including `node_modules` and dependency licenses, rather than just `index.mjs`.
+The desktop build packages this same directory outside ASAR. Then enable it:
 
 ```json
 {
@@ -34,8 +48,15 @@ are supported; use the HTTP or mixed port exposed by local proxy applications,
 not a SOCKS-only port.
 
 `web_search` uses the Brave Search API when `BRAVE_SEARCH_API_KEY` is present.
-Without that variable it falls back to DuckDuckGo's non-JavaScript HTML search.
-No search API key is stored by Forge or returned to the model.
+With `provider: "auto"`, absence of that variable selects DuckDuckGo's non-JavaScript HTML search.
+Auto is selection at request time, never failover after an error.
+The settings service selector stores only `{ "provider": "auto" }` (or `brave` /
+`duckduckgo`) in the installed plugin's `settings.json`. It sets the tool's default;
+an explicit tool input can choose another service. Tool results show requested and
+actual services. No search API key is stored by this plugin or returned to the model.
+Set `BRAVE_SEARCH_API_KEY` in the Agent launch environment before starting Forge;
+settings shows only whether it is present. GUI launch environments may differ from
+your terminal. Missing Brave credentials produce an explicit error.
 
 ## Implemented limits
 
@@ -58,3 +79,32 @@ cannot fully eliminate DNS rebinding between validation and connection. An
 explicitly configured proxy is part of the trust boundary because it resolves
 proxied hostnames. Review and trust plugins and proxy configuration as code, and
 keep per-request approval enabled.
+
+## Extraction and sourced reports
+
+Only HTML already retrieved by the controlled request path enters `new JSDOM`.
+Scripts and remote-resource loading stay disabled; no browser, `fromURL`, or parser
+network loader is used. Readability extracts articles; list pages, JavaScript-only
+shells and parsing failures return bounded basic text with an explicit limitation.
+No raw HTML is rendered. Static extraction cannot establish that dynamic content
+was read.
+
+Fetch results include requested/final URLs, access time, available publication time,
+method (`readability`, `basic-text`, or `text`), and reading extent. The tool result's
+`truncated` flag covers download, character and serialized-output limits. Search
+results are marked `search-snippets`; they do not establish a page-body read. Failed
+reads remain errors in the activity/history alongside the requested URL. Redirects
+cannot forward Brave credentials to another origin; stalled response bodies time out.
+
+The plugin contributes report instructions through the normal plugin API. Ask for a
+Markdown report and, when needed, a `.md` file: ordinary workspace write tools handle
+saving and approval; existing Markdown preview and Save as handle inspection/export.
+Reports should link facts to consulted sources, distinguish snippet-only evidence and
+failed reads, and include source access dates and reading limits. These instructions
+are guidance to the model, not an automatic factual-correctness or citation validator.
+Always inspect the cited evidence. Web content never grants execution authority.
+
+Codex uses its own tools and sandbox. This plugin adds no Codex source fields and does
+not establish Codex search availability or parity. See the current
+[D11 acceptance record](https://github.com/jslee124/forge/blob/main/docs/DESKTOP_APP_TASKS.md)
+for verified and unverified checks. [简体中文](README.zh-CN.md).

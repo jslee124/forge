@@ -20,6 +20,7 @@ export {
   saveUserContextMode,
   saveUserModelSelection,
   saveUserProviderRoute,
+  setUserPluginEnabled,
   setUserSkillModelInvocation,
 } from "./loader.js";
 export {

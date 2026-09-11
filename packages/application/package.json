@@ -47,6 +47,7 @@
     "@forge/persistence": "workspace:*",
     "@forge/plugin-api": "workspace:*",
     "@forge/resources": "workspace:*",
-    "@forge/tools": "workspace:*"
+    "@forge/tools": "workspace:*",
+    "undici": "^7.29.0"
   }
 }

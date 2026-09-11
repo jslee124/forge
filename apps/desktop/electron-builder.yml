@@ -10,6 +10,8 @@ files:
   - out/renderer/**
   - package.json
 extraResources:
+  - from: out/web-tools
+    to: web-tools
   - from: out/main/agent.js
     to: agent/index.js
   - from: out/main/chunks
