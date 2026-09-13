@@ -31,7 +31,7 @@ offline work. This checklist does not request multiple agents.
 | D10 | Content reading and previews | D09 | Complete |
 | D11 | Search plugins and sourced reports | D07, D08, D10 | Complete; live limits recorded |
 | D12 | End-to-end and failure acceptance | D09, D10, D11 | Complete |
-| D13 | macOS installer and handoff | D12 | Not started |
+| D13 | macOS installer and handoff | D12 | Complete (local unsigned handoff) |
 
 D04 can be prepared independently of prototype work. Real UI integration follows
 an interactive, visually checked D03. Verify D07 and D08 separately. Dependencies
@@ -463,6 +463,14 @@ do not claim untested platforms.
 **Verify:** local installation smoke and chosen architectures; separately record signing,
 notarization, updates and publication. Without signing or publication permission, hand off
 reviewable local artifacts and remaining steps without publishing or claiming release.
+
+D13 completed 2026-09-13 for local unsigned handoff: [installation guide](../apps/desktop/INSTALL.md)
+and [current development evidence](../apps/desktop/d13-qa.md). Four arm64/x64 DMG/ZIP artifacts
+passed isolated LaunchServices installation probes on macOS 26.6.2 arm64 (x64 via Rosetta).
+Fixed packaged PDF worker lookup and stale shared-package builds. Check, docs, 39 focused tests,
+71 deterministic tests and CLI packed-install verification passed. Intel hardware, macOS 13,
+installed live authentication/proxy scenarios, Developer ID signing, notarization, updates and
+publication are explicitly unverified or deferred; no public release is claimed.
 
 ## Completion record per task
 

@@ -34,6 +34,7 @@ import {
 import { runUiAcceptance } from "./acceptance-ui.js";
 import { AgentProcess } from "./agent-process.js";
 import { FileService } from "./file-service.js";
+import { runInstallAcceptance } from "./install-acceptance.js";
 
 let agent: AgentProcess | undefined;
 let mainWindow: BrowserWindow | undefined;
@@ -327,6 +328,22 @@ async function run(): Promise<void> {
     await runUiAcceptance(window, home, output);
     window.destroy();
     await shutdown();
+    app.exit(0);
+    return;
+  }
+
+  if (process.argv.includes("--desktop-install-smoke")) {
+    const { FORGE_HOME: home, FORGE_D13_INSTALL_HOME: isolated } = process.env;
+    if (!home || home !== isolated)
+      throw new Error("Install probe needs isolated FORGE_HOME");
+    const window = await createWindow(false);
+    const result = await runInstallAcceptance(window, agent, files, home);
+    await shutdown();
+    await writeFile(
+      join(home, "installed.json"),
+      `${JSON.stringify({ ...result, agentShutdown: true }, null, 2)}\n`,
+    );
+    window.destroy();
     app.exit(0);
     return;
   }

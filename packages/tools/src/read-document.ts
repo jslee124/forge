@@ -4,7 +4,10 @@ import { pathToFileURL } from "node:url";
 
 import type { ForgeTool, ToolContext, ToolResult } from "@forge/core";
 import Papa from "papaparse";
-import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
+import {
+  GlobalWorkerOptions,
+  getDocument,
+} from "pdfjs-dist/legacy/build/pdf.mjs";
 import { z } from "zod";
 
 import {
@@ -197,6 +200,10 @@ async function readPdf(
   const bytes = await readBytes(path);
   // biome-ignore lint/complexity/useLiteralKeys: ProcessEnv is index-signature-only under strict TypeScript.
   const resourceRoot = process.env["FORGE_PDFJS_RESOURCE_ROOT"];
+  if (resourceRoot)
+    GlobalWorkerOptions.workerSrc = pathToFileURL(
+      join(resourceRoot, "build", "pdf.worker.mjs"),
+    ).toString();
   const resourceUrl = (name: string) =>
     resourceRoot
       ? `${pathToFileURL(join(resourceRoot, name)).toString()}/`

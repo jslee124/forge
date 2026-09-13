@@ -1,0 +1,2 @@
+apps/desktop/release/mac/Forge Desktop.app/Contents/MacOS/Forge Desktop:       Mach-O 64-bit executable x86_64
+apps/desktop/release/mac-arm64/Forge Desktop.app/Contents/MacOS/Forge Desktop: Mach-O 64-bit executable arm64

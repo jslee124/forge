@@ -20,6 +20,8 @@ extraResources:
     to: forge-resources/skills
   - from: ../../packages/resources/docs
     to: forge-resources/docs
+  - from: node_modules/pdfjs-dist/build/pdf.worker.mjs
+    to: pdfjs/build/pdf.worker.mjs
   - from: node_modules/pdfjs-dist/cmaps
     to: pdfjs/cmaps
   - from: node_modules/pdfjs-dist/standard_fonts

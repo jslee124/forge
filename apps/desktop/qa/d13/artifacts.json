@@ -1,0 +1,22 @@
+[
+  {
+    "file": "forge-desktop-0.3.4-arm64.dmg",
+    "bytes": 166552938,
+    "sha256": "9e99736fbba023662153fc0ec9da82e17c443cf7e1dc3b24a348b4ce7b400f58"
+  },
+  {
+    "file": "forge-desktop-0.3.4-arm64.zip",
+    "bytes": 166784715,
+    "sha256": "ee3d2e9f9238fd46527a460344d3f642616a1519d3b1be624cc6904d94cd36b0"
+  },
+  {
+    "file": "forge-desktop-0.3.4-x64.dmg",
+    "bytes": 170181025,
+    "sha256": "2a1f18878135ef2d5dd384523eeeb3e7db5ea983893e6b2c3c41b58cf42b5227"
+  },
+  {
+    "file": "forge-desktop-0.3.4-x64.zip",
+    "bytes": 170514935,
+    "sha256": "26d033138aaf1cbe10bf41b74e688b3e0fd4ace5059efd747ba0edd289aeb244"
+  }
+]
