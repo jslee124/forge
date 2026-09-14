@@ -4,11 +4,13 @@ import remarkGfm from "remark-gfm";
 import type { ThemedToken } from "shiki/core";
 import { createHighlighterCore } from "shiki/core";
 import tsx from "shiki/dist/langs/tsx.mjs";
+import githubDark from "shiki/dist/themes/github-dark.mjs";
 import githubLight from "shiki/dist/themes/github-light.mjs";
 import { createJavaScriptRegexEngine } from "shiki/engine/javascript";
+import { useTheme } from "./theme.js";
 
 const highlighter = createHighlighterCore({
-  themes: [githubLight],
+  themes: [githubLight, githubDark],
   langs: [tsx],
   engine: createJavaScriptRegexEngine(),
 });
@@ -53,12 +55,16 @@ function HighlightedCode({
   language: string;
   value: string;
 }): React.JSX.Element {
+  const { resolved } = useTheme();
   const [tokens, setTokens] = React.useState<SafeLine[] | null>(null);
   React.useEffect(() => {
     let active = true;
     void highlighter
       .then((instance) =>
-        instance.codeToTokens(value, { lang: language, theme: "github-light" }),
+        instance.codeToTokens(value, {
+          lang: language,
+          theme: resolved === "dark" ? "github-dark" : "github-light",
+        }),
       )
       .then((result) => {
         if (active) setTokens(makeSafeLines(result.tokens));
@@ -69,7 +75,7 @@ function HighlightedCode({
     return () => {
       active = false;
     };
-  }, [language, value]);
+  }, [language, value, resolved]);
   if (!tokens)
     return (
       <pre className="code-fallback">

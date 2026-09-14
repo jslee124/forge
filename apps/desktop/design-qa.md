@@ -49,6 +49,27 @@ No actionable P0, P1, or P2 visual differences remain.
 
 final result: passed
 
+## Monochrome brand refresh — 2026-09-14
+
+Scope: desktop theme, expanded sidebar wordmark, home mark, and both root
+READMEs. This supersedes the earlier note about retaining the pixel wordmark.
+
+- Neutral black/white/gray tokens replace the green brand palette in both themes.
+  Warning, error, and code-diff colors retain their semantic purpose.
+- The approved anvil contour is shared with an outlined FORGE wordmark in the
+  desktop and light/dark README assets. Glyph outlines avoid font dependencies.
+  README branding is 420 px wide, with neutral static Shields badges.
+- Offline Electron acceptance produced 28 captures under
+  `/private/tmp/forge-mono-qa`, covering both locales, both themes, narrow layouts,
+  theme persistence, system preference, and sidebar collapse/restore. All viewport
+  overflow checks passed. Expanded light/dark homes and the dark collapsed home
+  were visually inspected; the mark, wordmark, and neutral surfaces render clearly.
+- Repository checks, documentation checks, and desktop build passed. No live
+  provider call, Dock icon change, installation, or release is included.
+
+中文记录：桌面端与中英文 README 已统一为黑白铁砧品牌，替换旧像素字标。
+深浅色、跟随系统、主题记忆和侧栏折叠验收通过；保留必要的语义提示色。
+
 ## D07/D08 execution workbench — 2026-09-08
 
 This is a separate integration check of the real Electron workbench; the D03
@@ -77,3 +98,36 @@ prototype comparison above remains historical evidence for the prototype.
 Reproduce with `CI=true pnpm desktop:smoke` outside the restricted sandbox.
 The smoke command writes its latest screenshots to the OS temporary directory;
 these checked-in captures preserve the inspected UI state.
+
+## ANVIL mark acceptance — 2026-09-14
+
+Scope: selected ANVIL mark in the collapsed live-workbench toolbar. The earlier
+D03 report above remains historical evidence for its original scope.
+
+- Source: generated concept `exec-2a74822f-7748-4fb5-a625-5213c8098aff.png`,
+  1536 × 1024 px, in the task's generated-images directory.
+- Asset: `src/renderer/src/assets/forge-mark.svg`; its contour was extracted
+  from the approved 302 × 170 px hero silhouette and simplified within 0.7 source
+  pixels. This is a source-derived vector conversion, not a replacement drawing.
+- Implementation: `/private/tmp/forge-anvil-qa/home-light-collapsed.png` and
+  `/private/tmp/forge-anvil-qa/home-dark-collapsed.png`, 2200 × 1456 px at
+  1100 × 728 CSS px (2× density). Both captures and the source were inspected
+  together. The concept board's magnified presentation is not a full-app viewport;
+  comparison targets are the silhouette, its negative-space cut and toolbar use.
+- The mark occupies a 32 CSS px square within the existing 40 px toggle target.
+  Its wide anvil proportions are preserved. Light mode uses graphite; dark mode
+  uses an offwhite silhouette. There is no colored tile behind the toolbar mark.
+- Findings: no actionable P0/P1/P2 discrepancies in the scoped icon replacement.
+  The broad top, asymmetric cut and grounded foot remain recognizable at the
+  actual toolbar size. No visual correction iteration was required.
+- Interaction: real Electron acceptance passed for both themes, icon loading,
+  sidebar collapse/restore and removal of the DESKTOP label. Build and repository
+  checks passed. No new model calls or package/release verification were performed.
+- Follow-up polish: none required for the toolbar mark. A Dock icon is outside
+  this change's scope.
+
+中文记录：已采用第二版铁砧的原始轮廓，转换为透明背景 SVG。深浅色截图及
+侧栏折叠/展开验收通过；展开时继续使用原有字标，未恢复 DESKTOP 文案。
+本次只替换工具栏标识，不包含 Dock 图标或安装包发布。
+
+final result: passed

@@ -16,7 +16,9 @@ try {
         ...process.env,
         FORGE_HOME: home,
         FORGE_D12_UI_HOME: home,
-        FORGE_D12_UI_OUTPUT: resolve("qa/d12/ui"),
+        FORGE_D12_UI_OUTPUT: resolve(
+          process.env.FORGE_UI_OUTPUT ?? "qa/d12/ui",
+        ),
       },
     },
   );

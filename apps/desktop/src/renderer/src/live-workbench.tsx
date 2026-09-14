@@ -1,3 +1,16 @@
+import { ArrowUp } from "@phosphor-icons/react/ArrowUp";
+import { ChatCircle } from "@phosphor-icons/react/ChatCircle";
+import { Code } from "@phosphor-icons/react/Code";
+import { FileText } from "@phosphor-icons/react/FileText";
+import { FolderOpen } from "@phosphor-icons/react/FolderOpen";
+import { GearSix } from "@phosphor-icons/react/GearSix";
+import { Globe } from "@phosphor-icons/react/Globe";
+import { Moon } from "@phosphor-icons/react/Moon";
+import { Paperclip } from "@phosphor-icons/react/Paperclip";
+import { Plus } from "@phosphor-icons/react/Plus";
+import { SidebarSimple } from "@phosphor-icons/react/SidebarSimple";
+import { Sun } from "@phosphor-icons/react/Sun";
+import { X } from "@phosphor-icons/react/X";
 import React from "react";
 import { useTranslation } from "react-i18next";
 import type {
@@ -7,11 +20,18 @@ import type {
 import type { ChangeReview, FilePreview } from "../../shared/file-protocol.js";
 import type { RunEvent } from "../../shared/run-protocol.js";
 import logoUrl from "./assets/forge-logo.svg";
+import markUrl from "./assets/forge-mark.svg";
 import { ContentPreview, DiffViewer } from "./file-preview.js";
 import { Markdown } from "./markdown.js";
+import { type ThemeMode, useTheme } from "./theme.js";
 
 export function LiveWorkbench(): React.JSX.Element {
   const { t, i18n } = useTranslation();
+  const theme = useTheme();
+  const [panelTab, setPanelTab] = React.useState("files");
+  const [sidebarOpen, setSidebarOpen] = React.useState(true);
+  const [panelWidth, setPanelWidth] = React.useState(360);
+  const composerRef = React.useRef<HTMLTextAreaElement>(null);
   const [state, setState] = React.useState<DesktopState>();
   const [drafts, setDrafts] = React.useState<Record<string, string>>({});
   const [engine, setEngine] = React.useState<"native" | "codex">("native");
@@ -35,7 +55,7 @@ export function LiveWorkbench(): React.JSX.Element {
   const [error, setError] = React.useState("");
   const [pending, setPending] = React.useState(false);
   const [settings, setSettings] = React.useState(false);
-  const [panel, setPanel] = React.useState(true);
+  const [panel, setPanel] = React.useState(false);
   const [filePath, setFilePath] = React.useState("");
   const [filePreview, setFilePreview] = React.useState<FilePreview>();
   const [review, setReview] = React.useState<ChangeReview>();
@@ -233,14 +253,24 @@ export function LiveWorkbench(): React.JSX.Element {
     }
   };
   return (
-    <main className="app-shell live-shell">
+    <main
+      className={`app-shell live-shell ${sidebarOpen ? "" : "sidebar-collapsed"}`}
+    >
       <div className="prototype-banner">
-        <span>Forge Desktop</span>
-        <span>· {t(`live.${status}`)}</span>
+        <span>
+          FORGE <span className="titlebar-divider">/</span>{" "}
+          {state?.cwd?.split("/").pop() || t("studio.workspace")}
+        </span>
+        <span className={`studio-status status-${status}`}>
+          <span />
+          {t(`live.${status}`)}
+        </span>
       </div>
       <div className="app-frame">
         <aside className="sidebar">
-          <img src={logoUrl} alt="Forge" width={100} />
+          <div className="studio-brand">
+            <img src={logoUrl} alt="Forge" width={124} />
+          </div>
           <button
             type="button"
             disabled={busy}
@@ -252,8 +282,11 @@ export function LiveWorkbench(): React.JSX.Element {
               setAnswer("");
               setDetails([]);
               setSettings(false);
+              setPanel(false);
+              setStatus("ready");
             }}
           >
+            <Plus size={17} />
             {t("live.new")}
           </button>
           <button
@@ -274,6 +307,7 @@ export function LiveWorkbench(): React.JSX.Element {
               }
             }}
           >
+            <Paperclip size={17} />
             {t("live.addMaterial")}
           </button>
           <button
@@ -296,27 +330,42 @@ export function LiveWorkbench(): React.JSX.Element {
               }
             }}
           >
+            <FolderOpen size={17} />
             {t("live.folder")}
           </button>
-          <small className="live-path">
-            {state?.cwd || t("live.automatic")}
+          <small className="live-path" title={state?.cwd}>
+            {state?.cwd?.split("/").pop() || t("live.automatic")}
           </small>
+          <p className="studio-section-label">{t("common.recentTasks")}</p>
           <div className="live-sessions">
+            {!state?.sessions.length && (
+              <p className="studio-empty-list">{t("studio.noTasks")}</p>
+            )}
             {state?.sessions.map((session) => (
               <button
                 type="button"
                 key={session.id}
                 data-session-id={session.id}
+                aria-current={
+                  session.id === state?.sessionId && !settings
+                    ? "page"
+                    : undefined
+                }
+                title={session.title}
                 disabled={busy}
                 onClick={() => {
                   void manage({ type: "resume", sessionId: session.id });
+                  setPanel(true);
+                  setPanelTab("files");
+                  setStatus("ready");
                   setSettings(false);
                   setDetails([]);
                   setPrompt("");
                   setAnswer("");
                 }}
               >
-                {session.title}
+                <ChatCircle size={16} />
+                <span>{session.title}</span>
               </button>
             ))}
           </div>
@@ -325,11 +374,51 @@ export function LiveWorkbench(): React.JSX.Element {
             type="button"
             onClick={() => setSettings(!settings)}
           >
+            <GearSix size={17} />
             {t("common.settings")}
+          </button>
+          <button
+            type="button"
+            className="studio-theme-toggle"
+            onClick={() =>
+              theme.setTheme(theme.resolved === "dark" ? "light" : "dark")
+            }
+            aria-label={t("studio.appearance")}
+          >
+            <span>
+              {theme.resolved === "dark" ? (
+                <Moon size={17} />
+              ) : (
+                <Sun size={17} />
+              )}
+              {t(`studio.${theme.resolved}`)}
+            </span>
+            <span>{t("studio.appearance")}</span>
           </button>
         </aside>
         <section className="live-main">
           <header className="live-toolbar">
+            <button
+              type="button"
+              className="studio-icon studio-sidebar-toggle"
+              data-testid="sidebar-toggle"
+              title={`Forge · ${t("studio.sidebar")}`}
+              aria-label={`Forge · ${t("studio.sidebar")}`}
+              aria-expanded={sidebarOpen}
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+            >
+              {sidebarOpen ? (
+                <SidebarSimple size={19} />
+              ) : (
+                <img
+                  className="studio-square-mark"
+                  src={markUrl}
+                  alt=""
+                  width={32}
+                  height={32}
+                />
+              )}
+            </button>
             <label>
               {t("live.engine")}{" "}
               <select
@@ -363,8 +452,14 @@ export function LiveWorkbench(): React.JSX.Element {
                 <option key={entry} value={entry} />
               ))}
             </datalist>
-            <button type="button" onClick={() => setPanel(!panel)}>
-              {t("live.context")}
+            <button
+              type="button"
+              className="studio-panel-toggle"
+              aria-expanded={panel}
+              onClick={() => setPanel(!panel)}
+            >
+              <SidebarSimple size={17} />
+              {t("studio.workbench")}
             </button>
           </header>
           {error && (
@@ -374,7 +469,25 @@ export function LiveWorkbench(): React.JSX.Element {
           )}
           {settings ? (
             <div className="live-settings">
+              <span className="studio-eyebrow">{t("studio.preferences")}</span>
               <h2>{t("common.settings")}</h2>
+              <section className="studio-appearance">
+                <h3>{t("studio.appearance")}</h3>
+                <p>{t("studio.appearanceHint")}</p>
+                <div className="theme-options">
+                  {(["light", "dark", "system"] as ThemeMode[]).map((mode) => (
+                    <button
+                      type="button"
+                      key={mode}
+                      aria-pressed={theme.mode === mode}
+                      onClick={() => theme.setTheme(mode)}
+                    >
+                      <span className={`theme-swatch theme-swatch-${mode}`} />
+                      {t(`studio.${mode}`)}
+                    </button>
+                  ))}
+                </div>
+              </section>
               <label>
                 {t("settings.language")}{" "}
                 <select
@@ -389,6 +502,7 @@ export function LiveWorkbench(): React.JSX.Element {
                   <option value="en">English</option>
                 </select>
               </label>
+              <h3>{t("studio.connection")}</h3>
               <p>
                 Forge home: <code>{state?.forgeHome}</code>
               </p>
@@ -511,7 +625,39 @@ export function LiveWorkbench(): React.JSX.Element {
             <>
               <div className="live-transcript" aria-live="polite">
                 {!state?.messages.length && !prompt && (
-                  <h1>{t("home.title")}</h1>
+                  <div className="studio-welcome">
+                    <span className="studio-welcome-icon">
+                      <img src={markUrl} alt="" width={72} height={72} />
+                    </span>
+                    <span className="studio-eyebrow">
+                      {t("studio.eyebrow")}
+                    </span>
+                    <h1>{t("studio.title")}</h1>
+                    <p>{t("studio.subtitle")}</p>
+                    <div className="studio-suggestions">
+                      {[
+                        { key: "code", icon: Code },
+                        { key: "document", icon: FileText },
+                        { key: "research", icon: Globe },
+                      ].map(({ key: suggestion, icon: Icon }) => (
+                        <button
+                          type="button"
+                          key={suggestion}
+                          onClick={() => {
+                            setDrafts((values) => ({
+                              ...values,
+                              [key]: t(`studio.prompts.${suggestion}`),
+                            }));
+                            composerRef.current?.focus();
+                          }}
+                        >
+                          <Icon size={20} />
+                          <span>{t(`studio.suggestions.${suggestion}`)}</span>
+                          <Plus size={14} />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 )}
                 {state?.messages.map((message) => (
                   <div
@@ -533,6 +679,20 @@ export function LiveWorkbench(): React.JSX.Element {
                     <Markdown>{answer}</Markdown>
                   </div>
                 )}
+                {active && (
+                  <div className="studio-run-state" role="status">
+                    <span className="spinner" />
+                    <span>{t(`live.${status}`)}</span>
+                    {details.length > 0 && (
+                      <details>
+                        <summary>
+                          {t("live.activity")} · {details.length}
+                        </summary>
+                        <pre>{details.at(-1)?.text}</pre>
+                      </details>
+                    )}
+                  </div>
+                )}
                 {approval && (
                   <div className="approval-card">
                     <h3>{t("live.approval")}</h3>
@@ -548,6 +708,18 @@ export function LiveWorkbench(): React.JSX.Element {
               </div>
               <div className="live-composer">
                 <textarea
+                  ref={composerRef}
+                  rows={3}
+                  onKeyDown={(event) => {
+                    if (
+                      event.key === "Enter" &&
+                      (event.metaKey || event.ctrlKey) &&
+                      !event.nativeEvent.isComposing
+                    ) {
+                      event.preventDefault();
+                      void send();
+                    }
+                  }}
                   aria-label={t("home.placeholder")}
                   placeholder={t("home.placeholder")}
                   value={draft}
@@ -558,163 +730,261 @@ export function LiveWorkbench(): React.JSX.Element {
                     }))
                   }
                 />
-                <p>{t("live.switchNotice")}</p>
-                {active ? (
-                  <button
-                    type="button"
-                    disabled={status === "stopping"}
-                    onClick={() => void cancel()}
-                  >
-                    {t(status === "stopping" ? "live.stopping" : "live.stop")}
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    disabled={busy || !draft.trim() || !api}
-                    onClick={() => void send()}
-                  >
-                    {t("live.send")}
-                  </button>
-                )}
+                <div className="studio-composer-footer">
+                  <span className="studio-composer-context" title={state?.cwd}>
+                    <FolderOpen size={15} />
+                    {state?.cwd?.split("/").pop() || t("live.automatic")}
+                  </span>
+                  <span className="studio-shortcut">⌘ / Ctrl ↵</span>
+                  {active ? (
+                    <button
+                      type="button"
+                      disabled={status === "stopping"}
+                      onClick={() => void cancel()}
+                    >
+                      {t(status === "stopping" ? "live.stopping" : "live.stop")}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={busy || !draft.trim() || !api}
+                      onClick={() => void send()}
+                    >
+                      <ArrowUp size={16} />
+                      {t("live.send")}
+                    </button>
+                  )}
+                </div>
+                <details className="studio-engine-note">
+                  <summary>{t("studio.engineNote")}</summary>
+                  <p>{t("live.switchNotice")}</p>
+                </details>
               </div>
             </>
           )}
         </section>
-        {panel && (
-          <aside className="live-panel">
-            <h3>{t("live.files")}</h3>
-            <input
-              data-testid="file-path"
-              aria-label={t("live.filePath")}
-              placeholder={t("live.filePath")}
-              value={filePath}
-              onChange={(event) => setFilePath(event.target.value)}
+        {panel && !settings && (
+          <aside
+            className="live-panel"
+            style={
+              { "--panel-width": `${panelWidth}px` } as React.CSSProperties
+            }
+          >
+            <button
+              type="button"
+              className="studio-panel-resize"
+              aria-label={t("studio.panelWidth")}
+              title={t("studio.panelWidth")}
+              onPointerDown={(event) => {
+                event.currentTarget.setPointerCapture(event.pointerId);
+              }}
+              onPointerMove={(event) => {
+                if (event.currentTarget.hasPointerCapture(event.pointerId))
+                  setPanelWidth(
+                    Math.max(
+                      280,
+                      Math.min(600, window.innerWidth - event.clientX),
+                    ),
+                  );
+              }}
+              onPointerUp={(event) =>
+                event.currentTarget.releasePointerCapture(event.pointerId)
+              }
+              onKeyDown={(event) => {
+                if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+                  event.preventDefault();
+                  setPanelWidth((value) =>
+                    Math.max(
+                      280,
+                      Math.min(
+                        600,
+                        value + (event.key === "ArrowLeft" ? 20 : -20),
+                      ),
+                    ),
+                  );
+                }
+              }}
             />
-            <div className="file-actions">
+            <div className="studio-panel-header">
+              <strong>{t("studio.workbench")}</strong>
               <button
                 type="button"
-                data-testid="preview-file"
-                disabled={!filePath || !state?.cwd}
-                onClick={() => {
+                className="studio-icon"
+                aria-label={t("studio.closePanel")}
+                onClick={() => setPanel(false)}
+              >
+                <X size={17} />
+              </button>
+            </div>
+            <div className="studio-tabs">
+              {["files", "changes", "context"].map((tab) => (
+                <button
+                  type="button"
+                  aria-pressed={panelTab === tab}
+                  key={tab}
+                  onClick={() => setPanelTab(tab)}
+                >
+                  {t(`studio.tabs.${tab}`)}
+                </button>
+              ))}
+            </div>
+            <div className="studio-panel-body" hidden={panelTab !== "files"}>
+              <h3>{t("live.files")}</h3>
+              <input
+                data-testid="file-path"
+                aria-label={t("live.filePath")}
+                placeholder={t("live.filePath")}
+                value={filePath}
+                onChange={(event) => setFilePath(event.target.value)}
+              />
+              <div className="file-actions">
+                <button
+                  type="button"
+                  data-testid="preview-file"
+                  disabled={!filePath || !state?.cwd}
+                  onClick={() => {
+                    void api
+                      ?.previewFile({ path: filePath })
+                      .then((value) => {
+                        if (scopeRef.current === scope) setFilePreview(value);
+                      })
+                      .catch((cause) => {
+                        if (scopeRef.current === scope)
+                          setError(operationError(cause));
+                      });
+                  }}
+                >
+                  {t("live.preview")}
+                </button>
+                <button
+                  type="button"
+                  disabled={!filePath}
+                  onClick={() =>
+                    void api
+                      ?.openFile(filePath)
+                      .catch((cause) => setError(operationError(cause)))
+                  }
+                >
+                  {t("common.open")}
+                </button>
+                <button
+                  type="button"
+                  disabled={!filePath}
+                  onClick={() =>
+                    void api
+                      ?.revealFile(filePath)
+                      .catch((cause) => setError(operationError(cause)))
+                  }
+                >
+                  {t("live.reveal")}
+                </button>
+                <button
+                  type="button"
+                  disabled={!filePath}
+                  onClick={() =>
+                    void api
+                      ?.saveFileAs(filePath)
+                      .catch((cause) => setError(operationError(cause)))
+                  }
+                >
+                  {t("live.saveAs")}
+                </button>
+              </div>
+              {filePreview && (
+                <section className="artifact-preview">
+                  <h4>{filePreview.document.source}</h4>
+                  {filePreview.truncated && (
+                    <p className="preview-limit">{t("live.previewLimited")}</p>
+                  )}
+                  <ContentPreview preview={filePreview} />
+                </section>
+              )}
+              {!filePreview && (
+                <div className="studio-panel-empty">
+                  <FileText size={30} />
+                  <p>{t("studio.fileHint")}</p>
+                </div>
+              )}
+            </div>
+            <div className="studio-panel-body" hidden={panelTab !== "changes"}>
+              <h3>{t("live.changes")}</h3>
+              <button
+                type="button"
+                data-testid="refresh-review"
+                disabled={!state?.cwd}
+                onClick={() =>
                   void api
-                    ?.previewFile({ path: filePath })
+                    ?.reviewChanges()
                     .then((value) => {
-                      if (scopeRef.current === scope) setFilePreview(value);
+                      if (scopeRef.current === scope) setReview(value);
                     })
                     .catch((cause) => {
                       if (scopeRef.current === scope)
                         setError(operationError(cause));
-                    });
-                }}
-              >
-                {t("live.preview")}
-              </button>
-              <button
-                type="button"
-                disabled={!filePath}
-                onClick={() =>
-                  void api
-                    ?.openFile(filePath)
-                    .catch((cause) => setError(operationError(cause)))
+                    })
                 }
               >
-                {t("common.open")}
+                {t("live.refreshChanges")}
               </button>
-              <button
-                type="button"
-                disabled={!filePath}
-                onClick={() =>
-                  void api
-                    ?.revealFile(filePath)
-                    .catch((cause) => setError(operationError(cause)))
-                }
-              >
-                {t("live.reveal")}
-              </button>
-              <button
-                type="button"
-                disabled={!filePath}
-                onClick={() =>
-                  void api
-                    ?.saveFileAs(filePath)
-                    .catch((cause) => setError(operationError(cause)))
-                }
-              >
-                {t("live.saveAs")}
-              </button>
-            </div>
-            {filePreview && (
-              <section className="artifact-preview">
-                <h4>{filePreview.document.source}</h4>
-                {filePreview.truncated && (
-                  <p className="preview-limit">{t("live.previewLimited")}</p>
-                )}
-                <ContentPreview preview={filePreview} />
-              </section>
-            )}
-            <h3>{t("live.changes")}</h3>
-            <button
-              type="button"
-              data-testid="refresh-review"
-              disabled={!state?.cwd}
-              onClick={() =>
-                void api
-                  ?.reviewChanges()
-                  .then((value) => {
-                    if (scopeRef.current === scope) setReview(value);
-                  })
-                  .catch((cause) => {
-                    if (scopeRef.current === scope)
-                      setError(operationError(cause));
-                  })
-              }
-            >
-              {t("live.refreshChanges")}
-            </button>
-            {review && (
-              <div className="change-review">
-                <small>
-                  {t("live.baseline")}: {t(`live.baselines.${review.baseline}`)}
-                </small>
-                {review.limitations.map((limit) => (
-                  <small key={limit}>{t(`live.reviewLimits.${limit}`)}</small>
-                ))}
-                <small>
-                  Forge:{" "}
-                  {t(`live.engineCoverage.${review.engineCoverage.native}`)}
-                </small>
-                <small>
-                  Codex:{" "}
-                  {t(`live.engineCoverage.${review.engineCoverage.codex}`)}
-                </small>
-                {!review.entries.length && <p>{t("live.noChanges")}</p>}
-                {review.entries.map((entry) => (
-                  <details key={entry.path}>
-                    <summary>
-                      {t(`live.changeStatus.${entry.status}`)} · {entry.path}
-                    </summary>
-                    <DiffViewer entry={entry} />
+              {review && (
+                <div className="change-review">
+                  <small>
+                    {t("live.baseline")}:{" "}
+                    {t(`live.baselines.${review.baseline}`)}
+                  </small>
+                  <details className="studio-review-scope">
+                    <summary>{t("studio.reviewScope")}</summary>
+                    {review.limitations.map((limit) => (
+                      <small key={limit}>
+                        {t(`live.reviewLimits.${limit}`)}
+                      </small>
+                    ))}
+                    <small>
+                      Forge:{" "}
+                      {t(`live.engineCoverage.${review.engineCoverage.native}`)}
+                    </small>
+                    <small>
+                      Codex:{" "}
+                      {t(`live.engineCoverage.${review.engineCoverage.codex}`)}
+                    </small>
                   </details>
-                ))}
-              </div>
-            )}
-            <h3>{t("live.context")}</h3>
-            <pre>{state?.context}</pre>
-            <button
-              type="button"
-              disabled={busy || !state?.sessionId}
-              onClick={() => void manage({ type: "compact" })}
-            >
-              {t("live.compact")}
-            </button>
-            <h3>{t("live.activity")}</h3>
-            {details.map((detail) => (
-              <details key={detail.id} open={detail.kind === "error"}>
-                <summary>{detail.kind}</summary>
-                <pre>{detail.text}</pre>
-              </details>
-            ))}
-            <p>{t("live.verification")}</p>
+                  {!review.entries.length && <p>{t("live.noChanges")}</p>}
+                  {review.entries.map((entry) => (
+                    <details key={entry.path}>
+                      <summary>
+                        {t(`live.changeStatus.${entry.status}`)} · {entry.path}
+                      </summary>
+                      <DiffViewer entry={entry} />
+                    </details>
+                  ))}
+                </div>
+              )}
+              {!review && (
+                <div className="studio-panel-empty">
+                  <Code size={30} />
+                  <p>{t("studio.reviewHint")}</p>
+                </div>
+              )}
+            </div>
+            <div className="studio-panel-body" hidden={panelTab !== "context"}>
+              <h3>{t("live.context")}</h3>
+              <pre>{state?.context}</pre>
+              <button
+                type="button"
+                disabled={busy || !state?.sessionId}
+                onClick={() => void manage({ type: "compact" })}
+              >
+                {t("live.compact")}
+              </button>
+              <h3>{t("live.activity")}</h3>
+              {details.map((detail) => (
+                <details key={detail.id} open={detail.kind === "error"}>
+                  <summary>{detail.kind}</summary>
+                  <pre>{detail.text}</pre>
+                </details>
+              ))}
+              <p>{t("live.verification")}</p>
+            </div>
           </aside>
         )}
       </div>

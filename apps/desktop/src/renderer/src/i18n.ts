@@ -6,6 +6,41 @@ export type Locale = "en" | "zh-CN";
 export const resources = {
   en: {
     translation: {
+      studio: {
+        workspace: "Workspace",
+        connection: "Forge connection",
+        reviewScope: "Workspace changes include other sources · Details",
+        noTasks: "Your tasks will appear here",
+        sidebar: "Toggle sidebar",
+        workbench: "Workbench",
+        preferences: "MAKE IT YOURS",
+        appearance: "Appearance",
+        appearanceHint: "Choose a theme, or let Forge follow your system.",
+        light: "Light",
+        dark: "Dark",
+        system: "System",
+        eyebrow: "A LITTLE FOCUS. A LOT OF POSSIBILITY.",
+        title: "What will you make today?",
+        subtitle: "A place to turn your ideas into working results.",
+        suggestions: {
+          code: "Build something",
+          document: "Explore a document",
+          research: "Research a question",
+        },
+        prompts: {
+          code: "Help me improve this project. First inspect its structure and suggest a focused change.",
+          document:
+            "Help me analyze a file in this workspace. First list the available documents.",
+          research:
+            "Help me research a question. Ask me for the topic and the outcome I need.",
+        },
+        engineNote: "About switching engines",
+        panelWidth: "Workbench panel width",
+        closePanel: "Close workbench",
+        tabs: { files: "Files", changes: "Changes", context: "Activity" },
+        fileHint: "Enter a workspace file path to preview it here.",
+        reviewHint: "Refresh to review changes since the workspace baseline.",
+      },
       live: {
         web: {
           title: "Web research",
@@ -250,6 +285,39 @@ export const resources = {
   },
   "zh-CN": {
     translation: {
+      studio: {
+        workspace: "工作空间",
+        connection: "Forge 连接",
+        reviewScope: "工作空间变更包含其他来源 · 查看说明",
+        noTasks: "开始后，任务会显示在这里",
+        sidebar: "切换侧栏",
+        workbench: "工作台",
+        preferences: "让工作更顺手",
+        appearance: "外观",
+        appearanceHint: "选择喜欢的主题，或跟随系统自动切换。",
+        light: "浅色",
+        dark: "深色",
+        system: "跟随系统",
+        eyebrow: "专注想法，让成果发生",
+        title: "今天，想做点什么？",
+        subtitle: "从一个想法开始，一起把它变成看得见的成果。",
+        suggestions: {
+          code: "构建与改进",
+          document: "读懂一份文件",
+          research: "研究一个问题",
+        },
+        prompts: {
+          code: "帮我改进这个项目。请先了解项目结构，提出一个具体的改进建议。",
+          document: "帮我分析工作空间里的文件。请先列出可用的文档。",
+          research: "帮我研究一个问题。请先问我研究主题和希望得到的成果。",
+        },
+        engineNote: "关于切换引擎",
+        panelWidth: "工作台面板宽度",
+        closePanel: "关闭工作台",
+        tabs: { files: "文件", changes: "变更", context: "活动" },
+        fileHint: "输入工作空间内的文件路径，在这里查看内容。",
+        reviewHint: "刷新后，审阅工作空间自比较基线以来的变更。",
+      },
       live: {
         web: {
           title: "联网研究",

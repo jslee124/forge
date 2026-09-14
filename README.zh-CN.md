@@ -2,7 +2,7 @@
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/assets/forge-logo-dark.svg">
     <source media="(prefers-color-scheme: light)" srcset="docs/assets/forge-logo-light.svg">
-    <img src="docs/assets/forge-logo-light.svg" alt="Forge" width="760">
+    <img src="docs/assets/forge-logo-light.svg" alt="Forge" width="420">
   </picture>
 </p>
 
@@ -13,9 +13,9 @@
 
 <p align="center">
   <a href="https://github.com/jslee124/forge/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/jslee124/forge/ci.yml?branch=main&amp;style=flat-square&amp;label=CI" alt="CI 状态"></a>
-  <img src="https://img.shields.io/badge/source-v0.3.4-0e7490?style=flat-square" alt="源码版本 0.3.4">
-  <img src="https://img.shields.io/badge/Node.js-%3E%3D24-3c873a?style=flat-square&amp;logo=nodedotjs&amp;logoColor=white" alt="Node.js 24 或更高版本">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-7c3aed?style=flat-square" alt="MIT 许可证"></a>
+  <img src="https://img.shields.io/badge/source-v0.3.4-525252?style=flat-square" alt="源码版本 0.3.4">
+  <img src="https://img.shields.io/badge/Node.js-%3E%3D24-525252?style=flat-square&amp;logo=nodedotjs&amp;logoColor=white" alt="Node.js 24 或更高版本">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-525252?style=flat-square" alt="MIT 许可证"></a>
 </p>
 
 <p align="center">

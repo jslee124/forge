@@ -32,6 +32,7 @@ import {
   useDesktopStore,
 } from "./store.js";
 import "./styles.css";
+import "./studio.css";
 
 const taskIds: TaskId[] = ["login", "refactor", "research"];
 
