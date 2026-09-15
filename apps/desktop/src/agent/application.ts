@@ -98,6 +98,14 @@ export class DesktopApplication {
             ],
       ),
       context: this.#session?.contextStatus() ?? "",
+      ...(this.#session?.sessionId && this.#session.contextDetails
+        ? {
+            contextUsage: {
+              used: this.#session.contextDetails().estimatedTranscriptTokens,
+              total: this.#session.contextDetails().availableInputTokens,
+            },
+          }
+        : {}),
       auth: this.#auth,
       loginUrl: this.#loginUrl,
       loginCode: this.#loginCode,
@@ -120,6 +128,9 @@ export class DesktopApplication {
         this.#env,
         this.#cwd || this.#initialCwd,
       ).manage(command);
+    } else if (command.type === "reset") {
+      this.#session?.clear();
+      this.#revision = "";
     } else if (command.type === "workspace") {
       const cwd = await directoryPath(command.cwd);
       const session = await createPersistentInteractiveSession({
@@ -338,7 +349,10 @@ export class DesktopApplication {
         );
         const code = await runTask(
           request.prompt,
-          { ...(model ? { model } : {}), permissionProfile: "safe" },
+          {
+            ...(model ? { model } : {}),
+            permissionProfile: request.permissionProfile ?? "safe",
+          },
           {
             ...shared,
             ...(builtinResourceRoot ? { builtinResourceRoot } : {}),
@@ -394,7 +408,10 @@ export class DesktopApplication {
         const events: RunEvent[] = [];
         const code = await runCodexTask(
           request.prompt,
-          { ...(model ? { model } : {}), permissionProfile: "workspace-write" },
+          {
+            ...(model ? { model } : {}),
+            permissionProfile: request.permissionProfile ?? "workspace-write",
+          },
           {
             ...this.#codexDependencies(context.signal),
             ...shared,

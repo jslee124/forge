@@ -392,3 +392,14 @@ describe("desktop native execution", () => {
     expect(next.cwd).not.toBe(state.cwd);
   });
 });
+
+it("resets the backend session without deleting saved history", async () => {
+  const { application, sessionId } = await fixture([]);
+  await run(application, sessionId);
+  const reset = await application.manage({ type: "reset" });
+  expect(reset.sessionId).toBe("");
+  expect(reset.messages).toEqual([]);
+  expect((await application.state()).sessionId).toBe("");
+  const resumed = await application.manage({ type: "resume", sessionId });
+  expect(resumed.sessionId).toBe(sessionId);
+});

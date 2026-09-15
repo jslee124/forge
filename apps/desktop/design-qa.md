@@ -131,3 +131,22 @@ D03 report above remains historical evidence for its original scope.
 本次只替换工具栏标识，不包含 Dock 图标或安装包发布。
 
 final result: passed
+
+
+## Workbench v2 implementation — 2026-09-15
+
+Reference: `design/reference/workbench-v2-revised.png` and the collapsed, workbench-open, settings, and empty variants. This update targets the live Electron workbench, not the older browser fixture described above.
+
+Actual Electron captures use temporary offline sessions, real IPC and file services, 1100 × 728 CSS pixels (and the existing narrow scenario), at 2× capture scale. All 29 capture scenarios completed without viewport overflow; [capture manifest](design/implementation-v2/ui.json). No model call or installed release is implied.
+
+Reviewed full views and composer/menu details. Changes retain the monochrome anvil branding, neutral surfaces, right-aligned user messages, borderless assistant text, and distinct sidebar. Sidebar collapse sits inside the sidebar; collapsed state restores via the anvil. Folder sits above the conversation; permissions, context and labeled engine/model sit in the composer. Settings owns appearance selection. The menu's initially centered rows were corrected to left-aligned rows after screenshot review.
+
+![Empty workbench](design/implementation-v2/home-light.png)
+![Collapsed sidebar](design/implementation-v2/home-dark-collapsed.png)
+![Right panel](design/implementation-v2/light-zh-CN-code.png)
+![Settings](design/implementation-v2/dark-zh-CN-settings.png)
+![Commands](design/implementation-v2/commands-light.png)
+
+Intentional/current differences: native window chrome is outside webContents captures; actual file controls replace the illustrative file tree; narrow conversation widths wrap composer controls. Model uses native input/datalist rather than the planned searchable management popover. Some slash management entries remain explicitly unavailable, as tracked in WORKBENCH_UX_PLAN.md; full TUI parity is not claimed.
+
+Validation: 15 focused tests, TypeScript project and test checks, desktop production build, 71 deterministic evaluations, and documentation checks passed. Modified source files passed focused Biome checks. Root `pnpm check` encounters 37 existing errors in the separate design/prototype tree; those unrelated files were not changed. No commit or release was made.

@@ -4,6 +4,7 @@ const id = z.string().regex(/^[a-zA-Z0-9_-]{1,128}$/);
 const text = z.string().max(100_000);
 export const managementCommandSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("state") }).strict(),
+  z.object({ type: z.literal("reset") }).strict(),
   z.object({ type: z.literal("web-install") }).strict(),
   z.object({ type: z.literal("web-enable"), enabled: z.boolean() }).strict(),
   z
@@ -57,6 +58,9 @@ export const desktopStateSchema = z
       )
       .max(10000),
     context: text,
+    contextUsage: z
+      .object({ used: z.number().nonnegative(), total: z.number().positive() })
+      .optional(),
     auth: z.enum([
       "unknown",
       "unavailable",

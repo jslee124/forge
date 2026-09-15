@@ -6,7 +6,7 @@ simulation remains a separate development fixture.
 
 - Appearance: Settings offers Light, Dark and System. The default is System;
   explicit choices persist locally. System changes apply while System is selected.
-  The sidebar shortcut switches directly between light and dark.
+  Theme switching is available only in Settings.
 - New tasks start with the workbench panel closed. Suggestions populate the draft;
   they do not execute a task. Command/Ctrl+Enter submits outside IME composition.
 - Resuming a task opens Files. Files, Changes and Activity retain their own content

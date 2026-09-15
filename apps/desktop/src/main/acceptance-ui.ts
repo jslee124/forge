@@ -101,7 +101,7 @@ export async function runUiAcceptance(
           );
         await click(`[data-session-id="${f.id}"]`);
         await until(
-          `document.querySelector('[data-testid=file-path]') && !document.querySelector('[data-testid=refresh-review]').disabled && document.querySelector('.live-transcript')?.textContent.includes('D12 ${f.kind}') && !document.querySelector('.live-toolbar select').disabled`,
+          `document.querySelector('[data-testid=file-path]') && !document.querySelector('[data-testid=refresh-review]').disabled && document.querySelector('.live-transcript')?.textContent.includes('D12 ${f.kind}') && !document.querySelector('[data-testid=composer-engine]').disabled`,
         );
         await until(
           "!document.querySelector('.artifact-preview') && !document.querySelector('.change-review')",
@@ -170,6 +170,18 @@ export async function runUiAcceptance(
   await click('[data-testid="sidebar-toggle"]');
   await until(
     "!document.querySelector('.studio-square-mark') && getComputedStyle(document.querySelector('.sidebar')).display !== 'none' && !document.querySelector('.studio-brand').textContent.includes('DESKTOP')",
+  );
+  await js(
+    `(() => { const el=document.querySelector('.live-composer textarea'); Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(el,'/'); el.dispatchEvent(new Event('input',{bubbles:true})); })()`,
+  );
+  await until("document.querySelector('.studio-slash-menu')");
+  await capture("commands-light");
+  await click(".studio-slash-menu button");
+  await until(
+    "document.querySelector('.studio-notice')?.textContent.includes('/help')",
+  );
+  await js(
+    `(() => { if(document.querySelector('.prototype-banner') || document.querySelector('.studio-theme-toggle')) throw new Error('Old chrome remains'); const sidebar=document.querySelector('.sidebar'); if(!sidebar.contains(document.querySelector('[data-testid=sidebar-toggle]'))) throw new Error('Toggle outside sidebar'); if(!document.querySelector('.live-composer').contains(document.querySelector('[data-testid=composer-engine]'))) throw new Error('Engine outside composer'); })()`,
   );
   await click(".studio-suggestions button:first-child");
   await until(

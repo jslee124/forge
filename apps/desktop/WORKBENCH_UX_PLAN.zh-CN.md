@@ -1,6 +1,8 @@
 # 桌面工作台布局与斜杠命令设计
 
-状态：待用户确认，未实施。2026-09-15。
+后续执行顺序、任务与验收门槛见 [后续开发计划](WORKBENCH_DEVELOPMENT_PLAN.zh-CN.md)。
+
+状态：用户已批准实现；工作台布局及首批命令已接入，完整命令兼容仍待完成。2026-09-15。
 
 本方案承接已经实现的黑白主题与铁砧品牌，描述下一轮布局和交互改造。
 当前产品行为仍以源代码为准；本文不是已交付能力说明。
@@ -230,3 +232,15 @@ Figma: [Forge — Workbench UX v2](https://www.figma.com/design/sk9IZlKqoRF8PEpA
 ![无对话的新任务首页](design/reference/workbench-v2-empty.png)
 
 保留铁砧、引导文字和三个建议入口，点击只填写草稿。上下文未知显示空环和破折号，不伪报 0%。未选择目录时顶部只显示选择工作区，不显示示例 forge 目录。
+
+## 本次代码实现记录（2026-09-15）
+
+已实现：移除顶部品牌状态横幅；侧栏内折叠按钮及折叠后的铁砧恢复入口；顶部目录选择；输入框内带标签的引擎/模型、权限与上下文圆环；设置内主题选择；空白页、消息排版和设置连接卡片。右侧文件、预览、改动和活动面板沿用真实功能。
+
+权限选择传入经校验的运行协议：仅 safe / workspace-write。Forge 默认按需审批，Codex safe 是只读；不新增无限制模式。上下文圆环使用 Forge 当前 transcript 预算估算，不含草稿；Codex 用量未知时显示破折号。
+
+命令入口支持过滤、方向键、Tab、Enter、Esc 和输入法保护。已连接 /help、/new、/clear、/context、/compact、/model、/permissions、/resume、/login、/plugins、/exit；/login 与 /plugins 打开现有设置，/resume 打开历史任务列表。/new 和 /clear 均清除当前内存上下文而保留已保存历史（桌面无跨运行授权缓存）。
+
+尚未完成：命令参数、共享 TUI 命令目录、/resources、/logout、/delete-model、/effort、/update-dismiss，以及完整的可搜索模型管理。未接入命令明确提示，绝不作为模型提示词发送。上述设计章节描述最终目标，不代表全部已经实现。
+
+验证：15 项定向测试、生产构建和 TypeScript 检查通过；实际 Electron 检查覆盖中英文、深浅色、左右面板、空白页、设置和命令入口。截图与限制见 [visual QA](design-qa.md)。根级 pnpm check 被已有 design/prototype 的格式问题阻塞，本次修改文件单独检查通过。未提交、打包发布或验证付费模型请求。

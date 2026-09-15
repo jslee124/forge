@@ -11,6 +11,7 @@ export type RunCommand = RunIdentity & { readonly requestId: string } & (
         readonly prompt: string;
         readonly engine: "native" | "codex";
         readonly model?: string;
+        readonly permissionProfile?: "safe" | "workspace-write";
       }
     | { readonly type: "cancel" }
     | {
@@ -63,7 +64,8 @@ type WireRecord = Record<string, unknown> &
       | "description"
       | "outcome"
       | "ok"
-      | "model",
+      | "model"
+      | "permissionProfile",
       unknown
     >
   >;
@@ -95,11 +97,15 @@ export function parseRunCommand(value: unknown): RunCommand | undefined {
       "prompt",
       "engine",
       ...(value.model === undefined ? [] : ["model"]),
+      ...(value.permissionProfile === undefined ? [] : ["permissionProfile"]),
     ]) &&
     (value.model === undefined ||
       (typeof value.model === "string" &&
         value.model.length > 0 &&
         value.model.length <= 256)) &&
+    (value.permissionProfile === undefined ||
+      value.permissionProfile === "safe" ||
+      value.permissionProfile === "workspace-write") &&
     typeof value.prompt === "string" &&
     value.prompt.trim().length > 0 &&
     value.prompt.length <= 100_000 &&

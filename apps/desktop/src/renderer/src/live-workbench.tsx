@@ -5,11 +5,8 @@ import { FileText } from "@phosphor-icons/react/FileText";
 import { FolderOpen } from "@phosphor-icons/react/FolderOpen";
 import { GearSix } from "@phosphor-icons/react/GearSix";
 import { Globe } from "@phosphor-icons/react/Globe";
-import { Moon } from "@phosphor-icons/react/Moon";
-import { Paperclip } from "@phosphor-icons/react/Paperclip";
 import { Plus } from "@phosphor-icons/react/Plus";
 import { SidebarSimple } from "@phosphor-icons/react/SidebarSimple";
-import { Sun } from "@phosphor-icons/react/Sun";
 import { X } from "@phosphor-icons/react/X";
 import React from "react";
 import { useTranslation } from "react-i18next";
@@ -21,8 +18,10 @@ import type { ChangeReview, FilePreview } from "../../shared/file-protocol.js";
 import type { RunEvent } from "../../shared/run-protocol.js";
 import logoUrl from "./assets/forge-logo.svg";
 import markUrl from "./assets/forge-mark.svg";
+import { ComposerContext } from "./composer-context.js";
 import { ContentPreview, DiffViewer } from "./file-preview.js";
 import { Markdown } from "./markdown.js";
+import { commands, parseSlash, suggestions } from "./slash-commands.js";
 import { type ThemeMode, useTheme } from "./theme.js";
 
 export function LiveWorkbench(): React.JSX.Element {
@@ -36,6 +35,9 @@ export function LiveWorkbench(): React.JSX.Element {
   const [drafts, setDrafts] = React.useState<Record<string, string>>({});
   const [engine, setEngine] = React.useState<"native" | "codex">("native");
   const [model, setModel] = React.useState("");
+  const [permission, setPermission] = React.useState<
+    "safe" | "workspace-write"
+  >("safe");
   const [active, setActive] = React.useState<{
     sessionId: string;
     runId: string;
@@ -70,6 +72,11 @@ export function LiveWorkbench(): React.JSX.Element {
   }, [scope]);
   const key = state?.sessionId || `new:${state?.cwd ?? ""}`;
   const draft = drafts[key] ?? "";
+  const [commandIndex, setCommandIndex] = React.useState(0);
+  const [commandClosed, setCommandClosed] = React.useState(false);
+  const [notice, setNotice] = React.useState("");
+  const candidates = commandClosed ? [] : suggestions(draft);
+  const zh = i18n.language.startsWith("zh");
   const busy = Boolean(active) || pending;
   const api = window.forgeDesktop;
   const manage = async (
@@ -168,8 +175,103 @@ export function LiveWorkbench(): React.JSX.Element {
     }, 1000);
     return () => clearInterval(timer);
   }, [state?.auth]);
+  const importFile = async () => {
+    try {
+      const imported = await api?.importFile();
+      if (imported) {
+        setFilePath(imported.path);
+        setFilePreview(await api?.previewFile({ path: imported.path }));
+        setPanel(true);
+      }
+    } catch (cause) {
+      setError(operationError(cause));
+    }
+  };
+  const newTask = async () => {
+    const next = await manage({ type: "reset" });
+    if (!next) return false;
+    setPrompt("");
+    setAnswer("");
+    setDetails([]);
+    setSettings(false);
+    setPanel(false);
+    setStatus("ready");
+    return true;
+  };
+  const executeSlash = async (input: string) => {
+    if (busy) return;
+    const command = parseSlash(input);
+    if (!command) {
+      setNotice(
+        zh ? "无效命令，输入 /help 查看帮助。" : "Invalid command. Use /help.",
+      );
+      return;
+    }
+    const { name, args } = command;
+    setCommandClosed(true);
+    setNotice("");
+    const clear = () => setDrafts((values) => ({ ...values, [key]: "" }));
+    if (args) {
+      setNotice(
+        zh
+          ? "此桌面命令暂不接受参数，请使用菜单。"
+          : "Use the menu; arguments are not supported yet.",
+      );
+      return;
+    }
+    if (name === "new" || name === "clear") {
+      if (await newTask()) clear();
+    } else if (name === "compact") {
+      const next = await manage({ type: "compact" });
+      if (next) {
+        setNotice(next.context);
+        clear();
+      }
+    } else if (name === "context") {
+      setNotice(state?.context || (zh ? "尚无上下文" : "No context"));
+      clear();
+    } else if (name === "help") {
+      setNotice(
+        commands.map(([n, cn, en]) => `/${n}  ${zh ? cn : en}`).join("\n"),
+      );
+      clear();
+    } else if (name === "model") {
+      clear();
+      requestAnimationFrame(() =>
+        document
+          .querySelector<HTMLInputElement>("[data-testid=composer-model]")
+          ?.focus(),
+      );
+    } else if (name === "permissions") {
+      clear();
+      requestAnimationFrame(() =>
+        document
+          .querySelector<HTMLSelectElement>(".studio-permission select")
+          ?.focus(),
+      );
+    } else if (name === "resume") {
+      setSidebarOpen(true);
+      setNotice(
+        zh ? "从左侧选择要恢复的任务。" : "Select a saved task in the sidebar.",
+      );
+      clear();
+    } else if (name === "plugins" || name === "login") {
+      clear();
+      setSettings(true);
+    } else if (name === "exit") window.close();
+    else
+      setNotice(
+        zh
+          ? "该命令尚未接入桌面端，请使用 Forge TUI。"
+          : "This command is not connected on desktop. Use Forge TUI.",
+      );
+  };
   const send = async () => {
     if (!draft.trim() || busy || !api) return;
+    if (draft.trim().startsWith("/")) {
+      await executeSlash(draft);
+      return;
+    }
     setPending(true);
     setError("");
     try {
@@ -193,6 +295,7 @@ export function LiveWorkbench(): React.JSX.Element {
         ...identity,
         prompt: draft,
         engine,
+        permissionProfile: permission,
         ...(model ? { model } : {}),
       });
       if (!accepted) {
@@ -256,86 +359,36 @@ export function LiveWorkbench(): React.JSX.Element {
     <main
       className={`app-shell live-shell ${sidebarOpen ? "" : "sidebar-collapsed"}`}
     >
-      <div className="prototype-banner">
-        <span>
-          FORGE <span className="titlebar-divider">/</span>{" "}
-          {state?.cwd?.split("/").pop() || t("studio.workspace")}
-        </span>
-        <span className={`studio-status status-${status}`}>
-          <span />
-          {t(`live.${status}`)}
-        </span>
-      </div>
       <div className="app-frame">
         <aside className="sidebar">
           <div className="studio-brand">
             <img src={logoUrl} alt="Forge" width={124} />
+            <button
+              type="button"
+              className="studio-icon studio-sidebar-toggle"
+              data-testid="sidebar-toggle"
+              title={`Forge · ${t("studio.sidebar")}`}
+              aria-label={`Forge · ${t("studio.sidebar")}`}
+              aria-expanded={sidebarOpen}
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+            >
+              {sidebarOpen ? (
+                <SidebarSimple size={19} />
+              ) : (
+                <img
+                  className="studio-square-mark"
+                  src={markUrl}
+                  alt=""
+                  width={32}
+                  height={32}
+                />
+              )}
+            </button>
           </div>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => {
-              setState((value) =>
-                value ? { ...value, sessionId: "", messages: [] } : value,
-              );
-              setPrompt("");
-              setAnswer("");
-              setDetails([]);
-              setSettings(false);
-              setPanel(false);
-              setStatus("ready");
-            }}
-          >
+          <button type="button" disabled={busy} onClick={() => void newTask()}>
             <Plus size={17} />
             {t("live.new")}
           </button>
-          <button
-            type="button"
-            disabled={busy || !state?.cwd || !api}
-            onClick={async () => {
-              try {
-                const imported = await api?.importFile();
-                if (imported) {
-                  setFilePath(imported.path);
-                  setFilePreview(
-                    await api?.previewFile({ path: imported.path }),
-                  );
-                  setPanel(true);
-                }
-              } catch (cause) {
-                setError(operationError(cause));
-              }
-            }}
-          >
-            <Paperclip size={17} />
-            {t("live.addMaterial")}
-          </button>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={async () => {
-              setPending(true);
-              try {
-                const next = await api?.chooseWorkspace();
-                if (next) {
-                  setState(next);
-                  setPrompt("");
-                  setAnswer("");
-                  setDetails([]);
-                }
-              } catch (cause) {
-                setError(operationError(cause));
-              } finally {
-                setPending(false);
-              }
-            }}
-          >
-            <FolderOpen size={17} />
-            {t("live.folder")}
-          </button>
-          <small className="live-path" title={state?.cwd}>
-            {state?.cwd?.split("/").pop() || t("live.automatic")}
-          </small>
           <p className="studio-section-label">{t("common.recentTasks")}</p>
           <div className="live-sessions">
             {!state?.sessions.length && (
@@ -377,81 +430,62 @@ export function LiveWorkbench(): React.JSX.Element {
             <GearSix size={17} />
             {t("common.settings")}
           </button>
-          <button
-            type="button"
-            className="studio-theme-toggle"
-            onClick={() =>
-              theme.setTheme(theme.resolved === "dark" ? "light" : "dark")
-            }
-            aria-label={t("studio.appearance")}
-          >
-            <span>
-              {theme.resolved === "dark" ? (
-                <Moon size={17} />
-              ) : (
-                <Sun size={17} />
-              )}
-              {t(`studio.${theme.resolved}`)}
-            </span>
-            <span>{t("studio.appearance")}</span>
-          </button>
         </aside>
         <section className="live-main">
           <header className="live-toolbar">
+            {!sidebarOpen && (
+              <button
+                type="button"
+                className="studio-icon studio-sidebar-toggle"
+                data-testid="sidebar-toggle"
+                title={`Forge · ${t("studio.sidebar")}`}
+                aria-label={`Forge · ${t("studio.sidebar")}`}
+                aria-expanded={sidebarOpen}
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+              >
+                {sidebarOpen ? (
+                  <SidebarSimple size={19} />
+                ) : (
+                  <img
+                    className="studio-square-mark"
+                    src={markUrl}
+                    alt=""
+                    width={32}
+                    height={32}
+                  />
+                )}
+              </button>
+            )}
             <button
               type="button"
-              className="studio-icon studio-sidebar-toggle"
-              data-testid="sidebar-toggle"
-              title={`Forge · ${t("studio.sidebar")}`}
-              aria-label={`Forge · ${t("studio.sidebar")}`}
-              aria-expanded={sidebarOpen}
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-            >
-              {sidebarOpen ? (
-                <SidebarSimple size={19} />
-              ) : (
-                <img
-                  className="studio-square-mark"
-                  src={markUrl}
-                  alt=""
-                  width={32}
-                  height={32}
-                />
-              )}
-            </button>
-            <label>
-              {t("live.engine")}{" "}
-              <select
-                disabled={busy}
-                value={engine}
-                onChange={(event) => {
-                  setEngine(event.target.value as "native" | "codex");
-                  setModel("");
-                }}
-              >
-                <option value="native">Forge</option>
-                <option value="codex">Codex</option>
-              </select>
-            </label>
-            <label>
-              {t("live.model")}{" "}
-              <input
-                disabled={busy}
-                value={model}
-                onChange={(event) => setModel(event.target.value)}
-                placeholder={
-                  engine === "native"
-                    ? `${state?.provider ?? ""} / ${state?.model ?? ""}`
-                    : t("live.defaultModel")
+              disabled={busy}
+              onClick={async () => {
+                setPending(true);
+                try {
+                  const next = await api?.chooseWorkspace();
+                  if (next) {
+                    setState(next);
+                    setPrompt("");
+                    setAnswer("");
+                    setDetails([]);
+                  }
+                } catch (cause) {
+                  setError(operationError(cause));
+                } finally {
+                  setPending(false);
                 }
-                list="model-list"
-              />
-            </label>
-            <datalist id="model-list">
-              {state?.codexModels.map((entry) => (
-                <option key={entry} value={entry} />
-              ))}
-            </datalist>
+              }}
+            >
+              <FolderOpen size={17} />
+              {state?.cwd?.split("/").pop() || t("live.folder")}
+            </button>
+            <span className="studio-task-title">
+              {settings
+                ? t("common.settings")
+                : state?.sessions.find(
+                    (session) => session.id === state.sessionId,
+                  )?.title}
+            </span>
             <button
               type="button"
               className="studio-panel-toggle"
@@ -467,9 +501,29 @@ export function LiveWorkbench(): React.JSX.Element {
               {t(`live.errors.${error}`, { defaultValue: t("live.error") })}
             </p>
           )}
+          {notice && (
+            <div role="status" className="studio-notice">
+              <pre>{notice}</pre>
+              <button
+                type="button"
+                onClick={() => setNotice("")}
+                aria-label={zh ? "关闭" : "Dismiss"}
+              >
+                <X size={16} />
+              </button>
+            </div>
+          )}
           {settings ? (
             <div className="live-settings">
-              <span className="studio-eyebrow">{t("studio.preferences")}</span>
+              <button
+                type="button"
+                className="studio-back"
+                onClick={() => setSettings(false)}
+              >
+                {i18n.language.startsWith("zh")
+                  ? "返回对话"
+                  : "Back to conversation"}
+              </button>
               <h2>{t("common.settings")}</h2>
               <section className="studio-appearance">
                 <h3>{t("studio.appearance")}</h3>
@@ -502,11 +556,13 @@ export function LiveWorkbench(): React.JSX.Element {
                   <option value="en">English</option>
                 </select>
               </label>
-              <h3>{t("studio.connection")}</h3>
-              <p>
-                Forge home: <code>{state?.forgeHome}</code>
-              </p>
-              <p>{t("live.nativeConfig")}</p>
+              <section className="studio-connection-card">
+                <h3>{t("studio.connection")}</h3>
+                <p>
+                  Forge home: <code>{state?.forgeHome}</code>
+                </p>
+                <p>{t("live.nativeConfig")}</p>
+              </section>
               <section
                 className="web-settings"
                 aria-label={t("live.web.title")}
@@ -580,46 +636,48 @@ export function LiveWorkbench(): React.JSX.Element {
                 <p>{t("live.web.auto")}</p>
                 <p>{t("live.web.report")}</p>
               </section>
-              <h3>Codex</h3>
-              <p>{t(`live.auth.${state?.auth ?? "unknown"}`)}</p>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => void manage({ type: "auth-status" })}
-              >
-                {t("live.authCheck")}
-              </button>
-              <button
-                type="button"
-                disabled={busy || state?.auth === "signing-in"}
-                onClick={() => void manage({ type: "login" })}
-              >
-                {t("live.login")}
-              </button>
-              {state?.auth === "signing-in" && (
+              <section className="studio-connection-card">
+                <h3>Codex</h3>
+                <p>{t(`live.auth.${state?.auth ?? "unknown"}`)}</p>
                 <button
                   type="button"
-                  onClick={() => void manage({ type: "cancel-login" })}
+                  disabled={busy}
+                  onClick={() => void manage({ type: "auth-status" })}
                 >
-                  {t("live.cancelLogin")}
+                  {t("live.authCheck")}
                 </button>
-              )}
-              {state?.loginUrl && (
-                <div>
+                <button
+                  type="button"
+                  disabled={busy || state?.auth === "signing-in"}
+                  onClick={() => void manage({ type: "login" })}
+                >
+                  {t("live.login")}
+                </button>
+                {state?.auth === "signing-in" && (
                   <button
                     type="button"
-                    onClick={() =>
-                      void api
-                        ?.openLogin()
-                        .catch(() => setError("management-failed"))
-                    }
+                    onClick={() => void manage({ type: "cancel-login" })}
                   >
-                    {t("live.openLogin")}
+                    {t("live.cancelLogin")}
                   </button>
-                  <code>{state.loginCode}</code>
-                </div>
-              )}
-              <p>{t("live.codexLimits")}</p>
+                )}
+                {state?.loginUrl && (
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        void api
+                          ?.openLogin()
+                          .catch(() => setError("management-failed"))
+                      }
+                    >
+                      {t("live.openLogin")}
+                    </button>
+                    <code>{state.loginCode}</code>
+                  </div>
+                )}
+                <p>{t("live.codexLimits")}</p>
+              </section>
             </div>
           ) : (
             <>
@@ -629,9 +687,7 @@ export function LiveWorkbench(): React.JSX.Element {
                     <span className="studio-welcome-icon">
                       <img src={markUrl} alt="" width={72} height={72} />
                     </span>
-                    <span className="studio-eyebrow">
-                      {t("studio.eyebrow")}
-                    </span>
+
                     <h1>{t("studio.title")}</h1>
                     <p>{t("studio.subtitle")}</p>
                     <div className="studio-suggestions">
@@ -666,6 +722,13 @@ export function LiveWorkbench(): React.JSX.Element {
                       message.role === "user" ? "live-user" : "live-answer"
                     }
                   >
+                    {message.role === "assistant" && (
+                      <img
+                        className="studio-answer-avatar"
+                        src={markUrl}
+                        alt="Forge"
+                      />
+                    )}
                     <Markdown>{message.content}</Markdown>
                   </div>
                 ))}
@@ -676,6 +739,11 @@ export function LiveWorkbench(): React.JSX.Element {
                 )}
                 {answer && (
                   <div className="live-answer">
+                    <img
+                      className="studio-answer-avatar"
+                      src={markUrl}
+                      alt="Forge"
+                    />
                     <Markdown>{answer}</Markdown>
                   </div>
                 )}
@@ -707,10 +775,78 @@ export function LiveWorkbench(): React.JSX.Element {
                 )}
               </div>
               <div className="live-composer">
+                {candidates.length > 0 && (
+                  <div
+                    className="studio-slash-menu"
+                    role="listbox"
+                    id="slash-menu"
+                    aria-label={zh ? "命令" : "Commands"}
+                  >
+                    {candidates.map(([name, cn, en], index) => (
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected={
+                          index === commandIndex % candidates.length
+                        }
+                        key={name}
+                        disabled={busy}
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => void executeSlash("/" + name)}
+                      >
+                        <strong>/{name}</strong>
+                        <span>{zh ? cn : en}</span>
+                      </button>
+                    ))}
+                    <small>↑↓ · Tab · Enter · Esc</small>
+                  </div>
+                )}
                 <textarea
                   ref={composerRef}
                   rows={3}
                   onKeyDown={(event) => {
+                    if (event.nativeEvent.isComposing) return;
+                    if (candidates.length && !busy) {
+                      if (event.key === "Escape") {
+                        event.preventDefault();
+                        setCommandClosed(true);
+                        return;
+                      }
+                      if (
+                        event.key === "ArrowDown" ||
+                        event.key === "ArrowUp"
+                      ) {
+                        event.preventDefault();
+                        setCommandIndex(
+                          (v) =>
+                            (v +
+                              (event.key === "ArrowDown"
+                                ? 1
+                                : candidates.length - 1)) %
+                            candidates.length,
+                        );
+                        return;
+                      }
+                      if (event.key === "Tab") {
+                        event.preventDefault();
+                        setDrafts((v) => ({
+                          ...v,
+                          [key]:
+                            "/" +
+                            candidates[commandIndex % candidates.length]![0],
+                        }));
+                        setCommandClosed(true);
+                        return;
+                      }
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        void executeSlash(
+                          "/" +
+                            candidates[commandIndex % candidates.length]![0],
+                        );
+                        return;
+                      }
+                    }
                     if (
                       event.key === "Enter" &&
                       (event.metaKey || event.ctrlKey) &&
@@ -723,18 +859,73 @@ export function LiveWorkbench(): React.JSX.Element {
                   aria-label={t("home.placeholder")}
                   placeholder={t("home.placeholder")}
                   value={draft}
-                  onChange={(event) =>
+                  onChange={(event) => {
+                    setCommandIndex(0);
+                    setCommandClosed(false);
                     setDrafts((values) => ({
                       ...values,
                       [key]: event.target.value,
-                    }))
-                  }
+                    }));
+                  }}
                 />
                 <div className="studio-composer-footer">
-                  <span className="studio-composer-context" title={state?.cwd}>
-                    <FolderOpen size={15} />
-                    {state?.cwd?.split("/").pop() || t("live.automatic")}
-                  </span>
+                  <ComposerContext
+                    state={state}
+                    engine={engine}
+                    permission={permission}
+                    onPermission={setPermission}
+                    busy={busy}
+                    onImport={importFile}
+                  />
+                  <div className="studio-model-controls">
+                    {" "}
+                    <label>
+                      {t("live.engine")}{" "}
+                      <select
+                        disabled={busy}
+                        data-testid="composer-engine"
+                        value={engine}
+                        onChange={(event) => {
+                          setEngine(event.target.value as "native" | "codex");
+                          setModel("");
+                          setPermission(
+                            event.target.value === "codex"
+                              ? "workspace-write"
+                              : "safe",
+                          );
+                        }}
+                      >
+                        <option value="native">Forge</option>
+                        <option value="codex">Codex</option>
+                      </select>
+                    </label>
+                    <label>
+                      {t("live.model")}{" "}
+                      <input
+                        disabled={busy}
+                        value={model}
+                        onChange={(event) => setModel(event.target.value)}
+                        placeholder={
+                          engine === "native"
+                            ? `${state?.model ?? ""}`
+                            : t("live.defaultModel")
+                        }
+                        data-testid="composer-model"
+                        list="model-list"
+                      />
+                    </label>
+                    <datalist id="model-list">
+                      {engine === "native" && state?.model && (
+                        <option value={state.model} />
+                      )}
+                      {(engine === "codex"
+                        ? (state?.codexModels ?? [])
+                        : []
+                      ).map((entry) => (
+                        <option key={entry} value={entry} />
+                      ))}
+                    </datalist>
+                  </div>
                   <span className="studio-shortcut">⌘ / Ctrl ↵</span>
                   {active ? (
                     <button
@@ -755,10 +946,6 @@ export function LiveWorkbench(): React.JSX.Element {
                     </button>
                   )}
                 </div>
-                <details className="studio-engine-note">
-                  <summary>{t("studio.engineNote")}</summary>
-                  <p>{t("live.switchNotice")}</p>
-                </details>
               </div>
             </>
           )}

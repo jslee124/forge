@@ -1,6 +1,8 @@
 # Workbench layout and slash-command plan
 
-Status: awaiting user approval; not implemented. 2026-09-15.
+See the [follow-up development plan](WORKBENCH_DEVELOPMENT_PLAN.md) for ordered tasks and acceptance gates.
+
+Status: implementation approved; workbench layout and initial command integrations implemented. Full command parity remains pending. 2026-09-15.
 
 This is the next proposed iteration after the monochrome/anvil refresh, not a
 statement of shipped behavior. The detailed review specification is the
@@ -186,3 +188,15 @@ Settings groups appearance, language and connections, hides the composer/workben
 ![Empty new task](design/reference/workbench-v2-empty.png)
 
 Keep the anvil, introduction and three suggestions, which populate drafts only. Unknown context uses a neutral ring and dash. Before workspace selection, show the chooser instead of the illustrative forge directory.
+
+## Implementation record (2026-09-15)
+
+Implemented the banner removal, in-sidebar collapse control and collapsed anvil restore button, top workspace picker, labeled engine/model controls inside the composer, permission selector, context ring, Settings-only themes, empty state, message layout, and connection cards. Existing real file, preview, change, and activity panels remain connected.
+
+The validated run protocol accepts only safe / workspace-write. Forge defaults to approval-based access; Codex safe means read-only. The ring uses Forge transcript budget estimates, excluding drafts; unavailable Codex usage displays a dash.
+
+The slash menu supports filtering, arrows, Tab, Enter, Esc, and IME protection. Connected entries: /help, /new, /clear, /context, /compact, /model, /permissions, /resume, /login, /plugins, /exit. Login/plugins open existing Settings; resume opens saved tasks. New/clear both reset in-memory context while retaining saved history; desktop has no cross-run approval cache.
+
+Pending: command arguments, a shared TUI command registry, /resources, /logout, /delete-model, /effort, /update-dismiss, and complete searchable model management. Unsupported commands are explicitly reported and never sent to a model. The preceding specification remains the target rather than a claim of full implementation.
+
+Validation: 15 focused tests, production build, and TypeScript checks passed. Actual Electron checks cover locales, themes, panels, home, Settings, and slash entry; see [visual QA](design-qa.md). Root pnpm check is blocked by existing design/prototype formatting errors; modified files pass focused checks. No commit, release, or paid-provider verification.
