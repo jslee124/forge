@@ -25,12 +25,7 @@
   },
   {
     "image": "dark-en-settings.png",
-    "differenceBounds": [
-      1704,
-      1036,
-      1789,
-      1056
-    ]
+    "differenceBounds": [1704, 1036, 1789, 1056]
   },
   {
     "image": "dark-zh-CN-changes.png",
@@ -54,12 +49,7 @@
   },
   {
     "image": "dark-zh-CN-settings.png",
-    "differenceBounds": [
-      1704,
-      1036,
-      1789,
-      1056
-    ]
+    "differenceBounds": [1704, 1036, 1789, 1056]
   },
   {
     "image": "home-dark-collapsed.png",
@@ -99,12 +89,7 @@
   },
   {
     "image": "light-en-settings.png",
-    "differenceBounds": [
-      1704,
-      1036,
-      1789,
-      1056
-    ]
+    "differenceBounds": [1704, 1036, 1789, 1056]
   },
   {
     "image": "light-zh-CN-changes.png",
@@ -128,11 +113,6 @@
   },
   {
     "image": "light-zh-CN-settings.png",
-    "differenceBounds": [
-      1704,
-      1036,
-      1789,
-      1056
-    ]
+    "differenceBounds": [1704, 1036, 1789, 1056]
   }
 ]

@@ -31,6 +31,10 @@
     "./options": {
       "types": "./dist/options.d.ts",
       "import": "./dist/options.js"
+    },
+    "./slash-commands": {
+      "types": "./dist/slash-commands.d.ts",
+      "import": "./dist/slash-commands.js"
     }
   },
   "files": [

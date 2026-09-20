@@ -36,7 +36,10 @@ const call = (name: string, input: unknown): ModelStreamEvent => ({
   type: "tool.call",
   call: { id: randomUUID(), name, input },
 });
-async function fixture(steps: ModelStreamEvent[][]) {
+async function fixture(
+  steps: ModelStreamEvent[][],
+  beforeStream?: () => Promise<void>,
+) {
   const cwd = await mkdtemp(join(tmpdir(), "forge-desktop-execute-"));
   roots.push(cwd);
   const env = {
@@ -48,6 +51,7 @@ async function fixture(steps: ModelStreamEvent[][]) {
   const requests: ModelRequest[] = [];
   const model: ModelAdapter = {
     async *stream(request) {
+      await beforeStream?.();
       requests.push(request);
       yield* steps.shift() ?? [
         { type: "text.delta", text: "done" },
@@ -106,6 +110,29 @@ async function run(
   return { events, final };
 }
 describe("desktop native execution", () => {
+  it("rejects management mutations while a run is active but permits state reads", async () => {
+    const entered = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<void>();
+    const f = await fixture([], async () => {
+      entered.resolve();
+      await release.promise;
+    });
+    const running = run(f.application, f.sessionId);
+    await entered.promise;
+    try {
+      expect((await f.application.manage({ type: "state" })).sessionId).toBe(
+        f.sessionId,
+      );
+      for (const type of ["reset", "compact", "login"] as const) {
+        await expect(f.application.manage({ type })).rejects.toThrow("busy");
+      }
+    } finally {
+      release.resolve();
+      await running;
+      f.application.close();
+    }
+  });
+
   it("loads the installed web plugin and requires a separate approval for every network call", async () => {
     const fetchMock = vi.fn(
       async () =>

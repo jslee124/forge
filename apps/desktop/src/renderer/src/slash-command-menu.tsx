@@ -1,3 +1,5 @@
+import { useEffect, useRef } from "react";
+import { routeCommand } from "./slash-commands.js";
 export function SlashCommandMenu({
   candidates,
   commandIndex,
@@ -11,8 +13,16 @@ export function SlashCommandMenu({
   zh: boolean;
   executeSlash: (input: string) => Promise<void>;
 }) {
+  const menu = useRef<HTMLDivElement>(null);
+  const selectedIndex = commandIndex % candidates.length;
+  useEffect(() => {
+    menu.current
+      ?.querySelector(`#slash-option-${selectedIndex}`)
+      ?.scrollIntoView({ block: "nearest" });
+  }, [selectedIndex]);
   return (
     <div
+      ref={menu}
       className="studio-slash-menu"
       role="listbox"
       id="slash-menu"
@@ -23,8 +33,12 @@ export function SlashCommandMenu({
           type="button"
           role="option"
           aria-selected={index === commandIndex % candidates.length}
+          id={`slash-option-${index}`}
           key={name}
-          disabled={busy}
+          tabIndex={-1}
+          aria-disabled={
+            busy && routeCommand(`/${name}`, busy).kind === "error"
+          }
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => void executeSlash(`/${name}`)}
         >

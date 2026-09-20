@@ -52,6 +52,7 @@ import {
 import {
   filterSlashCommands,
   formatSlashCommandHelp,
+  parseSlashCommand,
   type SlashCommand,
 } from "../commands.js";
 import { terminalHyperlink } from "../hyperlink.js";
@@ -1339,6 +1340,15 @@ export function InteractiveApp({
   };
 
   const executeCommand = (command: string): void => {
+    const parsed = parseSlashCommand(command);
+    if (parsed.kind !== "command") {
+      appendEntry(
+        "warning",
+        `Unknown command or invalid arguments: ${command.trim()}. Type /help for commands.`,
+      );
+      setEditor(createEditorState());
+      return;
+    }
     const normalizedCommand = command.trim();
     if (normalizedCommand.startsWith("/effort ")) {
       const requested = asPersistedReasoningEffort(

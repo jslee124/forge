@@ -231,6 +231,51 @@ export async function runUiAcceptance(
   await until(
     "document.querySelector('[data-testid=composer-engine]').value === 'native' && document.querySelector('.studio-permission select').value === 'safe'",
   );
+  const enterDraft = async (value: string) => {
+    await js(
+      `(() => { const el=document.querySelector('.live-composer textarea'); Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(el,${JSON.stringify(value)}); el.dispatchEvent(new Event('input',{bubbles:true})); el.focus(); })()`,
+    );
+  };
+  await enterDraft("/");
+  await until(
+    "document.querySelector('[role=combobox]').getAttribute('aria-expanded') === 'true'",
+  );
+  await js(
+    `(() => { const el=document.querySelector('.live-composer textarea'); for(let i=0;i<15;i++) el.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowDown',bubbles:true})); })()`,
+  );
+  await until(
+    "document.querySelector('[aria-selected=true]')?.id === 'slash-option-15' && document.querySelector('.studio-slash-menu').scrollTop > 0",
+  );
+  await js(
+    `document.querySelector('.live-composer textarea').dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))`,
+  );
+  await until(
+    "!document.querySelector('.studio-slash-menu') && document.activeElement === document.querySelector('.live-composer textarea')",
+  );
+  await enterDraft("/compact --d");
+  await until(
+    "document.querySelector('.studio-slash-menu strong')?.textContent === '/compact --dry-run'",
+  );
+  await js(
+    `document.querySelector('.live-composer textarea').dispatchEvent(new KeyboardEvent('keydown',{key:'Tab',bubbles:true}))`,
+  );
+  await until(
+    "document.querySelector('.live-composer textarea').value === '/compact --dry-run' && !document.querySelector('.studio-slash-menu')",
+  );
+  await enterDraft("/not-a-command");
+  await js(
+    `document.querySelector('.live-composer textarea').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',ctrlKey:true,bubbles:true}))`,
+  );
+  await until(
+    "document.querySelector('.live-composer textarea').value === '/not-a-command' && document.querySelector('.studio-notice')?.textContent.includes('Send as message')",
+  );
+  await enterDraft("/help");
+  await js(
+    `document.querySelector('.live-composer textarea').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',isComposing:true,bubbles:true}))`,
+  );
+  await until(
+    "document.querySelector('.live-composer textarea').value === '/help'",
+  );
   await writeFile(
     join(output, "ui.json"),
     `${JSON.stringify({ kind: "offline rendered UI with real IPC and file services; no model calls", results }, null, 2)}\n`,

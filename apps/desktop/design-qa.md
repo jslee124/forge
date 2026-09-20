@@ -164,3 +164,12 @@ Fresh baseline and post-refactor Electron runs each captured 29 scenarios. [Pixe
 Added Electron assertions for retained per-session drafts, Settings back navigation and engine switching default permissions. The first added draft test needed an explicit wait for restored session identity; rerunning with that condition passed. No model calls.
 
 Validation: 60 desktop tests passed, six opt-in live tests skipped; root check (including TypeScript and release routing) and desktop build passed. Existing non-blocking lint diagnostics remain. No protocol/core changes, packaged-resource changes, commit or release.
+
+
+## P1 command foundation — 2026-09-20
+
+The desktop now consumes the shared command registry/parser used by TUI. Command order/descriptions match the shared catalog; desktop-only partial/unavailable annotations remain explicit. No new command execution capabilities from P2/P3 are claimed.
+
+Actual Electron acceptance passed 29 captures plus assertions for navigating to option 16 with scroll visibility, Escape focus retention, compact argument completion with Tab, invalid command draft retention and explicit message escape, and IME Enter protection. Inspected [command menu](design/p1-validation/commands-light.png); [manifest](design/p1-validation/ui.json). Existing task draft, theme, panel and engine checks also passed. No provider calls.
+
+Validation: 112 related tests passed and six opt-in live tests skipped, including catalog equality, argument/case rules, local routing, busy mutation rejection at the Agent, CLI interaction regression and desktop tests. Root check, desktop build, 71 deterministic evaluations and packed-install verification passed. Formatted the earlier P0 comparison JSON to satisfy the root formatter; evidence values are unchanged. No release or commit.

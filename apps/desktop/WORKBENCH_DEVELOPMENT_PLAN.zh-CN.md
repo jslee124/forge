@@ -4,6 +4,19 @@
 
 [English](WORKBENCH_DEVELOPMENT_PLAN.md) · [视觉与交互规范](WORKBENCH_UX_PLAN.zh-CN.md) · [实际界面验收](design-qa.md)
 
+## P1 执行进度（2026-09-20）
+
+W04—W07 已完成。16 项命令目录与参数解析移入私有 `@forge/application/slash-commands`，CLI 兼容导出并接入解析；桌面帮助和菜单从同一目录生成，平台支持标签由桌面补充。
+
+命令拼写遵循 TUI 大小写规则，effort 参数可忽略大小写。支持解析与补全 `/compact --dry-run`、`/effort <level>`；其桌面执行仍待 P2，当前明确返回未接入，不调用模型。路由返回界面、只读、管理、错误或平台不适用的结构化结果。
+
+菜单具备 combobox/listbox 关联、选项 ID、可见选中项、Tab/Enter/Esc 与 IME 保护。非法命令保留草稿，可显式选择作为普通消息发送，绝不自动降级。异步管理命令使用即时 pending 锁防止重复提交，完成后不会清除期间新编辑的草稿。运行中 help/context 可用，修改操作返回 busy；Agent 的活动运行校验有新增回归测试。
+
+验证：112 项相关测试通过，6 项 opt-in live 测试跳过；根级检查、桌面构建、71 项确定性评估与打包安装验证通过。Electron 29 个截图场景及新增键盘、补全、错误与 IME 检查通过。见 [QA](design-qa.md)。未提交或发布。
+
+下一阶段为 P2（W08—W13）。new/clear 授权差异、compact dry-run 实际执行、上下文详情、权限撤销、模型/强度管理和搜索恢复仍按 P2 验收，不因本阶段解析成功而标记功能完成。
+
+
 ## 执行进度（2026-09-20）
 
 P0（W01—W03）已完成。开始时工作区干净；根级 `pnpm check` 已通过，原 prototype 格式阻塞不再存在（仍有非阻塞 lint 提示）。拆出 WorkspaceHeader、ComposerControls、ModelSelector、SlashCommandMenu、SettingsView，保留业务编排在 LiveWorkbench，目录切换操作提为回调。合并 v2 重复 CSS，未改变命令语义或 IPC。
@@ -101,4 +114,4 @@ P0（W01—W03）已完成。开始时工作区干净；根级 `pnpm check` 已�
 
 ## 推荐下一步
 
-P0 已完成，接下来完成 W04—W07，使命令输入可靠，再推进会话/模型与管理服务。不要继续堆叠入口或只靠静态截图推进；每阶段以真实行为闭环为完成条件。
+P1 已完成，接下来完成 P2（W08—W13）的会话、权限与模型闭环。不要继续堆叠入口或只靠静态截图推进；每阶段以真实行为闭环为完成条件。

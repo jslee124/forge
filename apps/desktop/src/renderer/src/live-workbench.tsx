@@ -21,7 +21,7 @@ import { ContentPreview, DiffViewer } from "./file-preview.js";
 import { Markdown } from "./markdown.js";
 import { SettingsView } from "./settings-view.js";
 import { SlashCommandMenu } from "./slash-command-menu.js";
-import { commands, parseSlash, suggestions } from "./slash-commands.js";
+import { commands, routeCommand, suggestions } from "./slash-commands.js";
 import { WorkspaceHeader } from "./workspace-header.js";
 
 export function LiveWorkbench(): React.JSX.Element {
@@ -73,6 +73,8 @@ export function LiveWorkbench(): React.JSX.Element {
   const draft = drafts[key] ?? "";
   const [commandIndex, setCommandIndex] = React.useState(0);
   const [commandClosed, setCommandClosed] = React.useState(false);
+  const commandPending = React.useRef(false);
+  const [literalOffer, setLiteralOffer] = React.useState(false);
   const [notice, setNotice] = React.useState("");
   const candidates = commandClosed ? [] : suggestions(draft);
   const zh = i18n.language.startsWith("zh");
@@ -214,79 +216,100 @@ export function LiveWorkbench(): React.JSX.Element {
     return true;
   };
   const executeSlash = async (input: string) => {
-    if (busy) return;
-    const command = parseSlash(input);
-    if (!command) {
-      setNotice(
-        zh ? "无效命令，输入 /help 查看帮助。" : "Invalid command. Use /help.",
-      );
-      return;
-    }
-    const { name, args } = command;
+    const result = routeCommand(input, busy || commandPending.current);
     setCommandClosed(true);
     setNotice("");
-    const clear = () => setDrafts((values) => ({ ...values, [key]: "" }));
-    if (args) {
-      setNotice(
-        zh
-          ? "此桌面命令暂不接受参数，请使用菜单。"
-          : "Use the menu; arguments are not supported yet.",
+    const clear = () =>
+      setDrafts((values) =>
+        values[key] === draft ? { ...values, [key]: "" } : values,
       );
+    if (result.kind === "error" || result.kind === "not-applicable") {
+      const reason = result.kind === "error" ? result.reason : "not-applicable";
+      const labels = {
+        "unknown-command": [
+          "未知命令，可选择作为普通消息发送。",
+          "Unknown command. You can send it as a message.",
+        ],
+        "invalid-arguments": [
+          "参数无效，请检查命令格式。",
+          "Invalid command arguments.",
+        ],
+        busy: [
+          "当前操作进行中，请稍后重试。",
+          "An operation is active. Try again later.",
+        ],
+        unsupported: [
+          "此操作尚未接入桌面端，请使用 TUI。",
+          "This operation is not connected on desktop. Use TUI.",
+        ],
+        "not-applicable": [
+          "桌面端没有对应版本提示，此命令不适用。",
+          "No corresponding desktop update notice; not applicable.",
+        ],
+      };
+      setNotice(labels[reason][zh ? 0 : 1] ?? "");
+      setLiteralOffer(
+        reason === "unknown-command" || reason === "invalid-arguments",
+      );
+      composerRef.current?.focus();
       return;
     }
-    if (name === "new" || name === "clear") {
-      if (await newTask()) clear();
-    } else if (name === "compact") {
-      const next = await manage({ type: "compact" });
-      if (next) {
-        setNotice(next.context);
-        clear();
-      }
-    } else if (name === "context") {
-      setNotice(state?.context || (zh ? "尚无上下文" : "No context"));
-      clear();
-    } else if (name === "help") {
+    setLiteralOffer(false);
+    if (result.kind === "read") {
       setNotice(
-        commands.map(([n, cn, en]) => `/${n}  ${zh ? cn : en}`).join("\n"),
+        result.target === "help"
+          ? commands.map(([n, cn, en]) => `/${n}  ${zh ? cn : en}`).join("\n")
+          : state?.context || (zh ? "尚无上下文" : "No context"),
       );
       clear();
-    } else if (name === "model") {
-      clear();
-      requestAnimationFrame(() =>
-        document
-          .querySelector<HTMLInputElement>("[data-testid=composer-model]")
-          ?.focus(),
-      );
-    } else if (name === "permissions") {
-      clear();
-      requestAnimationFrame(() =>
-        document
-          .querySelector<HTMLSelectElement>(".studio-permission select")
-          ?.focus(),
-      );
-    } else if (name === "resume") {
+      composerRef.current?.focus();
+      return;
+    }
+    if (result.kind === "manage") {
+      commandPending.current = true;
+      try {
+        if (result.target === "reset") {
+          if (await newTask()) clear();
+        } else {
+          const next = await manage({ type: "compact" });
+          if (next) {
+            setNotice(next.context);
+            clear();
+          }
+        }
+      } finally {
+        commandPending.current = false;
+        composerRef.current?.focus();
+      }
+      return;
+    }
+    clear();
+    if (result.target === "settings") setSettings(true);
+    else if (result.target === "resume") {
       setSidebarOpen(true);
       setNotice(
         zh ? "从左侧选择要恢复的任务。" : "Select a saved task in the sidebar.",
       );
-      clear();
-    } else if (name === "plugins" || name === "login") {
-      clear();
-      setSettings(true);
-    } else if (name === "exit") window.close();
+    } else if (result.target === "exit") window.close();
     else
-      setNotice(
-        zh
-          ? "该命令尚未接入桌面端，请使用 Forge TUI。"
-          : "This command is not connected on desktop. Use Forge TUI.",
+      requestAnimationFrame(() =>
+        document
+          .querySelector<HTMLElement>(
+            result.target === "model"
+              ? "[data-testid=composer-model]"
+              : ".studio-permission select",
+          )
+          ?.focus(),
       );
   };
-  const send = async () => {
-    if (!draft.trim() || busy || !api) return;
-    if (draft.trim().startsWith("/")) {
+  const send = async (literal = false) => {
+    if (!draft.trim() || !api) return;
+    if (!literal && draft.trim().startsWith("/")) {
       await executeSlash(draft);
       return;
     }
+    if (busy || commandPending.current) return;
+    setLiteralOffer(false);
     setPending(true);
     setError("");
     try {
@@ -465,6 +488,15 @@ export function LiveWorkbench(): React.JSX.Element {
           {notice && (
             <div role="status" className="studio-notice">
               <pre>{notice}</pre>
+              {literalOffer && (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void send(true)}
+                >
+                  {zh ? "作为普通消息发送" : "Send as message"}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setNotice("")}
@@ -592,9 +624,18 @@ export function LiveWorkbench(): React.JSX.Element {
                 <textarea
                   ref={composerRef}
                   rows={3}
+                  role="combobox"
+                  aria-autocomplete="list"
+                  aria-expanded={candidates.length > 0}
+                  aria-controls={candidates.length ? "slash-menu" : undefined}
+                  aria-activedescendant={
+                    candidates.length
+                      ? `slash-option-${commandIndex % candidates.length}`
+                      : undefined
+                  }
                   onKeyDown={(event) => {
                     if (event.nativeEvent.isComposing) return;
-                    if (candidates.length && !busy) {
+                    if (candidates.length) {
                       if (event.key === "Escape") {
                         event.preventDefault();
                         setCommandClosed(true);
@@ -648,6 +689,7 @@ export function LiveWorkbench(): React.JSX.Element {
                   placeholder={t("home.placeholder")}
                   value={draft}
                   onChange={(event) => {
+                    setLiteralOffer(false);
                     setCommandIndex(0);
                     setCommandClosed(false);
                     setDrafts((values) => ({

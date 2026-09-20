@@ -4,6 +4,19 @@ Date: 2026-09-15. Development plan, not a shipped-feature declaration.
 
 [中文（详细任务说明）](WORKBENCH_DEVELOPMENT_PLAN.zh-CN.md) · [UX specification](WORKBENCH_UX_PLAN.md) · [Visual QA](design-qa.md)
 
+## P1 progress (2026-09-20)
+
+W04–W07 complete. The sixteen-entry registry and argument parser now live in private `@forge/application/slash-commands`. CLI retains compatibility exports and uses the parser; desktop help/menu share the catalog with platform-specific availability labels.
+
+Command spelling follows TUI case rules; effort values are case insensitive. Parsing/completion supports `/compact --dry-run` and `/effort <level>`; desktop execution remains P2 and explicitly returns unsupported without calling a model. Routing returns structured open/read/manage/error/not-applicable outcomes.
+
+The menu has combobox/listbox relationships, option IDs, visible selection, Tab/Enter/Esc and IME protection. Invalid commands retain drafts and offer an explicit send-as-message action, never automatic fallback. An immediate pending lock prevents duplicate management submissions; completion preserves drafts edited while awaiting results. Help/context remain available during runs; mutations return busy, with Agent enforcement covered by a new regression test.
+
+Validation: 112 related tests passed, six opt-in live tests skipped; root check, desktop build, 71 deterministic evaluations and packed-install verification passed. Electron completed 29 captures and added keyboard, completion, error and IME assertions. See [QA](design-qa.md). No commit or release.
+
+Next is P2 (W08–W13). New/clear authorization semantics, actual compact dry-run, context details, grant revocation, model/effort management and searchable resume are still pending; parsing success does not imply execution parity.
+
+
 ## Progress (2026-09-20)
 
 P0 (W01–W03) is complete. The starting worktree was clean. Root `pnpm check` now passes; the old prototype formatting blocker is gone, with non-blocking lint diagnostics remaining. Extracted WorkspaceHeader, ComposerControls, ModelSelector, SlashCommandMenu and SettingsView; retained orchestration in LiveWorkbench and moved workspace switching into a callback. Consolidated duplicate v2 CSS without changing command semantics or IPC.
@@ -82,4 +95,4 @@ Each stage supplies change summary, relevant tests, screenshots for visual chang
 
 Commits/merges, replacing the installed App, signing, notarization, publication and new /plan or /goal modes are not automatic parts of this plan. Release requests need a separate release checklist.
 
-P0 is complete. Continue with W04–W07, then session/model and management services. Require working behavior at each gate rather than more entry points or static screenshots.
+P1 is complete. Continue with P2 (W08–W13), covering sessions, permissions and models. Require working behavior at each gate rather than more entry points or static screenshots.

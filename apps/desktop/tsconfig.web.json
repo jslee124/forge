@@ -13,5 +13,10 @@
     "src/renderer/**/*.ts",
     "src/renderer/**/*.tsx",
     "src/shared/**/*.ts"
+  ],
+  "references": [
+    {
+      "path": "../../packages/application"
+    }
   ]
 }
