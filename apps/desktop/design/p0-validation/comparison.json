@@ -1,0 +1,138 @@
+[
+  {
+    "image": "commands-light.png",
+    "differenceBounds": null
+  },
+  {
+    "image": "dark-en-changes.png",
+    "differenceBounds": null
+  },
+  {
+    "image": "dark-en-code.png",
+    "differenceBounds": null
+  },
+  {
+    "image": "dark-en-local.png",
+    "differenceBounds": null
+  },
+  {
+    "image": "dark-en-narrow-research.png",
+    "differenceBounds": null
+  },
+  {
+    "image": "dark-en-research.png",
+    "differenceBounds": null
+  },
+  {
+    "image": "dark-en-settings.png",
+    "differenceBounds": [
+      1704,
+      1036,
+      1789,
+      1056
+    ]
+  },
+  {
+    "image": "dark-zh-CN-changes.png",
+    "differenceBounds": null
+  },
+  {
+    "image": "dark-zh-CN-code.png",
+    "differenceBounds": null
+  },
+  {
+    "image": "dark-zh-CN-local.png",
+    "differenceBounds": null
+  },
+  {
+    "image": "dark-zh-CN-narrow-research.png",
+    "differenceBounds": null
+  },
+  {
+    "image": "dark-zh-CN-research.png",
+    "differenceBounds": null
+  },
+  {
+    "image": "dark-zh-CN-settings.png",
+    "differenceBounds": [
+      1704,
+      1036,
+      1789,
+      1056
+    ]
+  },
+  {
+    "image": "home-dark-collapsed.png",
+    "differenceBounds": null
+  },
+  {
+    "image": "home-dark.png",
+    "differenceBounds": null
+  },
+  {
+    "image": "home-light-collapsed.png",
+    "differenceBounds": null
+  },
+  {
+    "image": "home-light.png",
+    "differenceBounds": null
+  },
+  {
+    "image": "light-en-changes.png",
+    "differenceBounds": null
+  },
+  {
+    "image": "light-en-code.png",
+    "differenceBounds": null
+  },
+  {
+    "image": "light-en-local.png",
+    "differenceBounds": null
+  },
+  {
+    "image": "light-en-narrow-research.png",
+    "differenceBounds": null
+  },
+  {
+    "image": "light-en-research.png",
+    "differenceBounds": null
+  },
+  {
+    "image": "light-en-settings.png",
+    "differenceBounds": [
+      1704,
+      1036,
+      1789,
+      1056
+    ]
+  },
+  {
+    "image": "light-zh-CN-changes.png",
+    "differenceBounds": null
+  },
+  {
+    "image": "light-zh-CN-code.png",
+    "differenceBounds": null
+  },
+  {
+    "image": "light-zh-CN-local.png",
+    "differenceBounds": null
+  },
+  {
+    "image": "light-zh-CN-narrow-research.png",
+    "differenceBounds": null
+  },
+  {
+    "image": "light-zh-CN-research.png",
+    "differenceBounds": null
+  },
+  {
+    "image": "light-zh-CN-settings.png",
+    "differenceBounds": [
+      1704,
+      1036,
+      1789,
+      1056
+    ]
+  }
+]

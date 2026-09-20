@@ -150,3 +150,17 @@ Reviewed full views and composer/menu details. Changes retain the monochrome anv
 Intentional/current differences: native window chrome is outside webContents captures; actual file controls replace the illustrative file tree; narrow conversation widths wrap composer controls. Model uses native input/datalist rather than the planned searchable management popover. Some slash management entries remain explicitly unavailable, as tracked in WORKBENCH_UX_PLAN.md; full TUI parity is not claimed.
 
 Validation: 15 focused tests, TypeScript project and test checks, desktop production build, 71 deterministic evaluations, and documentation checks passed. Modified source files passed focused Biome checks. Root `pnpm check` encounters 37 existing errors in the separate design/prototype tree; those unrelated files were not changed. No commit or release was made.
+
+
+## P0 component extraction — 2026-09-20
+
+W01–W03 completed without changing intended appearance or command semantics. Extracted five presentation components and consolidated duplicate v2 CSS declarations. LiveWorkbench retains orchestration and the original command behavior; P1 remains pending.
+
+Fresh baseline and post-refactor Electron runs each captured 29 scenarios. [Pixel comparison](design/p0-validation/comparison.json): 25 exact matches, four Settings differences confined to the temporary Forge home suffix at x=1704–1789, y=1036–1056 in 2200×1456 captures. Inspected Settings and command-menu captures. [UI manifest](design/p0-validation/ui.json). Existing reference and v2 evidence remain intact.
+
+![P0 command menu](design/p0-validation/commands-light.png)
+![P0 settings](design/p0-validation/light-en-settings.png)
+
+Added Electron assertions for retained per-session drafts, Settings back navigation and engine switching default permissions. The first added draft test needed an explicit wait for restored session identity; rerunning with that condition passed. No model calls.
+
+Validation: 60 desktop tests passed, six opt-in live tests skipped; root check (including TypeScript and release routing) and desktop build passed. Existing non-blocking lint diagnostics remain. No protocol/core changes, packaged-resource changes, commit or release.

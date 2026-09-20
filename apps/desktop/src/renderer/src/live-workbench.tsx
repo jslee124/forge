@@ -1,8 +1,6 @@
-import { ArrowUp } from "@phosphor-icons/react/ArrowUp";
 import { ChatCircle } from "@phosphor-icons/react/ChatCircle";
 import { Code } from "@phosphor-icons/react/Code";
 import { FileText } from "@phosphor-icons/react/FileText";
-import { FolderOpen } from "@phosphor-icons/react/FolderOpen";
 import { GearSix } from "@phosphor-icons/react/GearSix";
 import { Globe } from "@phosphor-icons/react/Globe";
 import { Plus } from "@phosphor-icons/react/Plus";
@@ -18,15 +16,16 @@ import type { ChangeReview, FilePreview } from "../../shared/file-protocol.js";
 import type { RunEvent } from "../../shared/run-protocol.js";
 import logoUrl from "./assets/forge-logo.svg";
 import markUrl from "./assets/forge-mark.svg";
-import { ComposerContext } from "./composer-context.js";
+import { ComposerControls } from "./composer-controls.js";
 import { ContentPreview, DiffViewer } from "./file-preview.js";
 import { Markdown } from "./markdown.js";
+import { SettingsView } from "./settings-view.js";
+import { SlashCommandMenu } from "./slash-command-menu.js";
 import { commands, parseSlash, suggestions } from "./slash-commands.js";
-import { type ThemeMode, useTheme } from "./theme.js";
+import { WorkspaceHeader } from "./workspace-header.js";
 
 export function LiveWorkbench(): React.JSX.Element {
   const { t, i18n } = useTranslation();
-  const theme = useTheme();
   const [panelTab, setPanelTab] = React.useState("files");
   const [sidebarOpen, setSidebarOpen] = React.useState(true);
   const [panelWidth, setPanelWidth] = React.useState(360);
@@ -185,6 +184,22 @@ export function LiveWorkbench(): React.JSX.Element {
       }
     } catch (cause) {
       setError(operationError(cause));
+    }
+  };
+  const onChooseWorkspace = async () => {
+    setPending(true);
+    try {
+      const next = await api?.chooseWorkspace();
+      if (next) {
+        setState(next);
+        setPrompt("");
+        setAnswer("");
+        setDetails([]);
+      }
+    } catch (cause) {
+      setError(operationError(cause));
+    } finally {
+      setPending(false);
     }
   };
   const newTask = async () => {
@@ -432,70 +447,16 @@ export function LiveWorkbench(): React.JSX.Element {
           </button>
         </aside>
         <section className="live-main">
-          <header className="live-toolbar">
-            {!sidebarOpen && (
-              <button
-                type="button"
-                className="studio-icon studio-sidebar-toggle"
-                data-testid="sidebar-toggle"
-                title={`Forge · ${t("studio.sidebar")}`}
-                aria-label={`Forge · ${t("studio.sidebar")}`}
-                aria-expanded={sidebarOpen}
-                onClick={() => setSidebarOpen(!sidebarOpen)}
-              >
-                {sidebarOpen ? (
-                  <SidebarSimple size={19} />
-                ) : (
-                  <img
-                    className="studio-square-mark"
-                    src={markUrl}
-                    alt=""
-                    width={32}
-                    height={32}
-                  />
-                )}
-              </button>
-            )}
-            <button
-              type="button"
-              disabled={busy}
-              onClick={async () => {
-                setPending(true);
-                try {
-                  const next = await api?.chooseWorkspace();
-                  if (next) {
-                    setState(next);
-                    setPrompt("");
-                    setAnswer("");
-                    setDetails([]);
-                  }
-                } catch (cause) {
-                  setError(operationError(cause));
-                } finally {
-                  setPending(false);
-                }
-              }}
-            >
-              <FolderOpen size={17} />
-              {state?.cwd?.split("/").pop() || t("live.folder")}
-            </button>
-            <span className="studio-task-title">
-              {settings
-                ? t("common.settings")
-                : state?.sessions.find(
-                    (session) => session.id === state.sessionId,
-                  )?.title}
-            </span>
-            <button
-              type="button"
-              className="studio-panel-toggle"
-              aria-expanded={panel}
-              onClick={() => setPanel(!panel)}
-            >
-              <SidebarSimple size={17} />
-              {t("studio.workbench")}
-            </button>
-          </header>
+          <WorkspaceHeader
+            state={state}
+            sidebarOpen={sidebarOpen}
+            setSidebarOpen={setSidebarOpen}
+            panel={panel}
+            setPanel={setPanel}
+            settings={settings}
+            busy={busy}
+            onChooseWorkspace={onChooseWorkspace}
+          />
           {error && (
             <p role="alert" className="field-error">
               {t(`live.errors.${error}`, { defaultValue: t("live.error") })}
@@ -514,171 +475,15 @@ export function LiveWorkbench(): React.JSX.Element {
             </div>
           )}
           {settings ? (
-            <div className="live-settings">
-              <button
-                type="button"
-                className="studio-back"
-                onClick={() => setSettings(false)}
-              >
-                {i18n.language.startsWith("zh")
-                  ? "返回对话"
-                  : "Back to conversation"}
-              </button>
-              <h2>{t("common.settings")}</h2>
-              <section className="studio-appearance">
-                <h3>{t("studio.appearance")}</h3>
-                <p>{t("studio.appearanceHint")}</p>
-                <div className="theme-options">
-                  {(["light", "dark", "system"] as ThemeMode[]).map((mode) => (
-                    <button
-                      type="button"
-                      key={mode}
-                      aria-pressed={theme.mode === mode}
-                      onClick={() => theme.setTheme(mode)}
-                    >
-                      <span className={`theme-swatch theme-swatch-${mode}`} />
-                      {t(`studio.${mode}`)}
-                    </button>
-                  ))}
-                </div>
-              </section>
-              <label>
-                {t("settings.language")}{" "}
-                <select
-                  data-testid="language"
-                  value={i18n.language}
-                  onChange={(event) => {
-                    void i18n.changeLanguage(event.target.value);
-                    document.documentElement.lang = event.target.value;
-                  }}
-                >
-                  <option value="zh-CN">简体中文</option>
-                  <option value="en">English</option>
-                </select>
-              </label>
-              <section className="studio-connection-card">
-                <h3>{t("studio.connection")}</h3>
-                <p>
-                  Forge home: <code>{state?.forgeHome}</code>
-                </p>
-                <p>{t("live.nativeConfig")}</p>
-              </section>
-              <section
-                className="web-settings"
-                aria-label={t("live.web.title")}
-              >
-                <h3>{t("live.web.title")}</h3>
-                <p>
-                  {t("live.web.bundle")}: {state?.web?.provenance}
-                </p>
-                {state?.web?.configurationInvalid && (
-                  <p role="alert">{t("live.errors.web-settings-invalid")}</p>
-                )}
-                <p>{t("live.web.scope")}</p>
-                <button
-                  type="button"
-                  disabled={busy || state?.web?.installed}
-                  onClick={() => void manage({ type: "web-install" })}
-                >
-                  {t(
-                    state?.web?.installed
-                      ? "live.web.installed"
-                      : "live.web.install",
-                  )}
-                </button>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={state?.web?.enabled ?? false}
-                    disabled={busy || !state?.web?.installed}
-                    onChange={(event) =>
-                      void manage({
-                        type: "web-enable",
-                        enabled: event.target.checked,
-                      })
-                    }
-                  />
-                  {t("live.web.enable")}
-                </label>
-                <label>
-                  {t("live.web.provider")}
-                  <select
-                    value={state?.web?.provider ?? "auto"}
-                    disabled={busy || !state?.web?.installed}
-                    onChange={(event) =>
-                      void manage({
-                        type: "web-configure",
-                        provider: event.target.value as
-                          | "auto"
-                          | "brave"
-                          | "duckduckgo",
-                      })
-                    }
-                  >
-                    <option value="auto">Auto</option>
-                    <option value="brave">Brave Search</option>
-                    <option value="duckduckgo">DuckDuckGo HTML</option>
-                  </select>
-                </label>
-                <p>
-                  {t("live.web.actual")}:{" "}
-                  {state?.web?.actualProvider === "brave"
-                    ? "Brave Search"
-                    : "DuckDuckGo HTML"}
-                </p>
-                <p>
-                  {t(
-                    state?.web?.braveKeyConfigured
-                      ? "live.web.keyReady"
-                      : "live.web.keyMissing",
-                  )}
-                </p>
-                <p>{t("live.web.auto")}</p>
-                <p>{t("live.web.report")}</p>
-              </section>
-              <section className="studio-connection-card">
-                <h3>Codex</h3>
-                <p>{t(`live.auth.${state?.auth ?? "unknown"}`)}</p>
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void manage({ type: "auth-status" })}
-                >
-                  {t("live.authCheck")}
-                </button>
-                <button
-                  type="button"
-                  disabled={busy || state?.auth === "signing-in"}
-                  onClick={() => void manage({ type: "login" })}
-                >
-                  {t("live.login")}
-                </button>
-                {state?.auth === "signing-in" && (
-                  <button
-                    type="button"
-                    onClick={() => void manage({ type: "cancel-login" })}
-                  >
-                    {t("live.cancelLogin")}
-                  </button>
-                )}
-                {state?.loginUrl && (
-                  <div>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        void api
-                          ?.openLogin()
-                          .catch(() => setError("management-failed"))
-                      }
-                    >
-                      {t("live.openLogin")}
-                    </button>
-                    <code>{state.loginCode}</code>
-                  </div>
-                )}
-                <p>{t("live.codexLimits")}</p>
-              </section>
-            </div>
+            <SettingsView
+              state={state}
+              busy={busy}
+              onBack={() => setSettings(false)}
+              manage={manage}
+              onOpenLogin={() =>
+                void api?.openLogin().catch(() => setError("management-failed"))
+              }
+            />
           ) : (
             <>
               <div className="live-transcript" aria-live="polite">
@@ -776,30 +581,13 @@ export function LiveWorkbench(): React.JSX.Element {
               </div>
               <div className="live-composer">
                 {candidates.length > 0 && (
-                  <div
-                    className="studio-slash-menu"
-                    role="listbox"
-                    id="slash-menu"
-                    aria-label={zh ? "命令" : "Commands"}
-                  >
-                    {candidates.map(([name, cn, en], index) => (
-                      <button
-                        type="button"
-                        role="option"
-                        aria-selected={
-                          index === commandIndex % candidates.length
-                        }
-                        key={name}
-                        disabled={busy}
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => void executeSlash("/" + name)}
-                      >
-                        <strong>/{name}</strong>
-                        <span>{zh ? cn : en}</span>
-                      </button>
-                    ))}
-                    <small>↑↓ · Tab · Enter · Esc</small>
-                  </div>
+                  <SlashCommandMenu
+                    candidates={candidates}
+                    commandIndex={commandIndex}
+                    busy={busy}
+                    zh={zh}
+                    executeSlash={executeSlash}
+                  />
                 )}
                 <textarea
                   ref={composerRef}
@@ -868,84 +656,28 @@ export function LiveWorkbench(): React.JSX.Element {
                     }));
                   }}
                 />
-                <div className="studio-composer-footer">
-                  <ComposerContext
-                    state={state}
-                    engine={engine}
-                    permission={permission}
-                    onPermission={setPermission}
-                    busy={busy}
-                    onImport={importFile}
-                  />
-                  <div className="studio-model-controls">
-                    {" "}
-                    <label>
-                      {t("live.engine")}{" "}
-                      <select
-                        disabled={busy}
-                        data-testid="composer-engine"
-                        value={engine}
-                        onChange={(event) => {
-                          setEngine(event.target.value as "native" | "codex");
-                          setModel("");
-                          setPermission(
-                            event.target.value === "codex"
-                              ? "workspace-write"
-                              : "safe",
-                          );
-                        }}
-                      >
-                        <option value="native">Forge</option>
-                        <option value="codex">Codex</option>
-                      </select>
-                    </label>
-                    <label>
-                      {t("live.model")}{" "}
-                      <input
-                        disabled={busy}
-                        value={model}
-                        onChange={(event) => setModel(event.target.value)}
-                        placeholder={
-                          engine === "native"
-                            ? `${state?.model ?? ""}`
-                            : t("live.defaultModel")
-                        }
-                        data-testid="composer-model"
-                        list="model-list"
-                      />
-                    </label>
-                    <datalist id="model-list">
-                      {engine === "native" && state?.model && (
-                        <option value={state.model} />
-                      )}
-                      {(engine === "codex"
-                        ? (state?.codexModels ?? [])
-                        : []
-                      ).map((entry) => (
-                        <option key={entry} value={entry} />
-                      ))}
-                    </datalist>
-                  </div>
-                  <span className="studio-shortcut">⌘ / Ctrl ↵</span>
-                  {active ? (
-                    <button
-                      type="button"
-                      disabled={status === "stopping"}
-                      onClick={() => void cancel()}
-                    >
-                      {t(status === "stopping" ? "live.stopping" : "live.stop")}
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      disabled={busy || !draft.trim() || !api}
-                      onClick={() => void send()}
-                    >
-                      <ArrowUp size={16} />
-                      {t("live.send")}
-                    </button>
-                  )}
-                </div>
+                <ComposerControls
+                  state={state}
+                  engine={engine}
+                  model={model}
+                  permission={permission}
+                  setPermission={setPermission}
+                  busy={busy}
+                  importFile={importFile}
+                  onEngineChange={(value) => {
+                    setEngine(value);
+                    setModel("");
+                    setPermission(
+                      value === "codex" ? "workspace-write" : "safe",
+                    );
+                  }}
+                  setModel={setModel}
+                  active={Boolean(active)}
+                  status={status}
+                  cancel={cancel}
+                  send={send}
+                  canSend={!busy && Boolean(draft.trim()) && Boolean(api)}
+                />
               </div>
             </>
           )}

@@ -4,9 +4,18 @@ Date: 2026-09-15. Development plan, not a shipped-feature declaration.
 
 [中文（详细任务说明）](WORKBENCH_DEVELOPMENT_PLAN.zh-CN.md) · [UX specification](WORKBENCH_UX_PLAN.md) · [Visual QA](design-qa.md)
 
+## Progress (2026-09-20)
+
+P0 (W01–W03) is complete. The starting worktree was clean. Root `pnpm check` now passes; the old prototype formatting blocker is gone, with non-blocking lint diagnostics remaining. Extracted WorkspaceHeader, ComposerControls, ModelSelector, SlashCommandMenu and SettingsView; retained orchestration in LiveWorkbench and moved workspace switching into a callback. Consolidated duplicate v2 CSS without changing command semantics or IPC.
+
+Validation: 60 desktop tests passed, 6 opt-in live tests skipped; type checks, release routing checks and desktop build passed. Electron completed 29 captures plus new cross-session draft isolation and engine/default-policy callback assertions. 25 captures are pixel-identical; four Settings captures differ only in the temporary Forge home suffix. See [QA](design-qa.md). No commit or release.
+
+Next: P1 (W04–W07), shared command registry/parser, structured results, keyboard/argument interaction and running-state availability. Full TUI parity is not claimed.
+
+
 ## Scope and baseline
 
-Continue the approved monochrome anvil design. This task writes the plan only. Preserve existing uncommitted changes, reference images and historical QA. Reference screens are in `design/reference/`; actual implementation captures are in `design/implementation-v2/`.
+Continue the approved monochrome anvil design. The initial task wrote the plan; subsequent implementation is tracked above. Preserve existing uncommitted changes, reference images and historical QA. Reference screens are in `design/reference/`; actual implementation captures are in `design/implementation-v2/`.
 
 Current source has the relocated workspace picker, in-sidebar collapse control, composer engine/model labels, permission selection, context ring and Settings-only themes. The command menu has a separate desktop registry and rejects all arguments. Login/plugins open existing Settings; permissions focuses the policy selector. These are partial integrations, not full management parity. Resources/logout/delete-model/effort remain disconnected; update-dismiss is not applicable. New/clear currently share backend reset; the native model field is an input/datalist. LiveWorkbench and appended CSS still need separation and cleanup.
 
@@ -73,4 +82,4 @@ Each stage supplies change summary, relevant tests, screenshots for visual chang
 
 Commits/merges, replacing the installed App, signing, notarization, publication and new /plan or /goal modes are not automatic parts of this plan. Release requests need a separate release checklist.
 
-Start with W01–W07, then session/model and management services. Require working behavior at each gate rather than more entry points or static screenshots.
+P0 is complete. Continue with W04–W07, then session/model and management services. Require working behavior at each gate rather than more entry points or static screenshots.

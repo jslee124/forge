@@ -192,6 +192,45 @@ export async function runUiAcceptance(
   await until(
     "localStorage.getItem('forge.desktop.theme') === 'system' && document.documentElement.dataset.theme === (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')",
   );
+  // Component extraction must preserve draft ownership and control callbacks.
+  await click(".studio-back");
+  await click(`[data-session-id="${fixtures[0]?.id}"]`);
+  await until(
+    `document.querySelector('[data-session-id="${fixtures[0]?.id}"]')?.getAttribute("aria-current") === "page"`,
+  );
+  await until("document.querySelector('.live-composer textarea')");
+  await js(
+    `(() => { const el=document.querySelector('.live-composer textarea'); Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(el,'P0 retained draft'); el.dispatchEvent(new Event('input',{bubbles:true})); })()`,
+  );
+  await until(
+    "document.querySelector('.live-composer textarea').value === 'P0 retained draft'",
+  );
+  await click(`[data-session-id="${fixtures[1]?.id}"]`);
+  await until(
+    `document.querySelector('[data-session-id="${fixtures[1]?.id}"]')?.getAttribute("aria-current") === "page"`,
+  );
+  await until(
+    "document.querySelector('.live-composer textarea').value !== 'P0 retained draft'",
+  );
+  await click(`[data-session-id="${fixtures[0]?.id}"]`);
+  await until(
+    `document.querySelector('[data-session-id="${fixtures[0]?.id}"]')?.getAttribute("aria-current") === "page"`,
+  );
+  await until(
+    "document.querySelector('.live-composer textarea').value === 'P0 retained draft'",
+  );
+  await js(
+    `(() => { const el=document.querySelector('[data-testid=composer-engine]'); el.value='codex'; el.dispatchEvent(new Event('change',{bubbles:true})); })()`,
+  );
+  await until(
+    "document.querySelector('[data-testid=composer-engine]').value === 'codex' && document.querySelector('.studio-permission select').value === 'workspace-write'",
+  );
+  await js(
+    `(() => { const el=document.querySelector('[data-testid=composer-engine]'); el.value='native'; el.dispatchEvent(new Event('change',{bubbles:true})); })()`,
+  );
+  await until(
+    "document.querySelector('[data-testid=composer-engine]').value === 'native' && document.querySelector('.studio-permission select').value === 'safe'",
+  );
   await writeFile(
     join(output, "ui.json"),
     `${JSON.stringify({ kind: "offline rendered UI with real IPC and file services; no model calls", results }, null, 2)}\n`,

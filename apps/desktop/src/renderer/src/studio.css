@@ -748,7 +748,7 @@
 }
 .live-shell .studio-brand {
   justify-content: space-between;
-  padding: 0 8px 20px;
+  padding: 0 8px 16px;
 }
 .live-shell .studio-brand .studio-sidebar-toggle {
   width: 30px;
@@ -813,7 +813,7 @@
   align-items: center;
   gap: 12px;
   min-width: 0;
-  margin-left: auto;
+  margin-left: 0;
 }
 .studio-model-controls label {
   display: flex;
@@ -834,9 +834,7 @@
   border-radius: 8px;
 }
 .studio-context-controls {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+  display: contents;
 }
 .studio-permission {
   display: flex;
@@ -860,6 +858,7 @@
   padding: 7px;
 }
 .studio-context-popover {
+  margin-left: auto;
   position: relative;
 }
 .studio-context-popover summary {
@@ -897,10 +896,10 @@
   gap: 10px;
 }
 .live-shell .live-settings {
-  max-width: 900px;
+  max-width: 780px;
   width: 100%;
   align-self: center;
-  padding: 32px 48px;
+  padding: 24px 36px;
 }
 .live-shell .theme-options {
   display: grid;
@@ -954,7 +953,10 @@
   text-align: left;
   border: none;
   background: transparent;
-  padding: 10px 12px;
+  padding: 8px 12px;
+  justify-content: flex-start;
+  font-size: 13px;
+  min-height: 34px;
 }
 .live-shell .studio-slash-menu button[aria-selected="true"] {
   background: var(--surface-active);
@@ -994,10 +996,6 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.live-shell .live-settings {
-  max-width: 780px;
-  padding: 24px 36px;
-}
 .live-shell .live-settings h2 {
   margin: 16px 0 22px;
 }
@@ -1023,20 +1021,7 @@
 .live-shell .studio-welcome-icon {
   margin-bottom: 16px;
 }
-.live-shell .studio-brand {
-  padding-bottom: 16px;
-}
 
-/* Keep usage immediately before engine controls, including wrapped layouts. */
-.studio-context-controls {
-  display: contents;
-}
-.studio-context-popover {
-  margin-left: auto;
-}
-.studio-model-controls {
-  margin-left: 0;
-}
 .studio-context-ring {
   display: inline-block;
   width: 17px;
@@ -1044,13 +1029,6 @@
   border-radius: 50%;
   background: conic-gradient(currentColor var(--usage), var(--border) 0);
   mask: radial-gradient(farthest-side, transparent calc(100% - 2px), black 0);
-}
-.live-shell .studio-slash-menu button {
-  justify-content: flex-start;
-  text-align: left;
-  font-size: 13px;
-  padding: 8px 12px;
-  min-height: 34px;
 }
 .live-shell .studio-slash-menu strong {
   text-align: left;
