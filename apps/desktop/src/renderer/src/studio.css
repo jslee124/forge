@@ -1120,3 +1120,30 @@
 .live-shell .studio-model-popover input {
   width: calc(100% - 90px);
 }
+
+.studio-management {
+  padding-block: 16px;
+}
+.studio-management h3 {
+  margin-top: 24px;
+}
+.studio-management p {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.studio-management input,
+.studio-management select {
+  max-width: 100%;
+  padding: 8px;
+}
+.studio-management button {
+  margin: 6px 8px 6px 0;
+}
+.studio-management code {
+  overflow-wrap: anywhere;
+}
+.studio-management [role="alertdialog"] {
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}

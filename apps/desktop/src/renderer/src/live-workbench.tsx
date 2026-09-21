@@ -59,6 +59,7 @@ export function LiveWorkbench(): React.JSX.Element {
   const [error, setError] = React.useState("");
   const [pending, setPending] = React.useState(false);
   const [settings, setSettings] = React.useState(false);
+  const [settingsSection, setSettingsSection] = React.useState("appearance");
   const [panel, setPanel] = React.useState(false);
   const [filePath, setFilePath] = React.useState("");
   const [filePreview, setFilePreview] = React.useState<FilePreview>();
@@ -91,6 +92,16 @@ export function LiveWorkbench(): React.JSX.Element {
   const zh = i18n.language.startsWith("zh");
   const busy = Boolean(active) || pending;
   const api = window.forgeDesktop;
+  React.useEffect(() => {
+    const guard = (event: BeforeUnloadEvent) => {
+      if (busy || Object.values(drafts).some((value) => value.trim())) {
+        event.preventDefault();
+        event.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", guard);
+    return () => window.removeEventListener("beforeunload", guard);
+  }, [busy, drafts]);
   const manage = async (
     command: Exclude<ManagementCommand, { type: "workspace" }>,
   ) => {
@@ -102,6 +113,14 @@ export function LiveWorkbench(): React.JSX.Element {
     setError("");
     try {
       const next = await api.manage(command);
+      if (
+        command.type === "model-delete" &&
+        selection?.provider === command.provider &&
+        selection.model === command.model
+      ) {
+        setSelection(undefined);
+        setModel("");
+      }
       setState(next);
       return next;
     } catch (cause) {
@@ -357,8 +376,19 @@ export function LiveWorkbench(): React.JSX.Element {
       return;
     }
     clear();
-    if (result.target === "settings") setSettings(true);
-    else if (result.target === "resume") {
+    if (result.target === "settings") {
+      const name = input.trim();
+      setSettingsSection(
+        name === "/delete-model"
+          ? "models"
+          : name === "/resources"
+            ? "resources"
+            : name === "/plugins"
+              ? "plugins"
+              : "credentials",
+      );
+      setSettings(true);
+    } else if (result.target === "resume") {
       setSidebarOpen(true);
       requestAnimationFrame(() =>
         document
@@ -597,7 +627,10 @@ export function LiveWorkbench(): React.JSX.Element {
           <button
             data-testid="settings"
             type="button"
-            onClick={() => setSettings(!settings)}
+            onClick={() => {
+              setSettingsSection("appearance");
+              setSettings(!settings);
+            }}
           >
             <GearSix size={17} />
             {t("common.settings")}
@@ -642,6 +675,7 @@ export function LiveWorkbench(): React.JSX.Element {
           )}
           {settings ? (
             <SettingsView
+              initialSection={settingsSection}
               state={state}
               busy={busy}
               onBack={() => setSettings(false)}

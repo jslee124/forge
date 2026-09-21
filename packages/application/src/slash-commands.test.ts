@@ -75,18 +75,27 @@ describe("shared command contract", () => {
       "/permissions",
       "/resume",
       "/login",
-      "/exit",
     ])
       expect(routeCommand(name, true)).toEqual({
         kind: "error",
         reason: "busy",
       });
     expect(routeCommand("/update-dismiss", false).kind).toBe("not-applicable");
-    for (const input of ["/resources"])
+    for (const input of [
+      "/resources",
+      "/login",
+      "/logout",
+      "/delete-model",
+      "/plugins",
+    ])
       expect(routeCommand(input, false)).toEqual({
-        kind: "error",
-        reason: "unsupported",
+        kind: "open",
+        target: "settings",
       });
+    expect(routeCommand("/exit", true)).toEqual({
+      kind: "open",
+      target: "exit",
+    });
     expect(routeCommand("/compact --dry-run", false)).toEqual({
       kind: "manage",
       target: "compact",

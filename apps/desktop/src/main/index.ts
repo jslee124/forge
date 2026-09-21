@@ -101,6 +101,22 @@ async function createWindow(show = true): Promise<BrowserWindow> {
   mainWindow = window;
   window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
   window.webContents.on("will-navigate", (event) => event.preventDefault());
+  window.webContents.on("will-prevent-unload", (event) => {
+    const zh = app.getLocale().startsWith("zh");
+    const choice = dialog.showMessageBoxSync(window, {
+      type: "question",
+      buttons: zh ? ["继续工作", "退出"] : ["Keep working", "Exit"],
+      defaultId: 0,
+      cancelId: 0,
+      message: zh
+        ? "有未发送草稿或正在进行的任务，仍然退出？"
+        : "Unsent drafts or an active task remain. Exit?",
+      detail: zh
+        ? "未发送草稿将丢失。退出会请求停止任务；若停止超时，将结束本地 Agent，远端状态可能需要稍后核对。"
+        : "Unsent drafts will be lost. Exit requests cancellation; a timeout terminates the local Agent and remote status may need checking later.",
+    });
+    if (choice === 1) event.preventDefault();
+  });
   await loadRenderer(window);
   return window;
 }
@@ -421,6 +437,10 @@ app.on("window-all-closed", () => app.quit());
 app.on("before-quit", (event) => {
   if (quitting) return;
   event.preventDefault();
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.close();
+    return;
+  }
   void shutdown().finally(() => app.quit());
 });
 

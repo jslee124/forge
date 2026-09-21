@@ -185,3 +185,41 @@ W08–W13 complete; see the [development record](WORKBENCH_DEVELOPMENT_PLAN.md).
 Regression coverage includes new/clear history retention, empty session grants, dry-run snapshot immutability, canonical history preservation, compact revision conflicts, invalid model/effort rejection, default persistence, and separate native/Codex policy propagation. Native workspace-write permits workspace editing but still requests approval for process execution. Codex tests inspect App Server requests using a fixture; they are not live provider evidence.
 
 Validation: 118 related tests passed, six opt-in live tests skipped; 27 Agent/Codex tests passed again after the final saved-default guard. Root check, desktop production build, 71 deterministic evaluations, documentation checks and packed CLI install verification passed. Non-blocking lint diagnostics remain. No live model calls, installed desktop update, commit or publication. P3 management acceptance remains pending.
+
+## P3 management and Settings — 2026-09-21
+
+Settings now contains separate native-provider credentials, configured-model deletion, plugin/resource management and Codex subscription controls. The shared resource discovery/trust service remains used by CLI through a compatibility export. Native keys never appear in DesktopState; only the input DOM and transient request contain the submitted secret, cleared before awaiting the service. Environment credentials remain active after stored logout.
+
+Validation: 135 related tests passed, six opt-in live tests skipped; root check, desktop build, 71 deterministic evaluations, documentation checks and packed CLI install verification passed. Electron completed 34 captures. The first UI runs clicked disabled controls while management discovery was pending; the harness now waits for enabled controls. Final captures retain the monochrome workbench and group settings into bordered sections. Non-blocking lint and existing PDF canvas warnings remain; no live provider request, installed-app replacement, commit or publication was performed.
+
+[Capture manifest](design/p3-validation/ui.json)
+
+![P3 management settings](design/p3-validation/management-light.png)
+![P3 read-only resource diagnostics](design/p3-validation/resources-light.png)
+
+### Command compatibility / 命令兼容矩阵
+
+“Verified / 已验证” below means the stated local behavior, not live-provider proof. Test sources: [routing](../../packages/application/src/slash-commands.test.ts), [Agent](src/agent/application.test.ts), [Codex fixtures](src/agent/codex.test.ts), [resource discovery/trust](../cli/src/startup-resources.test.ts), [shutdown](src/main/agent-process.test.ts), [Electron scenarios](src/main/acceptance-ui.ts).
+
+| Command | Status / 状态 | Evidence and boundary / 证据与边界 |
+| --- | --- | --- |
+| /help | Verified / 已验证 | Shared registry and Electron keyboard/help assertions. |
+| /new | Verified / 已验证 | Agent reset retains saved history; no reusable desktop grants exist. |
+| /clear | Verified / 已验证 | Agent reset and history tests; same empty-grant boundary as new. |
+| /context | Verified / 已验证 | Shared context detail capture; unavailable Codex usage remains unknown. |
+| /permissions | Verified / 已验证 | Policy propagation tests, detail capture; no fictional grant revocation. |
+| /update-dismiss | Not applicable / 平台不适用 | Routing returns explicit local result; no desktop update notice is fabricated. |
+| /compact | Verified / 已验证 | Agent dry-run immutability, canonical history and revision-conflict tests; UI result assertion. |
+| /plugins | Partial / 部分实现 | Discovery, enable/disable and trust tests; bundled Web install/config supported. Other plugin installation remains CLI. |
+| /resources | Verified / 已验证 | Shared discovery/trust tests and read-only Electron details. Discovery does not authorize execution. |
+| /login | Partial / 部分实现 | Native credential save/redaction and Codex success/failure/cancel fixtures; new provider routes remain CLI. No live key-validity proof. |
+| /logout | Verified / 已验证 | Native isolation/environment precedence; Codex logout/failure fixtures preserve other credentials. |
+| /model | Verified / 已验证 | P2 searchable metadata/selection/default tests and captures. |
+| /delete-model | Verified / 已验证 | Explicit object and confirmation UI; Agent protects default, checks user ownership and preserves config on rejection. |
+| /effort | Verified / 已验证 | P2 metadata validation/default persistence and route tests. |
+| /resume | Verified / 已验证 | Agent session/workspace tests and Electron task/draft isolation assertions. |
+| /exit | Partial / 部分实现 | Busy routing, Electron beforeunload assertion and Agent timeout/kill regression pass. Native macOS dialog interaction and remote cancellation under a real-provider timeout still require manual/live acceptance. |
+
+### Remaining acceptance / 后续验收
+
+P4 should cover focus placement and keyboard traversal of management confirmations, long provider/model names and narrow Settings, plus a manual macOS close/quit round trip with unsent drafts and active work. Offline Codex login failure/cancel fixtures do not establish live expired-account recovery. No model provider was contacted with a real key during this phase. Built-in models and configured routes remain separate from subscription model discovery.

@@ -5,11 +5,9 @@ import {
 } from "@forge/application/slash-commands";
 
 function availability(name: string, zh: boolean): string {
-  if (["/resources", "/logout", "/delete-model"].includes(name))
-    return zh ? " · 尚未接入" : " · not connected";
-  if (name === "/update-dismiss") return zh ? " · 不适用" : " · not applicable";
-  if (["/login", "/plugins"].includes(name))
+  if (name === "/login" || name === "/plugins")
     return zh ? " · 部分支持" : " · partial";
+  if (name === "/update-dismiss") return zh ? " · 不适用" : " · not applicable";
   return "";
 }
 export const commands = SLASH_COMMANDS.map(
@@ -60,6 +58,7 @@ export function routeCommand(input: string, busy: boolean): CommandResult {
   if (p.name === "/help" || p.name === "/context")
     return { kind: "read", target: p.name === "/help" ? "help" : "context" };
   if (p.name === "/update-dismiss") return { kind: "not-applicable" };
+  if (p.name === "/exit") return { kind: "open", target: "exit" };
   if (busy) return { kind: "error", reason: "busy" };
   // P2 owns dry-run and effort execution; parsing must never turn them into a normal run.
   if (p.name === "/effort") return { kind: "effort", value: p.args };
@@ -75,14 +74,13 @@ export function routeCommand(input: string, busy: boolean): CommandResult {
       target: "compact",
       dryRun: p.args === "--dry-run",
     };
-  if (p.name === "/login" || p.name === "/plugins")
-    return { kind: "open", target: "settings" };
   if (
-    p.name === "/model" ||
-    p.name === "/permissions" ||
-    p.name === "/resume" ||
-    p.name === "/exit"
+    ["/login", "/logout", "/delete-model", "/plugins", "/resources"].includes(
+      p.name,
+    )
   )
+    return { kind: "open", target: "settings" };
+  if (p.name === "/model" || p.name === "/permissions" || p.name === "/resume")
     return {
       kind: "open",
       target: p.name.slice(1) as "model" | "permissions" | "resume" | "exit",

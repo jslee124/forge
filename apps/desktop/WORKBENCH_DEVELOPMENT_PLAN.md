@@ -4,6 +4,18 @@ Date: 2026-09-15. Development plan, not a shipped-feature declaration.
 
 [中文（详细任务说明）](WORKBENCH_DEVELOPMENT_PLAN.zh-CN.md) · [UX specification](WORKBENCH_UX_PLAN.md) · [Visual QA](design-qa.md)
 
+## P3 progress (2026-09-21)
+
+W14–W17 implementation and offline acceptance complete. Settings separates Forge API credentials from Codex subscription login, supports explicit provider logout, and never includes keys in DesktopState. Password input is uncontrolled, cleared on submit, and only sent to the Agent credential service. Environment credentials retain precedence. Codex login cancellation/failure and failed logout retain truthful status; account refresh clears stale model metadata.
+
+Configured model removal requires confirmation and reuses the existing user-config writer. The selected default is protected until another default is saved; project/built-in definitions are not removed. A removed temporary task selection is cleared. Resource discovery/trust was moved into the shared application package with a CLI compatibility export. Settings lists installed/enabled plugins and read-only Skill diagnostics, supports explicit user-plugin toggles and project trust, and retains separate bundled Web installation/configuration. Discovery never grants execution authority.
+
+Management slash commands navigate to their relevant settings section. /exit is available during runs and uses the normal window close path. All unsent drafts and active work trigger a keep-working/exit choice, including native window close and application quit; Agent shutdown retains its bounded cancellation/kill fallback. Remote cancellation is not asserted merely because a local process exits.
+
+Validation: 135 related tests passed; six opt-in live tests skipped. Root check, production build, 71 deterministic evaluations, packed CLI install and documentation checks passed. Electron completed 34 captures with resource navigation and beforeunload protection assertions. See [P3 compatibility and QA](design-qa.md). No commit, installed desktop replacement or publication.
+
+Next is P4 (W18–W20), visual/accessibility and delivery acceptance. Full TUI parity is not claimed: new provider route setup and non-bundled plugin installation still use CLI; macOS dialog interaction and live expired-account refresh remain outside offline proof.
+
 ## P2 progress (2026-09-21)
 
 W08–W13 complete. New and clear reset the active conversation while retaining saved history. Desktop approvals are allow-once and no reusable session grants are stored, so both commands leave an empty grant list; the permissions view explains this instead of offering a fictitious revoke action. The composer policy controls the next run.
@@ -107,4 +119,4 @@ Each stage supplies change summary, relevant tests, screenshots for visual chang
 
 Commits/merges, replacing the installed App, signing, notarization, publication and new /plan or /goal modes are not automatic parts of this plan. Release requests need a separate release checklist.
 
-P2 is complete. Continue with P3 (W14–W17), covering management commands and Settings. Require working behavior at each gate rather than more entry points or static screenshots.
+P3 is complete. Continue with P4 (W18–W20), covering visual, accessibility and delivery acceptance. Require working behavior at each gate rather than more entry points or static screenshots.

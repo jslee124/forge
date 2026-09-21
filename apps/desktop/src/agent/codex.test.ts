@@ -395,3 +395,58 @@ it.each(["safe", "workspace-write"] as const)(
     }
   },
 );
+
+it("Codex logout clears subscription models without removing native credentials", async () => {
+  const cwd = await mkdtemp(join(tmpdir(), "forge-desktop-logout-"));
+  const client = new Client();
+  const app = new DesktopApplication({ FORGE_HOME: join(cwd, "home") }, cwd, {
+    connect: async () => client,
+  });
+  try {
+    await app.manage({
+      type: "native-login",
+      provider: "openai",
+      apiKey: "native-private",
+    });
+    await app.manage({ type: "auth-status" });
+    const state = await app.manage({
+      type: "logout",
+      engine: "codex",
+      provider: "openai",
+    });
+    expect(client.calls).toContain("account/logout");
+    expect(state.auth).toBe("signed-out");
+    expect(state.codexModels).toEqual([]);
+    expect(state.modelCatalog?.filter((m) => m.engine === "codex")).toEqual([]);
+    expect(
+      state.management?.providers.find((p) => p.id === "openai")?.authenticated,
+    ).toBe(true);
+    expect(JSON.stringify(state)).not.toContain("native-private");
+  } finally {
+    app.close();
+    await rm(cwd, { recursive: true, force: true });
+  }
+});
+
+it("does not report successful logout when App Server rejects it", async () => {
+  const cwd = await mkdtemp(join(tmpdir(), "forge-desktop-logout-failure-"));
+  const client = new Client();
+  const request = client.request.bind(client);
+  client.request = async <T>(method: string, params?: unknown): Promise<T> => {
+    if (method === "account/logout") throw new Error("failed");
+    return request<T>(method, params);
+  };
+  const app = new DesktopApplication({ FORGE_HOME: join(cwd, "home") }, cwd, {
+    connect: async () => client,
+  });
+  try {
+    await app.manage({ type: "auth-status" });
+    await expect(
+      app.manage({ type: "logout", engine: "codex", provider: "openai" }),
+    ).rejects.toThrow();
+    expect((await app.state()).auth).toBe("authenticated");
+  } finally {
+    app.close();
+    await rm(cwd, { recursive: true, force: true });
+  }
+});

@@ -1,9 +1,12 @@
+export { AuthenticationManager } from "@forge/auth";
 export {
   loadForgeConfig,
   loadInstructions,
+  removeUserProviderModel,
   saveUserModelSelection,
   setUserPluginEnabled,
 } from "@forge/config";
+export { discoverPlugins } from "@forge/plugin-api";
 export * from "./codex.js";
 export * from "./http-dispatcher.js";
 export * from "./image-input.js";
@@ -12,3 +15,4 @@ export * from "./model-catalog.js";
 export * from "./options.js";
 export * from "./persistent-session.js";
 export * from "./run.js";
+export * from "./startup-resources.js";

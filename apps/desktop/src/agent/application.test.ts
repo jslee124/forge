@@ -1,5 +1,12 @@
 import { randomUUID } from "node:crypto";
-import { mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  realpath,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -556,4 +563,147 @@ it("workspace-write still requires approval for process execution", async () => 
   ).toHaveLength(1);
   expect((await f.application.state()).permissionGrants).toEqual([]);
   f.application.close();
+});
+
+describe("P3 management isolation", () => {
+  it("stores no secret in state and logs out only the selected native provider", async () => {
+    const { application } = await fixture([]);
+    await application.manage({
+      type: "native-login",
+      provider: "openai",
+      apiKey: "openai-private-example",
+    });
+    const saved = await application.manage({
+      type: "native-login",
+      provider: "deepseek",
+      apiKey: "deepseek-private-example",
+    });
+    expect(JSON.stringify(saved)).not.toContain("private-example");
+    expect(
+      saved.management?.providers.find((p) => p.id === "deepseek")
+        ?.authenticated,
+    ).toBe(true);
+    const removed = await application.manage({
+      type: "logout",
+      engine: "native",
+      provider: "deepseek",
+    });
+    expect(
+      removed.management?.providers.find((p) => p.id === "deepseek")
+        ?.authenticated,
+    ).toBe(false);
+    expect(
+      removed.management?.providers.find((p) => p.id === "openai")
+        ?.authenticated,
+    ).toBe(true);
+    await expect(
+      application.manage({
+        type: "native-login",
+        provider: "missing",
+        apiKey: "secret",
+      }),
+    ).rejects.toThrow("unknown-provider");
+  });
+
+  it("rejects default deletion without changing config, and removes only the explicit model", async () => {
+    const { application, env } = await fixture([]);
+    const file = join(env.FORGE_HOME, "config.json");
+    const config = {
+      schemaVersion: 1,
+      model: { engine: "forge", provider: "local", id: "one" },
+      providers: {
+        local: {
+          api: "openai-completions",
+          baseUrl: "http://localhost:9000/v1",
+          auth: { type: "none" },
+          models: [{ id: "one" }, { id: "two" }],
+        },
+      },
+    };
+    await mkdir(env.FORGE_HOME, { recursive: true });
+    await writeFile(file, JSON.stringify(config));
+    await expect(
+      application.manage({
+        type: "model-delete",
+        provider: "local",
+        model: "one",
+      }),
+    ).rejects.toThrow("select-another-default-first");
+    expect(JSON.parse(await readFile(file, "utf8"))).toEqual(config);
+    const removed = await application.manage({
+      type: "model-delete",
+      provider: "local",
+      model: "two",
+    });
+    expect(removed.management?.models).toEqual([
+      { provider: "local", id: "one" },
+    ]);
+    await expect(
+      application.manage({
+        type: "model-delete",
+        provider: "local",
+        model: "two",
+      }),
+    ).rejects.toThrow("model-not-user-configured");
+  });
+
+  it("discovers without enabling and refuses an uninstalled plugin", async () => {
+    const { application } = await fixture([]);
+    const initial = await application.manage({ type: "management-status" });
+    expect(initial.management?.plugins).toEqual([]);
+    await expect(
+      application.manage({
+        type: "plugin-enable",
+        name: "missing",
+        enabled: true,
+      }),
+    ).rejects.toThrow("plugin-not-installed");
+    await application.manage({ type: "web-install" });
+    const installed = await application.manage({ type: "management-status" });
+    expect(
+      installed.management?.plugins.find((p) => p.name === "web-tools")?.state,
+    ).toBe("disabled");
+    const enabled = await application.manage({
+      type: "plugin-enable",
+      name: "web-tools",
+      enabled: true,
+    });
+    expect(
+      enabled.management?.plugins.find((p) => p.name === "web-tools")?.state,
+    ).toBe("enabled");
+    const disabled = await application.manage({
+      type: "plugin-enable",
+      name: "web-tools",
+      enabled: false,
+    });
+    expect(
+      disabled.management?.plugins.find((p) => p.name === "web-tools")?.state,
+    ).toBe("disabled");
+  });
+});
+
+it("reports an environment credential that remains after stored logout", async () => {
+  const { cwd, env } = await fixture([]);
+  const app = new DesktopApplication(
+    { ...env, DEEPSEEK_API_KEY: "environment-private" },
+    cwd,
+  );
+  try {
+    await app.manage({
+      type: "native-login",
+      provider: "deepseek",
+      apiKey: "stored-private",
+    });
+    const state = await app.manage({
+      type: "logout",
+      engine: "native",
+      provider: "deepseek",
+    });
+    expect(
+      state.management?.providers.find((p) => p.id === "deepseek"),
+    ).toMatchObject({ authenticated: true, source: "environment" });
+    expect(JSON.stringify(state)).not.toContain("private");
+  } finally {
+    app.close();
+  }
 });

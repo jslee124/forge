@@ -86,6 +86,27 @@ describe("AgentProcess", () => {
     await agent.close();
   });
 
+  it("terminates the local Agent when graceful shutdown times out", async () => {
+    vi.useFakeTimers();
+    try {
+      const child = new FakeUtilityProcess();
+      child.postMessage.mockImplementation(() => undefined);
+      child.kill.mockImplementation(() => {
+        child.emit("exit", 1);
+        return true;
+      });
+      const agent = new AgentProcess(child as unknown as UtilityProcess);
+      child.emit("message", { type: "ready", pid: 42 });
+      const closed = agent.close();
+      await vi.runAllTimersAsync();
+      await closed;
+      expect(child.kill).toHaveBeenCalledTimes(1);
+      expect(child.listenerCount("message")).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("rejects pending work and removes listeners after an unexpected exit", async () => {
     const child = new FakeUtilityProcess();
     child.postMessage.mockImplementation(() => undefined);

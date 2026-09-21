@@ -48,6 +48,9 @@ export async function runUiAcceptance(
     );
   };
   const click = async (selector: string) => {
+    await until(
+      `document.querySelector(${JSON.stringify(selector)}) && !document.querySelector(${JSON.stringify(selector)}).disabled`,
+    );
     await js(`document.querySelector(${JSON.stringify(selector)}).click()`);
   };
   const results: unknown[] = [];
@@ -144,6 +147,9 @@ export async function runUiAcceptance(
       window.setContentSize(1100, 728);
     }
   }
+  await until(
+    "!document.querySelector('.sidebar > button:first-of-type').disabled",
+  );
   await click(".sidebar > button:first-of-type");
   await until(
     "document.querySelector('.studio-welcome') && !document.querySelector('.live-panel')",
@@ -160,6 +166,9 @@ export async function runUiAcceptance(
   );
   await click('[data-testid="settings"]');
   await click(".theme-options button:nth-child(1)");
+  await until(
+    "!document.querySelector('.sidebar > button:first-of-type').disabled",
+  );
   await click(".sidebar > button:first-of-type");
   await capture("home-light");
   await click('[data-testid="sidebar-toggle"]');
@@ -313,6 +322,26 @@ export async function runUiAcceptance(
     "document.querySelector('.studio-model-results').children.length === 0",
   );
   await click('[data-testid="composer-model"]');
+  await enterDraft("Unsent draft");
+  await until(
+    "(() => {const e=new Event('beforeunload',{cancelable:true});window.dispatchEvent(e);return e.defaultPrevented;})()",
+  );
+  await enterDraft("/resources");
+  await js(
+    `document.querySelector('.live-composer textarea').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}))`,
+  );
+  await until(
+    "document.querySelector('.studio-management') && !document.querySelector('.studio-management select').disabled",
+  );
+  await js(
+    "document.querySelector('.studio-management').scrollIntoView({block:'start'})",
+  );
+  await capture("management-light");
+  await js(
+    "document.querySelector('.studio-management details').open=true;document.querySelector('.studio-management details').scrollIntoView({block:'center'})",
+  );
+  await capture("resources-light");
+  await click(".studio-back");
   await writeFile(
     join(output, "ui.json"),
     `${JSON.stringify({ kind: "offline rendered UI with real IPC and file services; no model calls", results }, null, 2)}\n`,

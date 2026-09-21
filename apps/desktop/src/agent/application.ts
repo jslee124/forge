@@ -9,18 +9,24 @@ import {
 } from "node:fs/promises";
 import { join } from "node:path";
 import {
+  AuthenticationManager,
   type CodexClient,
+  changeProjectPluginTrust,
   createPersistentInteractiveSession,
+  detectStartupResources,
   discoverCodexModels,
+  discoverPlugins,
   loadForgeConfig,
   type ModelCatalogEntry,
   nativeModelCatalog,
   type PersistentInteractiveSession,
   type RunDependencies,
+  removeUserProviderModel,
   runCodexAuthCommand,
   runCodexTask,
   runTask,
   saveUserModelSelection,
+  setUserPluginEnabled,
 } from "@forge/application";
 import { CodexAppServerClient } from "@forge/codex-app-server";
 import { canonicalText, type RunEvent, type RunResult } from "@forge/core";
@@ -57,6 +63,7 @@ export class DesktopApplication {
   #codexCatalog: ModelCatalogEntry[] = [];
   #catalogError = "";
   #operationResult = "";
+  #management: DesktopState["management"];
   #login: AbortController | undefined;
   readonly #clients = new Set<CodexClient>();
   #busy = false;
@@ -82,6 +89,7 @@ export class DesktopApplication {
     this.#home = loaded.forgeHome;
     const sessions = await new FileSessionStore(this.#home).list();
     return {
+      management: this.#management,
       web: await new WebPluginSettings(
         this.#env,
         this.#cwd || this.#initialCwd,
@@ -199,6 +207,99 @@ export class DesktopApplication {
     }
     if (this.#busy) throw new Error("busy");
     this.#operationResult = "";
+    if (
+      [
+        "management-status",
+        "native-login",
+        "logout",
+        "model-delete",
+        "plugin-enable",
+        "project-trust",
+      ].includes(command.type)
+    ) {
+      const cwd = this.#cwd || this.#initialCwd;
+      const loaded = await loadForgeConfig({ cwd, env: this.#env });
+      const auth = new AuthenticationManager(this.#env);
+      const providers = [
+        "deepseek",
+        "openai",
+        ...Object.keys(loaded.config.providers),
+      ];
+      if (
+        command.type === "native-login" ||
+        (command.type === "logout" && command.engine === "native")
+      ) {
+        if (!providers.includes(command.provider))
+          throw new Error("unknown-provider");
+        const profile = loaded.config.providers[command.provider];
+        if (profile?.auth.type === "none")
+          throw new Error("provider-needs-no-key");
+        if (command.type === "native-login") {
+          await auth.storeApiKey(
+            command.provider,
+            command.apiKey,
+            profile ? { endpoint: profile.baseUrl } : {},
+          );
+          this.#operationResult =
+            "Credential saved locally; provider connection not tested.";
+        } else {
+          await auth.removeStoredApiKey(command.provider);
+          this.#operationResult =
+            "Stored credential removed. Environment credentials, if present, remain active.";
+        }
+      } else if (command.type === "logout") {
+        if (command.provider !== "openai") throw new Error("unknown-provider");
+        if (this.#login) throw new Error("busy");
+        const code = await runCodexAuthCommand(
+          "logout",
+          "openai",
+          {},
+          this.#codexDependencies(new AbortController().signal),
+        );
+        if (code !== 0) throw new Error("logout-failed");
+        this.#auth = "signed-out";
+        this.#models = [];
+        this.#codexCatalog = [];
+        this.#operationResult =
+          "Codex signed out; native credentials unchanged.";
+      } else if (command.type === "model-delete") {
+        if (
+          loaded.config.model.provider === command.provider &&
+          loaded.config.model.id === command.model
+        )
+          throw new Error("select-another-default-first");
+        const result = await removeUserProviderModel({
+          cwd,
+          env: this.#env,
+          route: command.provider,
+          model: command.model,
+        });
+        if (!result.removed) throw new Error("model-not-user-configured");
+        this.#operationResult =
+          "User model removed. Project configuration may still supply this model.";
+      } else if (command.type === "plugin-enable") {
+        const installed = await discoverPlugins({
+          root: join(loaded.forgeHome, "plugins"),
+          scope: "user",
+        });
+        if (!installed.some((x) => x.manifest.name === command.name))
+          throw new Error("plugin-not-installed");
+        await setUserPluginEnabled({
+          cwd,
+          env: this.#env,
+          name: command.name,
+          enabled: command.enabled,
+        });
+      } else if (command.type === "project-trust") {
+        await changeProjectPluginTrust({
+          cwd,
+          env: this.#env,
+          trusted: command.trusted,
+        });
+      }
+      await this.#readManagement();
+      return this.state();
+    }
     if (command.type === "models-refresh") {
       await this.#refreshModels();
       return this.state();
@@ -240,6 +341,7 @@ export class DesktopApplication {
       this.#session?.clear();
       this.#revision = "";
     } else if (command.type === "workspace") {
+      this.#management = undefined;
       const cwd = await directoryPath(command.cwd);
       const session = await createPersistentInteractiveSession({
         cwd,
@@ -349,6 +451,7 @@ export class DesktopApplication {
         this.#auth =
           result.account?.type === "chatgpt" ? "authenticated" : "signed-out";
         this.#models = [];
+        this.#codexCatalog = [];
         if (this.#auth === "authenticated") {
           this.#models = await discoverCodexModels({ ...dependencies, client })
             .then((models) => {
@@ -369,6 +472,7 @@ export class DesktopApplication {
       } catch {
         this.#auth = "unavailable";
         this.#models = [];
+        this.#codexCatalog = [];
       } finally {
         client?.close();
       }
@@ -407,6 +511,82 @@ export class DesktopApplication {
       }
     }
     return this.state();
+  }
+  async #readManagement(): Promise<void> {
+    const loaded = await loadForgeConfig({
+      cwd: this.#cwd || this.#initialCwd,
+      env: this.#env,
+    });
+    const auth = new AuthenticationManager(this.#env);
+    const diagnostics: string[] = [];
+    const resources = await detectStartupResources({
+      forgeHome: loaded.forgeHome,
+      workspaceRoot: loaded.workspaceRoot,
+      enabledUserPlugins: loaded.config.plugins.enabled,
+      disabledModelInvocation: loaded.config.resources.disabledModelInvocation,
+    }).catch(() => {
+      diagnostics.push("Resource discovery failed; inspect local manifests.");
+      return { plugins: [], skills: [], diagnostics: [] };
+    });
+    const installed = await discoverPlugins({
+      root: join(loaded.forgeHome, "plugins"),
+      scope: "user",
+    }).catch(() => {
+      diagnostics.push("User plugin discovery failed.");
+      return [];
+    });
+    this.#management = {
+      providers: [
+        ...new Set([
+          "deepseek",
+          "openai",
+          ...Object.keys(loaded.config.providers),
+        ]),
+      ].map((id) => {
+        const profile = loaded.config.providers[id];
+        const status = auth.status(id, {
+          ...(profile ? { endpoint: profile.baseUrl } : {}),
+          ...(profile?.auth.type === "bearer" && profile.auth.apiKeyEnv
+            ? { environmentVariable: profile.auth.apiKeyEnv }
+            : {}),
+        });
+        return {
+          id,
+          authenticated: status.authenticated,
+          source: status.source ?? "none",
+          environmentVariable: status.environmentVariable,
+        };
+      }),
+      models: Object.entries(loaded.config.providers).flatMap(
+        ([provider, profile]) =>
+          (profile.models ?? []).map((m) => ({ provider, id: m.id })),
+      ),
+      plugins: [
+        ...installed.map((p) => ({
+          name: p.manifest.name,
+          version: p.manifest.version,
+          scope: "user",
+          state: loaded.config.plugins.enabled.includes(p.manifest.name)
+            ? "enabled"
+            : "disabled",
+        })),
+        ...resources.plugins
+          .filter((p) => p.scope === "project")
+          .map((p) => ({
+            name: p.name,
+            version: p.version,
+            scope: p.scope,
+            state: p.state,
+          })),
+      ],
+      skills: resources.skills.map((s) => ({
+        name: s.name,
+        path: s.path,
+        source: s.source,
+        status: s.status ?? s.invocation,
+      })),
+      diagnostics: [...diagnostics, ...(resources.diagnostics ?? [])],
+    };
   }
   close(): void {
     this.#login?.abort();

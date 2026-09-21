@@ -33,6 +33,36 @@ export type ModelSelection = z.infer<typeof selectionSchema>;
 
 export const managementCommandSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("state") }).strict(),
+  z.object({ type: z.literal("management-status") }).strict(),
+  z
+    .object({
+      type: z.literal("native-login"),
+      provider: id,
+      apiKey: z.string().trim().min(1).max(8192),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("logout"),
+      engine: z.enum(["native", "codex"]),
+      provider: id,
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("model-delete"),
+      provider: id,
+      model: z.string().min(1).max(256),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("plugin-enable"),
+      name: id,
+      enabled: z.boolean(),
+    })
+    .strict(),
+  z.object({ type: z.literal("project-trust"), trusted: z.boolean() }).strict(),
   z
     .object({
       type: z.literal("reset"),
@@ -71,6 +101,36 @@ export const managementCommandSchema = z.discriminatedUnion("type", [
 export type ManagementCommand = z.infer<typeof managementCommandSchema>;
 export const desktopStateSchema = z
   .object({
+    management: z
+      .object({
+        providers: z.array(
+          z.object({
+            id: z.string(),
+            authenticated: z.boolean(),
+            source: z.string(),
+            environmentVariable: z.string(),
+          }),
+        ),
+        models: z.array(z.object({ provider: z.string(), id: z.string() })),
+        plugins: z.array(
+          z.object({
+            name: z.string(),
+            version: z.string(),
+            scope: z.string(),
+            state: z.string(),
+          }),
+        ),
+        skills: z.array(
+          z.object({
+            name: z.string(),
+            path: z.string(),
+            source: z.string(),
+            status: z.string(),
+          }),
+        ),
+        diagnostics: z.array(z.string()),
+      })
+      .optional(),
     web: z
       .object({
         configurationInvalid: z.boolean(),

@@ -1,16 +1,20 @@
+import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import type {
   DesktopState,
   ManagementCommand,
 } from "../../shared/application-protocol.js";
+import { ManagementSettings } from "./management-settings.js";
 import { type ThemeMode, useTheme } from "./theme.js";
 export function SettingsView({
+  initialSection,
   state,
   busy,
   onBack,
   manage,
   onOpenLogin,
 }: {
+  initialSection: string;
   state: DesktopState | undefined;
   busy: boolean;
   onBack: () => void;
@@ -21,13 +25,18 @@ export function SettingsView({
 }) {
   const { t, i18n } = useTranslation();
   const theme = useTheme();
+  useEffect(() => {
+    document
+      .getElementById(`settings-${initialSection}`)
+      ?.scrollIntoView({ block: "start" });
+  }, [initialSection]);
   return (
     <div className="live-settings">
       <button type="button" className="studio-back" onClick={onBack}>
         {i18n.language.startsWith("zh") ? "返回对话" : "Back to conversation"}
       </button>
       <h2>{t("common.settings")}</h2>
-      <section className="studio-appearance">
+      <section id="settings-appearance" className="studio-appearance">
         <h3>{t("studio.appearance")}</h3>
         <p>{t("studio.appearanceHint")}</p>
         <div className="theme-options">
@@ -65,6 +74,12 @@ export function SettingsView({
         </p>
         <p>{t("live.nativeConfig")}</p>
       </section>
+      <ManagementSettings
+        state={state}
+        busy={busy}
+        manage={manage}
+        zh={i18n.language.startsWith("zh")}
+      />
       <section className="web-settings" aria-label={t("live.web.title")}>
         <h3>{t("live.web.title")}</h3>
         <p>
@@ -144,6 +159,28 @@ export function SettingsView({
           onClick={() => void manage({ type: "login" })}
         >
           {t("live.login")}
+        </button>
+        <button
+          type="button"
+          disabled={busy || state?.auth === "signing-in"}
+          onClick={() => {
+            if (
+              window.confirm(
+                i18n.language.startsWith("zh")
+                  ? "退出 Codex 订阅登录？不会删除 Forge API 凭证。"
+                  : "Sign out of Codex? Forge API credentials remain.",
+              )
+            )
+              void manage({
+                type: "logout",
+                engine: "codex",
+                provider: "openai",
+              });
+          }}
+        >
+          {i18n.language.startsWith("zh")
+            ? "退出 Codex 登录"
+            : "Sign out of Codex"}
         </button>
         {state?.auth === "signing-in" && (
           <button
