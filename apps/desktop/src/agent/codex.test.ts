@@ -16,11 +16,13 @@ class Client implements CodexClient {
   readonly failures = new Set<(e: Error) => void>();
   readonly calls: string[] = [];
   readonly inputs: unknown[] = [];
+  readonly requests: { method: string; params: unknown }[] = [];
   readonly replies: unknown[] = [];
   turnStart: (() => void) | undefined;
   closed = false;
   async request<T>(method: string, params?: unknown): Promise<T> {
     this.calls.push(method);
+    this.requests.push({ method, params });
     if (method === "turn/start") this.inputs.push(params);
     if (method === "account/read")
       return {
@@ -318,3 +320,78 @@ it("keeps login state during refresh and restores it after cancellation", async 
     await rm(cwd, { recursive: true, force: true });
   }
 });
+
+it.each(["safe", "workspace-write"] as const)(
+  "validates Codex model metadata and forwards %s policy",
+  async (permissionProfile) => {
+    const cwd = await mkdtemp(join(tmpdir(), "forge-p2-codex-"));
+    const clients: Client[] = [];
+    const app = new DesktopApplication({ FORGE_HOME: join(cwd, "home") }, cwd, {
+      connect: async () => {
+        const client = new Client();
+        client.turnStart = () => queueMicrotask(() => client.complete());
+        clients.push(client);
+        return client;
+      },
+    });
+    try {
+      await app.manage({ type: "workspace", cwd });
+      const state = await app.manage({ type: "create", prompt: "test" });
+      const catalog = await app.manage({ type: "models-refresh" });
+      expect(
+        catalog.modelCatalog?.find((x) => x.engine === "codex")?.efforts,
+      ).toEqual(["low"]);
+      await expect(
+        app.manage({
+          type: "model-save",
+          selection: {
+            engine: "codex",
+            provider: "openai",
+            model: "test",
+            effort: "high",
+          },
+        }),
+      ).rejects.toThrow("effort-unavailable");
+      const saved = await app.manage({
+        type: "model-save",
+        selection: {
+          engine: "codex",
+          provider: "openai",
+          model: "test",
+          effort: "low",
+        },
+      });
+      expect(saved.defaultSelection?.engine).toBe("codex");
+      await app.execute(
+        {
+          type: "start",
+          requestId: randomUUID(),
+          runId: randomUUID(),
+          sessionId: state.sessionId,
+          engine: "codex",
+          prompt: "test",
+          model: "test",
+          provider: "openai",
+          reasoningEffort: "low",
+          permissionProfile,
+        },
+        {
+          signal: new AbortController().signal,
+          text: () => {},
+          detail: () => {},
+          approve: async () => false,
+        },
+      );
+      const request = clients
+        .flatMap((c) => c.requests)
+        .find((x) => x.method === "thread/start");
+      expect(request?.params).toMatchObject({
+        sandbox: permissionProfile === "safe" ? "read-only" : "workspace-write",
+        approvalPolicy: permissionProfile === "safe" ? "never" : "on-request",
+      });
+    } finally {
+      app.close();
+      await rm(cwd, { recursive: true, force: true });
+    }
+  },
+);

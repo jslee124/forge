@@ -70,6 +70,12 @@ async function run(
   application: DesktopApplication,
   sessionId: string,
   decision: "allow" | "deny" | "cancel" = "allow",
+  options: {
+    permissionProfile?: "safe" | "workspace-write";
+    model?: string;
+    provider?: string;
+    reasoningEffort?: string;
+  } = {},
 ) {
   const events: RunEvent[] = [];
   const channel = new RunChannel((command) => service.handle(command));
@@ -102,6 +108,7 @@ async function run(
       type: "start",
       prompt: "test",
       engine: "native",
+      ...options,
     }),
   ).toBe(true);
   const final = await completed;
@@ -420,13 +427,133 @@ describe("desktop native execution", () => {
   });
 });
 
-it("resets the backend session without deleting saved history", async () => {
-  const { application, sessionId } = await fixture([]);
-  await run(application, sessionId);
-  const reset = await application.manage({ type: "reset" });
-  expect(reset.sessionId).toBe("");
-  expect(reset.messages).toEqual([]);
-  expect((await application.state()).sessionId).toBe("");
-  const resumed = await application.manage({ type: "resume", sessionId });
-  expect(resumed.sessionId).toBe(sessionId);
+it.each(["new", "clear"] as const)(
+  "%s resets backend state and retains saved history without grants",
+  async (mode) => {
+    const { application, sessionId } = await fixture([]);
+    await run(application, sessionId);
+    const reset = await application.manage({ type: "reset", mode });
+    expect(reset.sessionId).toBe("");
+    expect(reset.messages).toEqual([]);
+    expect(reset.permissionGrants).toEqual([]);
+    expect((await application.state()).sessionId).toBe("");
+    const resumed = await application.manage({ type: "resume", sessionId });
+    expect(resumed.sessionId).toBe(sessionId);
+  },
+);
+
+it("compact preview performs no snapshot write and detects revision conflicts", async () => {
+  const f = await fixture([
+    [
+      { type: "text.delta", text: "older history ".repeat(6000) },
+      finish("stop"),
+    ],
+  ]);
+  await run(f.application, f.sessionId);
+  await run(f.application, f.sessionId);
+  await run(f.application, f.sessionId);
+  const file = join(f.env.FORGE_HOME, "sessions", `${f.sessionId}.json`);
+  const before = await readFile(file, "utf8");
+  const preview = await f.application.manage({ type: "compact", dryRun: true });
+  expect(preview.operationResult).toContain("Compaction preview");
+  expect(await readFile(file, "utf8")).toBe(before);
+  const compacted = await f.application.manage({
+    type: "compact",
+    dryRun: false,
+  });
+  expect(compacted.operationResult).toContain("Context compacted");
+  expect(compacted.messages).toEqual(preview.messages);
+  await writeFile(file, (await readFile(file, "utf8")) + "\n");
+  await expect(
+    f.application.manage({ type: "compact", dryRun: true }),
+  ).rejects.toThrow("session-conflict");
+  f.application.close();
+});
+it("validates and persists defaults, rejects invalid models and effort without writing", async () => {
+  const f = await fixture([]);
+  const saved = await f.application.manage({
+    type: "model-save",
+    selection: {
+      engine: "native",
+      provider: "deepseek",
+      model: "deepseek-v4-pro",
+      effort: "low",
+    },
+  });
+  expect(saved.defaultSelection).toMatchObject({
+    model: "deepseek-v4-pro",
+    effort: "low",
+  });
+  await expect(
+    f.application.manage({
+      type: "model-save",
+      selection: {
+        engine: "native",
+        provider: "deepseek",
+        model: "unknown",
+        effort: "low",
+      },
+    }),
+  ).rejects.toThrow("model-unavailable");
+  await expect(
+    f.application.manage({
+      type: "model-save",
+      selection: {
+        engine: "native",
+        provider: "deepseek",
+        model: "deepseek-v4-pro",
+        effort: "ultra",
+      },
+    }),
+  ).rejects.toThrow("effort-unavailable");
+  expect((await f.application.state()).defaultSelection).toEqual(
+    saved.defaultSelection,
+  );
+  const invalid = await run(f.application, f.sessionId, "allow", {
+    model: "unknown",
+  });
+  expect(invalid.final.payload).toMatchObject({ outcome: "failed" });
+  expect(f.requests).toHaveLength(0);
+  f.application.close();
+});
+it("workspace-write permits workspace edits but does not create reusable grants", async () => {
+  const f = await fixture([
+    [
+      call("edit_file", {
+        operation: "create",
+        path: "auto.txt",
+        content: "ok",
+      }),
+      finish("tool-calls"),
+    ],
+  ]);
+  const result = await run(f.application, f.sessionId, "deny", {
+    permissionProfile: "workspace-write",
+  });
+  expect(await readFile(join(f.cwd, "auto.txt"), "utf8")).toBe("ok");
+  expect(
+    result.events.filter((e) => e.payload.type === "approval"),
+  ).toHaveLength(0);
+  expect((await f.application.state()).permissionGrants).toEqual([]);
+  f.application.close();
+});
+
+it("workspace-write still requires approval for process execution", async () => {
+  const f = await fixture([
+    [
+      call("run_command", {
+        program: "node",
+        args: ["-e", "process.stdout.write('denied')"],
+      }),
+      finish("tool-calls"),
+    ],
+  ]);
+  const result = await run(f.application, f.sessionId, "deny", {
+    permissionProfile: "workspace-write",
+  });
+  expect(
+    result.events.filter((e) => e.payload.type === "approval"),
+  ).toHaveLength(1);
+  expect((await f.application.state()).permissionGrants).toEqual([]);
+  f.application.close();
 });

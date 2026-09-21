@@ -1,6 +1,9 @@
 import { ArrowUp } from "@phosphor-icons/react/ArrowUp";
 import { useTranslation } from "react-i18next";
-import type { DesktopState } from "../../shared/application-protocol.js";
+import type {
+  DesktopState,
+  ModelSelection,
+} from "../../shared/application-protocol.js";
 import { ComposerContext } from "./composer-context.js";
 import { ModelSelector } from "./model-selector.js";
 export function ComposerControls({
@@ -12,7 +15,10 @@ export function ComposerControls({
   busy,
   importFile,
   onEngineChange,
-  setModel,
+  selection,
+  onSelection,
+  onRefresh,
+  onSave,
   active,
   status,
   cancel,
@@ -27,7 +33,10 @@ export function ComposerControls({
   busy: boolean;
   importFile: () => Promise<void>;
   onEngineChange: (engine: "native" | "codex") => void;
-  setModel: (model: string) => void;
+  selection: ModelSelection | undefined;
+  onSelection: (value: ModelSelection) => void;
+  onRefresh: () => Promise<void>;
+  onSave: (value: ModelSelection) => Promise<boolean>;
   active: boolean;
   status: string;
   cancel: () => Promise<void>;
@@ -51,7 +60,10 @@ export function ComposerControls({
         model={model}
         busy={busy}
         onEngineChange={onEngineChange}
-        setModel={setModel}
+        selection={selection}
+        onSelection={onSelection}
+        onRefresh={onRefresh}
+        onSave={onSave}
       />
       <span className="studio-shortcut">⌘ / Ctrl ↵</span>
       {active ? (

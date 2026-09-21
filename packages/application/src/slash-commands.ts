@@ -128,6 +128,7 @@ export const EFFORT_ARGUMENTS = [
   "high",
   "xhigh",
   "max",
+  "ultra",
 ] as const;
 /** Command spelling matches TUI; effort values alone are case insensitive. */
 export function parseSlashCommand(input: string): ParsedSlash {

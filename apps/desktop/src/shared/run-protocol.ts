@@ -11,6 +11,8 @@ export type RunCommand = RunIdentity & { readonly requestId: string } & (
         readonly prompt: string;
         readonly engine: "native" | "codex";
         readonly model?: string;
+        readonly provider?: string;
+        readonly reasoningEffort?: string;
         readonly permissionProfile?: "safe" | "workspace-write";
       }
     | { readonly type: "cancel" }
@@ -64,6 +66,8 @@ type WireRecord = Record<string, unknown> &
       | "description"
       | "outcome"
       | "ok"
+      | "provider"
+      | "reasoningEffort"
       | "model"
       | "permissionProfile",
       unknown
@@ -97,12 +101,30 @@ export function parseRunCommand(value: unknown): RunCommand | undefined {
       "prompt",
       "engine",
       ...(value.model === undefined ? [] : ["model"]),
+      ...(value.provider === undefined ? [] : ["provider"]),
+      ...(value.reasoningEffort === undefined ? [] : ["reasoningEffort"]),
       ...(value.permissionProfile === undefined ? [] : ["permissionProfile"]),
     ]) &&
     (value.model === undefined ||
       (typeof value.model === "string" &&
         value.model.length > 0 &&
         value.model.length <= 256)) &&
+    (value.provider === undefined ||
+      (typeof value.provider === "string" &&
+        value.provider.length > 0 &&
+        value.provider.length <= 256)) &&
+    (value.reasoningEffort === undefined ||
+      (typeof value.reasoningEffort === "string" &&
+        [
+          "none",
+          "minimal",
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max",
+          "ultra",
+        ].includes(value.reasoningEffort))) &&
     (value.permissionProfile === undefined ||
       value.permissionProfile === "safe" ||
       value.permissionProfile === "workspace-write") &&

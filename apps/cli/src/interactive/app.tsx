@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { BUILTIN_NATIVE_MODELS } from "@forge/application";
 import {
   type ApiKeyProvider,
   AuthenticationManager,
@@ -448,63 +449,18 @@ const STANDARD_EFFORTS: readonly EffortChoice[] = [
   { effort: "max", description: "Maximum" },
 ];
 
-const MODEL_CHOICES: readonly ModelChoice[] = [
-  {
-    label: "DeepSeek V4 Flash",
-    description: "DeepSeek API",
-    selection: {
-      engine: "forge",
-      provider: "deepseek",
-      id: "deepseek-v4-flash",
-    },
+const MODEL_CHOICES: readonly ModelChoice[] = BUILTIN_NATIVE_MODELS.map(
+  (model) => ({
+    label: model.label,
+    description:
+      model.provider === "openai"
+        ? "OpenAI API key · separately billed"
+        : "DeepSeek API",
+    selection: { engine: "forge", provider: model.provider, id: model.id },
     supportedReasoningEfforts: STANDARD_EFFORTS,
-    defaultReasoningEffort: "medium",
-  },
-  {
-    label: "DeepSeek V4 Pro",
-    description: "DeepSeek API",
-    selection: {
-      engine: "forge",
-      provider: "deepseek",
-      id: "deepseek-v4-pro",
-    },
-    supportedReasoningEfforts: STANDARD_EFFORTS,
-    defaultReasoningEffort: "medium",
-  },
-  {
-    label: "GPT-5.4 mini",
-    description: "OpenAI API key · separately billed",
-    selection: {
-      engine: "forge",
-      provider: "openai",
-      id: "gpt-5.4-mini",
-    },
-    supportedReasoningEfforts: STANDARD_EFFORTS,
-    defaultReasoningEffort: "low",
-  },
-  {
-    label: "GPT-5.4",
-    description: "OpenAI API key · separately billed",
-    selection: {
-      engine: "forge",
-      provider: "openai",
-      id: "gpt-5.4",
-    },
-    supportedReasoningEfforts: STANDARD_EFFORTS,
-    defaultReasoningEffort: "high",
-  },
-  {
-    label: "DeepSeek V4 Flash Vision Experimental",
-    description: "DeepSeek API",
-    selection: {
-      engine: "forge",
-      provider: "deepseek",
-      id: "deepseek-v4-flash-vision-exp",
-    },
-    supportedReasoningEfforts: STANDARD_EFFORTS,
-    defaultReasoningEffort: "medium",
-  },
-];
+    defaultReasoningEffort: model.defaultEffort,
+  }),
+);
 
 export interface InteractiveUiDependencies {
   readonly env: NodeJS.ProcessEnv;

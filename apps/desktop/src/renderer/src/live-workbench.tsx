@@ -11,6 +11,7 @@ import { useTranslation } from "react-i18next";
 import type {
   DesktopState,
   ManagementCommand,
+  ModelSelection,
 } from "../../shared/application-protocol.js";
 import type { ChangeReview, FilePreview } from "../../shared/file-protocol.js";
 import type { RunEvent } from "../../shared/run-protocol.js";
@@ -34,6 +35,8 @@ export function LiveWorkbench(): React.JSX.Element {
   const [drafts, setDrafts] = React.useState<Record<string, string>>({});
   const [engine, setEngine] = React.useState<"native" | "codex">("native");
   const [model, setModel] = React.useState("");
+  const [selection, setSelection] = React.useState<ModelSelection>();
+  const [sessionQuery, setSessionQuery] = React.useState("");
   const [permission, setPermission] = React.useState<
     "safe" | "workspace-write"
   >("safe");
@@ -63,11 +66,19 @@ export function LiveWorkbench(): React.JSX.Element {
   const scope = `${state?.sessionId ?? ""}:${state?.cwd ?? ""}`;
   const scopeRef = React.useRef(scope);
   scopeRef.current = scope;
+  const previousSelectionScope = React.useRef(scope);
   // biome-ignore lint/correctness/useExhaustiveDependencies: Changing tasks must invalidate the previous task's artifact state.
   React.useEffect(() => {
     setFilePath("");
     setFilePreview(undefined);
     setReview(undefined);
+    const previous = previousSelectionScope.current;
+    previousSelectionScope.current = scope;
+    if (!(previous.startsWith(":") && !scope.startsWith(":"))) {
+      setSelection(undefined);
+      setModel("");
+      setPermission("safe");
+    }
   }, [scope]);
   const key = state?.sessionId || `new:${state?.cwd ?? ""}`;
   const draft = drafts[key] ?? "";
@@ -109,7 +120,17 @@ export function LiveWorkbench(): React.JSX.Element {
     void api
       .manage({ type: "state" })
       .then((next) => {
-        if (!disposed) setState(next);
+        if (!disposed) {
+          setState(next);
+          if (next.defaultSelection) {
+            setEngine(next.defaultSelection.engine);
+            setPermission(
+              next.defaultSelection.engine === "codex"
+                ? "workspace-write"
+                : "safe",
+            );
+          }
+        }
       })
       .catch(() => {
         if (!disposed) setError("management-failed");
@@ -204,8 +225,8 @@ export function LiveWorkbench(): React.JSX.Element {
       setPending(false);
     }
   };
-  const newTask = async () => {
-    const next = await manage({ type: "reset" });
+  const newTask = async (mode: "new" | "clear" = "new") => {
+    const next = await manage({ type: "reset", mode });
     if (!next) return false;
     setPrompt("");
     setAnswer("");
@@ -255,12 +276,64 @@ export function LiveWorkbench(): React.JSX.Element {
       return;
     }
     setLiteralOffer(false);
+    if (result.kind === "effort") {
+      const current =
+        selection ??
+        (state?.defaultSelection?.engine === engine
+          ? state.defaultSelection
+          : undefined);
+      const entry = state?.modelCatalog?.find(
+        (x) =>
+          x.engine === engine &&
+          x.provider === current?.provider &&
+          x.id === current?.model,
+      );
+      if (!result.value) {
+        document
+          .querySelector<HTMLButtonElement>("[data-testid=composer-model]")
+          ?.click();
+        clear();
+        return;
+      }
+      if (!current || !entry?.efforts.includes(result.value)) {
+        setNotice(
+          zh
+            ? "当前模型不支持此强度，请先选择模型。"
+            : "Effort unavailable. Select a supported model first.",
+        );
+        return;
+      }
+      const value = {
+        ...current,
+        effort: result.value as NonNullable<ModelSelection["effort"]>,
+      };
+      commandPending.current = true;
+      try {
+        const next = await manage({ type: "model-save", selection: value });
+        if (next) {
+          setSelection(value);
+          setModel(value.model);
+          setNotice(next.operationResult || "");
+          clear();
+        }
+      } finally {
+        commandPending.current = false;
+      }
+      return;
+    }
     if (result.kind === "read") {
       setNotice(
         result.target === "help"
           ? commands.map(([n, cn, en]) => `/${n}  ${zh ? cn : en}`).join("\n")
           : state?.context || (zh ? "尚无上下文" : "No context"),
       );
+      if (result.target === "context") {
+        const details = document.querySelector<HTMLDetailsElement>(
+          ".studio-context-usage",
+        );
+        if (details) details.open = true;
+        setNotice("");
+      }
       clear();
       composerRef.current?.focus();
       return;
@@ -269,11 +342,11 @@ export function LiveWorkbench(): React.JSX.Element {
       commandPending.current = true;
       try {
         if (result.target === "reset") {
-          if (await newTask()) clear();
+          if (await newTask(result.mode)) clear();
         } else {
-          const next = await manage({ type: "compact" });
+          const next = await manage({ type: "compact", dryRun: result.dryRun });
           if (next) {
-            setNotice(next.context);
+            setNotice(next.operationResult || next.context);
             clear();
           }
         }
@@ -287,19 +360,25 @@ export function LiveWorkbench(): React.JSX.Element {
     if (result.target === "settings") setSettings(true);
     else if (result.target === "resume") {
       setSidebarOpen(true);
+      requestAnimationFrame(() =>
+        document
+          .querySelector<HTMLInputElement>("[data-testid=session-search]")
+          ?.focus(),
+      );
       setNotice(
         zh ? "从左侧选择要恢复的任务。" : "Select a saved task in the sidebar.",
       );
     } else if (result.target === "exit") window.close();
-    else
+    else if (result.target === "permissions") {
+      const details = document.querySelector<HTMLDetailsElement>(
+        ".studio-permissions-details",
+      );
+      if (details) details.open = true;
+    } else
       requestAnimationFrame(() =>
         document
-          .querySelector<HTMLElement>(
-            result.target === "model"
-              ? "[data-testid=composer-model]"
-              : ".studio-permission select",
-          )
-          ?.focus(),
+          .querySelector<HTMLButtonElement>("[data-testid=composer-model]")
+          ?.click(),
       );
   };
   const send = async (literal = false) => {
@@ -309,6 +388,18 @@ export function LiveWorkbench(): React.JSX.Element {
       return;
     }
     if (busy || commandPending.current) return;
+    if (
+      engine === "native" &&
+      !selection &&
+      state?.defaultSelection?.engine === "codex"
+    ) {
+      setNotice(
+        zh
+          ? "请选择 Forge 模型后再发送。"
+          : "Select a Forge model before sending.",
+      );
+      return;
+    }
     setLiteralOffer(false);
     setPending(true);
     setError("");
@@ -334,7 +425,17 @@ export function LiveWorkbench(): React.JSX.Element {
         prompt: draft,
         engine,
         permissionProfile: permission,
-        ...(model ? { model } : {}),
+        ...(selection
+          ? {
+              model: selection.model,
+              provider: selection.provider,
+              ...(selection.effort
+                ? { reasoningEffort: selection.effort }
+                : {}),
+            }
+          : model
+            ? { model }
+            : {}),
       });
       if (!accepted) {
         activeRef.current = undefined;
@@ -428,37 +529,70 @@ export function LiveWorkbench(): React.JSX.Element {
             {t("live.new")}
           </button>
           <p className="studio-section-label">{t("common.recentTasks")}</p>
+          <input
+            data-testid="session-search"
+            aria-label={zh ? "搜索历史任务" : "Search saved tasks"}
+            placeholder={zh ? "搜索任务" : "Search tasks"}
+            value={sessionQuery}
+            onChange={(e) => setSessionQuery(e.target.value)}
+          />
           <div className="live-sessions">
+            {sessionQuery &&
+              !state?.sessions.some((session) =>
+                `${session.title} ${session.cwd ?? ""}`
+                  .toLowerCase()
+                  .includes(sessionQuery.toLowerCase()),
+              ) && <p>{zh ? "没有匹配任务" : "No matching tasks"}</p>}
             {!state?.sessions.length && (
               <p className="studio-empty-list">{t("studio.noTasks")}</p>
             )}
-            {state?.sessions.map((session) => (
-              <button
-                type="button"
-                key={session.id}
-                data-session-id={session.id}
-                aria-current={
-                  session.id === state?.sessionId && !settings
-                    ? "page"
-                    : undefined
-                }
-                title={session.title}
-                disabled={busy}
-                onClick={() => {
-                  void manage({ type: "resume", sessionId: session.id });
-                  setPanel(true);
-                  setPanelTab("files");
-                  setStatus("ready");
-                  setSettings(false);
-                  setDetails([]);
-                  setPrompt("");
-                  setAnswer("");
-                }}
-              >
-                <ChatCircle size={16} />
-                <span>{session.title}</span>
-              </button>
-            ))}
+            {state?.sessions
+              .filter((session) =>
+                `${session.title} ${session.cwd ?? ""}`
+                  .toLowerCase()
+                  .includes(sessionQuery.toLowerCase()),
+              )
+              .map((session) => (
+                <button
+                  type="button"
+                  key={session.id}
+                  data-session-id={session.id}
+                  aria-current={
+                    session.id === state?.sessionId && !settings
+                      ? "page"
+                      : undefined
+                  }
+                  title={`${session.title} · ${session.cwd ?? ""}`}
+                  disabled={busy}
+                  onClick={async () => {
+                    if (session.cwd && state?.cwd && session.cwd !== state.cwd)
+                      setNotice(
+                        zh
+                          ? `恢复任务的工作区：${session.cwd}`
+                          : `Resuming workspace: ${session.cwd}`,
+                      );
+                    const next = await manage({
+                      type: "resume",
+                      sessionId: session.id,
+                    });
+                    if (!next) return;
+                    setSelection(undefined);
+                    setModel("");
+                    setPermission("safe");
+                    setPanel(true);
+                    setPanelTab("files");
+                    setStatus("ready");
+                    setSettings(false);
+                    setDetails([]);
+                    setPrompt("");
+                    setAnswer("");
+                    setApproval(undefined);
+                  }}
+                >
+                  <ChatCircle size={16} />
+                  <span>{session.title}</span>
+                </button>
+              ))}
           </div>
           <button
             data-testid="settings"
@@ -709,11 +843,26 @@ export function LiveWorkbench(): React.JSX.Element {
                   onEngineChange={(value) => {
                     setEngine(value);
                     setModel("");
+                    setSelection(undefined);
                     setPermission(
                       value === "codex" ? "workspace-write" : "safe",
                     );
                   }}
-                  setModel={setModel}
+                  selection={selection}
+                  onSelection={(value) => {
+                    setSelection(value);
+                    setModel(value.model);
+                  }}
+                  onRefresh={async () => {
+                    await manage({
+                      type: engine === "codex" ? "models-refresh" : "state",
+                    });
+                  }}
+                  onSave={async (value) =>
+                    Boolean(
+                      await manage({ type: "model-save", selection: value }),
+                    )
+                  }
                   active={Boolean(active)}
                   status={status}
                   cancel={cancel}

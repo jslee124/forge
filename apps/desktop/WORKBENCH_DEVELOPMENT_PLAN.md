@@ -4,6 +4,18 @@ Date: 2026-09-15. Development plan, not a shipped-feature declaration.
 
 [中文（详细任务说明）](WORKBENCH_DEVELOPMENT_PLAN.zh-CN.md) · [UX specification](WORKBENCH_UX_PLAN.md) · [Visual QA](design-qa.md)
 
+## P2 progress (2026-09-21)
+
+W08–W13 complete. New and clear reset the active conversation while retaining saved history. Desktop approvals are allow-once and no reusable session grants are stored, so both commands leave an empty grant list; the permissions view explains this instead of offering a fictitious revoke action. The composer policy controls the next run.
+
+Compact now executes dry-run and real compaction through the session service, returns results, and rejects revision conflicts. Dry-run leaves snapshots unchanged; compaction preserves canonical messages. The context ring and /context share details, refresh time and estimate provenance; unavailable Codex usage remains unknown.
+
+The searchable model picker uses shared native/configured metadata and Codex discovery, validates model/effort combinations, and distinguishes temporary task selection from explicit default saving. /effort with an argument saves the default, matching TUI behavior. Built-in entries were consolidated from existing code, not independently verified as live provider capabilities. History search matches title and workspace; resume retains the canonical workspace boundary and clears transient state only after success.
+
+Validation: 118 related tests passed, six opt-in live tests skipped; 27 Agent/Codex tests passed again after the final default-selection guard. Root check, desktop build, 71 deterministic evaluations and packed-install verification passed. Electron completed 32 captures with model, context and permissions checks. See [QA](design-qa.md). No live-provider proof, installed-app update, commit or release is claimed.
+
+Next is P3 (W14–W17): management commands and Settings. Login/logout, model deletion, plugins/resources and platform exit handling still require their own acceptance; full sixteen-command parity is not claimed.
+
 ## P1 progress (2026-09-20)
 
 W04–W07 complete. The sixteen-entry registry and argument parser now live in private `@forge/application/slash-commands`. CLI retains compatibility exports and uses the parser; desktop help/menu share the catalog with platform-specific availability labels.
@@ -95,4 +107,4 @@ Each stage supplies change summary, relevant tests, screenshots for visual chang
 
 Commits/merges, replacing the installed App, signing, notarization, publication and new /plan or /goal modes are not automatic parts of this plan. Release requests need a separate release checklist.
 
-P1 is complete. Continue with P2 (W08–W13), covering sessions, permissions and models. Require working behavior at each gate rather than more entry points or static screenshots.
+P2 is complete. Continue with P3 (W14–W17), covering management commands and Settings. Require working behavior at each gate rather than more entry points or static screenshots.

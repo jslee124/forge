@@ -61,7 +61,7 @@ describe("shared command contract", () => {
     expect(completeSlashCommand("/effort h").map((x) => x.name)).toEqual([
       "/effort high",
     ]);
-    expect(completeSlashCommand("/effort ")).toHaveLength(7);
+    expect(completeSlashCommand("/effort ")).toHaveLength(8);
     expect(completeSlashCommand("/src/file.ts")).toEqual([]);
   });
   it("returns local results and blocks mutations during runs", () => {
@@ -82,11 +82,20 @@ describe("shared command contract", () => {
         reason: "busy",
       });
     expect(routeCommand("/update-dismiss", false).kind).toBe("not-applicable");
-    for (const input of ["/compact --dry-run", "/effort high", "/resources"])
+    for (const input of ["/resources"])
       expect(routeCommand(input, false)).toEqual({
         kind: "error",
         reason: "unsupported",
       });
+    expect(routeCommand("/compact --dry-run", false)).toEqual({
+      kind: "manage",
+      target: "compact",
+      dryRun: true,
+    });
+    expect(routeCommand("/effort high", false)).toEqual({
+      kind: "effort",
+      value: "high",
+    });
     expect(routeCommand("/model", false)).toEqual({
       kind: "open",
       target: "model",
@@ -94,6 +103,7 @@ describe("shared command contract", () => {
     expect(routeCommand("/clear", false)).toEqual({
       kind: "manage",
       target: "reset",
+      mode: "clear",
     });
     expect(routeCommand("/context", false)).toEqual({
       kind: "read",

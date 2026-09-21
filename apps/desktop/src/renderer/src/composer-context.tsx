@@ -1,3 +1,4 @@
+import { Info } from "@phosphor-icons/react/Info";
 import { Plus } from "@phosphor-icons/react/Plus";
 import { ShieldCheck } from "@phosphor-icons/react/ShieldCheck";
 import type { CSSProperties } from "react";
@@ -61,7 +62,20 @@ export function ComposerContext({
           </option>
         </select>
       </label>
-      <details className="studio-context-popover">
+      <details className="studio-permissions-details studio-context-popover">
+        <summary aria-label={zh ? "会话授权详情" : "Session grants"}>
+          <Info size={16} />
+        </summary>
+        <div>
+          <strong>{zh ? "会话授权" : "Session grants"}</strong>
+          <p>
+            {zh
+              ? "桌面审批仅对单次操作生效，不保存跨运行授权；当前没有可撤销的会话授权。权限下拉框设置下一次运行的策略，不能代替操作审批。"
+              : "Desktop approvals apply once and are not retained across runs. There are no session grants to revoke. The policy selector controls the next run, separately from individual approvals."}
+          </p>
+        </div>
+      </details>
+      <details className="studio-context-popover studio-context-usage">
         <summary
           title={
             usage
@@ -83,9 +97,10 @@ export function ComposerContext({
           <strong>{zh ? "上下文" : "Context"}</strong>
           <p>
             {zh
-              ? "当前估算，不包含尚未发送的草稿。"
-              : "Current estimate, excluding the unsent draft."}
+              ? "Forge transcript 预算估算，不含草稿；运行完成、恢复或压缩后刷新。"
+              : "Forge transcript estimate, excluding draft; refreshed after runs, resume or compaction."}
           </p>
+          <p>{state?.contextUpdatedAt}</p>
           {usage && <progress max={usage.total} value={usage.used} />}
           <pre>
             {engine === "codex"

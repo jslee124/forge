@@ -173,3 +173,15 @@ The desktop now consumes the shared command registry/parser used by TUI. Command
 Actual Electron acceptance passed 29 captures plus assertions for navigating to option 16 with scroll visibility, Escape focus retention, compact argument completion with Tab, invalid command draft retention and explicit message escape, and IME Enter protection. Inspected [command menu](design/p1-validation/commands-light.png); [manifest](design/p1-validation/ui.json). Existing task draft, theme, panel and engine checks also passed. No provider calls.
 
 Validation: 112 related tests passed and six opt-in live tests skipped, including catalog equality, argument/case rules, local routing, busy mutation rejection at the Agent, CLI interaction regression and desktop tests. Root check, desktop build, 71 deterministic evaluations and packed-install verification passed. Formatted the earlier P0 comparison JSON to satisfy the root formatter; evidence values are unchanged. No release or commit.
+
+## P2 sessions, permissions and models — 2026-09-21
+
+W08–W13 complete; see the [development record](WORKBENCH_DEVELOPMENT_PLAN.md). Actual Electron acceptance completed 32 captures and retained existing theme, panel, draft, keyboard and IME assertions. Added compact dry-run local-result, permissions detail, context detail, model search empty-state and popup-bound checks. The first capture exposed popup clipping; anchoring popovers to the composer corrected it, and the final captures below were inspected. [Full run manifest](design/p2-validation/ui.json); only the three new detail captures are retained here, while the earlier baseline images remain above.
+
+![Searchable model and effort selection](design/p2-validation/models-light.png)
+![Context details](design/p2-validation/context-light.png)
+![Permission policy and grant explanation](design/p2-validation/permissions-light.png)
+
+Regression coverage includes new/clear history retention, empty session grants, dry-run snapshot immutability, canonical history preservation, compact revision conflicts, invalid model/effort rejection, default persistence, and separate native/Codex policy propagation. Native workspace-write permits workspace editing but still requests approval for process execution. Codex tests inspect App Server requests using a fixture; they are not live provider evidence.
+
+Validation: 118 related tests passed, six opt-in live tests skipped; 27 Agent/Codex tests passed again after the final saved-default guard. Root check, desktop production build, 71 deterministic evaluations, documentation checks and packed CLI install verification passed. Non-blocking lint diagnostics remain. No live model calls, installed desktop update, commit or publication. P3 management acceptance remains pending.

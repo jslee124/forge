@@ -13,11 +13,14 @@ import {
   createPersistentInteractiveSession,
   discoverCodexModels,
   loadForgeConfig,
+  type ModelCatalogEntry,
+  nativeModelCatalog,
   type PersistentInteractiveSession,
   type RunDependencies,
   runCodexAuthCommand,
   runCodexTask,
   runTask,
+  saveUserModelSelection,
 } from "@forge/application";
 import { CodexAppServerClient } from "@forge/codex-app-server";
 import { canonicalText, type RunEvent, type RunResult } from "@forge/core";
@@ -29,6 +32,7 @@ import {
 import type {
   DesktopState,
   ManagementCommand,
+  ModelSelection,
 } from "../shared/application-protocol.js";
 import type { RunExecutor } from "./run-service.js";
 import { WebPluginSettings } from "./web-plugin-settings.js";
@@ -50,9 +54,13 @@ export class DesktopApplication {
   #loginUrl = "";
   #loginCode = "";
   #models: string[] = [];
+  #codexCatalog: ModelCatalogEntry[] = [];
+  #catalogError = "";
+  #operationResult = "";
   #login: AbortController | undefined;
   readonly #clients = new Set<CodexClient>();
   #busy = false;
+  #managementBusy = false;
   #revision = "";
   constructor(
     env: NodeJS.ProcessEnv,
@@ -78,12 +86,30 @@ export class DesktopApplication {
         this.#env,
         this.#cwd || this.#initialCwd,
       ).state(),
+      modelCatalog: [
+        ...nativeModelCatalog(loaded.config.providers),
+        ...this.#codexCatalog,
+      ],
+      modelCatalogError: this.#catalogError,
+      defaultSelection: {
+        engine: loaded.config.model.engine === "codex" ? "codex" : "native",
+        provider: loaded.config.model.provider,
+        model: loaded.config.model.id,
+        effort: loaded.config.model.reasoningEffort,
+      },
+      operationResult: this.#operationResult,
+      permissionGrants: [],
+      contextUpdatedAt: new Date().toISOString(),
       forgeHome: this.#home,
       cwd: this.#cwd,
       sessionId: this.#session?.sessionId ?? "",
       model: loaded.config.model.id,
       provider: loaded.config.model.provider,
-      sessions: sessions.map((s) => ({ id: s.id, title: s.title })),
+      sessions: sessions.map((s) => ({
+        id: s.id,
+        title: s.title,
+        cwd: s.workingDirectory,
+      })),
       messages: (this.#session?.messages ?? []).flatMap((m, index) =>
         m.role === "tool"
           ? []
@@ -112,13 +138,95 @@ export class DesktopApplication {
       codexModels: this.#models,
     };
   }
+  async #refreshModels() {
+    this.#catalogError = "";
+    try {
+      const models = await discoverCodexModels(
+        this.#codexDependencies(new AbortController().signal),
+      );
+      this.#models = models.map((x) => x.id);
+      this.#codexCatalog = models.map((x) => ({
+        engine: "codex",
+        provider: "openai",
+        id: x.id,
+        label: x.displayName,
+        efforts: x.supportedReasoningEfforts.map((e) => e.reasoningEffort),
+        defaultEffort: x.defaultReasoningEffort,
+      }));
+    } catch {
+      this.#models = [];
+      this.#codexCatalog = [];
+      this.#catalogError = "codex-models-unavailable";
+    }
+  }
+  async #validateSelection(selection: ModelSelection) {
+    const loaded = await loadForgeConfig({
+      env: this.#env,
+      cwd: this.#cwd || this.#initialCwd,
+    });
+    if (selection.engine === "codex" && !this.#codexCatalog.length)
+      await this.#refreshModels();
+    const entry = [
+      ...nativeModelCatalog(loaded.config.providers),
+      ...this.#codexCatalog,
+    ].find(
+      (x) =>
+        x.engine === selection.engine &&
+        x.provider === selection.provider &&
+        x.id === selection.model,
+    );
+    if (!entry) throw new Error("model-unavailable");
+    if (selection.effort && !entry.efforts.includes(selection.effort))
+      throw new Error("effort-unavailable");
+    return entry;
+  }
   async manage(command: ManagementCommand): Promise<DesktopState> {
+    if (command.type === "state" || command.type === "cancel-login")
+      return this.#manage(command);
+    if (this.#managementBusy || this.#busy) throw new Error("busy");
+    this.#managementBusy = true;
+    try {
+      return await this.#manage(command);
+    } finally {
+      this.#managementBusy = false;
+    }
+  }
+  async #manage(command: ManagementCommand): Promise<DesktopState> {
     if (command.type === "state") return this.state();
     if (command.type === "cancel-login") {
       this.#login?.abort();
       return this.state();
     }
     if (this.#busy) throw new Error("busy");
+    this.#operationResult = "";
+    if (command.type === "models-refresh") {
+      await this.#refreshModels();
+      return this.state();
+    }
+    if (command.type === "model-save") {
+      await this.#validateSelection(command.selection);
+      const value = command.selection;
+      await saveUserModelSelection({
+        cwd: this.#cwd || this.#initialCwd,
+        env: this.#env,
+        selection: {
+          engine: value.engine === "native" ? "forge" : "codex",
+          provider: value.provider,
+          id: value.model,
+          ...(value.effort
+            ? {
+                reasoningEffort: value.effort,
+                thinking:
+                  value.effort === "none"
+                    ? ("disabled" as const)
+                    : ("enabled" as const),
+              }
+            : {}),
+        },
+      });
+      this.#operationResult = "Default model saved";
+      return this.state();
+    }
     if (
       command.type === "web-install" ||
       command.type === "web-enable" ||
@@ -218,7 +326,7 @@ export class DesktopApplication {
       try {
         if ((await snapshotHash(file)) !== this.#revision)
           throw new Error("session-conflict");
-        await session.compact(false);
+        this.#operationResult = await session.compact(command.dryRun ?? false);
         this.#revision = await snapshotHash(file);
       } finally {
         await handle.close();
@@ -243,7 +351,19 @@ export class DesktopApplication {
         this.#models = [];
         if (this.#auth === "authenticated") {
           this.#models = await discoverCodexModels({ ...dependencies, client })
-            .then((models) => models.map((model) => model.id))
+            .then((models) => {
+              this.#codexCatalog = models.map((x) => ({
+                engine: "codex",
+                provider: "openai",
+                id: x.id,
+                label: x.displayName,
+                efforts: x.supportedReasoningEfforts.map(
+                  (e) => e.reasoningEffort,
+                ),
+                defaultEffort: x.defaultReasoningEffort,
+              }));
+              return models.map((model) => model.id);
+            })
             .catch(() => []);
         }
       } catch {
@@ -296,6 +416,7 @@ export class DesktopApplication {
   readonly execute: RunExecutor = async (request, context) => {
     if (
       this.#busy ||
+      this.#managementBusy ||
       !this.#session ||
       this.#session.sessionId !== request.sessionId
     )
@@ -329,12 +450,38 @@ export class DesktopApplication {
         kind: "tool" | "context" | "error" | "system" | "reasoning",
         text: string,
       ) => context.detail(kind, redact(text));
+      const matchingDefault =
+        (loaded.config.model.engine === "codex" ? "codex" : "native") ===
+        request.engine;
+      if (request.engine === "native" && !matchingDefault && !request.model)
+        throw new Error("model-required");
+      const model =
+        request.model ??
+        (request.engine === "codex" && matchingDefault
+          ? loaded.config.model.id
+          : undefined);
+      const effort =
+        request.reasoningEffort ??
+        (request.engine === "codex" &&
+        matchingDefault &&
+        (!request.model || request.model === loaded.config.model.id)
+          ? loaded.config.model.reasoningEffort
+          : undefined);
+      const provider =
+        request.provider ??
+        (request.engine === "codex" ? "openai" : loaded.config.model.provider);
+      if (model || request.provider || effort)
+        await this.#validateSelection({
+          engine: request.engine,
+          provider,
+          model: model ?? loaded.config.model.id,
+          ...(effort ? { effort: effort as ModelSelection["effort"] } : {}),
+        });
       await session.prepareRun(request.prompt);
       before = await snapshotHash(snapshotPath);
       this.#revision = before;
       if (context.signal.aborted) return;
       let result: RunResult | undefined;
-      const model = request.model;
       const { FORGE_DESKTOP_RESOURCE_ROOT: builtinResourceRoot } = this.#env;
       const shared = {
         env: this.#env,
@@ -343,14 +490,18 @@ export class DesktopApplication {
         stderr: { write: (text: string) => detail("error", text) },
       };
       if (request.engine === "native") {
-        session.selectModel(
-          loaded.config.model.provider,
-          model ?? loaded.config.model.id,
-        );
+        session.selectModel(provider, model ?? loaded.config.model.id);
         const code = await runTask(
           request.prompt,
           {
             ...(model ? { model } : {}),
+            ...(request.engine === "native" ? { provider } : {}),
+            ...(effort
+              ? {
+                  reasoningEffort: effort,
+                  thinking: effort === "none" ? "disabled" : "enabled",
+                }
+              : {}),
             permissionProfile: request.permissionProfile ?? "safe",
           },
           {
@@ -410,6 +561,12 @@ export class DesktopApplication {
           request.prompt,
           {
             ...(model ? { model } : {}),
+            ...(effort
+              ? {
+                  reasoningEffort: effort,
+                  thinking: effort === "none" ? "disabled" : "enabled",
+                }
+              : {}),
             permissionProfile: request.permissionProfile ?? "workspace-write",
           },
           {

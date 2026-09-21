@@ -276,6 +276,43 @@ export async function runUiAcceptance(
   await until(
     "document.querySelector('.live-composer textarea').value === '/help'",
   );
+  await click('[data-testid="settings"]');
+  await click(".theme-options button:nth-child(1)");
+  await click(".studio-back");
+  await enterDraft("/compact --dry-run");
+  await js(
+    `document.querySelector('.live-composer textarea').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',ctrlKey:true,bubbles:true}))`,
+  );
+  await until(
+    "document.querySelector('.studio-notice')?.textContent.includes('Compaction preview') && document.querySelector('.live-composer textarea').value === ''",
+  );
+  await enterDraft("/permissions");
+  await js(
+    `document.querySelector('.live-composer textarea').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}))`,
+  );
+  await until("document.querySelector('.studio-permissions-details').open");
+  await capture("permissions-light");
+  await js(`document.querySelector('.studio-permissions-details').open=false`);
+  await enterDraft("/context");
+  await js(
+    `document.querySelector('.live-composer textarea').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}))`,
+  );
+  await until("document.querySelector('.studio-context-usage').open");
+  await capture("context-light");
+  await js(`document.querySelector('.studio-context-usage').open=false`);
+  await click('[data-testid="composer-model"]');
+  await until("document.querySelector('.studio-model-popover')");
+  await until(
+    "(() => {const p=document.querySelector('.studio-model-popover').getBoundingClientRect();const m=document.querySelector('.live-main').getBoundingClientRect();return p.left>=m.left && p.right<=m.right && p.top>=0;})()",
+  );
+  await capture("models-light");
+  await js(
+    `(() => {const el=document.querySelector('.studio-model-popover input');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(el,'no-such-model');el.dispatchEvent(new Event('input',{bubbles:true}));})()`,
+  );
+  await until(
+    "document.querySelector('.studio-model-results').children.length === 0",
+  );
+  await click('[data-testid="composer-model"]');
   await writeFile(
     join(output, "ui.json"),
     `${JSON.stringify({ kind: "offline rendered UI with real IPC and file services; no model calls", results }, null, 2)}\n`,

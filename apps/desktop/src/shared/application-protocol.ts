@@ -2,9 +2,47 @@ import { z } from "zod";
 
 const id = z.string().regex(/^[a-zA-Z0-9_-]{1,128}$/);
 const text = z.string().max(100_000);
+export const modelEntrySchema = z.object({
+  engine: z.enum(["native", "codex"]),
+  provider: z.string().max(256),
+  id: z.string().min(1).max(256),
+  label: text,
+  efforts: z.array(z.string().max(32)),
+  defaultEffort: z.string().max(32),
+});
+export const selectionSchema = z
+  .object({
+    engine: z.enum(["native", "codex"]),
+    provider: z.string().min(1).max(256),
+    model: z.string().min(1).max(256),
+    effort: z
+      .enum([
+        "none",
+        "minimal",
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max",
+        "ultra",
+      ])
+      .optional(),
+  })
+  .strict();
+export type ModelSelection = z.infer<typeof selectionSchema>;
+
 export const managementCommandSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("state") }).strict(),
-  z.object({ type: z.literal("reset") }).strict(),
+  z
+    .object({
+      type: z.literal("reset"),
+      mode: z.enum(["new", "clear"]).optional(),
+    })
+    .strict(),
+  z.object({ type: z.literal("models-refresh") }).strict(),
+  z
+    .object({ type: z.literal("model-save"), selection: selectionSchema })
+    .strict(),
   z.object({ type: z.literal("web-install") }).strict(),
   z.object({ type: z.literal("web-enable"), enabled: z.boolean() }).strict(),
   z
@@ -23,7 +61,9 @@ export const managementCommandSchema = z.discriminatedUnion("type", [
     })
     .strict(),
   z.object({ type: z.literal("resume"), sessionId: id }).strict(),
-  z.object({ type: z.literal("compact") }).strict(),
+  z
+    .object({ type: z.literal("compact"), dryRun: z.boolean().optional() })
+    .strict(),
   z.object({ type: z.literal("auth-status") }).strict(),
   z.object({ type: z.literal("login") }).strict(),
   z.object({ type: z.literal("cancel-login") }).strict(),
@@ -42,12 +82,20 @@ export const desktopStateSchema = z
         provenance: text,
       })
       .optional(),
+    modelCatalog: z.array(modelEntrySchema).optional(),
+    modelCatalogError: text.optional(),
+    defaultSelection: selectionSchema.optional(),
+    operationResult: text.optional(),
+    contextUpdatedAt: z.string().optional(),
+    permissionGrants: z.array(z.never()).optional(),
     forgeHome: text,
     cwd: text,
     sessionId: z.string(),
     model: text,
     provider: text,
-    sessions: z.array(z.object({ id, title: text })).max(1000),
+    sessions: z
+      .array(z.object({ id, title: text, cwd: text.optional() }))
+      .max(1000),
     messages: z
       .array(
         z.object({

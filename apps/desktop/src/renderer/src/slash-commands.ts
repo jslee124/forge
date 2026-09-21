@@ -5,10 +5,10 @@ import {
 } from "@forge/application/slash-commands";
 
 function availability(name: string, zh: boolean): string {
-  if (["/resources", "/logout", "/delete-model", "/effort"].includes(name))
+  if (["/resources", "/logout", "/delete-model"].includes(name))
     return zh ? " · 尚未接入" : " · not connected";
   if (name === "/update-dismiss") return zh ? " · 不适用" : " · not applicable";
-  if (["/login", "/plugins", "/permissions"].includes(name))
+  if (["/login", "/plugins"].includes(name))
     return zh ? " · 部分支持" : " · partial";
   return "";
 }
@@ -42,7 +42,9 @@ export type CommandResult =
       target: "model" | "permissions" | "resume" | "settings" | "exit";
     }
   | { kind: "read"; target: "help" | "context" }
-  | { kind: "manage"; target: "reset" | "compact" }
+  | { kind: "manage"; target: "reset"; mode: "new" | "clear" }
+  | { kind: "manage"; target: "compact"; dryRun: boolean }
+  | { kind: "effort"; value: string }
   | {
       kind: "error";
       reason: "unknown-command" | "invalid-arguments" | "busy" | "unsupported";
@@ -60,10 +62,19 @@ export function routeCommand(input: string, busy: boolean): CommandResult {
   if (p.name === "/update-dismiss") return { kind: "not-applicable" };
   if (busy) return { kind: "error", reason: "busy" };
   // P2 owns dry-run and effort execution; parsing must never turn them into a normal run.
-  if (p.args) return { kind: "error", reason: "unsupported" };
+  if (p.name === "/effort") return { kind: "effort", value: p.args };
   if (p.name === "/new" || p.name === "/clear")
-    return { kind: "manage", target: "reset" };
-  if (p.name === "/compact") return { kind: "manage", target: "compact" };
+    return {
+      kind: "manage",
+      target: "reset",
+      mode: p.name === "/new" ? "new" : "clear",
+    };
+  if (p.name === "/compact")
+    return {
+      kind: "manage",
+      target: "compact",
+      dryRun: p.args === "--dry-run",
+    };
   if (p.name === "/login" || p.name === "/plugins")
     return { kind: "open", target: "settings" };
   if (
