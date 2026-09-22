@@ -244,3 +244,7 @@ Figma: [Forge — Workbench UX v2](https://www.figma.com/design/sk9IZlKqoRF8PEpA
 尚未完成：命令参数、共享 TUI 命令目录、/resources、/logout、/delete-model、/effort、/update-dismiss，以及完整的可搜索模型管理。未接入命令明确提示，绝不作为模型提示词发送。上述设计章节描述最终目标，不代表全部已经实现。
 
 验证：15 项定向测试、生产构建和 TypeScript 检查通过；实际 Electron 检查覆盖中英文、深浅色、左右面板、空白页、设置和命令入口。截图与限制见 [visual QA](design-qa.md)。根级 pnpm check 被已有 design/prototype 的格式问题阻塞，本次修改文件单独检查通过。未提交、打包发布或验证付费模型请求。
+
+## 待实现的更新入口（2026-09-22）
+
+[未签名更新设计](UPDATE_PLAN.zh-CN.md)规定设置旁的「下载更新／打开安装包」入口，包含收起侧栏及失败状态。当前仅为计划，尚未实现；原参考图未展示这些新增状态。

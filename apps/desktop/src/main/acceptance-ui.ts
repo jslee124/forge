@@ -2,7 +2,8 @@ import { randomUUID } from "node:crypto";
 import { mkdir, realpath, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { FileSessionStore, recordRunInSession } from "@forge/persistence";
-import type { BrowserWindow } from "electron";
+import { app, type BrowserWindow, dialog } from "electron";
+import { acceptanceProvider } from "./acceptance-provider.js";
 
 /** Explicit development acceptance fixture; never invokes a model or fabricates provider evidence. */
 export async function runUiAcceptance(
@@ -326,6 +327,24 @@ export async function runUiAcceptance(
   await until(
     "(() => {const e=new Event('beforeunload',{cancelable:true});window.dispatchEvent(e);return e.defaultPrevented;})()",
   );
+  const originalDialog = dialog.showMessageBoxSync;
+  let closePrompts = 0;
+  try {
+    dialog.showMessageBoxSync = () => {
+      closePrompts++;
+      return 0;
+    };
+    window.close();
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    if (window.isDestroyed() || closePrompts !== 1)
+      throw new Error("window close bypassed draft guard");
+    app.quit();
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    if (window.isDestroyed() || Number(closePrompts) !== 2)
+      throw new Error("application quit bypassed draft guard");
+  } finally {
+    dialog.showMessageBoxSync = originalDialog;
+  }
   await enterDraft("/resources");
   await js(
     `document.querySelector('.live-composer textarea').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}))`,
@@ -342,6 +361,155 @@ export async function runUiAcceptance(
   );
   await capture("resources-light");
   await click(".studio-back");
+  // P4: real rendered controls and native modal focus, across locale/theme/width.
+  for (const locale of ["zh-CN", "en"]) {
+    for (const appearance of ["light", "dark"]) {
+      await click('[data-testid="settings"]');
+      await js(
+        `(() => {const e=document.querySelector('[data-testid=language]');Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(e,${JSON.stringify(locale)});e.dispatchEvent(new Event('change',{bubbles:true}));})()`,
+      );
+      await until(
+        `document.documentElement.lang === ${JSON.stringify(locale)}`,
+      );
+      await click(
+        `.theme-options button:nth-child(${appearance === "light" ? 1 : 2})`,
+      );
+      window.setContentSize(840, 800);
+      await until(
+        "document.querySelector('.studio-management select') && !document.querySelector('.studio-management select').disabled",
+      );
+      await js(
+        "document.querySelector('.studio-management').scrollIntoView({block:'start'})",
+      );
+      await capture(`p4-${locale}-${appearance}-settings-narrow`);
+      await js(
+        "(() => {const b=document.querySelector('.studio-management .studio-connection-card > button');b.focus();b.click();})()",
+      );
+      await until(
+        "document.querySelector('dialog[open]') && document.activeElement === document.querySelector('dialog button')",
+      );
+      await until(
+        "(() => {const r=document.querySelector('dialog').getBoundingClientRect();return Math.abs(r.left+r.width/2-innerWidth/2)<2 && Math.abs(r.top+r.height/2-innerHeight/2)<2;})()",
+      );
+      await capture(`p4-${locale}-${appearance}-confirmation`);
+      // Chromium performs actual Tab traversal and modal focus containment.
+      window.webContents.sendInputEvent({
+        type: "keyDown",
+        keyCode: "Tab",
+        modifiers: ["shift"],
+      });
+      window.webContents.sendInputEvent({
+        type: "keyUp",
+        keyCode: "Tab",
+        modifiers: ["shift"],
+      });
+      await until(
+        "document.activeElement === document.querySelector('dialog button:last-child')",
+      );
+      window.webContents.sendInputEvent({ type: "keyDown", keyCode: "Escape" });
+      window.webContents.sendInputEvent({ type: "keyUp", keyCode: "Escape" });
+      await until(
+        "!document.querySelector('dialog[open]') && document.activeElement === document.querySelector('.studio-management .studio-connection-card > button')",
+      );
+      await click(".studio-back");
+      await until(
+        "document.activeElement === document.querySelector('.live-composer textarea')",
+      );
+      window.setContentSize(1100, 728);
+    }
+  }
+  // P4: real IPC + adapter + harmless pwd approval against a scripted loopback provider.
+  const provider = await acceptanceProvider();
+  try {
+    const model =
+      "offline-model-with-an-intentionally-long-name-for-layout-verification";
+    await writeFile(
+      join(home, "config.json"),
+      JSON.stringify({
+        schemaVersion: 1,
+        model: { engine: "forge", provider: "p4-fixture", id: model },
+        providers: {
+          "p4-fixture": {
+            api: "openai-completions",
+            baseUrl: provider.url,
+            auth: { type: "none" },
+            models: [{ id: model }],
+          },
+        },
+      }),
+    );
+    await click('[data-testid="settings"]');
+    await until(
+      "!document.querySelector('.studio-management select').disabled",
+    );
+    await click(".studio-back");
+    await click(".sidebar > button:first-of-type");
+    await until(
+      "document.querySelector('.studio-welcome') && !document.querySelector('[data-testid=composer-engine]').disabled",
+    );
+    await enterDraft("P4 offline approval workflow");
+    await click(".studio-composer-footer > button:last-child");
+    await until("document.querySelector('.approval-card')");
+    await until(
+      "document.activeElement === document.querySelector('.approval-card button')",
+    );
+    await capture("p4-approval");
+    await click(".approval-card button:last-child");
+    await until(
+      "document.querySelector('.live-transcript')?.textContent.includes('P4 offline fixture completed after approval.') && !document.querySelector('[data-testid=composer-engine]').disabled",
+    );
+    await capture("p4-completed");
+    await click(".studio-panel-toggle");
+    window.setContentSize(840, 800);
+    await capture("p4-long-model-panel-narrow");
+    await click('[data-testid="composer-model"]');
+    await until(
+      "document.activeElement === document.querySelector('.studio-model-popover input')",
+    );
+    await capture("p4-long-model-picker-narrow");
+    await js(
+      "document.querySelector('.studio-model-popover > button:last-of-type').click()",
+    );
+    await until(
+      "document.activeElement === document.querySelector('[data-testid=composer-model]')",
+    );
+    window.setContentSize(1100, 728);
+    await click(".studio-panel-toggle");
+    provider.setMode("wait");
+    await enterDraft("P4 offline cancellation workflow");
+    await click(".studio-composer-footer > button:last-child");
+    await until(
+      "document.querySelector('.live-transcript')?.textContent.includes('waiting for cancellation')",
+    );
+    await capture("p4-running");
+    await click(".studio-composer-footer > button:last-child");
+    await until(
+      "!document.querySelector('[data-testid=composer-engine]').disabled",
+    );
+    await until(
+      "document.querySelector('.studio-run-result')?.textContent.includes('Stopped')",
+    );
+    await capture("p4-stopped");
+    provider.setMode("error");
+    await enterDraft("P4 offline error workflow");
+    await click(".studio-composer-footer > button:last-child");
+    await until(
+      "!document.querySelector('[data-testid=composer-engine]').disabled && document.querySelector('.studio-run-result[role=alert]')",
+    );
+    await until(
+      "(() => {const r=document.querySelector('.studio-run-result').getBoundingClientRect();return r.top>=0 && r.bottom<=innerHeight;})()",
+    );
+    await capture("p4-error");
+    if (provider.calls < 4) throw new Error("offline transport not exercised");
+    results.push({
+      name: "p4-loopback-workflow",
+      calls: provider.calls,
+      fixture: true,
+      externalProvider: false,
+    });
+  } finally {
+    await provider.close();
+  }
   await writeFile(
     join(output, "ui.json"),
     `${JSON.stringify({ kind: "offline rendered UI with real IPC and file services; no model calls", results }, null, 2)}\n`,

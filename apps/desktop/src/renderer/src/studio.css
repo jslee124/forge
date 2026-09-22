@@ -1040,6 +1040,8 @@
   min-width: 0;
 }
 .live-shell [data-testid="composer-model"] {
+  display: inline-block;
+  text-align: left;
   max-width: 180px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1146,4 +1148,151 @@
   padding: 16px;
   border: 1px solid var(--border);
   border-radius: 12px;
+}
+
+/* Keep controls usable with translated labels and provider-defined model names. */
+.studio-model-controls,
+.studio-model-picker {
+  min-width: 0;
+}
+.live-shell [data-testid="composer-model"] {
+  display: inline-block;
+  text-align: left;
+  max-width: min(220px, 34vw);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.studio-model-results button,
+.studio-model-results small,
+.live-settings code,
+.live-settings p {
+  overflow-wrap: anywhere;
+}
+.live-settings :is(input, select) {
+  max-width: 100%;
+  min-width: 0;
+}
+.live-settings form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px;
+}
+.live-settings form label {
+  min-width: 0;
+}
+.studio-confirmation {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  width: min(440px, calc(100vw - 48px));
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  padding: 24px;
+  border: 1px solid var(--border-strong);
+  border-radius: 16px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow);
+}
+.studio-confirmation::backdrop {
+  background: #0008;
+}
+.studio-confirmation h3 {
+  margin: 0 0 16px;
+}
+.studio-confirmation p {
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+}
+.studio-confirmation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+}
+.live-shell .studio-confirmation-actions button {
+  margin: 0;
+}
+.live-shell .studio-confirmation-actions button:last-child {
+  background: var(--accent);
+  color: var(--surface);
+}
+.live-shell .live-settings [tabindex="-1"]:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 4px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .live-shell *,
+  .live-shell *::before,
+  .live-shell *::after {
+    /* biome-ignore lint/complexity/noImportantStyles: Reduced motion must override component animations. */
+    animation-duration: 0.01ms !important;
+    /* biome-ignore lint/complexity/noImportantStyles: Reduced motion must override component transitions. */
+    transition-duration: 0.01ms !important;
+  }
+}
+.studio-run-result {
+  flex-shrink: 0;
+  margin: 8px 24px;
+  padding: 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  background: var(--surface-subtle);
+}
+.studio-run-result p {
+  color: var(--muted);
+}
+.studio-run-result pre {
+  max-height: 100px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.live-shell .spinner {
+  border-color: var(--border-strong);
+  border-top-color: var(--text);
+}
+@media (max-width: 900px) {
+  .live-shell .app-frame:has(.live-panel) {
+    display: grid;
+    grid-template-columns: 190px minmax(0, 1fr);
+    grid-template-rows: minmax(0, 3fr) minmax(0, 2fr);
+  }
+  .live-shell .app-frame:has(.live-panel) > .sidebar {
+    grid-row: 1 / 3;
+    width: auto;
+  }
+  .live-shell .app-frame:has(.live-panel) > .live-main {
+    grid-column: 2;
+    grid-row: 1;
+    min-height: 0;
+  }
+  .live-shell .app-frame > .live-panel {
+    grid-column: 2;
+    grid-row: 2;
+    position: relative;
+    inset: auto;
+    width: 100%;
+    max-width: none;
+    min-height: 0;
+    border-top: 1px solid var(--border);
+    box-shadow: none;
+  }
+  .live-shell.sidebar-collapsed .app-frame:has(.live-panel) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .live-shell.sidebar-collapsed
+    .app-frame:has(.live-panel)
+    > :is(.live-main, .live-panel) {
+    grid-column: 1;
+  }
+  .app-frame:has(.live-panel)
+    :is(.studio-model-popover, .studio-context-popover > div) {
+    max-height: max(80px, min(260px, calc(60vh - 240px)));
+  }
 }

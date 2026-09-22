@@ -1,0 +1,403 @@
+{
+  "kind": "offline rendered UI with real IPC and file services; no model calls",
+  "results": [
+    {
+      "name": "light-zh-CN-settings",
+      "width": 1100,
+      "height": 728,
+      "overflow": false,
+      "locale": "zh-CN",
+      "fixture": true
+    },
+    {
+      "name": "light-zh-CN-code",
+      "width": 1100,
+      "height": 728,
+      "overflow": false,
+      "locale": "zh-CN",
+      "fixture": true
+    },
+    {
+      "name": "light-zh-CN-changes",
+      "width": 1100,
+      "height": 728,
+      "overflow": false,
+      "locale": "zh-CN",
+      "fixture": true
+    },
+    {
+      "name": "light-zh-CN-local",
+      "width": 1100,
+      "height": 728,
+      "overflow": false,
+      "locale": "zh-CN",
+      "fixture": true
+    },
+    {
+      "name": "light-zh-CN-research",
+      "width": 1100,
+      "height": 728,
+      "overflow": false,
+      "locale": "zh-CN",
+      "fixture": true
+    },
+    {
+      "name": "light-zh-CN-narrow-research",
+      "width": 840,
+      "height": 800,
+      "overflow": false,
+      "locale": "zh-CN",
+      "fixture": true
+    },
+    {
+      "name": "light-en-settings",
+      "width": 1100,
+      "height": 728,
+      "overflow": false,
+      "locale": "en",
+      "fixture": true
+    },
+    {
+      "name": "light-en-code",
+      "width": 1100,
+      "height": 728,
+      "overflow": false,
+      "locale": "en",
+      "fixture": true
+    },
+    {
+      "name": "light-en-changes",
+      "width": 1100,
+      "height": 728,
+      "overflow": false,
+      "locale": "en",
+      "fixture": true
+    },
+    {
+      "name": "light-en-local",
+      "width": 1100,
+      "height": 728,
+      "overflow": false,
+      "locale": "en",
+      "fixture": true
+    },
+    {
+      "name": "light-en-research",
+      "width": 1100,
+      "height": 728,
+      "overflow": false,
+      "locale": "en",
+      "fixture": true
+    },
+    {
+      "name": "light-en-narrow-research",
+      "width": 840,
+      "height": 800,
+      "overflow": false,
+      "locale": "en",
+      "fixture": true
+    },
+    {
+      "name": "dark-zh-CN-settings",
+      "width": 1100,
+      "height": 728,
+      "overflow": false,
+      "locale": "zh-CN",
+      "fixture": true
+    },
+    {
+      "name": "dark-zh-CN-code",
+      "width": 1100,
+      "height": 728,
+      "overflow": false,
+      "locale": "zh-CN",
+      "fixture": true
+    },
+    {
+      "name": "dark-zh-CN-changes",
+      "width": 1100,
+      "height": 728,
+      "overflow": false,
+      "locale": "zh-CN",
+      "fixture": true
+    },
+    {
+      "name": "dark-zh-CN-local",
+      "width": 1100,
+      "height": 728,
+      "overflow": false,
+      "locale": "zh-CN",
+      "fixture": true
+    },
+    {
+      "name": "dark-zh-CN-research",
+      "width": 1100,
+      "height": 728,
+      "overflow": false,
+      "locale": "zh-CN",
+      "fixture": true
+    },
+    {
+      "name": "dark-zh-CN-narrow-research",
+      "width": 840,
+      "height": 800,
+      "overflow": false,
+      "locale": "zh-CN",
+      "fixture": true
+    },
+    {
+      "name": "dark-en-settings",
+      "width": 1100,
+      "height": 728,
+      "overflow": false,
+      "locale": "en",
+      "fixture": true
+    },
+    {
+      "name": "dark-en-code",
+      "width": 1100,
+      "height": 728,
+      "overflow": false,
+      "locale": "en",
+      "fixture": true
+    },
+    {
+      "name": "dark-en-changes",
+      "width": 1100,
+      "height": 728,
+      "overflow": false,
+      "locale": "en",
+      "fixture": true
+    },
+    {
+      "name": "dark-en-local",
+      "width": 1100,
+      "height": 728,
+      "overflow": false,
+      "locale": "en",
+      "fixture": true
+    },
+    {
+      "name": "dark-en-research",
+      "width": 1100,
+      "height": 728,
+      "overflow": false,
+      "locale": "en",
+      "fixture": true
+    },
+    {
+      "name": "dark-en-narrow-research",
+      "width": 840,
+      "height": 800,
+      "overflow": false,
+      "locale": "en",
+      "fixture": true
+    },
+    {
+      "name": "home-dark",
+      "width": 1100,
+      "height": 728,
+      "overflow": false,
+      "locale": "en",
+      "fixture": true
+    },
+    {
+      "name": "home-dark-collapsed",
+      "width": 1100,
+      "height": 728,
+      "overflow": false,
+      "locale": "en",
+      "fixture": false
+    },
+    {
+      "name": "home-light",
+      "width": 1100,
+      "height": 728,
+      "overflow": false,
+      "locale": "en",
+      "fixture": true
+    },
+    {
+      "name": "home-light-collapsed",
+      "width": 1100,
+      "height": 728,
+      "overflow": false,
+      "locale": "en",
+      "fixture": false
+    },
+    {
+      "name": "commands-light",
+      "width": 1100,
+      "height": 728,
+      "overflow": false,
+      "locale": "en",
+      "fixture": true
+    },
+    {
+      "name": "permissions-light",
+      "width": 1100,
+      "height": 728,
+      "overflow": false,
+      "locale": "en",
+      "fixture": true
+    },
+    {
+      "name": "context-light",
+      "width": 1100,
+      "height": 728,
+      "overflow": false,
+      "locale": "en",
+      "fixture": true
+    },
+    {
+      "name": "models-light",
+      "width": 1100,
+      "height": 728,
+      "overflow": false,
+      "locale": "en",
+      "fixture": true
+    },
+    {
+      "name": "management-light",
+      "width": 1100,
+      "height": 728,
+      "overflow": false,
+      "locale": "en",
+      "fixture": true
+    },
+    {
+      "name": "resources-light",
+      "width": 1100,
+      "height": 728,
+      "overflow": false,
+      "locale": "en",
+      "fixture": true
+    },
+    {
+      "name": "p4-zh-CN-light-settings-narrow",
+      "width": 840,
+      "height": 800,
+      "overflow": false,
+      "locale": "zh-CN",
+      "fixture": true
+    },
+    {
+      "name": "p4-zh-CN-light-confirmation",
+      "width": 840,
+      "height": 800,
+      "overflow": false,
+      "locale": "zh-CN",
+      "fixture": true
+    },
+    {
+      "name": "p4-zh-CN-dark-settings-narrow",
+      "width": 840,
+      "height": 800,
+      "overflow": false,
+      "locale": "zh-CN",
+      "fixture": true
+    },
+    {
+      "name": "p4-zh-CN-dark-confirmation",
+      "width": 840,
+      "height": 800,
+      "overflow": false,
+      "locale": "zh-CN",
+      "fixture": true
+    },
+    {
+      "name": "p4-en-light-settings-narrow",
+      "width": 840,
+      "height": 800,
+      "overflow": false,
+      "locale": "en",
+      "fixture": true
+    },
+    {
+      "name": "p4-en-light-confirmation",
+      "width": 840,
+      "height": 800,
+      "overflow": false,
+      "locale": "en",
+      "fixture": true
+    },
+    {
+      "name": "p4-en-dark-settings-narrow",
+      "width": 840,
+      "height": 800,
+      "overflow": false,
+      "locale": "en",
+      "fixture": true
+    },
+    {
+      "name": "p4-en-dark-confirmation",
+      "width": 840,
+      "height": 800,
+      "overflow": false,
+      "locale": "en",
+      "fixture": true
+    },
+    {
+      "name": "p4-approval",
+      "width": 1100,
+      "height": 728,
+      "overflow": false,
+      "locale": "en",
+      "fixture": true
+    },
+    {
+      "name": "p4-completed",
+      "width": 1100,
+      "height": 728,
+      "overflow": false,
+      "locale": "en",
+      "fixture": true
+    },
+    {
+      "name": "p4-long-model-panel-narrow",
+      "width": 840,
+      "height": 800,
+      "overflow": false,
+      "locale": "en",
+      "fixture": true
+    },
+    {
+      "name": "p4-long-model-picker-narrow",
+      "width": 840,
+      "height": 800,
+      "overflow": false,
+      "locale": "en",
+      "fixture": true
+    },
+    {
+      "name": "p4-running",
+      "width": 1100,
+      "height": 728,
+      "overflow": false,
+      "locale": "en",
+      "fixture": true
+    },
+    {
+      "name": "p4-stopped",
+      "width": 1100,
+      "height": 728,
+      "overflow": false,
+      "locale": "en",
+      "fixture": true
+    },
+    {
+      "name": "p4-error",
+      "width": 1100,
+      "height": 728,
+      "overflow": false,
+      "locale": "en",
+      "fixture": true
+    },
+    {
+      "name": "p4-loopback-workflow",
+      "calls": 4,
+      "fixture": true,
+      "externalProvider": false
+    }
+  ]
+}

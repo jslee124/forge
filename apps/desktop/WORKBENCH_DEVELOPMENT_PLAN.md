@@ -4,6 +4,20 @@ Date: 2026-09-15. Development plan, not a shipped-feature declaration.
 
 [中文（详细任务说明）](WORKBENCH_DEVELOPMENT_PLAN.zh-CN.md) · [UX specification](WORKBENCH_UX_PLAN.md) · [Visual QA](design-qa.md)
 
+## Pending extension: unsigned updates (2026-09-22)
+
+Without a signing certificate, use startup background checks, explicit verified DMG downloads and manual replacement. See the [update design and U01–U04 plan](UPDATE_PLAN.md). Documentation only; functionality is pending and P0–P4 historical acceptance is unchanged.
+
+## P4 progress (2026-09-22)
+
+W18–W20 complete within local implementation and automated acceptance scope. Management confirmations now use a centered native HTML dialog with Cancel focused initially, keyboard containment and opener focus restoration. Settings Back and model-picker Close restore focus; resource navigation focuses its destination. New approvals focus Deny. Failed, interrupted and cancelled runs retain visible feedback above the composer.
+
+Long model names truncate with their full accessible label/title retained. At widths up to 900 px, an open workbench stacks below the conversation so it does not cover composer controls; wide windows retain the right panel. Narrow Settings wrap safely, popovers remain bounded, loading indicators are neutral and reduced-motion preferences are respected.
+
+Fresh validation: 135 related tests passed, six opt-in live tests skipped; 71 deterministic evaluations, root check, desktop production build and documentation checks passed. Electron completed 49 captures and assertions covering bilingual themes, modal focus/centering, narrow layout, approval/completion/stop/failure and close/quit draft guards. Four scripted loopback HTTP requests exercised the real adapter/Agent/IPC and an approved `pwd` tool; they are not external-model evidence. See [P4 QA and screenshots](design-qa.md) and [capture manifest](design/p4-validation/ui.json).
+
+P0–P4 local milestones are complete. Full TUI parity, live expired-account recovery, remote cancellation, manual assistive-technology/native-dialog checks and installed/release acceptance remain separate follow-ups. File preview is path-based, not a directory tree. No commit, installed-app replacement or publication.
+
 ## P3 progress (2026-09-21)
 
 W14–W17 implementation and offline acceptance complete. Settings separates Forge API credentials from Codex subscription login, supports explicit provider logout, and never includes keys in DesktopState. Password input is uncontrolled, cleared on submit, and only sent to the Agent credential service. Environment credentials retain precedence. Codex login cancellation/failure and failed logout retain truthful status; account refresh clears stale model metadata.
@@ -119,4 +133,4 @@ Each stage supplies change summary, relevant tests, screenshots for visual chang
 
 Commits/merges, replacing the installed App, signing, notarization, publication and new /plan or /goal modes are not automatic parts of this plan. Release requests need a separate release checklist.
 
-P3 is complete. Continue with P4 (W18–W20), covering visual, accessibility and delivery acceptance. Require working behavior at each gate rather than more entry points or static screenshots.
+P0–P4 local development and automated acceptance are complete. Scope live-service, manual accessibility or installed/release acceptance separately; none is implied by this local result. Earlier progress entries retain their historical stage status.

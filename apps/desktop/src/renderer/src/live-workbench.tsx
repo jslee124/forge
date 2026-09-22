@@ -56,6 +56,10 @@ export function LiveWorkbench(): React.JSX.Element {
     approvalId: string;
     description: string;
   }>();
+  const approvalRef = React.useRef<HTMLButtonElement>(null);
+  React.useEffect(() => {
+    if (approval) approvalRef.current?.focus();
+  }, [approval]);
   const [error, setError] = React.useState("");
   const [pending, setPending] = React.useState(false);
   const [settings, setSettings] = React.useState(false);
@@ -678,7 +682,10 @@ export function LiveWorkbench(): React.JSX.Element {
               initialSection={settingsSection}
               state={state}
               busy={busy}
-              onBack={() => setSettings(false)}
+              onBack={() => {
+                setSettings(false);
+                requestAnimationFrame(() => composerRef.current?.focus());
+              }}
               manage={manage}
               onOpenLogin={() =>
                 void api?.openLogin().catch(() => setError("management-failed"))
@@ -767,18 +774,47 @@ export function LiveWorkbench(): React.JSX.Element {
                   </div>
                 )}
                 {approval && (
-                  <div className="approval-card">
-                    <h3>{t("live.approval")}</h3>
+                  <section
+                    className="approval-card"
+                    aria-labelledby="approval-title"
+                  >
+                    <h3 id="approval-title">{t("live.approval")}</h3>
                     <pre>{approval.description}</pre>
-                    <button type="button" onClick={() => void decide(false)}>
+                    <button
+                      ref={approvalRef}
+                      type="button"
+                      onClick={() => void decide(false)}
+                    >
                       {t("common.deny")}
                     </button>
                     <button type="button" onClick={() => void decide(true)}>
                       {t("common.approve")}
                     </button>
-                  </div>
+                  </section>
                 )}
               </div>
+              {!active &&
+                (status === "failed" ||
+                  status === "interrupted" ||
+                  status === "cancelled") && (
+                  <div
+                    className="studio-run-result"
+                    role={status === "failed" ? "alert" : "status"}
+                  >
+                    <strong>{t(`live.${status}`)}</strong>
+                    <p>
+                      {zh
+                        ? "草稿已保留，可以修改后重新发送。"
+                        : "Your draft is retained. Edit it and send again when ready."}
+                    </p>
+                    {details.length > 0 && (
+                      <details>
+                        <summary>{t("live.activity")}</summary>
+                        <pre>{details.at(-1)?.text}</pre>
+                      </details>
+                    )}
+                  </div>
+                )}
               <div className="live-composer">
                 {candidates.length > 0 && (
                   <SlashCommandMenu

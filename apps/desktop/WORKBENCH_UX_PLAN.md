@@ -200,3 +200,7 @@ The slash menu supports filtering, arrows, Tab, Enter, Esc, and IME protection. 
 Pending: command arguments, a shared TUI command registry, /resources, /logout, /delete-model, /effort, /update-dismiss, and complete searchable model management. Unsupported commands are explicitly reported and never sent to a model. The preceding specification remains the target rather than a claim of full implementation.
 
 Validation: 15 focused tests, production build, and TypeScript checks passed. Actual Electron checks cover locales, themes, panels, home, Settings, and slash entry; see [visual QA](design-qa.md). Root pnpm check is blocked by existing design/prototype formatting errors; modified files pass focused checks. No commit, release, or paid-provider verification.
+
+## Planned update entry (2026-09-22)
+
+The [unsigned update design](UPDATE_PLAN.md) specifies a Download update / Open installer action beside Settings, including collapsed-sidebar and failure states. This is planned, not implemented; existing reference images do not depict these new states.

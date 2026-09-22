@@ -3,6 +3,7 @@ import type {
   DesktopState,
   ManagementCommand,
 } from "../../shared/application-protocol.js";
+import { ConfirmationDialog } from "./confirmation-dialog.js";
 
 export function ManagementSettings({
   state,
@@ -244,11 +245,16 @@ export function ManagementSettings({
         </details>
       </div>
       {confirmation && (
-        <div
-          role="alertdialog"
-          aria-label={zh ? "确认操作" : "Confirm operation"}
+        <ConfirmationDialog
+          title={zh ? "确认操作" : "Confirm operation"}
+          confirmLabel={zh ? "确认" : "Confirm"}
+          cancelLabel={zh ? "取消" : "Cancel"}
+          busy={busy}
+          onCancel={() => setConfirmation(undefined)}
+          onConfirm={() => {
+            if (confirmation.type !== "workspace") void apply(confirmation);
+          }}
         >
-          <p>{zh ? "确认以下操作？" : "Confirm this operation?"}</p>
           <p>
             {confirmation.type === "model-delete"
               ? `${zh ? "删除模型" : "Delete model"}: ${confirmation.provider}/${confirmation.model}`
@@ -266,19 +272,7 @@ export function ManagementSettings({
                         : "Revoke plugin trust for this project"
                     : ""}
           </p>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => {
-              if (confirmation.type !== "workspace") void apply(confirmation);
-            }}
-          >
-            {zh ? "确认" : "Confirm"}
-          </button>
-          <button type="button" onClick={() => setConfirmation(undefined)}>
-            {zh ? "取消" : "Cancel"}
-          </button>
-        </div>
+        </ConfirmationDialog>
       )}
       {feedback && <p role="status">{feedback}</p>}
     </section>

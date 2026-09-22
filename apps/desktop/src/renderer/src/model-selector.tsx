@@ -87,6 +87,9 @@ export function ModelSelector({
             ref={triggerRef}
             data-testid="composer-model"
             aria-expanded={open}
+            aria-haspopup="dialog"
+            title={current?.label || model}
+            aria-label={`${t("live.model")}: ${current?.label || model || (zh ? "选择模型" : "Choose model")}`}
             onClick={() => setOpen(!open)}
           >
             {current?.label || model || (zh ? "选择模型" : "Choose model")}
@@ -221,7 +224,13 @@ export function ModelSelector({
             >
               {zh ? "保存为默认" : "Save as default"}
             </button>
-            <button type="button" onClick={() => setOpen(false)}>
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                triggerRef.current?.focus();
+              }}
+            >
               {zh ? "关闭" : "Close"}
             </button>
             <p role="status">{feedback}</p>

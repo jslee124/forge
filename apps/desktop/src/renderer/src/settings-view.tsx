@@ -1,9 +1,10 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type {
   DesktopState,
   ManagementCommand,
 } from "../../shared/application-protocol.js";
+import { ConfirmationDialog } from "./confirmation-dialog.js";
 import { ManagementSettings } from "./management-settings.js";
 import { type ThemeMode, useTheme } from "./theme.js";
 export function SettingsView({
@@ -25,10 +26,15 @@ export function SettingsView({
 }) {
   const { t, i18n } = useTranslation();
   const theme = useTheme();
+  const [confirmLogout, setConfirmLogout] = useState(false);
   useEffect(() => {
-    document
-      .getElementById(`settings-${initialSection}`)
-      ?.scrollIntoView({ block: "start" });
+    const target = document.getElementById(`settings-${initialSection}`);
+    if (target instanceof HTMLDetailsElement) target.open = true;
+    if (target) {
+      target.tabIndex = -1;
+      target.focus({ preventScroll: true });
+      target.scrollIntoView({ block: "start" });
+    }
   }, [initialSection]);
   return (
     <div className="live-settings">
@@ -163,20 +169,7 @@ export function SettingsView({
         <button
           type="button"
           disabled={busy || state?.auth === "signing-in"}
-          onClick={() => {
-            if (
-              window.confirm(
-                i18n.language.startsWith("zh")
-                  ? "退出 Codex 订阅登录？不会删除 Forge API 凭证。"
-                  : "Sign out of Codex? Forge API credentials remain.",
-              )
-            )
-              void manage({
-                type: "logout",
-                engine: "codex",
-                provider: "openai",
-              });
-          }}
+          onClick={() => setConfirmLogout(true)}
         >
           {i18n.language.startsWith("zh")
             ? "退出 Codex 登录"
@@ -200,6 +193,34 @@ export function SettingsView({
         )}
         <p>{t("live.codexLimits")}</p>
       </section>
+      {confirmLogout && (
+        <ConfirmationDialog
+          title={
+            i18n.language.startsWith("zh")
+              ? "退出 Codex 登录"
+              : "Sign out of Codex"
+          }
+          confirmLabel={
+            i18n.language.startsWith("zh") ? "退出登录" : "Sign out"
+          }
+          cancelLabel={i18n.language.startsWith("zh") ? "取消" : "Cancel"}
+          busy={busy}
+          onCancel={() => setConfirmLogout(false)}
+          onConfirm={() => {
+            void manage({
+              type: "logout",
+              engine: "codex",
+              provider: "openai",
+            }).then(() => setConfirmLogout(false));
+          }}
+        >
+          <p>
+            {i18n.language.startsWith("zh")
+              ? "Forge API 凭证将保留。"
+              : "Forge API credentials will remain."}
+          </p>
+        </ConfirmationDialog>
+      )}
     </div>
   );
 }

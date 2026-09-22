@@ -223,3 +223,41 @@ Validation: 135 related tests passed, six opt-in live tests skipped; root check,
 ### Remaining acceptance / 后续验收
 
 P4 should cover focus placement and keyboard traversal of management confirmations, long provider/model names and narrow Settings, plus a manual macOS close/quit round trip with unsent drafts and active work. Offline Codex login failure/cancel fixtures do not establish live expired-account recovery. No model provider was contacted with a real key during this phase. Built-in models and configured routes remain separate from subscription model discovery.
+
+## P4 visual, keyboard and delivery acceptance — 2026-09-22
+
+W18–W20 local acceptance is complete. All **49 actual Electron captures** are retained in [the P4 manifest](design/p4-validation/ui.json); previous references and validation records remain intact. These are rendered implementation evidence, distinct from the [approved design reference](design/reference/workbench-v2-revised.png).
+
+### Reference comparison / 参考图对照
+
+| Area / 区域 | Result / 实现与差异 |
+| --- | --- |
+| Brand and navigation / 品牌与导航 | Monochrome anvil identity, sidebar collapse inside the sidebar, compact folder/task header, no research-ready banner. Collapsed and empty states captured in both themes. |
+| Composer / 输入框 | Permissions beside attachment control; labeled engine/model selectors and context ring retained. Long model names truncate while full names remain accessible. |
+| Workbench / 工作台 | Wide windows retain the right panel. At ≤900 px, conversation and workbench stack vertically beside history, deliberately replacing an overlay that covered composer controls. |
+| Settings / 设置 | Theme selection stays in Settings. Real provider/model/plugin sections are richer than the visual sketch; narrow fields wrap and confirmation dialogs stay centered. |
+| Files / 文件 | Existing path-based preview is verified; a navigable directory tree is not implemented. |
+| Window / 窗口 | Captures cover Electron web contents; native macOS chrome is outside these images. |
+
+![Narrow workbench and long model name](design/p4-validation/p4-long-model-panel-narrow.png)
+![Narrow English light Settings](design/p4-validation/p4-en-light-settings-narrow.png)
+![Chinese dark confirmation](design/p4-validation/p4-zh-CN-dark-confirmation.png)
+
+### Interaction evidence / 交互证据
+
+- EN/ZH × light/dark captures include Settings, panels and narrow layouts at 1100×728 and 840 px widths. Existing system-theme, empty/collapsed-history, command keyboard/IME and session-draft assertions remain in the run.
+- Confirmation dialogs initially focus Cancel, contain keyboard traversal, close on Escape and restore their opener. The harness sends actual Electron keyboard events and asserts centering. Settings Back restores composer focus; model-picker Close restores trigger focus. Resource navigation opens and focuses its section.
+- Approval defaults focus to Deny. A scripted loopback workflow requests approval for `pwd`, executes it in a temporary workspace after approval, completes, then exercises running/stop and error states. Terminal feedback stays above the composer even with long history. Loading indicators are monochrome; reduced-motion styling is implemented, without claiming a manual screen-reader audit.
+- Actual Electron close and quit event paths preserve an unsent draft when the confirmation response is Keep working. The harness temporarily supplies that native-dialog response; it does not manually click the macOS dialog. Existing shutdown timeout/kill tests remain separate evidence.
+
+![Approval](design/p4-validation/p4-approval.png)
+![Stopped run](design/p4-validation/p4-stopped.png)
+![Visible failure feedback](design/p4-validation/p4-error.png)
+
+### Validation and limits / 验证与边界
+
+135 related tests passed; six opt-in live tests skipped. 71 deterministic evaluations, root check, desktop production build and documentation checks passed. The final Electron run captured 49 screenshots plus one loopback workflow result. Initial acceptance exposed modal placement, clipped popovers and hidden failure feedback; the final captures and assertions verify their corrections. Existing non-blocking lint/PDF canvas diagnostics remain.
+
+The manifest's “no model calls” means no real external model was contacted: **four HTTP requests went to a deterministic local fixture**, through real provider adapter, Agent and IPC paths. Actual approval/tool execution was local. This proves local integration, not provider quality, authentication validity or remote cancellation. No P4 packaging/public-install claim is made.
+
+The P3 command matrix remains applicable. For `/exit`, P4 adds close/quit event-path proof with a simulated native response; manual native-dialog interaction and real-provider timeout/cancellation remain pending. `/login` and `/plugins` remain partial for the documented reasons. Live Codex expired-account recovery, VoiceOver/manual accessibility and installed signed/release acceptance are unverified. No commit, installed-app replacement or publication.
