@@ -1,12 +1,12 @@
 # Forge Desktop unsigned update plan
 
-Date: 2026-09-22. Status: design only, not implemented; this change is documentation only. The user has no Developer ID or signing certificate.
+Date: 2026-09-22. Status: U01–U04 implemented and controlled acceptance complete; validation is recorded in [update QA](update-qa.md). These are local changes, not a published release. No Developer ID or signing certificate is configured.
 
 [中文](UPDATE_PLAN.zh-CN.md) · [Development plan](WORKBENCH_DEVELOPMENT_PLAN.md) · [Installation](INSTALL.md)
 
 ## Scope and current state
 
-Desktop currently has no startup update check, feed or download manager. Target flow: background startup check → explicit download → verification → open DMG → manual application replacement. No automatic overwrite or restart-to-install, no signing configuration change. This plan is neither shipped behavior nor publication authorization.
+Desktop now implements: background startup check → explicit download → verification → open DMG → manual application replacement. No automatic overwrite or restart-to-install, no signing configuration change. Publication and manual application replacement remain separate actions.
 
 ## UI and states
 
@@ -43,13 +43,23 @@ Download to an application-managed temporary directory. Compute SHA-256 against 
 
 SHA-256 establishes integrity, not Apple signing, notarization or independent source authenticity. Unsigned-system prompts may remain; never remove quarantine or bypass Gatekeeper automatically. If certificates become available, evaluate electron-updater while reusing UI states; automatic replacement is outside this phase.
 
-## Future implementation and acceptance
+## Implementation and acceptance
 
-All tasks below remain pending. P4 screenshots/tests do not prove update behavior.
+U01–U04 are implemented in the current source. Controlled U04 results and evidence boundaries are in [update QA](update-qa.md); P4 evidence is not reused.
 
-1. U01: Define build identity and Release/checksum contracts. Test stable/preview ordering, equal/older versions, CLI exclusion, pagination, missing assets and architecture selection.
-2. U02: Implement main service, IPC and preferences. Fixture tests cover redirect restrictions, rate limits/timeouts, cancellation, disk errors, checksum failure, repeated clicks and cache tampering.
-3. U03: Connect startup, Settings and sidebar UI. Verify both languages/themes, collapsed/narrow layouts, keyboard focus and all states without disrupting tasks/drafts.
-4. U04: Build and perform controlled download/DMG-open acceptance, recording version, architecture, source and digest. Update bilingual installation/QA. Real downloads, manual replacement, signing/notarization and publication require separate evidence; fixtures cannot substitute for them.
+1. U01 — implemented: Define build identity and Release/checksum contracts. Test stable/preview ordering, equal/older versions, CLI exclusion, pagination, missing assets and architecture selection.
+2. U02 — implemented: Implement main service, IPC and preferences. Fixture tests cover redirect restrictions, rate limits/timeouts, cancellation, disk errors, checksum failure, repeated clicks and cache tampering.
+3. U03 — implemented: Connect startup, Settings and sidebar UI. Verify both languages/themes, collapsed/narrow layouts, keyboard focus and all states without disrupting tasks/drafts.
+4. U04 — see acceptance record: Build and perform controlled download/DMG-open acceptance, recording version, architecture, source and digest. Update bilingual installation/QA. Real downloads, manual replacement, signing/notarization and publication require separate evidence; fixtures cannot substitute for them.
 
-During implementation run focused Vitest, root check, desktop build and docs checks; add packaging/install acceptance for artifact contracts and deterministic evaluation for cross-layer changes. This documentation change implements none of these tasks, uploads no Release and replaces no application.
+During implementation run focused Vitest, root check, desktop build and docs checks; add packaging/install acceptance for artifact contracts and deterministic evaluation for cross-layer changes. This implementation uploads no Release and replaces no application.
+
+## Build and cache contract
+
+Set `FORGE_DESKTOP_BUILD_TAG=desktop-<full-semver>` when building a release. Packaging refuses a missing identity. The embedded full version is validated against the package version's major.minor.patch; development builds without the variable explicitly report a missing identity. The local acceptance identity `desktop-0.3.4-preview.2` is not a published tag.
+
+`release-contract.mjs` generates `SHA256SUMS` and `desktop-build.json` after both architecture DMG/ZIP outputs exist. Publish these together with the four files under the matching desktop tag only after separate publication authorization. The updater reads the checksum before offering a download and reads it again before downloading; changed checksums require a fresh check.
+
+The main process uses an isolated, nonpersistent Chromium network session with credentials omitted. Every redirect is validated before sending it; see [Electron networking](https://www.electronjs.org/docs/latest/api/net). Checks allow at most 10 pages of 100 releases and 30 seconds; metadata is capped at 4 MiB/page, checksums at 1 MiB, installers at 2 GiB, downloads at 15 minutes and redirects at four. Retries are user-initiated. Chromium uses system proxy configuration; failures remain visible, with no automatic proxy bypass.
+
+Preferences are stored under Electron userData/desktop-updates, outside Forge sessions. Installers live in private session directories, are deleted on normal exit, and are not reused after restart. Abandoned session directories older than 24 hours are pruned on initialization (up to 1,000 entries per launch); a new check removes previous version installers from the current session. User-saved files are not touched. Last successful check time describes the current app session.

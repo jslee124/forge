@@ -4,9 +4,9 @@ Date: 2026-09-15. Development plan, not a shipped-feature declaration.
 
 [中文（详细任务说明）](WORKBENCH_DEVELOPMENT_PLAN.zh-CN.md) · [UX specification](WORKBENCH_UX_PLAN.md) · [Visual QA](design-qa.md)
 
-## Pending extension: unsigned updates (2026-09-22)
+## Unsigned updates (2026-09-22)
 
-Without a signing certificate, use startup background checks, explicit verified DMG downloads and manual replacement. See the [update design and U01–U04 plan](UPDATE_PLAN.md). Documentation only; functionality is pending and P0–P4 historical acceptance is unchanged.
+Without a signing certificate, use startup background checks, explicit verified DMG downloads and manual replacement. See the [update design and U01–U04 plan](UPDATE_PLAN.md). U01–U04 local implementation and controlled acceptance are complete; see [update QA](update-qa.md) for current evidence. P0–P4 historical acceptance is unchanged.
 
 ## P4 progress (2026-09-22)
 

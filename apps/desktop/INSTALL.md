@@ -15,7 +15,7 @@ From the repository root, with Node 24+ and the pinned pnpm version in package.j
 CI=true pnpm install --frozen-lockfile
 CI=true pnpm check
 pnpm desktop:dev
-CI=true pnpm desktop:package
+CI=true FORGE_DESKTOP_BUILD_TAG=desktop-0.3.4-preview.2 pnpm desktop:package
 ```
 
 Packaging builds the renderer, preload, main and Agent, prepares the locked web plugin,
@@ -92,3 +92,13 @@ and removes temporary installed copies/data. It does not call a model or authent
 No updater/feed is configured. Signing, notarization, a public download channel and update
 policy require a separate authorized release task. CLI npm package verification is independent
 of these desktop distribution steps.
+
+## Version checks and manual updates
+
+Builds with the update feature check official desktop releases in the background after startup and never download automatically. Settings → Version and updates shows the full version, stable/preview channel, manual check and startup preference. Preview also accepts newer stable builds; channel changes never downgrade the app.
+
+Choose Download update beside Settings. After downloading and SHA-256 verification, choose Open installer. Cancellation preserves the notice; failures can be retried. Opening rechecks the managed file and explains the steps: save work, quit the old Forge, then drag into Applications to replace it. Opening a DMG does not quit or install automatically; draft and active-task exit guards remain.
+
+Existing old builds require one manual upgrade to obtain this feature. The example `desktop-0.3.4-preview.2` is a local build identity, not a published release. Missing identity is explicit and is never guessed from `0.3.4`. Packaging requires an explicit identity and generates `desktop-build.json` and `SHA256SUMS`.
+
+Update networking uses Chromium's system proxy support and no model-provider credentials. Rate limits, timeouts and proxy errors never mean up to date. SHA-256 is not Apple signing or notarization; the updater never removes quarantine or bypasses Gatekeeper. See [update QA](update-qa.md) for evidence.

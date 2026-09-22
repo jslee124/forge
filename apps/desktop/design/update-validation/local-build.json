@@ -1,0 +1,28 @@
+{
+  "tag": "desktop-0.3.4-preview.2",
+  "version": "0.3.4-preview.2",
+  "packageVersion": "0.3.4",
+  "channel": "preview",
+  "assets": [
+    {
+      "name": "forge-desktop-0.3.4-arm64.dmg",
+      "arch": "arm64",
+      "sha256": "066426cc9a17c799b1e60c3be6508e49edc75d09cc7b9f51baad544a2c6bb214"
+    },
+    {
+      "name": "forge-desktop-0.3.4-arm64.zip",
+      "arch": "arm64",
+      "sha256": "bcae9193c1cd88170341fd585c459acbae7fb60cc8c676515a7215957b02df66"
+    },
+    {
+      "name": "forge-desktop-0.3.4-x64.dmg",
+      "arch": "x64",
+      "sha256": "87a8803751256b01ba720d6389823cd497073c81097b93247013ccd30c1aee3f"
+    },
+    {
+      "name": "forge-desktop-0.3.4-x64.zip",
+      "arch": "x64",
+      "sha256": "e3f19f35e2f9ee24d8b38c2717485dc24fe871cda4417f19b54664b5076e0424"
+    }
+  ]
+}

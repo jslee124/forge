@@ -1,3 +1,14 @@
+import {
+  UPDATE_CHANNEL,
+  updateCommandSchema,
+} from "../shared/update-protocol.js";
+import { runUpdateUiAcceptance } from "./update-acceptance.js";
+import { createUpdateFetch } from "./update-network.js";
+import { UpdateService } from "./update-service.js";
+
+declare const __FORGE_DESKTOP_VERSION__: string | null;
+let updates: UpdateService | undefined;
+
 import { lstat, writeFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import {
@@ -124,6 +135,8 @@ async function createWindow(show = true): Promise<BrowserWindow> {
 async function shutdown(): Promise<void> {
   if (quitting) return;
   quitting = true;
+  ipcMain.removeHandler(UPDATE_CHANNEL);
+  await updates?.close();
   ipcMain.removeHandler(AGENT_PING_CHANNEL);
   ipcMain.removeHandler(RUN_COMMAND_CHANNEL);
   for (const channel of [
@@ -148,6 +161,57 @@ async function run(): Promise<void> {
   // Main-process previews use the same packaged PDF.js data as the Agent process.
   // biome-ignore lint/complexity/useLiteralKeys: ProcessEnv is index-signature-only under strict TypeScript.
   process.env["FORGE_PDFJS_RESOURCE_ROOT"] = pdfResourceRoot();
+  updates = new UpdateService({
+    root: join(app.getPath("userData"), "desktop-updates"),
+    version: __FORGE_DESKTOP_VERSION__,
+    arch: process.arch,
+    startupAllowed:
+      app.isPackaged &&
+      !process.argv.some((arg) => arg.startsWith("--desktop-")) &&
+      // biome-ignore lint/complexity/useLiteralKeys: ProcessEnv requires indexed access.
+      !process.env["CI"],
+    fetch: createUpdateFetch(),
+    openPath: (path) => shell.openPath(path),
+  });
+  try {
+    await updates.initialize();
+  } catch (error) {
+    updates.status = {
+      ...updates.status,
+      phase: "failed",
+      startup: false,
+      error: String(error),
+    };
+  }
+  let explainingInstaller = false;
+  ipcMain.handle(UPDATE_CHANNEL, async (event, value: unknown) => {
+    assertMainSender(event);
+    const command = updateCommandSchema.parse(value);
+    if (command.type === "open") {
+      if (explainingInstaller || updates?.status.phase !== "verified")
+        return updates?.status;
+      explainingInstaller = true;
+      try {
+        const zh = app.getLocale().startsWith("zh");
+        const choice = await dialog.showMessageBox(requireMainWindow(), {
+          type: "info",
+          buttons: zh ? ["取消", "打开安装器"] : ["Cancel", "Open installer"],
+          defaultId: 1,
+          cancelId: 0,
+          message: zh
+            ? "手动替换 Forge Desktop"
+            : "Replace Forge Desktop manually",
+          detail: zh
+            ? "请保存工作，退出旧版 Forge，再将应用拖入 Applications 替换。此操作只打开 DMG，不会退出 Forge；应用未经签名或公证。"
+            : "Save your work, quit the old Forge, then drag the app into Applications to replace it. This only opens the DMG and does not quit Forge. The app is unsigned and not notarized.",
+        });
+        if (choice.response === 0) return updates?.status;
+      } finally {
+        explainingInstaller = false;
+      }
+    }
+    return updates?.command(command);
+  });
   agent = startAgent();
   await agent.waitUntilReady();
   ipcMain.handle(AGENT_PING_CHANNEL, (event) => {
@@ -330,6 +394,18 @@ async function run(): Promise<void> {
       mainWindow.webContents.send(RUN_EVENT_CHANNEL, event);
   });
 
+  if (process.argv.includes("--desktop-update-ui")) {
+    const window = await createWindow(false);
+    await runUpdateUiAcceptance(
+      window,
+      updates,
+      join(app.getPath("temp"), "forge-update-ui"),
+    );
+    window.destroy();
+    await shutdown();
+    app.exit(0);
+    return;
+  }
   if (process.argv.includes("--desktop-acceptance")) {
     const {
       FORGE_D12_UI_HOME: home,
@@ -414,6 +490,7 @@ async function run(): Promise<void> {
   }
 
   mainWindow = await createWindow();
+  updates.start();
   mainWindow.on("closed", () => {
     mainWindow = undefined;
   });

@@ -4,12 +4,14 @@ import type {
 } from "./application-protocol.js";
 import type { FileApi } from "./file-protocol.js";
 import type { RunCommand, RunEvent } from "./run-protocol.js";
+import type { UpdateCommand, UpdateStatus } from "./update-protocol.js";
 export interface AgentHealth {
   readonly pid: number;
   readonly resourcesAvailable: boolean;
 }
 
 export interface DesktopApi extends FileApi {
+  update(command: UpdateCommand): Promise<UpdateStatus>;
   readonly versions: Readonly<{
     electron: string;
     chrome: string;

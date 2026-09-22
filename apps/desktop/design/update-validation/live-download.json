@@ -1,0 +1,13 @@
+{
+  "date": "2026-09-22T07:12:37.757Z",
+  "releaseEnumeration": "captured official metadata fixture; asset downloads are live",
+  "fixtureCurrentVersion": "0.3.4-preview.0",
+  "target": "0.3.4-preview.1",
+  "arch": "arm64",
+  "source": "https://github.com/jslee124/forge/releases/download/desktop-0.3.4-preview.1/forge-desktop-0.3.4-arm64.dmg",
+  "sha256": "1713e0f0ff5355b0af35bd97f22ab9b94bbcb03480ca98622ba0bec6993b3ca5",
+  "openPathSucceeded": true,
+  "processStillRunningAfterOpen": true,
+  "replacementPerformed": false,
+  "root": "/var/folders/w7/z_5r0yxj7wl6gns_brgt2jv00000gn/T/forge-update-live-v3yFuZ"
+}

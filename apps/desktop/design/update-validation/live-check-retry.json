@@ -1,0 +1,62 @@
+{
+  "runs": [
+    {
+      "date": "2026-09-22T07:31:42.912Z",
+      "proxy": "system default",
+      "arch": "arm64",
+      "releaseFixture": false,
+      "providerCredentials": false,
+      "installerOpened": false,
+      "results": [
+        {
+          "status": {
+            "version": "0.3.4-preview.0",
+            "channel": "preview",
+            "startup": false,
+            "phase": "failed",
+            "error": "GitHub HTTP 403 (rate limit or access denied; retry later)",
+            "retry": "check"
+          },
+          "requests": [
+            {
+              "source": "https://api.github.com/repos/jslee124/forge/releases?per_page=100&page=1",
+              "status": 403,
+              "elapsedMs": 5475,
+              "remaining": "0",
+              "reset": "1790063654"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "date": "2026-09-22T07:32:25.469Z",
+      "proxy": "process-only direct",
+      "arch": "arm64",
+      "releaseFixture": false,
+      "providerCredentials": false,
+      "installerOpened": false,
+      "results": [
+        {
+          "status": {
+            "version": "0.3.4-preview.0",
+            "channel": "preview",
+            "startup": false,
+            "phase": "failed",
+            "error": "GitHub HTTP 403 (rate limit or access denied; retry later)",
+            "retry": "check"
+          },
+          "requests": [
+            {
+              "source": "https://api.github.com/repos/jslee124/forge/releases?per_page=100&page=1",
+              "status": 403,
+              "elapsedMs": 6433,
+              "remaining": "0",
+              "reset": "1790063654"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

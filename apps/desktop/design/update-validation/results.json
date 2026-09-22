@@ -1,0 +1,259 @@
+[
+  {
+    "name": "light-en-unchecked",
+    "overflow": false,
+    "settings": true,
+    "focusable": true,
+    "notesSafe": true
+  },
+  {
+    "name": "light-en-checking",
+    "overflow": false,
+    "settings": true,
+    "focusable": true,
+    "notesSafe": true
+  },
+  {
+    "name": "light-en-current",
+    "overflow": false,
+    "settings": true,
+    "focusable": true,
+    "notesSafe": true
+  },
+  {
+    "name": "light-en-available",
+    "overflow": false,
+    "settings": true,
+    "focusable": true,
+    "notesSafe": true
+  },
+  {
+    "name": "light-en-downloading",
+    "overflow": false,
+    "settings": true,
+    "focusable": true,
+    "notesSafe": true
+  },
+  {
+    "name": "light-en-verifying",
+    "overflow": false,
+    "settings": true,
+    "focusable": true,
+    "notesSafe": true
+  },
+  {
+    "name": "light-en-verified",
+    "overflow": false,
+    "settings": true,
+    "focusable": true,
+    "notesSafe": true
+  },
+  {
+    "name": "light-en-failed",
+    "overflow": false,
+    "settings": true,
+    "focusable": true,
+    "notesSafe": true
+  },
+  {
+    "name": "light-en-collapsed",
+    "focus": true,
+    "settingsVisible": true,
+    "accessibleAction": true,
+    "overflow": false
+  },
+  {
+    "name": "light-zh-CN-unchecked",
+    "overflow": false,
+    "settings": true,
+    "focusable": true,
+    "notesSafe": true
+  },
+  {
+    "name": "light-zh-CN-checking",
+    "overflow": false,
+    "settings": true,
+    "focusable": true,
+    "notesSafe": true
+  },
+  {
+    "name": "light-zh-CN-current",
+    "overflow": false,
+    "settings": true,
+    "focusable": true,
+    "notesSafe": true
+  },
+  {
+    "name": "light-zh-CN-available",
+    "overflow": false,
+    "settings": true,
+    "focusable": true,
+    "notesSafe": true
+  },
+  {
+    "name": "light-zh-CN-downloading",
+    "overflow": false,
+    "settings": true,
+    "focusable": true,
+    "notesSafe": true
+  },
+  {
+    "name": "light-zh-CN-verifying",
+    "overflow": false,
+    "settings": true,
+    "focusable": true,
+    "notesSafe": true
+  },
+  {
+    "name": "light-zh-CN-verified",
+    "overflow": false,
+    "settings": true,
+    "focusable": true,
+    "notesSafe": true
+  },
+  {
+    "name": "light-zh-CN-failed",
+    "overflow": false,
+    "settings": true,
+    "focusable": true,
+    "notesSafe": true
+  },
+  {
+    "name": "light-zh-CN-collapsed",
+    "focus": true,
+    "settingsVisible": true,
+    "accessibleAction": true,
+    "overflow": false
+  },
+  {
+    "name": "dark-en-unchecked",
+    "overflow": false,
+    "settings": true,
+    "focusable": true,
+    "notesSafe": true
+  },
+  {
+    "name": "dark-en-checking",
+    "overflow": false,
+    "settings": true,
+    "focusable": true,
+    "notesSafe": true
+  },
+  {
+    "name": "dark-en-current",
+    "overflow": false,
+    "settings": true,
+    "focusable": true,
+    "notesSafe": true
+  },
+  {
+    "name": "dark-en-available",
+    "overflow": false,
+    "settings": true,
+    "focusable": true,
+    "notesSafe": true
+  },
+  {
+    "name": "dark-en-downloading",
+    "overflow": false,
+    "settings": true,
+    "focusable": true,
+    "notesSafe": true
+  },
+  {
+    "name": "dark-en-verifying",
+    "overflow": false,
+    "settings": true,
+    "focusable": true,
+    "notesSafe": true
+  },
+  {
+    "name": "dark-en-verified",
+    "overflow": false,
+    "settings": true,
+    "focusable": true,
+    "notesSafe": true
+  },
+  {
+    "name": "dark-en-failed",
+    "overflow": false,
+    "settings": true,
+    "focusable": true,
+    "notesSafe": true
+  },
+  {
+    "name": "dark-en-collapsed",
+    "focus": true,
+    "settingsVisible": true,
+    "accessibleAction": true,
+    "overflow": false
+  },
+  {
+    "name": "dark-zh-CN-unchecked",
+    "overflow": false,
+    "settings": true,
+    "focusable": true,
+    "notesSafe": true
+  },
+  {
+    "name": "dark-zh-CN-checking",
+    "overflow": false,
+    "settings": true,
+    "focusable": true,
+    "notesSafe": true
+  },
+  {
+    "name": "dark-zh-CN-current",
+    "overflow": false,
+    "settings": true,
+    "focusable": true,
+    "notesSafe": true
+  },
+  {
+    "name": "dark-zh-CN-available",
+    "overflow": false,
+    "settings": true,
+    "focusable": true,
+    "notesSafe": true
+  },
+  {
+    "name": "dark-zh-CN-downloading",
+    "overflow": false,
+    "settings": true,
+    "focusable": true,
+    "notesSafe": true
+  },
+  {
+    "name": "dark-zh-CN-verifying",
+    "overflow": false,
+    "settings": true,
+    "focusable": true,
+    "notesSafe": true
+  },
+  {
+    "name": "dark-zh-CN-verified",
+    "overflow": false,
+    "settings": true,
+    "focusable": true,
+    "notesSafe": true
+  },
+  {
+    "name": "dark-zh-CN-failed",
+    "overflow": false,
+    "settings": true,
+    "focusable": true,
+    "notesSafe": true
+  },
+  {
+    "name": "dark-zh-CN-collapsed",
+    "focus": true,
+    "settingsVisible": true,
+    "accessibleAction": true,
+    "overflow": false
+  },
+  {
+    "name": "draft-retention-and-exit-guard",
+    "retained": true,
+    "draftGuard": true
+  }
+]

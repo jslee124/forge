@@ -23,6 +23,7 @@ import { Markdown } from "./markdown.js";
 import { SettingsView } from "./settings-view.js";
 import { SlashCommandMenu } from "./slash-command-menu.js";
 import { commands, routeCommand, suggestions } from "./slash-commands.js";
+import { UpdateView } from "./update-view.js";
 import { WorkspaceHeader } from "./workspace-header.js";
 
 export function LiveWorkbench(): React.JSX.Element {
@@ -628,17 +629,22 @@ export function LiveWorkbench(): React.JSX.Element {
                 </button>
               ))}
           </div>
-          <button
-            data-testid="settings"
-            type="button"
-            onClick={() => {
-              setSettingsSection("appearance");
-              setSettings(!settings);
-            }}
-          >
-            <GearSix size={17} />
-            {t("common.settings")}
-          </button>
+          <div className="sidebar-bottom">
+            <button
+              title={t("common.settings")}
+              aria-label={t("common.settings")}
+              data-testid="settings"
+              type="button"
+              onClick={() => {
+                setSettingsSection("appearance");
+                setSettings(!settings);
+              }}
+            >
+              <GearSix size={17} />
+              <span className="settings-label">{t("common.settings")}</span>
+            </button>
+            <UpdateView compact />
+          </div>
         </aside>
         <section className="live-main">
           <WorkspaceHeader

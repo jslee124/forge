@@ -14,7 +14,7 @@
 CI=true pnpm install --frozen-lockfile
 CI=true pnpm check
 pnpm desktop:dev
-CI=true pnpm desktop:package
+CI=true FORGE_DESKTOP_BUILD_TAG=desktop-0.3.4-preview.2 pnpm desktop:package
 ```
 
 打包命令构建主进程、Agent、preload、界面及锁定依赖的联网插件，输出双架构 DMG/ZIP
@@ -78,3 +78,13 @@ node scripts/acceptance-installed.mjs release/forge-desktop-0.3.4-arm64.zip
 
 尚未配置自动更新服务。签名、公证、公开下载渠道与更新策略需要另行授权的发布任务。
 CLI npm 打包验证不等于桌面分发验证。
+
+## 版本检查与手动更新
+
+带有更新功能的构建在启动后后台检查官方桌面发布，不自动下载。设置 → 版本与更新可查看完整版本、切换稳定/预览通道、手动检查或关闭启动检查；预览通道也接受更新的稳定版，不会自动降级。
+
+设置旁点击「下载更新」，下载与 SHA-256 校验成功后显示「打开安装器」。取消下载会保留更新提示，失败可重试。打开前再次校验受管文件，并说明：保存工作、退出旧版 Forge，再拖入 Applications 替换。打开 DMG 不会自动退出或安装，现有草稿与活动任务退出保护仍生效。
+
+旧版本首次需要手动安装带此功能的构建。构建示例中的 `desktop-0.3.4-preview.2` 仅为本地身份，不表示已发布；完整身份缺失会明确显示，不能由 `0.3.4` 猜测预览序号。打包要求显式身份，并生成 `desktop-build.json` 与 `SHA256SUMS`。
+
+更新网络使用 Chromium 系统代理，不使用模型提供商凭据。API 限流、超时或代理错误不表示已是最新。SHA-256 不等于 Apple 签名或公证；不会自动移除 quarantine 或绕过 Gatekeeper。验证详情见[更新 QA](update-qa.zh-CN.md)。

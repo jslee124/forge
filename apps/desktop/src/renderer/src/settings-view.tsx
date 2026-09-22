@@ -7,6 +7,7 @@ import type {
 import { ConfirmationDialog } from "./confirmation-dialog.js";
 import { ManagementSettings } from "./management-settings.js";
 import { type ThemeMode, useTheme } from "./theme.js";
+import { UpdateView } from "./update-view.js";
 export function SettingsView({
   initialSection,
   state,
@@ -42,6 +43,7 @@ export function SettingsView({
         {i18n.language.startsWith("zh") ? "返回对话" : "Back to conversation"}
       </button>
       <h2>{t("common.settings")}</h2>
+      <UpdateView />
       <section id="settings-appearance" className="studio-appearance">
         <h3>{t("studio.appearance")}</h3>
         <p>{t("studio.appearanceHint")}</p>

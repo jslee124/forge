@@ -30,14 +30,20 @@ import {
   relativeFilePathSchema,
   savedFileSchema,
 } from "../shared/file-protocol.js";
-
 import {
   parseRunEvent,
   type RunCommand,
   type RunEvent,
 } from "../shared/run-protocol.js";
+import {
+  UPDATE_CHANNEL,
+  type UpdateCommand,
+  updateCommandSchema,
+} from "../shared/update-protocol.js";
 
 const desktopApi: DesktopApi = Object.freeze({
+  update: (command: UpdateCommand) =>
+    ipcRenderer.invoke(UPDATE_CHANNEL, updateCommandSchema.parse(command)),
   versions: Object.freeze({
     electron: process.versions.electron ?? "unknown",
     chrome: process.versions.chrome ?? "unknown",
