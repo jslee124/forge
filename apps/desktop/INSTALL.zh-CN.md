@@ -27,7 +27,7 @@ CI=true FORGE_DESKTOP_BUILD_TAG=desktop-0.3.4-preview.2 pnpm desktop:package
 打开对应 DMG，将 Forge Desktop.app 复制到 Applications 后推出镜像；或解压 ZIP 后移动应用。
 替换前退出旧应用，可保留上一份本地产物以便回退。本地产物没有 Developer ID 签名或公证，
 macOS 可能拦截；检查来源和校验和后，对可信本地构建使用系统明确的“仍要打开”入口，
-不要全局关闭 Gatekeeper。本次没有上传或发布。
+不要全局关闭 Gatekeeper。[Preview 2](https://github.com/jslee124/forge/releases/tag/desktop-0.3.4-preview.2) 已作为未签名、未公证的预览版发布。
 
 从 Applications 启动。关闭最后一个窗口会退出应用并停止 Agent，不会转入后台工作。
 取消或退出不会回滚已经发生的文件修改。重新打开历史任务继续工作。
@@ -76,7 +76,7 @@ node scripts/acceptance-installed.mjs release/forge-desktop-0.3.4-arm64.zip
 等待应用退出并确认 Agent PID 消失。证据写入 `qa/d13`，临时安装和数据自动清理。
 它不调用模型或替用户登录。
 
-尚未配置自动更新服务。签名、公证、公开下载渠道与更新策略需要另行授权的发布任务。
+更新服务使用官方桌面 GitHub Releases，提供校验后的下载与手动替换。尚未配置 Developer ID 签名、公证或自动替换。
 CLI npm 打包验证不等于桌面分发验证。
 
 ## 版本检查与手动更新
@@ -85,6 +85,6 @@ CLI npm 打包验证不等于桌面分发验证。
 
 设置旁点击「下载更新」，下载与 SHA-256 校验成功后显示「打开安装器」。取消下载会保留更新提示，失败可重试。打开前再次校验受管文件，并说明：保存工作、退出旧版 Forge，再拖入 Applications 替换。打开 DMG 不会自动退出或安装，现有草稿与活动任务退出保护仍生效。
 
-旧版本首次需要手动安装带此功能的构建。构建示例中的 `desktop-0.3.4-preview.2` 仅为本地身份，不表示已发布；完整身份缺失会明确显示，不能由 `0.3.4` 猜测预览序号。打包要求显式身份，并生成 `desktop-build.json` 与 `SHA256SUMS`。
+旧版本首次需要手动安装带此功能的构建。`desktop-0.3.4-preview.2` 是[已发布预览版](https://github.com/jslee124/forge/releases/tag/desktop-0.3.4-preview.2)的完整身份；完整身份缺失会明确显示，不能由 `0.3.4` 猜测预览序号。打包要求显式身份，并生成 `desktop-build.json` 与 `SHA256SUMS`。
 
 更新网络使用 Chromium 系统代理，不使用模型提供商凭据。API 限流、超时或代理错误不表示已是最新。SHA-256 不等于 Apple 签名或公证；不会自动移除 quarantine 或绕过 Gatekeeper。验证详情见[更新 QA](update-qa.zh-CN.md)。

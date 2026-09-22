@@ -32,7 +32,7 @@ Alternatively extract the ZIP and move the app to Applications. Quit an existing
 replacing it. Keep the previous local artifact if a rollback may be needed.
 These development artifacts have no Developer ID signature or notarization. macOS can block
 them; inspect the source and checksum before using the system's explicit Open Anyway option
-for a trusted local build. Do not disable Gatekeeper globally. Nothing was uploaded or released.
+for a trusted local build. Do not disable Gatekeeper globally. [Preview 2](https://github.com/jslee124/forge/releases/tag/desktop-0.3.4-preview.2) is published as an unsigned, non-notarized prerelease.
 
 Launch the app from Applications. Closing its last window quits the app and shuts down its
 Agent; it is not a background worker. Cancellation/exit does not roll back existing file edits.
@@ -89,9 +89,9 @@ empty proxy values and an isolated FORGE_HOME, checks installed services/PDF/aut
 for app exit and confirms its Agent PID has exited. It saves sanitized evidence under `qa/d13`
 and removes temporary installed copies/data. It does not call a model or authenticate a user.
 
-No updater/feed is configured. Signing, notarization, a public download channel and update
-policy require a separate authorized release task. CLI npm package verification is independent
-of these desktop distribution steps.
+The updater checks official desktop GitHub Releases and supports verified downloads and manual replacement.
+Developer ID signing, notarization and automatic replacement are not configured. CLI npm package
+verification is independent of these desktop distribution steps.
 
 ## Version checks and manual updates
 
@@ -99,6 +99,6 @@ Builds with the update feature check official desktop releases in the background
 
 Choose Download update beside Settings. After downloading and SHA-256 verification, choose Open installer. Cancellation preserves the notice; failures can be retried. Opening rechecks the managed file and explains the steps: save work, quit the old Forge, then drag into Applications to replace it. Opening a DMG does not quit or install automatically; draft and active-task exit guards remain.
 
-Existing old builds require one manual upgrade to obtain this feature. The example `desktop-0.3.4-preview.2` is a local build identity, not a published release. Missing identity is explicit and is never guessed from `0.3.4`. Packaging requires an explicit identity and generates `desktop-build.json` and `SHA256SUMS`.
+Existing old builds require one manual upgrade to obtain this feature. `desktop-0.3.4-preview.2` is the [published preview identity](https://github.com/jslee124/forge/releases/tag/desktop-0.3.4-preview.2). Missing identity is explicit and is never guessed from `0.3.4`. Packaging requires an explicit identity and generates `desktop-build.json` and `SHA256SUMS`.
 
 Update networking uses Chromium's system proxy support and no model-provider credentials. Rate limits, timeouts and proxy errors never mean up to date. SHA-256 is not Apple signing or notarization; the updater never removes quarantine or bypasses Gatekeeper. See [update QA](update-qa.md) for evidence.

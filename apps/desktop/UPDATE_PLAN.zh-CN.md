@@ -1,6 +1,6 @@
 # Forge Desktop 未签名版本更新计划
 
-日期：2026-09-22。状态：U01—U04 已实现并完成受控验收；验证结果见[更新验收记录](update-qa.zh-CN.md)。当前为本地改动，未发布新版本；没有配置 Developer ID 或签名证书。
+日期：2026-09-22。状态：U01—U04 已实现并完成受控验收；验证结果见[更新验收记录](update-qa.zh-CN.md)。已于 2026-09-23 发布 [Preview 2](https://github.com/jslee124/forge/releases/tag/desktop-0.3.4-preview.2)，见[发布记录](../../evals/reports/desktop-0.3.4-preview.2/README.zh-CN.md)；没有配置 Developer ID 或签名证书。
 
 [English](UPDATE_PLAN.md) · [开发计划](WORKBENCH_DEVELOPMENT_PLAN.zh-CN.md) · [安装说明](INSTALL.zh-CN.md)
 
@@ -56,7 +56,7 @@ U01—U04 已在当前源码中实现。U04 受控验收结果和证据边界见
 
 ## 构建与缓存契约
 
-发布构建必须设置 `FORGE_DESKTOP_BUILD_TAG=desktop-<完整语义版本>`，打包命令拒绝缺少身份的构建。完整版本嵌入主进程，major.minor.patch 必须与包版本一致；开发构建未设置时明确显示身份缺失。本地验收使用的 `desktop-0.3.4-preview.2` 不是已发布标签。
+发布构建必须设置 `FORGE_DESKTOP_BUILD_TAG=desktop-<完整语义版本>`，打包命令拒绝缺少身份的构建。完整版本嵌入主进程，major.minor.patch 必须与包版本一致；开发构建未设置时明确显示身份缺失。验收使用的 `desktop-0.3.4-preview.2` 现已作为预览版标签发布。
 
 `release-contract.mjs` 在两种架构的 DMG/ZIP 全部生成后输出 `SHA256SUMS` 和 `desktop-build.json`。另获发布授权后，才将这两个文件及四个安装产物一起上传到匹配的桌面标签。更新检查先验证校验清单，再提供下载；下载前再次读取清单，如摘要变化则要求重新检查。
 

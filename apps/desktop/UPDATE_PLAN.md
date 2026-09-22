@@ -1,6 +1,6 @@
 # Forge Desktop unsigned update plan
 
-Date: 2026-09-22. Status: U01–U04 implemented and controlled acceptance complete; validation is recorded in [update QA](update-qa.md). These are local changes, not a published release. No Developer ID or signing certificate is configured.
+Date: 2026-09-22. Status: U01–U04 implemented and controlled acceptance complete; validation is recorded in [update QA](update-qa.md). Published as [Preview 2](https://github.com/jslee124/forge/releases/tag/desktop-0.3.4-preview.2) on 2026-09-23; see [release evidence](../../evals/reports/desktop-0.3.4-preview.2/README.md). No Developer ID or signing certificate is configured.
 
 [中文](UPDATE_PLAN.zh-CN.md) · [Development plan](WORKBENCH_DEVELOPMENT_PLAN.md) · [Installation](INSTALL.md)
 
@@ -56,7 +56,7 @@ During implementation run focused Vitest, root check, desktop build and docs che
 
 ## Build and cache contract
 
-Set `FORGE_DESKTOP_BUILD_TAG=desktop-<full-semver>` when building a release. Packaging refuses a missing identity. The embedded full version is validated against the package version's major.minor.patch; development builds without the variable explicitly report a missing identity. The local acceptance identity `desktop-0.3.4-preview.2` is not a published tag.
+Set `FORGE_DESKTOP_BUILD_TAG=desktop-<full-semver>` when building a release. Packaging refuses a missing identity. The embedded full version is validated against the package version's major.minor.patch; development builds without the variable explicitly report a missing identity. The acceptance identity `desktop-0.3.4-preview.2` is now the published preview tag.
 
 `release-contract.mjs` generates `SHA256SUMS` and `desktop-build.json` after both architecture DMG/ZIP outputs exist. Publish these together with the four files under the matching desktop tag only after separate publication authorization. The updater reads the checksum before offering a download and reads it again before downloading; changed checksums require a fresh check.
 
