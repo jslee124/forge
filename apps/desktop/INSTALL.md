@@ -1,6 +1,6 @@
 # Forge Desktop local installation
 
-[简体中文](INSTALL.zh-CN.md) · [D13 development evidence](d13-qa.md)
+[简体中文](INSTALL.zh-CN.md) · [Windows installation](INSTALL-WINDOWS.md) · [D13 development evidence](d13-qa.md)
 
 Forge Desktop is a private workspace application, separate from the public Forge CLI package.
 The current local build is 0.3.4, Electron 44.2.0 and electron-builder 26.15.3.
@@ -15,7 +15,7 @@ From the repository root, with Node 24+ and the pinned pnpm version in package.j
 CI=true pnpm install --frozen-lockfile
 CI=true pnpm check
 pnpm desktop:dev
-CI=true FORGE_DESKTOP_BUILD_TAG=desktop-0.3.4-preview.2 pnpm desktop:package
+CI=true FORGE_DESKTOP_BUILD_TAG=desktop-0.3.4-preview.3 pnpm desktop:package
 ```
 
 Packaging builds the renderer, preload, main and Agent, prepares the locked web plugin,
@@ -32,7 +32,7 @@ Alternatively extract the ZIP and move the app to Applications. Quit an existing
 replacing it. Keep the previous local artifact if a rollback may be needed.
 These development artifacts have no Developer ID signature or notarization. macOS can block
 them; inspect the source and checksum before using the system's explicit Open Anyway option
-for a trusted local build. Do not disable Gatekeeper globally. [Preview 2](https://github.com/jslee124/forge/releases/tag/desktop-0.3.4-preview.2) is published as an unsigned, non-notarized prerelease.
+for a trusted local build. Do not disable Gatekeeper globally. [Preview 3](https://github.com/jslee124/forge/releases/tag/desktop-0.3.4-preview.3) provides unsigned, non-notarized DMGs; [Preview 2](https://github.com/jslee124/forge/releases/tag/desktop-0.3.4-preview.2) retains the ZIP downloads.
 
 Launch the app from Applications. Closing its last window quits the app and shuts down its
 Agent; it is not a background worker. Cancellation/exit does not roll back existing file edits.
@@ -99,6 +99,6 @@ Builds with the update feature check official desktop releases in the background
 
 Choose Download update beside Settings. After downloading and SHA-256 verification, choose Open installer. Cancellation preserves the notice; failures can be retried. Opening rechecks the managed file and explains the steps: save work, quit the old Forge, then drag into Applications to replace it. Opening a DMG does not quit or install automatically; draft and active-task exit guards remain.
 
-Existing old builds require one manual upgrade to obtain this feature. `desktop-0.3.4-preview.2` is the [published preview identity](https://github.com/jslee124/forge/releases/tag/desktop-0.3.4-preview.2). Missing identity is explicit and is never guessed from `0.3.4`. Packaging requires an explicit identity and generates `desktop-build.json` and `SHA256SUMS`.
+Existing old builds require one manual upgrade to obtain this feature. `desktop-0.3.4-preview.3` is the [current preview identity](https://github.com/jslee124/forge/releases/tag/desktop-0.3.4-preview.3). Missing identity is explicit and is never guessed from `0.3.4`. Packaging requires an explicit identity and generates `desktop-build.json` and `SHA256SUMS`.
 
 Update networking uses Chromium's system proxy support and no model-provider credentials. Rate limits, timeouts and proxy errors never mean up to date. SHA-256 is not Apple signing or notarization; the updater never removes quarantine or bypasses Gatekeeper. See [update QA](update-qa.md) for evidence.

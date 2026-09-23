@@ -9,7 +9,7 @@ Forge 文档按“读者想完成什么”组织。第一次接触项目时无�
 | 我想要…… | 从这里开始 | 然后阅读 |
 | --- | --- | --- |
 | 第一次运行 Forge | [快速上手](GETTING_STARTED.md) | [CLI UI](CLI_UI.md) · [认证模型](AUTHENTICATION.md) |
-| 试用 macOS 桌面预览版 | [桌面预览版](DESKTOP.md) | [桌面安装](../../apps/desktop/INSTALL.zh-CN.md) · [Preview 2 证据](../../evals/reports/desktop-0.3.4-preview.2/README.zh-CN.md) |
+| 试用桌面预览版 | [桌面预览版](DESKTOP.md) | [Windows 安装](../../apps/desktop/INSTALL-WINDOWS.zh-CN.md) · [macOS 安装](../../apps/desktop/INSTALL.zh-CN.md) · [Preview 3 证据](../../evals/reports/desktop-0.3.4-preview.3/README.zh-CN.md) |
 | 配置模型、limits 或 context | [配置参考](CONFIGURATION.md) | [认证模型](AUTHENTICATION.md) · [上下文管理](CONTEXT_MANAGEMENT.md) |
 | 理解 Forge 能保护什么、不能保护什么 | [安全模型](SECURITY_MODEL.md) | [架构](ARCHITECTURE.md) |
 | 恢复 conversation 或检查 run | [会话与 trace](SESSIONS.md) | [CLI UI](CLI_UI.md) |

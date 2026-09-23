@@ -1,0 +1,54 @@
+{
+  "tag": "desktop-0.3.4-preview.3",
+  "releaseId": 394367897,
+  "url": "https://github.com/jslee124/forge/releases/tag/desktop-0.3.4-preview.3",
+  "publishedAt": "2026-09-23T07:18:36Z",
+  "draft": false,
+  "prerelease": true,
+  "sourceCommit": "612da758562e37d5907ed2913ae86fbf9392c86e",
+  "sourceCi": "https://github.com/jslee124/forge/actions/runs/35825140016",
+  "publicationCi": "https://github.com/jslee124/forge/actions/runs/35830601966",
+  "assets": [
+    {
+      "name": "desktop-build.json",
+      "size": 738,
+      "sha256": "82ae237ba4b0226f9c0bd991f6b4ee69b9cee212fd4e27f96d1357935c73973a"
+    },
+    {
+      "name": "forge-desktop-0.3.4-arm64.dmg",
+      "size": 166557876,
+      "sha256": "d6f18eac2b24313b6016248369763b08f77b7f88754697b61c5b706881bedc4b"
+    },
+    {
+      "name": "forge-desktop-0.3.4-x64.dmg",
+      "size": 170296125,
+      "sha256": "3844b9e2b3e22b27b1398284fb994b5139664880014b7749d18a7cc60cbfd593"
+    },
+    {
+      "name": "forge-desktop-0.3.4-x64.exe",
+      "size": 140121797,
+      "sha256": "526adaf6e705b52d74a6bc97216432756af7e3e200a39d9631dd365e04074b35"
+    },
+    {
+      "name": "SHA256SUMS",
+      "size": 284,
+      "sha256": "8df80279e9766bc532b70584b8c3ccfa634461bce8bc849524871a42b88efcf6"
+    }
+  ],
+  "verification": {
+    "githubDigestsMatchBuildManifest": true,
+    "publicAssetHeadStatus": 200,
+    "publicMetadataMatchesGithubDigests": true,
+    "tagMatchesSource": true,
+    "stableLatest": "v0.3.4",
+    "testsPassed": 492,
+    "testsSkipped": 6,
+    "windowsInstalledAppSmoke": true,
+    "windowsUninstallSmoke": true
+  },
+  "limitations": [
+    "Unsigned installers and macOS DMGs not notarized",
+    "Windows real-provider login, Windows ARM64, SmartScreen acceptance and every network route not tested",
+    "No installed-app acceptance on every Mac hardware configuration"
+  ]
+}

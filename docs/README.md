@@ -10,7 +10,7 @@ with the shortest path below instead of reading every page in order.
 | I want to... | Start here | Then read |
 | --- | --- | --- |
 | Run Forge for the first time | [Getting started](GETTING_STARTED.md) | [CLI UI](CLI_UI.md) · [Authentication](AUTHENTICATION.md) |
-| Try the macOS desktop preview | [Desktop preview](DESKTOP.md) | [Desktop installation](../apps/desktop/INSTALL.md) · [Preview 2 evidence](../evals/reports/desktop-0.3.4-preview.2/README.md) |
+| Try the desktop preview | [Desktop preview](DESKTOP.md) | [Windows installation](../apps/desktop/INSTALL-WINDOWS.md) · [macOS installation](../apps/desktop/INSTALL.md) · [Preview 3 evidence](../evals/reports/desktop-0.3.4-preview.3/README.md) |
 | Configure a model, limits, or context behavior | [Configuration](CONFIGURATION.md) | [Authentication](AUTHENTICATION.md) · [Context management](CONTEXT_MANAGEMENT.md) |
 | Understand what Forge can and cannot protect | [Security model](SECURITY_MODEL.md) | [Architecture](ARCHITECTURE.md) |
 | Resume a conversation or inspect a run | [Sessions and traces](SESSIONS.md) | [CLI UI](CLI_UI.md) |
