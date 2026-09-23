@@ -453,6 +453,16 @@ describe("process commands", () => {
         input: { program: "echo hello | sh", args: [] },
       }),
     ).toMatchObject({ ok: false, error: { code: "invalid_input" } });
+    expect(
+      proposeToolCall({
+        id: "windows-program-files",
+        name: "run_command",
+        input: {
+          program: "C:\\Program Files\\Node.js\\node.exe",
+          args: ["--version"],
+        },
+      }),
+    ).toMatchObject({ ok: true });
   });
 });
 

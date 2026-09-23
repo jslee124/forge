@@ -49,6 +49,7 @@ afterEach(async () => {
 async function setup(
   override?: typeof fetch,
   version: string | null = "0.3.4-preview.1",
+  platform: "darwin" | "win32" = "darwin",
 ) {
   const root = await mkdtemp(join(tmpdir(), "forge-update-test-"));
   roots.push(root);
@@ -68,6 +69,7 @@ async function setup(
   const service = new UpdateService({
     root,
     version,
+    platform,
     arch: "arm64",
     startupAllowed: false,
     fetch: request,
@@ -97,27 +99,41 @@ describe("desktop release contract", () => {
         ],
         "0.3.4-preview.1",
         "preview",
+        "darwin",
         "arm64",
       ),
     ).toBeUndefined();
     expect(
-      selectRelease([release()], "0.3.4-preview.1", "stable", "arm64"),
+      selectRelease(
+        [release()],
+        "0.3.4-preview.1",
+        "stable",
+        "darwin",
+        "arm64",
+      ),
     ).toBeUndefined();
     expect(
-      selectRelease([release("0.3.4")], "0.3.4-preview.1", "preview", "arm64")
-        ?.version,
+      selectRelease(
+        [release("0.3.4")],
+        "0.3.4-preview.1",
+        "preview",
+        "darwin",
+        "arm64",
+      )?.version,
     ).toBe("0.3.4");
     expect(
-      selectRelease([release()], "0.3.4", "preview", "arm64"),
+      selectRelease([release()], "0.3.4", "preview", "darwin", "arm64"),
     ).toBeUndefined();
   });
   it("requires exact architecture assets and same-release checksums", () => {
-    expect(() => selectRelease([release()], "0.3.3", "preview", "x64")).toThrow(
-      "Incomplete release",
-    );
+    expect(
+      selectRelease([release()], "0.3.3", "preview", "darwin", "x64"),
+    ).toBeUndefined();
     const r = release();
     r.assets = r.assets.filter((a) => a.name !== "SHA256SUMS");
-    expect(() => selectRelease([r], "0.3.3", "preview", "arm64")).toThrow();
+    expect(() =>
+      selectRelease([r], "0.3.3", "preview", "darwin", "arm64"),
+    ).toThrow();
     expect(() =>
       readChecksum(`${digest}  a.dmg\n${digest}  a.dmg`, "a.dmg"),
     ).toThrow();
@@ -346,6 +362,7 @@ describe("update fault boundaries", () => {
     const restarted = new UpdateService({
       root,
       version: "0.3.4-preview.1",
+      platform: "darwin",
       arch: "arm64",
       startupAllowed: true,
       fetch: request,
@@ -366,9 +383,39 @@ describe("update fault boundaries", () => {
       name: arm.name.replace("arm64", "x64"),
       browser_download_url: arm.browser_download_url.replace("arm64", "x64"),
     });
-    expect(selectRelease([r], "0.3.3", "preview", "x64")?.name).toBe(
+    expect(selectRelease([r], "0.3.3", "preview", "darwin", "x64")?.name).toBe(
       "forge-desktop-0.3.4-x64.dmg",
     );
+  });
+  it("selects the Windows installer and skips newer releases for another platform", () => {
+    const windows = release("0.3.4-preview.3");
+    windows.assets = windows.assets.map((asset) => ({
+      ...asset,
+      name: asset.name.replace("arm64.dmg", "x64.exe"),
+      browser_download_url: asset.browser_download_url.replace(
+        "arm64.dmg",
+        "x64.exe",
+      ),
+    }));
+    const mac = release("0.3.4-preview.2");
+    expect(
+      selectRelease(
+        [windows, mac],
+        "0.3.4-preview.1",
+        "preview",
+        "darwin",
+        "arm64",
+      )?.version,
+    ).toBe("0.3.4-preview.2");
+    expect(
+      selectRelease(
+        [windows, mac],
+        "0.3.4-preview.1",
+        "preview",
+        "win32",
+        "x64",
+      )?.name,
+    ).toBe("forge-desktop-0.3.4-x64.exe");
   });
 });
 

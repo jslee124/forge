@@ -9,10 +9,13 @@
     "dev": "node ../../scripts/build-web-plugin.mjs && electron-vite dev",
     "preview:renderer": "vite preview --outDir out/renderer --host 127.0.0.1",
     "package": "node scripts/release-contract.mjs --validate && pnpm build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac --publish never && node scripts/release-contract.mjs",
+    "package:win": "node scripts/release-contract.mjs --validate && pnpm build && electron-builder --win --publish never && node scripts/release-contract.mjs --win",
     "package:dir": "node scripts/release-contract.mjs --validate && pnpm build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac dir --publish never",
+    "package:dir:win": "node scripts/release-contract.mjs --validate && pnpm build && electron-builder --win dir --x64 --publish never",
     "smoke": "pnpm smoke:development && pnpm smoke:packaged",
     "smoke:development": "pnpm build && electron . --desktop-smoke",
     "smoke:packaged": "pnpm package:dir && node scripts/smoke-packaged.mjs",
+    "smoke:packaged:win": "pnpm package:dir:win && node scripts/smoke-packaged.mjs --win",
     "test": "vitest run src/**/*.test.ts",
     "typecheck": "tsc -b",
     "acceptance:installed": "node scripts/acceptance-installed.mjs"

@@ -57,6 +57,7 @@ export async function runUpdateUiAcceptance(
       ] as UpdateStatus["phase"][]) {
         updates.status = {
           version: "0.3.4-preview.1",
+          platform: "darwin",
           channel: "preview",
           startup: false,
           phase,

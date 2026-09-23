@@ -18,6 +18,7 @@ export const updateCommandSchema = z.discriminatedUnion("type", [
 export type UpdateCommand = z.infer<typeof updateCommandSchema>;
 export interface UpdateStatus {
   version: string | null;
+  platform: "darwin" | "win32";
   channel: "stable" | "preview";
   startup: boolean;
   phase:

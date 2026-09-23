@@ -164,6 +164,7 @@ async function run(): Promise<void> {
   updates = new UpdateService({
     root: join(app.getPath("userData"), "desktop-updates"),
     version: __FORGE_DESKTOP_VERSION__,
+    platform: process.platform === "win32" ? "win32" : "darwin",
     arch: process.arch,
     startupAllowed:
       app.isPackaged &&
@@ -193,17 +194,26 @@ async function run(): Promise<void> {
       explainingInstaller = true;
       try {
         const zh = app.getLocale().startsWith("zh");
+        const windows = process.platform === "win32";
         const choice = await dialog.showMessageBox(requireMainWindow(), {
           type: "info",
           buttons: zh ? ["取消", "打开安装器"] : ["Cancel", "Open installer"],
           defaultId: 1,
           cancelId: 0,
           message: zh
-            ? "手动替换 Forge Desktop"
-            : "Replace Forge Desktop manually",
+            ? windows
+              ? "安装 Forge Desktop 更新"
+              : "手动替换 Forge Desktop"
+            : windows
+              ? "Install the Forge Desktop update"
+              : "Replace Forge Desktop manually",
           detail: zh
-            ? "请保存工作，退出旧版 Forge，再将应用拖入 Applications 替换。此操作只打开 DMG，不会退出 Forge；应用未经签名或公证。"
-            : "Save your work, quit the old Forge, then drag the app into Applications to replace it. This only opens the DMG and does not quit Forge. The app is unsigned and not notarized.",
+            ? windows
+              ? "请保存工作并退出旧版 Forge，再运行安装程序。此操作只打开安装程序，不会退出 Forge；预览版未经代码签名，Windows 可能显示安全提示。"
+              : "请保存工作，退出旧版 Forge，再将应用拖入 Applications 替换。此操作只打开 DMG，不会退出 Forge；应用未经签名或公证。"
+            : windows
+              ? "Save your work and quit the old Forge before running the installer. This opens the installer without quitting Forge. The preview is unsigned, so Windows may show a security warning."
+              : "Save your work, quit the old Forge, then drag the app into Applications to replace it. This only opens the DMG and does not quit Forge. The app is unsigned and not notarized.",
         });
         if (choice.response === 0) return updates?.status;
       } finally {

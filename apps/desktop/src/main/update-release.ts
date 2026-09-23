@@ -63,10 +63,13 @@ export function selectRelease(
   releases: Release[],
   current: string,
   channel: "stable" | "preview",
+  platform: "darwin" | "win32",
   arch: string,
 ): UpdateCandidate | undefined {
   if (arch !== "arm64" && arch !== "x64")
     throw new Error("Unsupported application architecture");
+  if (platform === "win32" && arch !== "x64")
+    throw new Error("Unsupported Windows application architecture");
   const eligible = releases
     .filter((r) => {
       if (r.draft || !r.tag_name.startsWith("desktop-")) return false;
@@ -82,38 +85,41 @@ export function selectRelease(
       }
     })
     .sort((a, b) => compareVersions(b.tag_name.slice(8), a.tag_name.slice(8)));
-  const release = eligible[0];
-  if (!release) return;
-  const version = release.tag_name.slice(8);
-  // Release contract: asset package version is the full identity's major.minor.patch.
-  const name = `forge-desktop-${parseVersion(version).core.join(".")}-${arch}.dmg`;
-  const dmg = release.assets.filter((a) => a.name === name);
-  const sums = release.assets.filter((a) => a.name === "SHA256SUMS");
-  const installer = dmg[0],
-    checksum = sums[0];
-  if (dmg.length !== 1 || sums.length !== 1 || !installer || !checksum)
-    throw new Error(
-      `Incomplete release ${version}: missing or duplicate ${arch} DMG / SHA256SUMS`,
-    );
-  for (const asset of [installer, checksum]) {
-    const url = new URL(asset.browser_download_url);
-    if (
-      url.origin !== "https://github.com" ||
-      url.pathname !==
-        `/${repository}/releases/download/${release.tag_name}/${asset.name}` ||
-      url.search ||
-      url.hash
-    )
-      throw new Error("Invalid release asset source");
+  for (const release of eligible) {
+    const version = release.tag_name.slice(8);
+    // A platform-specific preview may omit the other platform's installer.
+    const extension = platform === "win32" ? "exe" : "dmg";
+    const name = `forge-desktop-${parseVersion(version).core.join(".")}-${arch}.${extension}`;
+    const installers = release.assets.filter((a) => a.name === name);
+    if (installers.length === 0) continue;
+    const sums = release.assets.filter((a) => a.name === "SHA256SUMS");
+    const installer = installers[0],
+      checksum = sums[0];
+    if (installers.length !== 1 || sums.length !== 1 || !installer || !checksum)
+      throw new Error(
+        `Incomplete release ${version}: missing or duplicate ${name} / SHA256SUMS`,
+      );
+    for (const asset of [installer, checksum]) {
+      const url = new URL(asset.browser_download_url);
+      if (
+        url.origin !== "https://github.com" ||
+        url.pathname !==
+          `/${repository}/releases/download/${release.tag_name}/${asset.name}` ||
+        url.search ||
+        url.hash
+      )
+        throw new Error("Invalid release asset source");
+    }
+    return {
+      version,
+      notes: (release.body ?? "").slice(0, 16000),
+      name,
+      url: installer.browser_download_url,
+      checksumUrl: checksum.browser_download_url,
+      size: installer.size,
+    };
   }
-  return {
-    version,
-    notes: (release.body ?? "").slice(0, 16000),
-    name,
-    url: installer.browser_download_url,
-    checksumUrl: checksum.browser_download_url,
-    size: installer.size,
-  };
+  return undefined;
 }
 export function readChecksum(text: string, name: string): string {
   const matches = text

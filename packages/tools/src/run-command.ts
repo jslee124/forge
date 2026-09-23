@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { isAbsolute, win32 } from "node:path";
 
 import type { ForgeTool, ToolContext, ToolResult } from "@forge/core";
 import { z } from "zod";
@@ -17,9 +18,17 @@ export const runCommandInputSchema = z.object({
     .string()
     .min(1)
     .max(512)
-    .refine((value) => !/[\s|&;<>()$`]/u.test(value), {
-      message: "program must be one executable token, not a shell expression",
-    }),
+    .refine(
+      (value) => {
+        if (/[\0\r\n]/u.test(value)) return false;
+        if (isAbsolute(value) || win32.isAbsolute(value)) return true;
+        return !/[\s|&;<>()$`]/u.test(value);
+      },
+      {
+        message:
+          "program must be one executable name or an absolute path, not a shell expression",
+      },
+    ),
   args: z.array(z.string().max(8192)).max(100).default([]),
   cwd: z.string().min(1).default("."),
   timeoutMs: z

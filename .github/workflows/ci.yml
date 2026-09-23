@@ -47,3 +47,49 @@ jobs:
         run: |
           pnpm forge --version
           pnpm forge --help
+
+  desktop-windows:
+    runs-on: windows-latest
+    env:
+      CI: "true"
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Set desktop build identity
+        shell: pwsh
+        run: |
+          node -e 'const fs = require("node:fs"); const pkg = require("./apps/desktop/package.json"); const ref = process.env.GITHUB_REF_NAME; const tag = ref.startsWith("desktop-") ? ref : `desktop-${pkg.version}-ci.${process.env.GITHUB_RUN_ID}`; fs.appendFileSync(process.env.GITHUB_ENV, `FORGE_DESKTOP_BUILD_TAG=${tag}\n`);'
+
+      - name: Test Windows desktop contracts
+        run: pnpm exec vitest run apps/desktop/src/main/update-service.test.ts apps/desktop/src/main/file-service.test.ts apps/desktop/src/agent/application.test.ts packages/tools/src/tools.test.ts packages/codex-app-server/src/client.test.ts
+
+      - name: Package Windows x64 installer
+        run: pnpm desktop:package:win
+
+      - name: Smoke packaged Windows application
+        run: node apps/desktop/scripts/smoke-packaged.mjs --win
+
+      - name: Upload Windows installer and manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: forge-desktop-windows-x64
+          path: |
+            apps/desktop/release/forge-desktop-*-x64.exe
+            apps/desktop/release/SHA256SUMS
+            apps/desktop/release/desktop-build.json
+          if-no-files-found: error

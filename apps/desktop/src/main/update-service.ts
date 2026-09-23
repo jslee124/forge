@@ -73,6 +73,7 @@ export class UpdateService {
     private readonly options: {
       root: string;
       version: string | null;
+      platform: "darwin" | "win32";
       arch: string;
       startupAllowed: boolean;
       fetch: typeof fetch;
@@ -81,6 +82,7 @@ export class UpdateService {
   ) {
     this.status = {
       version: options.version,
+      platform: options.platform,
       channel:
         options.version && parseVersion(options.version).pre.length
           ? "preview"
@@ -271,7 +273,7 @@ export class UpdateService {
     }
     if (command.type === "check" || command.type === "preferences") {
       for (const name of await readdir(this.directory)) {
-        if (/^forge-desktop-[0-9.]+-(arm64|x64)\.dmg$/.test(name))
+        if (/^forge-desktop-[0-9.]+-(arm64|x64)\.(dmg|exe)$/.test(name))
           await rm(join(this.directory, name), { force: true });
       }
       this.candidate = undefined;
@@ -317,6 +319,7 @@ export class UpdateService {
         releases,
         this.status.version,
         this.status.channel,
+        this.options.platform,
         this.options.arch,
       );
       if (candidate) {

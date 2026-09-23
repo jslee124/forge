@@ -26,6 +26,7 @@ async function run() {
       : undefined;
   const liveFetch = createUpdateFetch();
   const service = new UpdateService({
+    platform: "darwin",
     root,
     version: "0.3.4-preview.0",
     arch: process.arch,

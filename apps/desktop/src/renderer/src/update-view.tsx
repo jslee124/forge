@@ -85,9 +85,14 @@ export function UpdateView({ compact = false }: { compact?: boolean }) {
         : zh
           ? "下载更新"
           : "Download update";
-  const manual = zh
-    ? "请先保存工作，退出旧版 Forge，再将 DMG 中的应用拖入 Applications 替换。打开安装器不会退出 Forge。SHA-256 仅验证完整性；此应用未经签名或公证，系统仍可能提示。"
-    : "Save your work, quit the old Forge, then drag the app from the DMG into Applications to replace it. Opening the installer keeps Forge running. SHA-256 verifies integrity only; this app is unsigned and not notarized, so system prompts may remain.";
+  const manual =
+    status.platform === "win32"
+      ? zh
+        ? "请先保存工作并退出旧版 Forge，再运行安装程序。打开安装程序不会退出 Forge。SHA-256 仅验证完整性；预览版未经代码签名，Windows 可能显示安全提示。"
+        : "Save your work and quit the old Forge before running the installer. Opening it keeps Forge running. SHA-256 verifies integrity only; the unsigned preview may trigger a Windows security warning."
+      : zh
+        ? "请先保存工作，退出旧版 Forge，再将 DMG 中的应用拖入 Applications 替换。打开安装器不会退出 Forge。SHA-256 仅验证完整性；此应用未经签名或公证，系统仍可能提示。"
+        : "Save your work, quit the old Forge, then drag the app from the DMG into Applications to replace it. Opening the installer keeps Forge running. SHA-256 verifies integrity only; this app is unsigned and not notarized, so system prompts may remain.";
   const actionButton = action ? (
     <button
       type="button"
