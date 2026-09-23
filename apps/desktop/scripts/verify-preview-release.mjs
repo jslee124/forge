@@ -19,7 +19,7 @@ if (
 }
 
 const response = await fetch(
-  `https://api.github.com/repos/${repository}/releases/tags/${encodeURIComponent(tag)}`,
+  `https://api.github.com/repos/${repository}/releases?per_page=100`,
   {
     headers: {
       Authorization: `Bearer ${token}`,
@@ -30,7 +30,9 @@ const response = await fetch(
 );
 if (!response.ok)
   throw new Error(`GitHub release lookup failed: HTTP ${response.status}`);
-const release = await response.json();
+const releases = await response.json();
+const release = releases.find((candidate) => candidate.tag_name === tag);
+if (!release) throw new Error(`Draft release not found: ${tag}`);
 if (release.tag_name !== tag || !release.draft || !release.prerelease)
   throw new Error("Unexpected release identity or state");
 
