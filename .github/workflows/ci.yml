@@ -53,10 +53,13 @@ jobs:
     env:
       CI: "true"
       CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      DESKTOP_RELEASE_TAG: ${{ github.ref == 'refs/heads/dev' && contains(github.event.head_commit.message, '[desktop-preview-release]') && 'desktop-0.3.4-preview.3' || '' }}
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
+        with:
+          ref: ${{ env.DESKTOP_RELEASE_TAG || github.ref }}
 
       - name: Install pnpm
         uses: pnpm/action-setup@v6
@@ -73,7 +76,7 @@ jobs:
       - name: Set desktop build identity
         shell: pwsh
         run: |
-          node -e 'const fs = require("node:fs"); const pkg = require("./apps/desktop/package.json"); const ref = process.env.GITHUB_REF_NAME; const tag = ref.startsWith("desktop-") ? ref : `desktop-${pkg.version}-ci.${process.env.GITHUB_RUN_ID}`; fs.appendFileSync(process.env.GITHUB_ENV, `FORGE_DESKTOP_BUILD_TAG=${tag}\n`);'
+          node -e 'const fs = require("node:fs"); const pkg = require("./apps/desktop/package.json"); const ref = process.env.GITHUB_REF_NAME; const tag = process.env.DESKTOP_RELEASE_TAG || (ref.startsWith("desktop-") ? ref : `desktop-${pkg.version}-ci.${process.env.GITHUB_RUN_ID}`); fs.appendFileSync(process.env.GITHUB_ENV, `FORGE_DESKTOP_BUILD_TAG=${tag}\n`);'
 
       - name: Build workspace packages
         run: pnpm build
@@ -114,3 +117,92 @@ jobs:
             apps/desktop/release/SHA256SUMS
             apps/desktop/release/desktop-build.json
           if-no-files-found: error
+
+  desktop-macos-preview:
+    if: github.ref == 'refs/heads/dev' && contains(github.event.head_commit.message, '[desktop-preview-release]')
+    runs-on: macos-latest
+    env:
+      CI: "true"
+      FORGE_DESKTOP_BUILD_TAG: desktop-0.3.4-preview.3
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+
+    steps:
+      - name: Check out release tag
+        uses: actions/checkout@v7
+        with:
+          ref: desktop-0.3.4-preview.3
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Package macOS preview
+        run: pnpm desktop:package
+
+      - name: Smoke packaged macOS application
+        run: node apps/desktop/scripts/smoke-packaged.mjs
+
+      - name: Upload macOS DMGs and manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: forge-desktop-macos-preview
+          path: |
+            apps/desktop/release/forge-desktop-*-arm64.dmg
+            apps/desktop/release/forge-desktop-*-x64.dmg
+            apps/desktop/release/SHA256SUMS
+            apps/desktop/release/desktop-build.json
+          if-no-files-found: error
+
+  desktop-publish-preview:
+    if: github.ref == 'refs/heads/dev' && contains(github.event.head_commit.message, '[desktop-preview-release]')
+    needs: [verify, desktop-windows, desktop-macos-preview]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      DESKTOP_RELEASE_TAG: desktop-0.3.4-preview.3
+
+    steps:
+      - name: Check out release tooling and notes
+        uses: actions/checkout@v7
+
+      - name: Download Windows installer
+        uses: actions/download-artifact@v4
+        with:
+          name: forge-desktop-windows-x64
+          path: release-input/windows
+
+      - name: Download macOS DMGs
+        uses: actions/download-artifact@v4
+        with:
+          name: forge-desktop-macos-preview
+          path: release-input/macos
+
+      - name: Assemble and verify release assets
+        run: |
+          node apps/desktop/scripts/assemble-preview-release.mjs release-input/windows release-input/macos release-ready "$DESKTOP_RELEASE_TAG"
+          cd release-ready
+          sha256sum --check SHA256SUMS
+
+      - name: Create draft, upload assets, and publish preview
+        run: |
+          existing=$(gh release view "$DESKTOP_RELEASE_TAG" --json isDraft --jq .isDraft 2>/dev/null || true)
+          if [ "$existing" = "false" ]; then
+            echo "Release already published; refusing to replace it" >&2
+            exit 1
+          fi
+          if [ "$existing" != "true" ]; then
+            gh release create "$DESKTOP_RELEASE_TAG" --verify-tag --draft --prerelease --title "Forge Desktop 0.3.4 Preview 3" --notes-file .github/release-notes/desktop-0.3.4-preview.3.md
+          fi
+          gh release upload "$DESKTOP_RELEASE_TAG" release-ready/* --clobber
+          node apps/desktop/scripts/verify-preview-release.mjs release-ready "$DESKTOP_RELEASE_TAG"
+          gh release edit "$DESKTOP_RELEASE_TAG" --draft=false --prerelease
