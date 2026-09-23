@@ -14,10 +14,14 @@ concurrency:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    outputs:
+      desktop_changed: ${{ steps.desktop-changes.outputs.desktop_changed }}
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
+        with:
+          fetch-depth: ${{ github.event_name == 'pull_request' && '0' || '1' }}
 
       - name: Install pnpm
         uses: pnpm/action-setup@v6
@@ -27,6 +31,14 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
+
+      - name: Detect desktop changes
+        id: desktop-changes
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node scripts/desktop-ci-changes.mjs
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -49,6 +61,8 @@ jobs:
           pnpm forge --help
 
   desktop-windows:
+    needs: verify
+    if: (github.event_name == 'pull_request' && needs.verify.outputs.desktop_changed == 'true') || (github.ref == 'refs/heads/dev' && contains(github.event.head_commit.message, '[desktop-preview-release]'))
     runs-on: windows-latest
     env:
       CI: "true"
@@ -119,18 +133,19 @@ jobs:
           if-no-files-found: error
 
   desktop-macos-preview:
-    if: github.ref == 'refs/heads/dev' && contains(github.event.head_commit.message, '[desktop-preview-release]')
+    needs: verify
+    if: (github.event_name == 'pull_request' && needs.verify.outputs.desktop_changed == 'true') || (github.ref == 'refs/heads/dev' && contains(github.event.head_commit.message, '[desktop-preview-release]'))
     runs-on: macos-latest
     env:
       CI: "true"
-      FORGE_DESKTOP_BUILD_TAG: desktop-0.3.4-preview.3
       CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      DESKTOP_RELEASE_TAG: ${{ github.ref == 'refs/heads/dev' && contains(github.event.head_commit.message, '[desktop-preview-release]') && 'desktop-0.3.4-preview.3' || '' }}
 
     steps:
-      - name: Check out release tag
+      - name: Check out repository
         uses: actions/checkout@v7
         with:
-          ref: desktop-0.3.4-preview.3
+          ref: ${{ env.DESKTOP_RELEASE_TAG || github.ref }}
 
       - name: Install pnpm
         uses: pnpm/action-setup@v6
@@ -143,6 +158,10 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Set desktop build identity
+        run: |
+          node -e 'const fs = require("node:fs"); const pkg = require("./apps/desktop/package.json"); const ref = process.env.GITHUB_REF_NAME; const tag = process.env.DESKTOP_RELEASE_TAG || `desktop-${pkg.version}-ci.${process.env.GITHUB_RUN_ID}`; fs.appendFileSync(process.env.GITHUB_ENV, `FORGE_DESKTOP_BUILD_TAG=${tag}\n`);'
 
       - name: Package macOS preview
         run: pnpm desktop:package
