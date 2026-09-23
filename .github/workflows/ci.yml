@@ -75,6 +75,9 @@ jobs:
         run: |
           node -e 'const fs = require("node:fs"); const pkg = require("./apps/desktop/package.json"); const ref = process.env.GITHUB_REF_NAME; const tag = ref.startsWith("desktop-") ? ref : `desktop-${pkg.version}-ci.${process.env.GITHUB_RUN_ID}`; fs.appendFileSync(process.env.GITHUB_ENV, `FORGE_DESKTOP_BUILD_TAG=${tag}\n`);'
 
+      - name: Build workspace packages
+        run: pnpm build
+
       - name: Test Windows desktop contracts
         run: pnpm exec vitest run apps/desktop/src/main/update-service.test.ts apps/desktop/src/main/file-service.test.ts apps/desktop/src/agent/application.test.ts packages/tools/src/tools.test.ts packages/codex-app-server/src/client.test.ts
 
