@@ -87,6 +87,24 @@ jobs:
       - name: Smoke packaged Windows application
         run: node apps/desktop/scripts/smoke-packaged.mjs --win
 
+      - name: Install, smoke, and uninstall NSIS package
+        shell: pwsh
+        run: |
+          $installer = (Get-ChildItem apps/desktop/release/forge-desktop-*-x64.exe | Select-Object -First 1).FullName
+          if (-not $installer) { throw "Windows installer is missing" }
+          $installDir = Join-Path $env:RUNNER_TEMP "forge-desktop-installed"
+          $result = Start-Process -FilePath $installer -ArgumentList @("/S", "/D=$installDir") -Wait -PassThru
+          if ($result.ExitCode -ne 0) { throw "Installer exited with $($result.ExitCode)" }
+          $appExe = Join-Path $installDir "Forge Desktop.exe"
+          if (-not (Test-Path $appExe)) { throw "Installed application is missing" }
+          $env:FORGE_HOME = Join-Path $env:RUNNER_TEMP "forge-desktop-acceptance-home"
+          $smoke = Start-Process -FilePath $appExe -ArgumentList "--desktop-smoke" -Wait -PassThru
+          if ($smoke.ExitCode -ne 0) { throw "Installed application smoke exited with $($smoke.ExitCode)" }
+          $uninstaller = Get-ChildItem $installDir -Filter "Uninstall*.exe" | Select-Object -First 1
+          if (-not $uninstaller) { throw "Windows uninstaller is missing" }
+          $removed = Start-Process -FilePath $uninstaller.FullName -ArgumentList "/S" -Wait -PassThru
+          if ($removed.ExitCode -ne 0) { throw "Uninstaller exited with $($removed.ExitCode)" }
+
       - name: Upload Windows installer and manifest
         uses: actions/upload-artifact@v4
         with:

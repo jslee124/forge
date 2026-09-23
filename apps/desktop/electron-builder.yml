@@ -46,4 +46,6 @@ win:
     - target: nsis
       arch:
         - x64
+nsis:
+  runAfterFinish: false
 artifactName: forge-desktop-${version}-${arch}.${ext}
