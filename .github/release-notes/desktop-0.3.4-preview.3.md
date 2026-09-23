@@ -1,15 +1,31 @@
-# Forge Desktop 0.3.4 Preview 3
+## 简体中文
 
-Windows x64 preview with an NSIS installer. This release also includes macOS arm64/x64 DMG builds so existing Mac preview users can continue to receive compatible update checks. Desktop builds are separate from the Forge npm CLI.
+Forge Desktop 0.3.4 Preview 3 首次提供 **Windows x64 安装包**，同时提供适用于 Apple Silicon 和 Intel Mac 的 DMG。桌面版与 Forge CLI 分开发行。
 
-## Install / 安装
+### 下载与安装
 
-- Windows: download `forge-desktop-0.3.4-x64.exe` and `SHA256SUMS` from this release. In PowerShell, run `Get-FileHash .\forge-desktop-0.3.4-x64.exe -Algorithm SHA256` and compare the result with the installer line in `SHA256SUMS` before running it.
-- macOS: choose the arm64 or x64 DMG for your machine and compare it with `SHA256SUMS`.
-- Windows 安装包未签名，Windows 可能显示安全提示。请核对发布来源与 SHA-256 后再决定是否安装。更新前先保存工作并退出旧版应用。macOS 安装包同样未签名、未公证。
+- **Windows x64：**下载 `forge-desktop-0.3.4-x64.exe`。
+- **macOS：**Apple Silicon 下载 `forge-desktop-0.3.4-arm64.dmg`；Intel Mac 下载 `forge-desktop-0.3.4-x64.dmg`。
+- 下载同一发布页的 `SHA256SUMS` 核对文件摘要。配置、认证和更新步骤见 [Windows 安装指南](https://github.com/jslee124/forge/blob/dev/apps/desktop/INSTALL-WINDOWS.zh-CN.md)或 [macOS 安装指南](https://github.com/jslee124/forge/blob/dev/apps/desktop/INSTALL.zh-CN.md)。
 
-## Validation / 验证
+### 使用前请注意
 
-The release tag passed Ubuntu repository checks and Windows CI. Windows CI built the NSIS x64 installer, ran targeted offline tests, started the packaged application, then silently installed, started, and uninstalled it. macOS arm64/x64 DMGs were built locally and in CI; the arm64 unpacked application passed smoke. Release assets and checksums were verified before publication.
+这是未签名的预览版；macOS DMG 也未公证。系统可能显示安全提示。请确认下载来源并核对摘要。更新旧版时先保存工作、退出应用，再手动安装新版本。Windows ARM64 暂无安装包。
 
-This preview does not establish real provider login or calls on Windows, Windows ARM64 support, code signing or SmartScreen acceptance, or installed-app acceptance on every supported machine. The app checks for updates and opens a verified installer; it does not automatically replace a running installation.
+Windows CI 已验证打包、安装后启动和卸载；macOS CI 已验证打包应用启动。这些检查尚未覆盖 Windows 上的真实模型登录或调用。详细结果见 [发布验证记录](https://github.com/jslee124/forge/blob/dev/evals/reports/desktop-0.3.4-preview.3/README.zh-CN.md)。
+
+## English
+
+Forge Desktop 0.3.4 Preview 3 introduces a **Windows x64 installer** and includes DMGs for Apple Silicon and Intel Macs. Desktop releases are separate from the Forge CLI.
+
+### Download and install
+
+- **Windows x64:** download `forge-desktop-0.3.4-x64.exe`.
+- **macOS:** download `forge-desktop-0.3.4-arm64.dmg` for Apple Silicon or `forge-desktop-0.3.4-x64.dmg` for Intel.
+- Use `SHA256SUMS` from this release to verify the download. See the [Windows installation guide](https://github.com/jslee124/forge/blob/dev/apps/desktop/INSTALL-WINDOWS.md) or [macOS installation guide](https://github.com/jslee124/forge/blob/dev/apps/desktop/INSTALL.md) for setup, authentication, and updates.
+
+### Before you install
+
+This preview is unsigned, and the macOS DMGs are not notarized. Your system may show a security warning. Check the download source and checksum. To update, save your work, quit the existing app, and install the new version manually. A Windows ARM64 installer is not available.
+
+Windows CI verified packaging, installed-app startup, and uninstall; macOS CI verified packaged-app startup. Real model sign-in and calls on Windows remain untested. See the [release validation record](https://github.com/jslee124/forge/blob/dev/evals/reports/desktop-0.3.4-preview.3/README.md) for details.
