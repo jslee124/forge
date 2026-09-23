@@ -1,13 +1,14 @@
 # Forge 桌面端 D01 基线与技术验证
 
-[English](../DESKTOP_BASELINE.md) · [设计契约](DESKTOP_APP_PLAN.md) · [任务清单](DESKTOP_APP_TASKS.md)
+> 文档角色：历史。保留 2026-09-06 的 D01 checkout 快照。
+
+[English](../../../history/desktop-0.3.4-preview.2/DESKTOP_BASELINE.md) · [设计契约](DESKTOP_APP_PLAN.md) · [任务清单](DESKTOP_APP_TASKS.md)
 
 ## 状态与用途
 
-本文为 `current-development`，于 2026-09-06 作为 D01 交付物记录。它汇总已验证
-的基线、已选定的技术决策以及标注的未知项。它不是已发布行为、打包产品帮助，
-也不是在线服务证据。以下每项检查都在第 1 节记录的确切 checkout 上执行；代码
-变更后请在依赖结论前重新运行命令。
+这是 2026-09-06 记录的历史 D01 基线，汇总当时的技术决策和未知项，
+不代表当前行为或在线服务证据。当前能力请查看[桌面预览版指南](../../DESKTOP.md)、
+源码、测试与验收记录。以下检查只对应第 1 节的确切 checkout。
 
 ## 1. 已验证的 checkout 与工具链基线
 
@@ -16,7 +17,7 @@
 | 提交 | `5bbcd15f3557b507f08713985c769d423198457d`（分支 `dev`，工作区干净） |
 | Node.js（开发环境） | v24.18.0 |
 | pnpm | 11.18.0（`packageManager` 固定） |
-| 仓库引擎要求 | `node >=24`（根 [package.json](../../package.json)） |
+| 仓库引擎要求 | `node >=24`（根 [package.json](../../../../package.json)） |
 | TypeScript | 7.0.2（`tsc -b` 项目引用） |
 | Lint/格式化 | Biome 2.5.8 |
 | 测试框架 | Vitest 4.1.10 |
@@ -37,37 +38,37 @@
 
 ### 原生 Forge 引擎
 
-- CLI 入口：[program.ts](../../apps/cli/src/program.ts) 定义 `ask`、`run`
+- CLI 入口：[program.ts](../../../../apps/cli/src/program.ts) 定义 `ask`、`run`
   （`--engine forge|codex`）、`codex`、`auth`、`models`、`config`、
   `inspect`、`resume`、`plugins`、`resources`。
-- 装配：[run.ts](../../apps/cli/src/run.ts) 的 `runTask`（118 行）加载
+- 装配：[run.ts](../../../../apps/cli/src/run.ts) 的 `runTask`（118 行）加载
   配置/指令/Skill/插件宿主，构建模型适配器，解析工作区，然后携带
   `RunDependencies`（可注入 env/cwd/流/信号/审批通道与存储/会话/检查点）
   调用 `@forge/core` 的 `runAgent`。它已经依赖注入且与终端无关——
   `renderEventsToOutput: false` 加注入 `onEvent` 即为无 Ink 路径；
   放入子进程无需重写。
-- 事件：[runtime.ts](../../packages/core/src/runtime.ts) 的 `RunEvent` 联合
+- 事件：[runtime.ts](../../../../packages/core/src/runtime.ts) 的 `RunEvent` 联合
   （`run.started/completed/failed/cancelled/denied/limit_reached`、
   `model.text/reasoning/…`、`tool.proposed/decision/started/completed/failed`、
   `context.*`、`skill.*`、`docs.*`）。`RunResult` 携带
   `status/finalText/events/modelSteps/toolCalls/canonicalDelta`。
-- 审批：[policy.ts](../../packages/core/src/policy.ts) 的
+- 审批：[policy.ts](../../../../packages/core/src/policy.ts) 的
   `ApprovalChannel.request/requestStructured`，配 `ApprovalDescriptor` 与
   `ApprovalResponse`（`allow-once`/`allow-session`/`deny`+反馈）。TUI 每次提交
-  通过 `createApprovalChannel`（[run.ts](../../apps/cli/src/run.ts) 734 行）
+  通过 `createApprovalChannel`（[run.ts](../../../../apps/cli/src/run.ts) 734 行）
   构建通道并挂预览回调；取消时待决审批解析为 `null`（拒绝）并中止运行信号。
-- 交互界面：[app.tsx](../../apps/cli/src/interactive/app.tsx) 的
+- 交互界面：[app.tsx](../../../../apps/cli/src/interactive/app.tsx) 的
   `submitPrompt`（1659 行）创建 `AbortController`、调用
   `sessionPersistence.prepareRun`、按引擎分支（1741 行）、把
   `RunEvent`/`CodexOutputEvent` 流入界面状态，并在结束后记录运行。
 
 ### Codex 引擎
 
-- 命令路径：[codex-command.ts](../../apps/cli/src/codex-command.ts) 的
+- 命令路径：[codex-command.ts](../../../../apps/cli/src/codex-command.ts) 的
   `runCodexTask`（280 行）。传输：`CodexAppServerClient.connect` 启动
   `codex app-server --listen stdio://`（可用 `FORGE_CODEX_PATH` 覆盖），
   通过 stdio 进行按行分隔的 JSON-RPC 通信
-  （[client.ts](../../packages/codex-app-server/src/client.ts) 92 行）。
+  （[client.ts](../../../../packages/codex-app-server/src/client.ts) 92 行）。
   不依赖 TTY；在 Node 子进程内行为一致。
 - 认证：ChatGPT 订阅（`account/read` 必须返回
   `account.type === "chatgpt"`），经 `account/login/start` 登录（浏览器或
@@ -100,29 +101,29 @@
 ## 3. 持久化与配置基线
 
 - Forge home：`$FORGE_HOME` 环境变量或 `~/.forge`
-  （[loader.ts](../../packages/config/src/loader.ts) 315 行）。工作区解析：
+  （[loader.ts](../../../../packages/config/src/loader.ts) 315 行）。工作区解析：
   规范化 cwd，最近祖先 `.git` 成为 `workspaceRoot`，否则为起始目录。
   `workingDirectory` 与 `workspaceRoot` 是不同字段——桌面端必须保留这一区分。
 - 会话：`FileSessionStore` 写 `$FORGE_HOME/sessions/<sessionId>.json`，
   schema 版本 3，zod 校验，密钥脱敏，原子写（临时文件 + rename），
   权限 `0o700`，有硬字节上限且不发生部分覆盖
-  （[session-store.ts](../../packages/persistence/src/session-store.ts)）。
+  （[session-store.ts](../../../../packages/persistence/src/session-store.ts)）。
 - 运行迹：`FileTraceStore` 追加 `$FORGE_HOME/runs/<runId>.jsonl`，已脱敏
-  （[trace-store.ts](../../packages/persistence/src/trace-store.ts)）。恢复
+  （[trace-store.ts](../../../../packages/persistence/src/trace-store.ts)）。恢复
   时若快照较旧会从运行迹迁移结构化历史。
 - 目前没有跨进程锁。D06 必须按契约加入最小冲突/占用拒绝；桌面端不得打开
   另一客户端正在运行的会话。
 - 插件在运行时通过动态 `import(pathToFileURL(entry))` 从
   `$FORGE_HOME/plugins/<name>/plugin.json`（用户域）与
   `<workspaceRoot>/.forge/plugins/`（项目域，需信任）加载
-  （[host.ts](../../packages/plugin-api/src/host.ts) 181 行）。已实测：
+  （[host.ts](../../../../packages/plugin-api/src/host.ts) 181 行）。已实测：
   `web-tools` 示例插件在 Electron 的 Node 下加载并注册
   `web_search`/`web_fetch`。
 - 内置资源（Skill、产品文档）相对模块 URL 发现：打包布局为
   `<module>/../resources/skills|docs`，仓库布局为
   `<module>/../../resources/...`
-  （[catalog.ts](../../packages/resources/src/catalog.ts)、
-  [docs.ts](../../packages/resources/src/docs.ts)）。桌面打包必须让
+  （[catalog.ts](../../../../packages/resources/src/catalog.ts)、
+  [docs.ts](../../../../packages/resources/src/docs.ts)）。桌面打包必须让
   `resources/` 与 agent 包相邻（见第 5 节）。
 
 ## 4. 依赖与兼容性矩阵

@@ -42,6 +42,9 @@ end, experiment with, and measure. Forge now has a single-package npm release
 path while retaining the source checkout for contributors. It is not a turnkey
 replacement for a hardened coding environment.
 
+The separately distributed [macOS desktop preview](docs/DESKTOP.md) has its own
+installation steps and validation limits; the npm package below is the CLI.
+
 ## Why Forge?
 
 Many coding-agent demos stop when a model emits a tool call. Forge focuses on

@@ -70,4 +70,4 @@ CLI 与桌面 Agent 共用 HTTP 代理初始化，支持 `HTTP_PROXY`、`HTTPS_P
 
 Codex 使用自己的工具和沙箱，此插件不会为 Codex 伪造来源字段或保证能力相同。
 当前离线、打包及真实服务证据见
-[D11 验收记录](https://github.com/jslee124/forge/blob/main/docs/zh-CN/DESKTOP_APP_TASKS.md)。
+[D11 验收记录](https://github.com/jslee124/forge/blob/main/docs/zh-CN/history/desktop-0.3.4-preview.2/DESKTOP_APP_TASKS.md)。

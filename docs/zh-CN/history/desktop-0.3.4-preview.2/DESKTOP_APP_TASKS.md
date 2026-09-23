@@ -1,12 +1,14 @@
 # 桌面端开发任务清单
 
-[English](../DESKTOP_APP_TASKS.md) · [设计与实施合同](DESKTOP_APP_PLAN.md) · [中文目录](README.md)
+> 文档角色：历史。保留截至 Desktop 0.3.4 Preview 2 的 D01—D13 任务快照。
+
+[English](../../../history/desktop-0.3.4-preview.2/DESKTOP_APP_TASKS.md) · [设计与实施合同](DESKTOP_APP_PLAN.md) · [中文目录](../../README.md)
 
 ## 执行规则
 
-2026-09-06 创建。本文是 `current-development` 执行清单，设计合同是产品范围依据，
-当前源码和测试是现有行为依据。所有任务初始为 **未开始**；文档完成不代表软件实现完成。
-本次工作只编写清单，不启动实现、不安装依赖、不发布应用。
+这是 2026-09-06 创建的历史 D01—D13 执行清单；任务后来已完成至本地未签名交付。
+下方最初的执行规则描述当时阶段，不构成重新实施任务的指令。当前能力请查看
+[桌面预览版指南](../../DESKTOP.md)、源码、测试与验收记录。
 
 按依赖执行，每个任务保持可独立审查和回退。技术细节由执行 agent 核实并记录；
 涉及改变已确定范围或增加外部成本时才请求新的决定。不要反复询问已确定的技术栈。
@@ -45,8 +47,8 @@ D07 与 D08 分别验收，完成一种不能代替另一种。表中顺序是�
 验证 react-diff-view 长文件、多文件、中文路径及大量修改样例后再锁定。
 明确关闭窗口、退出应用、跨引擎续聊规则；不能默认具有后台运行或无损引擎切换能力。
 
-**入口**：[run.ts](../../apps/cli/src/run.ts)、[TUI](../../apps/cli/src/interactive/app.tsx)、
-[会话服务](../../apps/cli/src/persistent-session.ts)、[Codex 路径](../../apps/cli/src/codex-command.ts)。
+**入口**：[run.ts](../../../../apps/cli/src/run.ts)、[TUI](../../../../apps/cli/src/interactive/app.tsx)、
+[会话服务](../../../../apps/cli/src/persistent-session.ts)、[Codex 路径](../../../../apps/cli/src/codex-command.ts)。
 **验证**：读取当前测试，选择最小离线基线；记录命令和结果，不搬用旧验收数字。
 
 **完成记录（2026-09-06，Complete）**：基线、引擎路径、依赖矩阵、Electron 44.2.0
@@ -103,7 +105,7 @@ react-markdown/remark-gfm/Shiki，首页、工作台、设置及三种明确标�
 可操作，三条模拟任务覆盖运行/停止、审批和失败/重试，且不会调用模型、执行命令或操作文件。
 浏览器检查覆盖两种语言、模拟任务创建、Markdown 表格和代码、840 px 窄窗无页面横向溢出、
 可见键盘焦点，以及与合同图在 1486 × 1027 同状态下的并排比较。比较历史与保留的 P3
-差异记录于 [`apps/desktop/design-qa.md`](../../apps/desktop/design-qa.md)，最终结果为
+差异记录于 [`apps/desktop/design-qa.md`](../../../../apps/desktop/design-qa.md)，最终结果为
 `passed`。验证结果：3 个桌面端文件 / 9 个测试通过；`CI=true pnpm check` 与最终
 electron-vite 生产构建通过。这仍是仅展示状态的 D03 原型，不代表 D05–D11 的真实执行能力。
 
@@ -260,7 +262,7 @@ Codex 工具；不能仅返回成功退出码就宣称审批和来源信息完�
 的 `CI=true pnpm desktop:smoke` 通过，验证真实 preload→主进程→Agent 状态往返；
 Agent/application 依赖与资源路径纳入打包，preload 内联 schema 避免 sandbox require。
 中英文窗口截图及已修正的首次窗口身份竞态、面板布局、真实发送文案记录于
-[桌面 QA](../../apps/desktop/design-qa.md)。没有提交、发布、签名或公证。
+[桌面 QA](../../../../apps/desktop/design-qa.md)。没有提交、发布、签名或公证。
 
 **完整验收（2026-09-09）**：修正认证状态与执行要求不一致的问题：只有 ChatGPT
 登录显示为可用于 Codex；未登录和仅 API key 不再误报。认证检查复用一个 client，模型
@@ -364,7 +366,7 @@ DOCX/XLSX 或 OCR。
 锁定依赖随桌面应用打包在 ASAR 外。
 
 聚焦测试、仓库检查、确定性评估、文档/包检查及本地 arm64 打包记录见
-[D11 开发验收](../../apps/desktop/d11-qa.md)。2026-09-11 真实 DuckDuckGo 搜索和
+[D11 开发验收](../../../../apps/desktop/d11-qa.md)。2026-09-11 真实 DuckDuckGo 搜索和
 Example Domain 读取成功；Codex 独立完成了 Markdown 报告。Brave 缺少密钥，
 尚未验证真实服务。这些是有界冒烟证据，不是服务推荐或研究质量基准。
 Codex 报告内容未被伪造成原生来源字段。最终英文/窄屏视觉验收、更广泛的双引擎研究质量
@@ -381,7 +383,7 @@ Codex 报告内容未被伪造成原生来源字段。最终英文/窄屏视觉�
 **验证**：`CI=true pnpm check`、`CI=true pnpm eval:deterministic`、聚焦回归与实际 UI 检查。
 资源/公开制品改变时加 `CI=true pnpm package:verify`。列出未运行的检查及原因。
 
-D12 于 2026-09-11 完成：[开发验收与明确缺口](../../apps/desktop/d12-qa.zh-CN.md)。
+D12 于 2026-09-11 完成：[开发验收与明确缺口](../../../../apps/desktop/d12-qa.zh-CN.md)。
 双引擎真实测试 2 项、聚焦回归 69 项、确定性评估 71 项、中英文 Electron 截图、
 check 和 CLI 打包安装验证通过。安装后 GUI 环境验收留给 D13。
 
@@ -396,8 +398,8 @@ check 和 CLI 打包安装验证通过。安装后 GUI 环境验收留给 D13。
 **验证**：本机安装冒烟和已选架构检查；签名、公证、更新、发布均独立记录。
 缺少签名或发布授权时交付可审查的本地产物与剩余步骤，不擅自发布或宣称正式交付。
 
-D13 于 2026-09-13 完成本地未签名交接：[安装指南](../../apps/desktop/INSTALL.zh-CN.md)、
-[开发验收](../../apps/desktop/d13-qa.md)。arm64/x64 DMG/ZIP 共四个产物均通过隔离的
+D13 于 2026-09-13 完成本地未签名交接：[安装指南](../../../../apps/desktop/INSTALL.zh-CN.md)、
+[开发验收](../../../../apps/desktop/d13-qa.md)。arm64/x64 DMG/ZIP 共四个产物均通过隔离的
 LaunchServices 安装验收；主机 macOS 26.6.2 arm64，x64 经 Rosetta 运行。
 修复打包 PDF worker 定位和共享包旧构建问题。check、文档、39 项聚焦测试、71 项确定性
 评估及 CLI 打包安装验证通过。Intel/macOS 13、安装后真实登录/代理场景、开发者签名、

@@ -1,18 +1,21 @@
 # Forge desktop design and implementation contract
 
-[简体中文](zh-CN/DESKTOP_APP_PLAN.md) · [Documentation](README.md)
+> Document role: historical. D01–D13 design snapshot through Desktop 0.3.4 Preview 2.
+
+[简体中文](../../zh-CN/history/desktop-0.3.4-preview.2/DESKTOP_APP_PLAN.md) · [Documentation](../../README.md)
 
 [Development task checklist](DESKTOP_APP_TASKS.md)
 
 ## Status and use
 
-Product decisions and coding-agent handoff recorded on 2026-09-06. This is
-`current-development`, not shipped behavior or packaged product help. Source
-inspection used checkout `4a41f93`; recheck current source and tests before work.
-This document does not establish that desktop, document, or research features exist.
+Historical desktop design and coding-agent handoff recorded on 2026-09-06,
+before D01–D13 implementation. It is not current behavior or packaged product
+help. Source inspection used checkout `4a41f93`; use the current
+[desktop preview guide](../../DESKTOP.md), source, tests, and acceptance records
+for present behavior. The original implementation contract is retained below.
 
-Read repository `AGENTS.md`, this contract, [Architecture](ARCHITECTURE.md),
-[Sessions](SESSIONS.md), [Security](SECURITY_MODEL.md), and relevant source first.
+Read repository `AGENTS.md`, this contract, [Architecture](../../ARCHITECTURE.md),
+[Sessions](../../SESSIONS.md), [Security](../../SECURITY_MODEL.md), and relevant source first.
 Implement settled requirements without repeatedly asking for approval. Resolve
 explicitly open decisions at the relevant stage. This contract does not authorize
 publication, uploading user files, enabling external accounts, or rewriting the TUI.
@@ -43,15 +46,15 @@ this first-version contract.
 
 | Fact | Source | Desktop implication |
 | --- | --- | --- |
-| CLI enters Ink using `process.cwd()` | [session.ts](../apps/cli/src/session.ts) | Follow the actual entrypoint, not the older readline implementation |
-| Canonical working directory; nearest ancestor `.git` becomes root, otherwise starting directory | [loader.ts](../packages/config/src/loader.ts) | Distinguish current directory from workspace boundary |
-| Relative tool paths resolve against cwd and canonical paths are checked against root | [path.ts](../packages/tools/src/path.ts) | Preserve path and symlink checks |
-| TUI submission connects events, approvals, and cancellation to execution | [app.tsx](../apps/cli/src/interactive/app.tsx) | Consume structured interfaces, not terminal strings |
-| `runTask` assembles configuration, instructions, models, tools, plugins, policy, then calls `runAgent` | [run.ts](../apps/cli/src/run.ts) | Share assembly instead of copying it |
-| Core owns the model/tool loop, policy, events, and outcomes | [runtime.ts](../packages/core/src/runtime.ts) | Do not rebuild the loop in UI |
-| Session service prepares and records runs, lists and restores workspace history | [persistent-session.ts](../apps/cli/src/persistent-session.ts) | UI task maps to Session |
-| Forge home stores `sessions/` and `runs/` | [session-store.ts](../packages/persistence/src/session-store.ts), [trace-store.ts](../packages/persistence/src/trace-store.ts) | Reuse validated persistence |
-| Built-ins list, read, search, edit, and execute commands | [registry.ts](../packages/tools/src/registry.ts) | General document previews and research need additional capabilities |
+| CLI enters Ink using `process.cwd()` | [session.ts](../../../apps/cli/src/session.ts) | Follow the actual entrypoint, not the older readline implementation |
+| Canonical working directory; nearest ancestor `.git` becomes root, otherwise starting directory | [loader.ts](../../../packages/config/src/loader.ts) | Distinguish current directory from workspace boundary |
+| Relative tool paths resolve against cwd and canonical paths are checked against root | [path.ts](../../../packages/tools/src/path.ts) | Preserve path and symlink checks |
+| TUI submission connects events, approvals, and cancellation to execution | [app.tsx](../../../apps/cli/src/interactive/app.tsx) | Consume structured interfaces, not terminal strings |
+| `runTask` assembles configuration, instructions, models, tools, plugins, policy, then calls `runAgent` | [run.ts](../../../apps/cli/src/run.ts) | Share assembly instead of copying it |
+| Core owns the model/tool loop, policy, events, and outcomes | [runtime.ts](../../../packages/core/src/runtime.ts) | Do not rebuild the loop in UI |
+| Session service prepares and records runs, lists and restores workspace history | [persistent-session.ts](../../../apps/cli/src/persistent-session.ts) | UI task maps to Session |
+| Forge home stores `sessions/` and `runs/` | [session-store.ts](../../../packages/persistence/src/session-store.ts), [trace-store.ts](../../../packages/persistence/src/trace-store.ts) | Reuse validated persistence |
+| Built-ins list, read, search, edit, and execute commands | [registry.ts](../../../packages/tools/src/registry.ts) | General document previews and research need additional capabilities |
 
 Native Forge and Codex engines have distinct execution branches. Preserve both
 existing TUI paths during extraction; the first desktop version will support both
@@ -116,7 +119,7 @@ concurrent overwrites; this does not require a background scheduling service.
 
 The selected design after language-entry, bubble, and avatar revisions:
 
-![Forge task workbench visual reference](assets/desktop/task-workbench.png)
+![Forge task workbench visual reference](../../assets/desktop/task-workbench.png)
 
 This generated mockup is visual guidance, not working-feature evidence. Model
 names, code, task content, and statuses are examples, not fixed defaults. Semantic
@@ -268,7 +271,7 @@ conflicts, and page-reading failures. Record offline and network evidence separa
 
 ### Settled search and page-reading implementation
 
-On 2026-09-06, the existing [web-tools example plugin](../examples/plugins/web-tools/index.mjs)
+On 2026-09-06, the existing [web-tools example plugin](../../../examples/plugins/web-tools/index.mjs)
 was selected as the native Forge implementation foundation. Keep research tools
 behind the plugin mechanism rather than coupling core to a search service.
 Desktop settings should provide explicit installation, enablement, and configuration

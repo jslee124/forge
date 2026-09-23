@@ -36,6 +36,8 @@ Forge 是一个开源 TypeScript 项目，用于学习和展示编码 Agent 背�
 
 它最适合希望从头读懂一个小型 runtime、亲自实验并测量结果的开发者。Forge 现在具备单 package 的 npm 发布路径，同时保留面向贡献者的源码 checkout；它仍不是 hardened coding environment 的开箱即用替代品。
 
+独立分发的 [macOS 桌面预览版](docs/zh-CN/DESKTOP.md)有自己的安装步骤和验证边界；下方 npm package 是 CLI。
+
 ## 为什么是 Forge？
 
 许多 coding-agent 演示在模型发出工具调用时就结束了。Forge 关注的是工具调用周围必须存在的完整流程，让系统能够被理解、测试和复盘。

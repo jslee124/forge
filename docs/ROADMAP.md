@@ -22,9 +22,10 @@ compaction remains an explicit user opt-in. See the
 
 ## Current development
 
-- [Desktop design and implementation contract](DESKTOP_APP_PLAN.md): desktop scope and architecture constraints.
-- [Desktop development task checklist](DESKTOP_APP_TASKS.md): dependencies, deliverables, and acceptance gates.
-- Plans do not establish implemented behavior; use source, tests, and recorded task status.
+- [Desktop preview guide](DESKTOP.md): current prerelease behavior and validation limits.
+- [Desktop implementation contract](history/desktop-0.3.4-preview.2/DESKTOP_APP_PLAN.md)
+  and [D01–D13 checklist](history/desktop-0.3.4-preview.2/DESKTOP_APP_TASKS.md)
+  are historical; use source, tests, and current acceptance records for behavior.
 
 ## Completed milestones
 

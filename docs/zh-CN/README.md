@@ -9,6 +9,7 @@ Forge 文档按“读者想完成什么”组织。第一次接触项目时无�
 | 我想要…… | 从这里开始 | 然后阅读 |
 | --- | --- | --- |
 | 第一次运行 Forge | [快速上手](GETTING_STARTED.md) | [CLI UI](CLI_UI.md) · [认证模型](AUTHENTICATION.md) |
+| 试用 macOS 桌面预览版 | [桌面预览版](DESKTOP.md) | [桌面安装](../../apps/desktop/INSTALL.zh-CN.md) · [Preview 2 证据](../../evals/reports/desktop-0.3.4-preview.2/README.zh-CN.md) |
 | 配置模型、limits 或 context | [配置参考](CONFIGURATION.md) | [认证模型](AUTHENTICATION.md) · [上下文管理](CONTEXT_MANAGEMENT.md) |
 | 理解 Forge 能保护什么、不能保护什么 | [安全模型](SECURITY_MODEL.md) | [架构](ARCHITECTURE.md) |
 | 恢复 conversation 或检查 run | [会话与 trace](SESSIONS.md) | [CLI UI](CLI_UI.md) |
@@ -26,6 +27,7 @@ Forge 文档按“读者想完成什么”组织。第一次接触项目时无�
 | 指南 | 回答的问题 |
 | --- | --- |
 | [快速上手](GETTING_STARTED.md) | 如何从源码安装、选择访问方式、验证配置并完成第一次任务？ |
+| [桌面预览版](DESKTOP.md) | 当前 macOS 预览版支持什么，哪些环节尚未验证？ |
 | [CLI UI](CLI_UI.md) | 有哪些斜杠命令和快捷键？审批、文件引用和图片如何工作？ |
 | [配置参考](CONFIGURATION.md) | 设置从哪里加载、谁覆盖谁、仓库能控制哪些字段？ |
 | [认证模型](AUTHENTICATION.md) | API key、compatible endpoint 与 ChatGPT subscription 有什么区别？ |
@@ -60,8 +62,6 @@ Forge 文档按“读者想完成什么”组织。第一次接触项目时无�
 | --- | --- |
 | [评测指南](EVALUATION.md) | 运行确定性证据与显式 opt-in live trials |
 | [路线图](ROADMAP.md) | 当前开发、已完成 milestone 摘要与后续方向 |
-| [桌面端设计与实施合同](DESKTOP_APP_PLAN.md) | 已确定的桌面流程、TUI 共享架构、双语界面与 coding agent 验收要求 |
-| [开发任务清单](DESKTOP_APP_TASKS.md) | 按依赖排序的桌面开发任务、交付物和独立验收标准 |
 
 ## 历史与发布证据
 
@@ -75,8 +75,11 @@ Forge 文档按“读者想完成什么”组织。第一次接触项目时无�
 | [v0.3.3 详细实现记录](history/v0.3.3/LONG_SESSION_IMPLEMENTATION.md) | Milestone 13.0-13.5 的历史设计、架构、测试与离线 gate；不是发布声明 |
 | [v0.1 验收合约](history/v0.1/ACCEPTANCE.md) | 历史首发范围、limits 与 release gates |
 | [Milestone 0–15 验收记录](history/v0.3.4/MILESTONES.md) | 截至 v0.3.4 的历史目标、验收条目与验证边界 |
+| [桌面实施合同](history/desktop-0.3.4-preview.2/DESKTOP_APP_PLAN.md) | 历史桌面范围与 coding agent 交接依据 |
+| [桌面 D01—D13 清单](history/desktop-0.3.4-preview.2/DESKTOP_APP_TASKS.md) | 历史任务完成与验收记录 |
+| [桌面 D01 基线](history/desktop-0.3.4-preview.2/DESKTOP_BASELINE.md) | 历史工具链与架构快照 |
 
-当前使用指南位于 `docs/`，中文镜像位于 `docs/zh-CN/`。已完成的版本计划与验收记录归档到各语言的 `history/<version>/`；发布证据与代码审查快照位于 `evals/reports/<version>/`。
+当前使用指南位于 `docs/`，中文镜像位于 `docs/zh-CN/`。已完成的版本计划与验收记录归档到各语言的 `history/<version>/`；桌面预览版实施记录使用 `history/desktop-<version>/`。发布证据与代码审查快照位于 `evals/reports/<version>/`。
 
 [文档 catalog](../catalog.json) 管理角色与 product-help 打包范围。只打包当前产品指南；开发计划和历史记录不进入产品帮助。当前行为以源码、测试和当前产品指南为准。
 

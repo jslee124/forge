@@ -1,13 +1,16 @@
 # Desktop development task checklist
 
-[简体中文](zh-CN/DESKTOP_APP_TASKS.md) · [Design contract](DESKTOP_APP_PLAN.md) · [Documentation](README.md)
+> Document role: historical. D01–D13 task snapshot through Desktop 0.3.4 Preview 2.
+
+[简体中文](../../zh-CN/history/desktop-0.3.4-preview.2/DESKTOP_APP_TASKS.md) · [Design contract](DESKTOP_APP_PLAN.md) · [Documentation](../../README.md)
 
 ## Execution rules
 
-Created 2026-09-06 as current-development. The design contract controls product
-scope; current source/tests establish implemented behavior. Every task starts
-**Not started**. This handoff only creates documentation, not implementation,
-dependency installation, or publication.
+Historical D01–D13 handoff created 2026-09-06 and completed through the local
+unsigned desktop handoff. The initial instructions below describe that earlier
+stage; they are not a new request to implement the tasks. Use the current
+[desktop preview guide](../../DESKTOP.md), source, tests, and acceptance records
+for present behavior.
 
 Follow dependencies with independently reviewable and reversible changes. Verify
 and record implementation details; request decisions only for unresolved scope or
@@ -49,8 +52,8 @@ and large changes before locking it.
 
 **Accept:** supported decisions and reproducible checks, unknowns labeled, no loop rewrite.
 **Verify:** current focused offline baseline, not old test counts.
-**Entry points:** [run.ts](../apps/cli/src/run.ts), [TUI](../apps/cli/src/interactive/app.tsx),
-[sessions](../apps/cli/src/persistent-session.ts), [Codex](../apps/cli/src/codex-command.ts).
+**Entry points:** [run.ts](../../../apps/cli/src/run.ts), [TUI](../../../apps/cli/src/interactive/app.tsx),
+[sessions](../../../apps/cli/src/persistent-session.ts), [Codex](../../../apps/cli/src/codex-command.ts).
 
 **Completion record (2026-09-06, Complete):** baseline, engine paths, dependency
 matrix, Electron 44.2.0 (bundled Node 24.20.0), dynamic plugin/resource checks,
@@ -120,7 +123,7 @@ operations. Browser checks covered both locales, the generated task flow, Markdo
 table/code, 840 px narrow layout with no document overflow, visible keyboard focus,
 and a 1486 × 1027 same-state comparison against the contract image. The comparison
 history and intentional P3 differences are recorded in
-[`apps/desktop/design-qa.md`](../apps/desktop/design-qa.md), whose final result is
+[`apps/desktop/design-qa.md`](../../../apps/desktop/design-qa.md), whose final result is
 `passed`. Verification: 3 desktop files / 9 tests passed; `CI=true pnpm check` and
 the final electron-vite production build passed. This is still a display-only D03
 prototype and does not establish any D05–D11 real execution capability.
@@ -301,7 +304,7 @@ model turn or fresh browser login was performed, so neither is claimed as verifi
 development and the unsigned arm64 `.app`, including real preload/main/Agent state RPC.
 Application dependencies/resources are packaged and preload schemas are bundled for
 sandbox compatibility. Chinese/English screenshots and fixes for initial-window identity,
-panel layout and send wording are recorded in [desktop QA](../apps/desktop/design-qa.md).
+panel layout and send wording are recorded in [desktop QA](../../../apps/desktop/design-qa.md).
 No commit, release, signing or notarization was performed.
 
 **Full acceptance (2026-09-09)**: Corrected authentication reporting to match execution:
@@ -431,7 +434,7 @@ approval. CLI and desktop share HTTP proxy initialization. The bundled plugin in
 its locked dependencies outside ASAR.
 
 Focused tests, repository checks, deterministic evaluation, docs/package checks and
-local arm64 packaging are recorded in [D11 development QA](../apps/desktop/d11-qa.md).
+local arm64 packaging are recorded in [D11 development QA](../../../apps/desktop/d11-qa.md).
 Live DuckDuckGo search and Example Domain reading succeeded on 2026-09-11; Codex
 independently completed a Markdown report. Brave had no key and remains live-unverified.
 These are bounded smoke observations, not service recommendations or a research-quality
@@ -449,7 +452,7 @@ Mark unverified cells rather than using mocks as real support evidence.
 **Verify:** CI=true pnpm check, CI=true pnpm eval:deterministic, focused tests and rendered UI.
 Run CI=true pnpm package:verify for packaged-resource/public-artifact changes; record omissions.
 
-D12 completed 2026-09-11: [development acceptance and explicit gaps](../apps/desktop/d12-qa.md).
+D12 completed 2026-09-11: [development acceptance and explicit gaps](../../../apps/desktop/d12-qa.md).
 Two live engine tests, 69 focused regressions, 71 deterministic checks, both-locale Electron
 captures, check and CLI packed-install verification passed. Installed GUI validation remains D13.
 
@@ -464,8 +467,8 @@ do not claim untested platforms.
 notarization, updates and publication. Without signing or publication permission, hand off
 reviewable local artifacts and remaining steps without publishing or claiming release.
 
-D13 completed 2026-09-13 for local unsigned handoff: [installation guide](../apps/desktop/INSTALL.md)
-and [current development evidence](../apps/desktop/d13-qa.md). Four arm64/x64 DMG/ZIP artifacts
+D13 completed 2026-09-13 for local unsigned handoff: [installation guide](../../../apps/desktop/INSTALL.md)
+and [current development evidence](../../../apps/desktop/d13-qa.md). Four arm64/x64 DMG/ZIP artifacts
 passed isolated LaunchServices installation probes on macOS 26.6.2 arm64 (x64 via Rosetta).
 Fixed packaged PDF worker lookup and stale shared-package builds. Check, docs, 39 focused tests,
 71 deterministic tests and CLI packed-install verification passed. Intel hardware, macOS 13,

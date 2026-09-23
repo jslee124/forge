@@ -1,15 +1,16 @@
 # Forge desktop D01 baseline and technical verification
 
-[简体中文](zh-CN/DESKTOP_BASELINE.md) · [Design contract](DESKTOP_APP_PLAN.md) · [Task checklist](DESKTOP_APP_TASKS.md)
+> Document role: historical. D01 checkout snapshot from 2026-09-06.
+
+[简体中文](../../zh-CN/history/desktop-0.3.4-preview.2/DESKTOP_BASELINE.md) · [Design contract](DESKTOP_APP_PLAN.md) · [Task checklist](DESKTOP_APP_TASKS.md)
 
 ## Status and use
 
-This is `current-development`, recorded 2026-09-06 as the D01 deliverable. It
-documents the verified baseline, selected technical decisions, and labeled
-unknowns for the desktop effort. It is not shipped behavior, packaged product
-help, or live-provider evidence. Every check below was executed on the exact
-checkout recorded in section 1; rerun the commands before relying on them after
-code changes.
+This historical D01 baseline was recorded on 2026-09-06. It documents the
+selected technical decisions and labeled unknowns at that checkout, not current
+behavior or live-provider evidence. Use the current [desktop preview guide](../../DESKTOP.md),
+source, tests, and acceptance records for present behavior. Every check below
+was executed on the exact checkout recorded in section 1.
 
 ## 1. Verified checkout and toolchain baseline
 
@@ -18,7 +19,7 @@ code changes.
 | Commit | `5bbcd15f3557b507f08713985c769d423198457d` (branch `dev`, clean worktree) |
 | Node.js (development) | v24.18.0 |
 | pnpm | 11.18.0 (`packageManager` pinned) |
-| Repository engine requirement | `node >=24` (root [package.json](../package.json)) |
+| Repository engine requirement | `node >=24` (root [package.json](../../../package.json)) |
 | TypeScript | 7.0.2 (`tsc -b` project references) |
 | Lint/format | Biome 2.5.8 |
 | Test runner | Vitest 4.1.10 |
@@ -45,39 +46,39 @@ canonical conversation:
 
 ### Native Forge engine
 
-- CLI entry: [program.ts](../apps/cli/src/program.ts) defines `ask`, `run`
+- CLI entry: [program.ts](../../../apps/cli/src/program.ts) defines `ask`, `run`
   (`--engine forge|codex`), `codex`, `auth`, `models`, `config`, `inspect`,
   `resume`, `plugins`, `resources`.
-- Assembly: `runTask` in [run.ts](../apps/cli/src/run.ts) (line 118) loads
+- Assembly: `runTask` in [run.ts](../../../apps/cli/src/run.ts) (line 118) loads
   config/instructions/Skills/plugin host, builds the model adapter, resolves
   the workspace, and calls `runAgent` from `@forge/core` with
   `RunDependencies` (injectable env/cwd/streams/signal/approval
   channel/store/conversation/checkpoint). It is already dependency-injected
   and terminal-free — the Ink-free path is `renderEventsToOutput: false` plus
   an injected `onEvent`; no rewrite is needed to host it in a child process.
-- Events: `RunEvent` union in [runtime.ts](../packages/core/src/runtime.ts)
+- Events: `RunEvent` union in [runtime.ts](../../../packages/core/src/runtime.ts)
   (`run.started/completed/failed/cancelled/denied/limit_reached`,
   `model.text/reasoning/…`, `tool.proposed/decision/started/completed/failed`,
   `context.*`, `skill.*`, `docs.*`). `RunResult` carries
   `status/finalText/events/modelSteps/toolCalls/canonicalDelta`.
 - Approvals: `ApprovalChannel.request/requestStructured` with
   `ApprovalDescriptor` and `ApprovalResponse` (`allow-once`/`allow-session`/
-  `deny`+feedback) in [policy.ts](../packages/core/src/policy.ts). The TUI
-  builds one per submission via `createApprovalChannel` ([run.ts](../apps/cli/src/run.ts),
+  `deny`+feedback) in [policy.ts](../../../packages/core/src/policy.ts). The TUI
+  builds one per submission via `createApprovalChannel` ([run.ts](../../../apps/cli/src/run.ts),
   line 734) with preview callbacks; cancellation resolves the pending question
   `null` (deny) and aborts the run signal.
-- Interactive UI: [app.tsx](../apps/cli/src/interactive/app.tsx) `submitPrompt`
+- Interactive UI: [app.tsx](../../../apps/cli/src/interactive/app.tsx) `submitPrompt`
   (line 1659) creates an `AbortController`, calls
   `sessionPersistence.prepareRun`, branches on engine (line 1741), streams
   `RunEvent`/`CodexOutputEvent` into UI state, and records the run afterwards.
 
 ### Codex engine
 
-- Command path: `runCodexTask` in [codex-command.ts](../apps/cli/src/codex-command.ts)
+- Command path: `runCodexTask` in [codex-command.ts](../../../apps/cli/src/codex-command.ts)
   (line 280). Transport: `CodexAppServerClient.connect` spawns
   `codex app-server --listen stdio://` (override `FORGE_CODEX_PATH`) and speaks
   line-delimited JSON-RPC over stdio
-  ([client.ts](../packages/codex-app-server/src/client.ts), line 92). No TTY is
+  ([client.ts](../../../packages/codex-app-server/src/client.ts), line 92). No TTY is
   required; it runs identically inside a Node child process.
 - Authentication: ChatGPT subscription (`account/read` must return
   `account.type === "chatgpt"`), login via `account/login/start`
@@ -116,16 +117,16 @@ canonical conversation:
 ## 3. Persistence and configuration baseline
 
 - Forge home: `$FORGE_HOME` env or `~/.forge`
-  ([loader.ts](../packages/config/src/loader.ts), line 315). Workspace
+  ([loader.ts](../../../packages/config/src/loader.ts), line 315). Workspace
   resolution: canonical cwd, nearest ancestor `.git` becomes
   `workspaceRoot`, otherwise the starting directory. `workingDirectory` and
   `workspaceRoot` are distinct fields — the desktop must preserve this split.
 - Sessions: `FileSessionStore` writes `$FORGE_HOME/sessions/<sessionId>.json`,
   schema version 3, zod-validated, secret-redacted, atomic (temp file +
   rename), mode `0o700`, hard byte limit with no partial overwrite
-  ([session-store.ts](../packages/persistence/src/session-store.ts)).
+  ([session-store.ts](../../../packages/persistence/src/session-store.ts)).
 - Traces: `FileTraceStore` appends `$FORGE_HOME/runs/<runId>.jsonl`, redacted
-  ([trace-store.ts](../packages/persistence/src/trace-store.ts)). Resume
+  ([trace-store.ts](../../../packages/persistence/src/trace-store.ts)). Resume
   migrates structured history from traces when the snapshot predates it.
 - No cross-process locking exists today. D06 must add the minimal conflict/
   busy rejection described in the contract; the desktop must not open a
@@ -133,14 +134,14 @@ canonical conversation:
 - Plugins are loaded at runtime by dynamic `import(pathToFileURL(entry))`
   from `$FORGE_HOME/plugins/<name>/plugin.json` (user scope) and
   `<workspaceRoot>/.forge/plugins/` (project scope, trust-gated)
-  ([host.ts](../packages/plugin-api/src/host.ts), line 181). Verified live:
+  ([host.ts](../../../packages/plugin-api/src/host.ts), line 181). Verified live:
   the `web-tools` example plugin loads under Electron's Node and registers
   `web_search`/`web_fetch`.
 - Builtin resources (Skills, product docs) are discovered relative to the
   module URL: `<module>/../resources/skills|docs` in packaged layout,
   `<module>/../../resources/...` in the repo
-  ([catalog.ts](../packages/resources/src/catalog.ts),
-  [docs.ts](../packages/resources/src/docs.ts)). Desktop packaging must keep
+  ([catalog.ts](../../../packages/resources/src/catalog.ts),
+  [docs.ts](../../../packages/resources/src/docs.ts)). Desktop packaging must keep
   `resources/` adjacent to the agent bundle (see section 5).
 
 ## 4. Dependency and compatibility matrix

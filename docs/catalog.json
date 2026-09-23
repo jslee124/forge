@@ -13,17 +13,35 @@
     "TROUBLESHOOTING",
     "CLI_UI",
     "ARCHITECTURE",
-    "PRODUCT"
+    "PRODUCT",
+    "DESKTOP"
   ],
-  "currentDevelopment": [
-    "README",
-    "EVALUATION",
-    "ROADMAP",
-    "DESKTOP_APP_PLAN",
-    "DESKTOP_APP_TASKS",
-    "DESKTOP_BASELINE"
-  ],
+  "currentDevelopment": ["README", "EVALUATION", "ROADMAP"],
   "history": [
+    {
+      "path": "history/desktop-0.3.4-preview.2/DESKTOP_APP_PLAN.md",
+      "snapshot": "desktop-0.3.4-preview.2"
+    },
+    {
+      "path": "history/desktop-0.3.4-preview.2/DESKTOP_APP_TASKS.md",
+      "snapshot": "desktop-0.3.4-preview.2"
+    },
+    {
+      "path": "history/desktop-0.3.4-preview.2/DESKTOP_BASELINE.md",
+      "snapshot": "desktop-0.3.4-preview.2"
+    },
+    {
+      "path": "zh-CN/history/desktop-0.3.4-preview.2/DESKTOP_APP_PLAN.md",
+      "snapshot": "desktop-0.3.4-preview.2"
+    },
+    {
+      "path": "zh-CN/history/desktop-0.3.4-preview.2/DESKTOP_APP_TASKS.md",
+      "snapshot": "desktop-0.3.4-preview.2"
+    },
+    {
+      "path": "zh-CN/history/desktop-0.3.4-preview.2/DESKTOP_BASELINE.md",
+      "snapshot": "desktop-0.3.4-preview.2"
+    },
     {
       "path": "history/v0.3.0/RELEASE_NOTES.md",
       "snapshot": "v0.3.0"

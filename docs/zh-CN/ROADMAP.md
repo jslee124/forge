@@ -18,9 +18,10 @@
 
 ## 当前开发
 
-- [桌面端设计与实施合同](DESKTOP_APP_PLAN.md)：当前桌面端开发范围与架构约束。
-- [桌面端开发任务清单](DESKTOP_APP_TASKS.md)：依赖顺序、交付物和验收标准。
-- 计划文档不代表功能已经实现；任务状态以源码、测试和清单中的实际记录为准。
+- [桌面预览版指南](DESKTOP.md)：当前预览版行为与验证边界。
+- [桌面实施合同](history/desktop-0.3.4-preview.2/DESKTOP_APP_PLAN.md)和
+  [D01—D13 清单](history/desktop-0.3.4-preview.2/DESKTOP_APP_TASKS.md)是历史记录；
+  当前行为以源码、测试和当前验收记录为准。
 
 ## 已完成里程碑
 

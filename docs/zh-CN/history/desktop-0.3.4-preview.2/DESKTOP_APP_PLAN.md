@@ -1,18 +1,19 @@
 # Forge 桌面端设计与实施合同
 
-[English](../DESKTOP_APP_PLAN.md) · [中文目录](README.md)
+> 文档角色：历史。保留截至 Desktop 0.3.4 Preview 2 的 D01—D13 设计快照。
+
+[English](../../../history/desktop-0.3.4-preview.2/DESKTOP_APP_PLAN.md) · [中文目录](../../README.md)
 
 [开发任务清单](DESKTOP_APP_TASKS.md)
 
 ## 状态与使用方式
 
-2026-09-06 固定的产品共识与 coding agent 执行依据。角色为
-`current-development`，不是已发布功能说明，不进入当前产品帮助包。
-本次源码阅读基线为 `4a41f93`；执行前重新核实当前源码和测试。
-本文记录范围与约束，不代表桌面程序、文档处理或研究能力已经实现。
+这是 2026-09-06 固定的历史桌面设计与 coding agent 执行合同，早于 D01—D13 的实现，
+不是当前行为或打包产品帮助。源码阅读基线为 `4a41f93`；当前能力请查看
+[桌面预览版指南](../../DESKTOP.md)、源码、测试与验收记录。下文保留当时的实施合同。
 
-执行 agent 应先读仓库 `AGENTS.md`、本文、[架构](ARCHITECTURE.md)、
-[会话](SESSIONS.md)、[安全模型](SECURITY_MODEL.md) 和相关当前代码。
+执行 agent 应先读仓库 `AGENTS.md`、本文、[架构](../../ARCHITECTURE.md)、
+[会话](../../SESSIONS.md)、[安全模型](../../SECURITY_MODEL.md) 和相关当前代码。
 已确定条目应直接落实；下文“待定”项需要在相关阶段给出方案，不能假装已获产品决定。
 不得把本文解读为发布、上传用户文件、启用外部账户或重写 TUI 的授权。
 
@@ -37,15 +38,15 @@ Forge 是兼顾代码项目和日常工作的桌面 AI 助手。清晰、易用�
 
 | 事实 | 代码依据 | 桌面含义 |
 | --- | --- | --- |
-| CLI 以 `process.cwd()` 启动 Ink 入口 | [session.ts](../../apps/cli/src/session.ts) | 复用真实入口链，不能把旧 readline 路径当主 TUI |
-| `workingDirectory` 规范化；向上找 `.git` 得到 `workspaceRoot`，否则使用启动目录 | [loader.ts](../../packages/config/src/loader.ts) | 区分当前目录和访问边界 |
-| 工具相对路径以 `workspace.cwd` 解析，检查规范路径位于 `workspace.root` 内 | [path.ts](../../packages/tools/src/path.ts) | 保持现有路径语义与符号链接检查 |
-| TUI 提交通过事件、取消和审批接口调用执行层 | [interactive/app.tsx](../../apps/cli/src/interactive/app.tsx) | 桌面消费结构化接口，不解析终端文本 |
-| `runTask` 组装配置、指令、模型、工具、插件、策略，再调用 `runAgent` | [run.ts](../../apps/cli/src/run.ts) | 将非终端应用逻辑共享，避免复制组装逻辑 |
-| Core 拥有模型/工具循环、策略、事件与终止结果 | [runtime.ts](../../packages/core/src/runtime.ts) | 不在桌面 UI 中重写 agent loop |
-| 会话服务准备运行、记录结果、列出和恢复当前 workspace 的历史 | [persistent-session.ts](../../apps/cli/src/persistent-session.ts) | UI 的任务映射到 Session |
-| Session 存于 Forge home 的 `sessions/`，运行 trace 存于 `runs/` | [session-store.ts](../../packages/persistence/src/session-store.ts)、[trace-store.ts](../../packages/persistence/src/trace-store.ts) | 复用持久化与恢复合约 |
-| 内置工具是列表、读取、搜索、编辑和命令执行 | [registry.ts](../../packages/tools/src/registry.ts) | 通用文档预览与研究能力需另行补齐 |
+| CLI 以 `process.cwd()` 启动 Ink 入口 | [session.ts](../../../../apps/cli/src/session.ts) | 复用真实入口链，不能把旧 readline 路径当主 TUI |
+| `workingDirectory` 规范化；向上找 `.git` 得到 `workspaceRoot`，否则使用启动目录 | [loader.ts](../../../../packages/config/src/loader.ts) | 区分当前目录和访问边界 |
+| 工具相对路径以 `workspace.cwd` 解析，检查规范路径位于 `workspace.root` 内 | [path.ts](../../../../packages/tools/src/path.ts) | 保持现有路径语义与符号链接检查 |
+| TUI 提交通过事件、取消和审批接口调用执行层 | [interactive/app.tsx](../../../../apps/cli/src/interactive/app.tsx) | 桌面消费结构化接口，不解析终端文本 |
+| `runTask` 组装配置、指令、模型、工具、插件、策略，再调用 `runAgent` | [run.ts](../../../../apps/cli/src/run.ts) | 将非终端应用逻辑共享，避免复制组装逻辑 |
+| Core 拥有模型/工具循环、策略、事件与终止结果 | [runtime.ts](../../../../packages/core/src/runtime.ts) | 不在桌面 UI 中重写 agent loop |
+| 会话服务准备运行、记录结果、列出和恢复当前 workspace 的历史 | [persistent-session.ts](../../../../apps/cli/src/persistent-session.ts) | UI 的任务映射到 Session |
+| Session 存于 Forge home 的 `sessions/`，运行 trace 存于 `runs/` | [session-store.ts](../../../../packages/persistence/src/session-store.ts)、[trace-store.ts](../../../../packages/persistence/src/trace-store.ts) | 复用持久化与恢复合约 |
+| 内置工具是列表、读取、搜索、编辑和命令执行 | [registry.ts](../../../../packages/tools/src/registry.ts) | 通用文档预览与研究能力需另行补齐 |
 
 当前代码包含 native Forge 与 Codex engine 的不同执行分支。抽取共享逻辑时保持现有
 TUI 两条路径；桌面首版已确定同时支持这两种引擎，不将一条引擎的能力或事件冒充另一条。
@@ -102,7 +103,7 @@ TUI 两条路径；桌面首版已确定同时支持这两种引擎，不将一�
 
 下图是选定方案经过语言入口、气泡、头像三次修订后的参考：
 
-![Forge 任务工作台视觉参考](../assets/desktop/task-workbench.png)
+![Forge 任务工作台视觉参考](../../../assets/desktop/task-workbench.png)
 
 这是生成的视觉草案，不是功能证据。图中模型名称、代码、任务内容和状态是示例，
 不是固定产品默认值。语义约束优先于图中偶然出现的字形、图标和数据。
@@ -224,7 +225,7 @@ provider 协议职责；UI 不绕过这些边界直接执行模型提议的文�
 
 ### 已确定的搜索与网页读取实施方案
 
-2026-09-06 确定复用 [web-tools 示例插件](../../examples/plugins/web-tools/index.mjs)
+2026-09-06 确定复用 [web-tools 示例插件](../../../../examples/plugins/web-tools/index.mjs)
 作为原生 Forge 的实现基础，继续通过插件机制扩展，不将特定搜索服务写入 core。
 桌面设置提供明确的安装、启用与配置入口，避免要求用户手动复制插件目录；
 不静默启用插件或改变 TUI 默认工具集合。插件来源、分发方式和配置存储须在实施时明确。

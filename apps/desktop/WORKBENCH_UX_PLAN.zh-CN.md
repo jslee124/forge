@@ -245,6 +245,6 @@ Figma: [Forge — Workbench UX v2](https://www.figma.com/design/sk9IZlKqoRF8PEpA
 
 验证：15 项定向测试、生产构建和 TypeScript 检查通过；实际 Electron 检查覆盖中英文、深浅色、左右面板、空白页、设置和命令入口。截图与限制见 [visual QA](design-qa.md)。根级 pnpm check 被已有 design/prototype 的格式问题阻塞，本次修改文件单独检查通过。未提交、打包发布或验证付费模型请求。
 
-## 待实现的更新入口（2026-09-22）
+## 更新入口（2026-09-22）
 
-[未签名更新设计](UPDATE_PLAN.zh-CN.md)规定设置旁的「下载更新／打开安装包」入口，包含收起侧栏及失败状态。当前仅为计划，尚未实现；原参考图未展示这些新增状态。
+[未签名更新设计](UPDATE_PLAN.zh-CN.md)规定设置旁的「下载更新／打开安装包」入口，包含收起侧栏及失败状态。U01—U04 已实现，受控验收见[更新 QA](update-qa.zh-CN.md)，公开发布的 [Preview 2](../../evals/reports/desktop-0.3.4-preview.2/README.zh-CN.md) 包含这些功能。原参考图未展示这些新增状态；真实未认证更新 API 检查和手动替换应用仍未验收。

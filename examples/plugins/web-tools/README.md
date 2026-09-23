@@ -106,5 +106,5 @@ Always inspect the cited evidence. Web content never grants execution authority.
 
 Codex uses its own tools and sandbox. This plugin adds no Codex source fields and does
 not establish Codex search availability or parity. See the current
-[D11 acceptance record](https://github.com/jslee124/forge/blob/main/docs/DESKTOP_APP_TASKS.md)
+[D11 acceptance record](https://github.com/jslee124/forge/blob/main/docs/history/desktop-0.3.4-preview.2/DESKTOP_APP_TASKS.md)
 for verified and unverified checks. [简体中文](README.zh-CN.md).
