@@ -8,6 +8,7 @@ files:
   - out/main/chunks/**
   - out/preload/**
   - out/renderer/**
+  - build/icon.ico
   - package.json
 extraResources:
   - from: out/web-tools
@@ -29,6 +30,7 @@ extraResources:
   - from: node_modules/pdfjs-dist/wasm
     to: pdfjs/wasm
 mac:
+  icon: build/icon.icns
   category: public.app-category.developer-tools
   minimumSystemVersion: "13.0"
   target:

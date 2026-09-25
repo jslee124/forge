@@ -42,6 +42,7 @@ import {
 } from "../shared/update-protocol.js";
 
 const desktopApi: DesktopApi = Object.freeze({
+  platform: process.platform as DesktopApi["platform"],
   update: (command: UpdateCommand) =>
     ipcRenderer.invoke(UPDATE_CHANNEL, updateCommandSchema.parse(command)),
   versions: Object.freeze({

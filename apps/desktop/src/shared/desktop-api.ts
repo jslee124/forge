@@ -11,6 +11,7 @@ export interface AgentHealth {
 }
 
 export interface DesktopApi extends FileApi {
+  readonly platform: "darwin" | "win32" | "linux";
   update(command: UpdateCommand): Promise<UpdateStatus>;
   readonly versions: Readonly<{
     electron: string;

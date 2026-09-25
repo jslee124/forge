@@ -27,7 +27,7 @@ when measured behavior provides contrary evidence.
 | Formatting and linting | Biome | One fast tool with a small configuration surface |
 | Testing | Vitest | Fast TypeScript tests and straightforward fakes |
 | First provider | DeepSeek through `@ai-sdk/deepseek` | Prove one provider path before generalizing |
-| Initial model | `deepseek-v4-flash` | Current fast DeepSeek model with tool and thinking support |
+| Initial model | `deepseek-flash` | Current fast DeepSeek model with tool and thinking support |
 | Process execution | Node.js `spawn`, `shell: false` | Keep program and arguments structured and avoid implicit shell parsing |
 
 The root `package.json` is private and pins pnpm through `packageManager`. Every
@@ -157,16 +157,14 @@ persistence. This keeps it independently testable.
 ### Model adapter
 
 The initial adapter uses Vercel AI SDK and `@ai-sdk/deepseek` for streaming and
-tool-call transport. It uses `deepseek-v4-flash` and explicitly enables thinking
+tool-call transport. It uses `deepseek-flash` and explicitly enables thinking
 mode so a provider default change cannot silently alter behavior.
 
-The DeepSeek adapter uses the provider's Chat Completions transport for all
-three current model IDs. Core requests carry provider-neutral URL or base64
+The DeepSeek adapter uses the provider's Chat Completions transport for the current model IDs and compatibility aliases. Core requests carry provider-neutral URL or base64
 image parts; the CLI owns local-file canonicalization, format validation, size
 limits, and encoding. `@ai-sdk/deepseek` maps those parts to DeepSeek's native
-vision content for `deepseek-v4-flash-vision-exp` while keeping the
-runtime-owned tool loop and opaque continuation contract unchanged. Other
-DeepSeek models reject attached images before a provider call.
+vision content for `deepseek-flash` and legacy Flash aliases while keeping the
+runtime-owned tool loop and opaque continuation contract unchanged. `deepseek-v4-pro` rejects attached images before a provider call.
 
 The model adapter performs exactly one provider turn and maps the AI SDK full
 stream into Forge model events. Forge controls the multi-step loop and does not

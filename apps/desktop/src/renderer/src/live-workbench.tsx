@@ -30,6 +30,31 @@ export function LiveWorkbench(): React.JSX.Element {
   const { t, i18n } = useTranslation();
   const [panelTab, setPanelTab] = React.useState("files");
   const [sidebarOpen, setSidebarOpen] = React.useState(true);
+  const [viewportWidth, setViewportWidth] = React.useState(window.innerWidth);
+  React.useEffect(() => {
+    const update = () => setViewportWidth(window.innerWidth);
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+  const [sidebarWidth, setSidebarWidth] = React.useState(() => {
+    const stored = Number(localStorage.getItem("forge.desktop.sidebarWidth"));
+    return Number.isFinite(stored) && stored >= 160 && stored <= 360
+      ? stored
+      : 224;
+  });
+  const sidebarDrag = React.useRef<{ x: number; width: number } | undefined>(
+    undefined,
+  );
+  React.useEffect(() => {
+    localStorage.setItem("forge.desktop.sidebarWidth", String(sidebarWidth));
+  }, [sidebarWidth]);
+  React.useEffect(() => {
+    const stop = () => {
+      sidebarDrag.current = undefined;
+    };
+    window.addEventListener("blur", stop);
+    return () => window.removeEventListener("blur", stop);
+  }, []);
   const [panelWidth, setPanelWidth] = React.useState(360);
   const composerRef = React.useRef<HTMLTextAreaElement>(null);
   const [state, setState] = React.useState<DesktopState>();
@@ -66,6 +91,15 @@ export function LiveWorkbench(): React.JSX.Element {
   const [settings, setSettings] = React.useState(false);
   const [settingsSection, setSettingsSection] = React.useState("appearance");
   const [panel, setPanel] = React.useState(false);
+  const panelReserve =
+    panel && viewportWidth > 900
+      ? Math.min(panelWidth, viewportWidth * 0.48)
+      : 0;
+  const sidebarMax = Math.max(
+    160,
+    Math.min(360, viewportWidth - 520 - panelReserve),
+  );
+  const displayedSidebarWidth = Math.min(sidebarWidth, sidebarMax);
   const [filePath, setFilePath] = React.useState("");
   const [filePreview, setFilePreview] = React.useState<FilePreview>();
   const [review, setReview] = React.useState<ChangeReview>();
@@ -531,7 +565,13 @@ export function LiveWorkbench(): React.JSX.Element {
   };
   return (
     <main
-      className={`app-shell live-shell ${sidebarOpen ? "" : "sidebar-collapsed"}`}
+      className={`app-shell live-shell ${window.forgeDesktop?.platform === "darwin" ? "platform-mac" : "platform-windows"} ${sidebarOpen ? "" : "sidebar-collapsed"}`}
+      style={
+        {
+          "--sidebar-width": `${sidebarWidth}px`,
+          "--panel-width": `${panelWidth}px`,
+        } as React.CSSProperties
+      }
     >
       <div className="app-frame">
         <aside className="sidebar">
@@ -559,9 +599,16 @@ export function LiveWorkbench(): React.JSX.Element {
               )}
             </button>
           </div>
-          <button type="button" disabled={busy} onClick={() => void newTask()}>
+          <button
+            type="button"
+            className="studio-new-task"
+            title={t("live.new")}
+            aria-label={t("live.new")}
+            disabled={busy}
+            onClick={() => void newTask()}
+          >
             <Plus size={17} />
-            {t("live.new")}
+            <span>{t("live.new")}</span>
           </button>
           <p className="studio-section-label">{t("common.recentTasks")}</p>
           <input
@@ -645,6 +692,76 @@ export function LiveWorkbench(): React.JSX.Element {
             </button>
             <UpdateView compact />
           </div>
+          {sidebarOpen && (
+            <hr
+              className="studio-sidebar-resize"
+              tabIndex={0}
+              aria-label={zh ? "调整任务侧边栏宽度" : "Resize task sidebar"}
+              aria-orientation="vertical"
+              aria-valuemin={160}
+              aria-valuemax={360}
+              aria-valuenow={displayedSidebarWidth}
+              onPointerDown={(event) => {
+                if (event.button !== 0) return;
+                event.currentTarget.focus();
+                sidebarDrag.current = {
+                  x: event.clientX,
+                  width:
+                    event.currentTarget.parentElement?.getBoundingClientRect()
+                      .width ?? sidebarWidth,
+                };
+                event.currentTarget.setPointerCapture(event.pointerId);
+                event.preventDefault();
+              }}
+              onPointerMove={(event) => {
+                if (!sidebarDrag.current) return;
+                const pointerPanelReserve =
+                  panel && window.innerWidth > 900
+                    ? Math.min(panelWidth, window.innerWidth * 0.48)
+                    : 0;
+                setSidebarWidth(
+                  Math.max(
+                    160,
+                    Math.min(
+                      360,
+                      window.innerWidth - 520 - pointerPanelReserve,
+                      sidebarDrag.current.width +
+                        event.clientX -
+                        sidebarDrag.current.x,
+                    ),
+                  ),
+                );
+              }}
+              onPointerUp={(event) => {
+                sidebarDrag.current = undefined;
+                if (event.currentTarget.hasPointerCapture(event.pointerId))
+                  event.currentTarget.releasePointerCapture(event.pointerId);
+              }}
+              onPointerCancel={() => {
+                sidebarDrag.current = undefined;
+              }}
+              onLostPointerCapture={() => {
+                sidebarDrag.current = undefined;
+              }}
+              onDoubleClick={() => setSidebarWidth(224)}
+              onKeyDown={(event) => {
+                const delta = event.shiftKey ? 20 : 10;
+                const next =
+                  event.key === "Home"
+                    ? 160
+                    : event.key === "End"
+                      ? sidebarMax
+                      : event.key === "ArrowLeft"
+                        ? displayedSidebarWidth - delta
+                        : event.key === "ArrowRight"
+                          ? displayedSidebarWidth + delta
+                          : undefined;
+                if (next === undefined) return;
+                event.preventDefault();
+                setSidebarWidth(Math.max(160, Math.min(sidebarMax, next)));
+              }}
+            />
+          )}
         </aside>
         <section className="live-main">
           <WorkspaceHeader

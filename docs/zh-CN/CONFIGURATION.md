@@ -48,8 +48,8 @@ built-in defaults
   "model": {
     "engine": "forge",
     "provider": "deepseek",
-    "id": "deepseek-v4-flash",
-    "reasoningEffort": "medium",
+    "id": "deepseek-flash",
+    "reasoningEffort": "high",
     "thinking": "enabled"
   },
   "permissionProfile": "safe",
@@ -81,8 +81,8 @@ built-in defaults
 | --- | --- | --- | --- |
 | `model.engine` | `forge` | `forge`、`codex` | 交互式模型选择使用 native Forge Engine 或独立 Codex Engine。 |
 | `model.provider` | `deepseek` | `deepseek`、`openai` 或已经配置的 route name | Native Forge Engine provider。自定义 route 必须存在于 `providers`。 |
-| `model.id` | `deepseek-v4-flash` | 非空 model ID | 只选择 `openai` 时默认使用 `gpt-5.4-mini`；自定义 route 使用其第一个 model。 |
-| `model.reasoningEffort` | `medium` | `none`、`minimal`、`low`、`medium`、`high`、`xhigh`、`max`、`ultra` | 实际模型可能只支持子集；`ultra` 只适用于明确公开该能力的 Codex model。 |
+| `model.id` | `deepseek-flash` | 非空 model ID | 只选择 `openai` 时默认使用 `gpt-5.4-mini`；自定义 route 使用其第一个 model。 |
+| `model.reasoningEffort` | DeepSeek 为 `high`；其他提供商为 `medium` | `none`、`minimal`、`low`、`medium`、`high`、`xhigh`、`max`、`ultra` | 实际模型可能只支持子集；`ultra` 只适用于明确公开该能力的 Codex model。 |
 | `model.thinking` | `enabled` | `enabled`、`disabled` | Native provider 的 thinking mode，仍受 provider capability 限制。 |
 
 切换 provider 而没有显式指定 model 时，Forge 会选择该 provider 默认值。推荐通过 `/model` 选择，因为它会展示发现或配置的 capability；reasoning effort 通过 `/effort` 独立修改。

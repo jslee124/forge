@@ -605,7 +605,7 @@
 }
 .live-shell.sidebar-collapsed
   .sidebar
-  > :not(.studio-brand):not(.sidebar-bottom) {
+  > :not(.studio-brand):not(.sidebar-bottom):not(.studio-new-task) {
   display: none;
 }
 .live-shell.sidebar-collapsed .studio-brand > img,
@@ -1334,5 +1334,294 @@
   .app-frame:has(.live-panel)
     :is(.studio-model-popover, .studio-context-popover > div) {
     max-height: max(80px, min(260px, calc(60vh - 240px)));
+  }
+}
+
+/* Desktop refinement: the expanded sidebar preference owns every layout mode. */
+.live-shell {
+  --sidebar-panel-reserve: 0px;
+}
+.live-shell:has(.live-panel) {
+  --sidebar-panel-reserve: min(var(--panel-width), 48vw);
+}
+.live-shell .app-frame > .sidebar {
+  position: relative;
+  width: min(
+    var(--sidebar-width),
+    max(160px, calc(100vw - 520px - var(--sidebar-panel-reserve)))
+  );
+  flex: 0 0 auto;
+}
+.live-shell.sidebar-collapsed .app-frame > .sidebar {
+  width: 64px;
+}
+.live-shell .studio-sidebar-resize {
+  position: absolute;
+  z-index: 12;
+  top: 0;
+  bottom: 0;
+  right: -5px;
+  width: 11px;
+  height: 100%;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  cursor: col-resize;
+  touch-action: none;
+  user-select: none;
+  outline: none;
+}
+.live-shell .studio-sidebar-resize::after {
+  content: "";
+  position: absolute;
+  width: 1px;
+  right: 5px;
+  top: 0;
+  bottom: 0;
+  background: transparent;
+}
+.live-shell .studio-sidebar-resize:hover::after,
+.live-shell .studio-sidebar-resize:focus-visible::after {
+  background: var(--accent);
+  width: 2px;
+}
+.live-shell .studio-sidebar-resize:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.live-shell.sidebar-collapsed .sidebar > .studio-new-task {
+  display: flex;
+  justify-content: center;
+  padding-inline: 0;
+}
+.live-shell.sidebar-collapsed .studio-new-task > span {
+  display: none;
+}
+.live-shell.platform-mac .app-frame > .sidebar {
+  padding-top: 16px;
+}
+.live-shell.platform-mac .sidebar::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 72px;
+  height: 50px;
+  -webkit-app-region: drag;
+}
+.live-shell.platform-mac .studio-brand {
+  min-height: 44px;
+  padding-left: 62px;
+  padding-right: 0;
+  -webkit-app-region: no-drag;
+}
+.live-shell.platform-mac .studio-brand > img {
+  width: clamp(32px, calc(var(--sidebar-width) - 130px), 84px);
+}
+.live-shell.platform-mac.sidebar-collapsed .app-frame > .sidebar {
+  width: 92px;
+}
+.live-shell.platform-mac.sidebar-collapsed .studio-brand {
+  padding: 44px 0 0;
+  min-height: 90px;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+.live-shell.platform-mac.sidebar-collapsed
+  .live-toolbar
+  [data-testid="sidebar-toggle"] {
+  display: none;
+}
+.live-shell.platform-mac .live-main::before {
+  content: "";
+  display: block;
+  flex: 0 0 44px;
+  -webkit-app-region: drag;
+  background: var(--background);
+}
+@media (max-width: 900px) {
+  .live-shell:has(.live-panel) {
+    --sidebar-panel-reserve: 0px;
+  }
+  .live-shell .app-frame:has(.live-panel) {
+    grid-template-columns: min(
+        var(--sidebar-width),
+        max(160px, calc(100vw - 520px))
+      ) minmax(0, 1fr);
+  }
+  .live-shell.sidebar-collapsed .app-frame:has(.live-panel) {
+    grid-template-columns: 64px minmax(0, 1fr);
+  }
+  .live-shell.platform-mac.sidebar-collapsed .app-frame:has(.live-panel) {
+    grid-template-columns: 92px minmax(0, 1fr);
+  }
+  .live-shell .app-frame:has(.live-panel) > .sidebar {
+    width: auto;
+  }
+  .live-shell.sidebar-collapsed .app-frame:has(.live-panel) > .live-main,
+  .live-shell.sidebar-collapsed .app-frame:has(.live-panel) > .live-panel {
+    grid-column: 2;
+  }
+}
+
+/* One popover surface, with search, results, and actions as separate regions. */
+.live-shell .studio-model-popover {
+  padding: 10px;
+  border-color: var(--border);
+}
+.studio-model-search {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.live-shell .studio-model-popover .studio-model-search input {
+  width: auto;
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  background: var(--surface-subtle);
+  padding: 8px 10px;
+}
+.live-shell .studio-model-popover .studio-model-search button {
+  border: 0;
+}
+.studio-model-results {
+  margin: 10px -4px;
+  padding: 2px 4px;
+}
+.live-shell .studio-model-results button {
+  border: 0;
+  border-radius: 7px;
+  margin: 1px 0;
+  padding: 9px 10px;
+  background: transparent;
+}
+.live-shell .studio-model-results button:hover {
+  background: var(--surface-subtle);
+}
+.live-shell .studio-model-results button[aria-pressed="true"] {
+  background: var(--surface-active);
+  border: 0;
+}
+.studio-model-results button > span:first-child {
+  display: inline-block;
+  max-width: calc(100% - 24px);
+}
+.studio-model-results button > span:nth-child(2) {
+  float: right;
+}
+.studio-model-footer {
+  border-top: 1px solid var(--border);
+  padding: 9px 4px 2px;
+}
+.live-shell .studio-model-footer select {
+  border: 0;
+  background: var(--surface-subtle);
+  padding: 7px;
+}
+.live-shell .studio-model-footer button {
+  border: 0;
+}
+
+/* Settings: persistent navigation and one readable content column. */
+.live-shell .live-settings {
+  max-width: none;
+  align-self: stretch;
+  padding: 0;
+  margin: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.settings-heading {
+  flex: 0 0 auto;
+  padding: 20px 28px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--background);
+}
+.live-shell .settings-heading h2 {
+  margin: 6px 0 0;
+}
+.settings-layout {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+}
+.settings-nav {
+  flex: 0 0 184px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 22px 12px;
+  border-right: 1px solid var(--border);
+}
+.live-shell .settings-nav button {
+  width: 100%;
+  display: block;
+  text-align: left;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  padding: 10px 12px;
+  font-size: 12px;
+}
+.live-shell .settings-nav button[aria-current="page"] {
+  background: var(--surface-active);
+  font-weight: 600;
+}
+.settings-content {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  padding: 24px clamp(20px, 4vw, 48px);
+}
+.settings-content > section {
+  max-width: 720px;
+  margin: 0 auto;
+}
+.settings-content > section:focus {
+  outline: none;
+}
+.live-shell .settings-content :is(.studio-connection-card, .web-settings) {
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  margin: 0;
+  padding: 20px 0;
+}
+.live-shell .settings-content .studio-management {
+  padding: 0;
+}
+.live-shell .settings-content .studio-appearance {
+  margin: 0;
+}
+.live-shell .settings-content .theme-options button {
+  min-height: 76px;
+}
+.live-shell .settings-content :is(input, select) {
+  margin: 5px 8px 5px 0;
+  padding: 8px 10px;
+  border-radius: 7px;
+}
+.live-shell .settings-content input[type="checkbox"] {
+  margin-right: 7px;
+}
+.settings-content code {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 1050px) {
+  .settings-layout {
+    flex-direction: column;
+  }
+  .settings-nav {
+    flex: 0 0 auto;
+    flex-direction: row;
+    overflow-x: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+    padding: 8px 14px;
+  }
+  .live-shell .settings-nav button {
+    width: auto;
+    white-space: nowrap;
   }
 }

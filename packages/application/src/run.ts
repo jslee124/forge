@@ -132,7 +132,11 @@ export async function runTask(
       images.length > 0 &&
       !(
         (loaded.config.model.provider === "deepseek" &&
-          loaded.config.model.id === "deepseek-v4-flash-vision-exp") ||
+          [
+            "deepseek-flash",
+            "deepseek-v4-flash",
+            "deepseek-v4-flash-vision-exp",
+          ].includes(loaded.config.model.id)) ||
         loaded.config.providers[loaded.config.model.provider]?.models?.find(
           (entry) => entry.id === loaded.config.model.id,
         )?.supportsImages === true

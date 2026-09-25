@@ -238,8 +238,8 @@ export const DEFAULT_FORGE_CONFIG: EffectiveForgeConfig = {
   model: {
     engine: "forge",
     provider: "deepseek",
-    id: "deepseek-v4-flash",
-    reasoningEffort: "medium",
+    id: "deepseek-flash",
+    reasoningEffort: "high",
     thinking: "enabled",
   },
   permissionProfile: "safe",

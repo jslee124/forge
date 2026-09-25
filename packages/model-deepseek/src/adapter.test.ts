@@ -121,7 +121,7 @@ describe("DeepSeek model adapter", () => {
     const transport = new FakeTransport();
     const adapter = createDeepSeekModelAdapter({
       env: { DEEPSEEK_API_KEY: "test-secret" },
-      model: "deepseek-v4-flash-vision-exp",
+      model: "deepseek-flash",
       transport,
     });
     const images = [
@@ -145,7 +145,7 @@ describe("DeepSeek model adapter", () => {
       contextWindowSource: "adapter-table",
     });
     expect(transport.request).toMatchObject({
-      model: "deepseek-v4-flash-vision-exp",
+      model: "deepseek-flash",
       images,
     });
   });

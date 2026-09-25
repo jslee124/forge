@@ -2,7 +2,7 @@
 
 日期：2026-09-15。性质：开发计划，不是已交付功能清单。
 
-[English](WORKBENCH_DEVELOPMENT_PLAN.md) · [视觉与交互规范](WORKBENCH_UX_PLAN.zh-CN.md) · [实际界面验收](design-qa.md)
+[English](WORKBENCH_DEVELOPMENT_PLAN.md) · [视觉与交互规范](WORKBENCH_UX_PLAN.zh-CN.md) · [模型与工作台改进方案](DESKTOP_REFINEMENT_PLAN.zh-CN.md) · [实际界面验收](design-qa.md)
 
 ## 未签名版本更新（2026-09-22）
 

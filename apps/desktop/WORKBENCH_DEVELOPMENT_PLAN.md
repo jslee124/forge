@@ -2,7 +2,7 @@
 
 Date: 2026-09-15. Development plan, not a shipped-feature declaration.
 
-[中文（详细任务说明）](WORKBENCH_DEVELOPMENT_PLAN.zh-CN.md) · [UX specification](WORKBENCH_UX_PLAN.md) · [Visual QA](design-qa.md)
+[中文（详细任务说明）](WORKBENCH_DEVELOPMENT_PLAN.zh-CN.md) · [UX specification](WORKBENCH_UX_PLAN.md) · [Model and workbench refinement proposal](DESKTOP_REFINEMENT_PLAN.md) · [Visual QA](design-qa.md)
 
 ## Unsigned updates (2026-09-22)
 

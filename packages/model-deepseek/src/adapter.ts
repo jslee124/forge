@@ -69,10 +69,12 @@ export class DeepSeekModelAdapter implements ModelAdapter {
   ): AsyncIterable<ModelStreamEvent> {
     if (
       request.images?.length &&
+      this.#model !== "deepseek-flash" &&
+      this.#model !== "deepseek-v4-flash" &&
       this.#model !== "deepseek-v4-flash-vision-exp"
     ) {
       throw new ModelConfigurationError(
-        `DeepSeek model "${this.#model}" does not accept image input. Select deepseek-v4-flash-vision-exp.`,
+        `DeepSeek model "${this.#model}" does not accept image input. Select deepseek-flash.`,
       );
     }
     return this.#transport.stream(
@@ -99,6 +101,7 @@ export function deepSeekModelContext(
   model: string,
 ): { readonly window: number; readonly output: number } | undefined {
   if (
+    model === "deepseek-flash" ||
     model === "deepseek-v4-flash" ||
     model === "deepseek-v4-pro" ||
     model === "deepseek-v4-flash-vision-exp"
