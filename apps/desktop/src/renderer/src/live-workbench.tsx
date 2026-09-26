@@ -289,6 +289,8 @@ export function LiveWorkbench(): React.JSX.Element {
     setPrompt("");
     setAnswer("");
     setDetails([]);
+    setNotice("");
+    setLiteralOffer(false);
     setSettings(false);
     setPanel(false);
     setStatus("ready");
@@ -773,6 +775,11 @@ export function LiveWorkbench(): React.JSX.Element {
             settings={settings}
             busy={busy}
             onChooseWorkspace={onChooseWorkspace}
+            onNewTask={() => void newTask()}
+            onSettings={() => {
+              setSettingsSection("appearance");
+              setSettings(!settings);
+            }}
           />
           {error && (
             <p role="alert" className="field-error">

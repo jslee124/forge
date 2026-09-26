@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type {
   DesktopState,
@@ -31,14 +31,32 @@ export function ModelSelector({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const pickerRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
-  const [position, setPosition] = useState({ bottom: 80, right: 16 });
+  const [position, setPosition] = useState({
+    bottom: 80,
+    right: 16,
+    width: 360,
+  });
+  const reposition = useCallback(() => {
+    const trigger = triggerRef.current?.getBoundingClientRect();
+    if (!trigger) return;
+    const main = triggerRef.current
+      ?.closest(".live-main")
+      ?.getBoundingClientRect();
+    const leftBound = (main?.left ?? 0) + 16;
+    const rightBound = (main?.right ?? window.innerWidth) - 16;
+    const width = Math.min(360, rightBound - leftBound);
+    const left = Math.max(
+      leftBound,
+      Math.min(trigger.right - width, rightBound - width),
+    );
+    setPosition({
+      bottom: window.innerHeight - trigger.top + 8,
+      right: window.innerWidth - left - width,
+      width,
+    });
+  }, []);
   const toggle = () => {
-    const rect = triggerRef.current?.getBoundingClientRect();
-    if (rect)
-      setPosition({
-        bottom: window.innerHeight - rect.top + 8,
-        right: Math.max(16, window.innerWidth - rect.right),
-      });
+    reposition();
     setOpen((value) => !value);
   };
   useEffect(() => {
@@ -53,14 +71,6 @@ export function ModelSelector({
   }, [engine, model]);
   useEffect(() => {
     if (!open) return;
-    const reposition = () => {
-      const rect = triggerRef.current?.getBoundingClientRect();
-      if (rect)
-        setPosition({
-          bottom: window.innerHeight - rect.top + 8,
-          right: Math.max(16, window.innerWidth - rect.right),
-        });
-    };
     const onPointerDown = (event: PointerEvent) => {
       if (
         event.target instanceof Node &&
@@ -84,7 +94,7 @@ export function ModelSelector({
       document.removeEventListener("keydown", onKeyDown, true);
       window.removeEventListener("resize", reposition);
     };
-  }, [open]);
+  }, [open, reposition]);
   const listed = (state?.modelCatalog ?? []).filter((x) => x.engine === engine);
   const legacyId = selection?.model || model || state?.defaultSelection?.model;
   const entries = listed.concat(
@@ -174,6 +184,7 @@ export function ModelSelector({
               bottom: position.bottom,
               right: position.right,
               left: "auto",
+              width: position.width,
             }}
             aria-label={zh ? "模型选择" : "Model selection"}
           >

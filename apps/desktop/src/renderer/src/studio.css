@@ -839,7 +839,8 @@
   filter: invert(0.9);
 }
 .live-shell .live-composer {
-  margin: 18px max(24px, calc((100% - 820px) / 2)) 24px;
+  width: min(790px, calc(100% - 40px));
+  margin: 18px auto 24px;
   padding: 16px;
   border-radius: 16px;
   box-shadow: none;
@@ -853,7 +854,7 @@
   align-items: center;
   gap: 12px;
   min-width: 0;
-  margin-left: 0;
+  margin-left: auto;
 }
 .studio-model-controls label {
   display: flex;
@@ -898,7 +899,7 @@
   padding: 7px;
 }
 .studio-context-popover {
-  margin-left: auto;
+  margin-left: 0;
   position: relative;
 }
 .studio-context-popover summary {
@@ -963,10 +964,6 @@
   }
   .live-shell .studio-model-controls input {
     width: 130px;
-  }
-  .live-shell .live-composer {
-    margin-left: 20px;
-    margin-right: 20px;
   }
 }
 .live-shell .live-composer {
@@ -1404,39 +1401,59 @@
   content: "";
   position: absolute;
   inset: 0 auto auto 0;
-  width: 72px;
-  height: 50px;
+  width: 100%;
+  height: 58px;
   -webkit-app-region: drag;
 }
 .live-shell.platform-mac .studio-brand {
-  min-height: 44px;
-  padding-left: 62px;
-  padding-right: 0;
-  -webkit-app-region: no-drag;
+  min-height: 94px;
+  padding: 50px 8px 12px;
 }
 .live-shell.platform-mac .studio-brand > img {
-  width: clamp(32px, calc(var(--sidebar-width) - 130px), 84px);
+  width: min(124px, calc(var(--sidebar-width) - 48px));
+}
+.live-shell.platform-mac .studio-brand .studio-sidebar-toggle {
+  position: absolute;
+  top: 3px;
+  right: 18px;
+  z-index: 1;
+  -webkit-app-region: no-drag;
 }
 .live-shell.platform-mac.sidebar-collapsed .app-frame > .sidebar {
-  width: 92px;
-}
-.live-shell.platform-mac.sidebar-collapsed .studio-brand {
-  padding: 44px 0 0;
-  min-height: 90px;
-  justify-content: center;
-  margin-bottom: 8px;
-}
-.live-shell.platform-mac.sidebar-collapsed
-  .live-toolbar
-  [data-testid="sidebar-toggle"] {
   display: none;
 }
-.live-shell.platform-mac .live-main::before {
-  content: "";
-  display: block;
-  flex: 0 0 44px;
+.live-shell.platform-mac .live-toolbar {
+  flex: 0 0 40px;
+  min-height: 40px;
+  flex-wrap: nowrap;
+  padding-block: 2px;
+  border-bottom: 0;
   -webkit-app-region: drag;
-  background: var(--background);
+}
+.live-shell.platform-mac .live-toolbar > button {
+  flex: 0 0 auto;
+  -webkit-app-region: no-drag;
+}
+.live-shell.platform-mac.sidebar-collapsed .live-toolbar {
+  padding-left: 102px;
+  padding-right: 20px;
+  gap: 8px;
+}
+.live-shell.platform-mac.sidebar-collapsed .live-toolbar .studio-task-title {
+  display: none;
+}
+.live-shell.platform-mac.sidebar-collapsed .live-toolbar .studio-sidebar-toggle,
+.live-shell.platform-mac.sidebar-collapsed
+  .live-toolbar
+  .studio-toolbar-new-task,
+.live-shell.platform-mac.sidebar-collapsed
+  .live-toolbar
+  .studio-toolbar-settings {
+  width: 34px;
+  height: 34px;
+  padding: 7px;
+  border: 1px solid var(--border);
+  background: var(--surface);
 }
 @media (max-width: 900px) {
   .live-shell:has(.live-panel) {
@@ -1452,14 +1469,24 @@
     grid-template-columns: 64px minmax(0, 1fr);
   }
   .live-shell.platform-mac.sidebar-collapsed .app-frame:has(.live-panel) {
-    grid-template-columns: 92px minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
   }
   .live-shell .app-frame:has(.live-panel) > .sidebar {
     width: auto;
   }
+  .live-shell.platform-mac.sidebar-collapsed
+    .app-frame:has(.live-panel)
+    > .sidebar {
+    display: none;
+  }
   .live-shell.sidebar-collapsed .app-frame:has(.live-panel) > .live-main,
   .live-shell.sidebar-collapsed .app-frame:has(.live-panel) > .live-panel {
     grid-column: 2;
+  }
+  .live-shell.platform-mac.sidebar-collapsed
+    .app-frame:has(.live-panel)
+    > :is(.live-main, .live-panel) {
+    grid-column: 1;
   }
 }
 

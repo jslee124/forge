@@ -1,6 +1,6 @@
 # Forge Desktop model and workbench interaction refinement plan
 
-Original plan: 2026-09-25. macOS sidebar decision: 2026-09-26. Status: **design record**; the revised collapsed layout below is a proposed change, not verified shipped behavior. The source descriptions in the original plan are dated snapshots and must be rechecked before implementation. This pass changes documentation only.
+Original plan: 2026-09-25. macOS sidebar decision: 2026-09-26. Status: **design and local implementation record**. The original source descriptions are dated snapshots; the implementation status below reflects current source and local checks, not behavior shipped in Preview 3.
 
 [简体中文](DESKTOP_REFINEMENT_PLAN.zh-CN.md) · [Workbench development plan](WORKBENCH_DEVELOPMENT_PLAN.md) · [Current desktop guide](../../docs/DESKTOP.md)
 
@@ -112,6 +112,12 @@ Use one grid-column width state as the layout source, removing conflicting fixed
 
 After implementation, run focused tests, `CI=true pnpm check`, the documentation check, and `CI=true pnpm package:verify` for packaging resource changes. Packaged appearance and Gatekeeper behavior require downloaded/installed-app evidence; source checks and renderer captures cannot substitute. Decide versioning, signing, notarization, and platform coverage separately before any release.
 
+## 2026-09-26 local implementation and verification
+
+- Current source already has the `deepseek-flash` default and legacy-ID handling, anvil icons for both platforms, four-section Settings, picker dismissal on selection/outside click, and pointer/keyboard sidebar resizing with a remembered width. This pass does not claim installed-app acceptance for those features.
+- This pass fully hides the macOS sidebar when collapsed. The main top row places Expand Sidebar, workspace, and New Task to the right of the native traffic lights, with Workbench and Settings at the far right. The expanded wordmark sits below the top controls. Windows retains its native title bar and existing collapsed layout. The model popover is now positioned within the main content when the right workbench is open.
+- `CI=true pnpm check`, `CI=true pnpm desktop:build`, the local Electron workbench acceptance, and the update Settings acceptance passed. Offline fixtures and hidden-window captures checked collapse/restore, actions, narrow layout, and popover bounds. A visible macOS development window also showed the top layout and accessible native window controls. A screen-sharing indicator covered the controls in the screenshot, and the full-screen capture was not reliable, so traffic-light hit targets, system full screen, Windows window behavior, and installed-package appearance still require separate acceptance.
+
 ## Approval points
 
-The macOS collapsed-sidebar direction was selected on 2026-09-26; its implementation and acceptance remain outstanding. Other original approval points were `deepseek-flash` as the new default with old IDs retained for compatibility, picker dismissal after model selection, four-section Settings navigation, and pointer/keyboard task-sidebar resizing with remembered width. Recheck their implementation state against current source rather than treating this dated plan as product evidence.
+The macOS collapsed-sidebar direction was selected on 2026-09-26 and implemented in the current development source. Other original approval points were `deepseek-flash` as the new default with old IDs retained for compatibility, picker dismissal after model selection, four-section Settings navigation, and pointer/keyboard task-sidebar resizing with remembered width. Recheck their implementation and acceptance against current source; this dated design record is not evidence of a shipped release.
