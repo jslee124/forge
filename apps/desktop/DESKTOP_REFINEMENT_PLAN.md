@@ -1,6 +1,6 @@
 # Forge Desktop model and workbench interaction refinement plan
 
-Date: 2026-09-25. Status: **development proposal awaiting user approval**; proposed behavior below is not shipped behavior. This pass changes documentation only.
+Original plan: 2026-09-25. macOS sidebar decision: 2026-09-26. Status: **design record**; the revised collapsed layout below is a proposed change, not verified shipped behavior. The source descriptions in the original plan are dated snapshots and must be rechecked before implementation. This pass changes documentation only.
 
 [简体中文](DESKTOP_REFINEMENT_PLAN.zh-CN.md) · [Workbench development plan](WORKBENCH_DEVELOPMENT_PLAN.md) · [Current desktop guide](../../docs/DESKTOP.md)
 
@@ -10,15 +10,19 @@ Date: 2026-09-25. Status: **development proposal awaiting user approval**; propo
 
 ![Workbench, model picker, and macOS window top reference](design/refinement-2026-09-25/workbench-model-reference.png)
 
-![Collapsed macOS task sidebar with traffic lights fixed at the window's upper-left](design/refinement-2026-09-25/workbench-collapsed-macos-reference.png)
+![Earlier collapsed macOS sidebar concept, superseded by the 2026-09-26 decision](design/refinement-2026-09-25/workbench-collapsed-macos-reference.png)
+
+**Selected macOS sidebar direction (2026-09-26):** expanded on the left, fully collapsed on the right. This replaces the earlier narrow-rail concept; it is a generated design preview, not an application capture.
+
+![Selected macOS sidebar direction with the sidebar fully hidden when collapsed](design/refinement-2026-09-26/macos-sidebar-hidden-reference.png)
 
 These images establish a visual direction and layout hierarchy. They are not screenshots of implemented behavior or runnable prototypes. Example statuses, helper copy, task names, and button details must yield to this plan's interaction requirements and the current source. Check Windows layout, keyboard behavior, and narrow windows separately before implementation.
 
-## Goal and current evidence
+## Goal and 2026-09-25 baseline evidence
 
 In the installed Preview 3, the user sees old DeepSeek models, a heavily outlined model picker that cannot close by clicking outside, a default Electron app icon, a full-width native title bar, a rough long-form Settings page, and a task sidebar that cannot be resized by dragging. This plan is grounded in the `dev` source and the user's workbench and Settings screenshots on 2026-09-25. The screenshots establish the appearance of that installation, not behavior on every platform.
 
-| Area | Current source | Target |
+| Area | 2026-09-25 source snapshot | Target |
 | --- | --- | --- |
 | Models | `packages/application/src/model-catalog.ts` lists three old DeepSeek IDs; `packages/config/src/schema.ts`, `loader.ts`, and `packages/model-deepseek/src/config.ts` default to old Flash; the adapter accepts images only for old Vision Exp and knows context limits only for old IDs | Make `deepseek-flash` the new choice and default while retaining old configurations and sessions |
 | Picker | `apps/desktop/src/renderer/src/model-selector.tsx` closes only via buttons or Escape; `studio.css` outlines the popover and every row | Reduce visual borders; close on selection, outside click, or Escape while preserving keyboard and focus behavior |
@@ -55,9 +59,9 @@ Icon resources and application signing are separate concerns. Preview 3 has no D
 
 ## R4: Platform-specific window top
 
-**macOS:** Use Electron `titleBarStyle: "hiddenInset"` to keep native traffic lights rather than drawing fake buttons. Extend the workbench background to the top. Reserve the sidebar's upper-left space for traffic lights; position the anvil/Forge brand to their right and move the sidebar toggle clear of them. Empty top regions must be draggable, interactive controls must not be. Preserve expected full-screen, zoom, title-region double-click, light/dark, and narrow-window behavior. Inspect actual macOS window screenshots before deciding whether `trafficLightPosition` needs adjustment.
+**macOS:** Keep Electron `titleBarStyle: "hiddenInset"` and its native traffic lights rather than drawing fake buttons. In the selected expanded layout, traffic lights, the sidebar toggle, the workspace selector, and the Workbench button align on one horizontal line; the Forge wordmark remains below in the sidebar. Keep the top surface visually continuous without a separate full-width title bar. Empty top regions must be draggable, interactive controls must not be. Preserve expected full-screen, zoom, title-region double-click, light/dark, and narrow-window behavior. Inspect actual macOS window screenshots before deciding whether `trafficLightPosition` needs adjustment.
 
-**Collapsed macOS sidebar:** Keep the traffic lights at fixed window coordinates; collapsing changes sidebar content and width, never the native controls' position or scale. Reserve a separate roughly 44–52 px control safe area at the top. Plan a roughly 88–96 px collapsed rail, with its final width set by real system control bounds and hit targets rather than reusing the current 64 px. Hide the FORGE wordmark and task list. Put a clickable, keyboard-focusable anvil Expand Sidebar control **below** the traffic lights, followed by New Task and Settings icons. Hide the resize handle while collapsed and restore the last expanded width on reopening. In system full screen, let macOS govern traffic-light visibility rather than drawing replacements.
+**Collapsed macOS sidebar (selected direction):** Hide the sidebar completely: no narrow rail, anvil mark, task list, bottom Settings icon, or resize handle remains. The main area uses the released width. Keep the native traffic lights at fixed window coordinates. On their horizontal line, place a keyboard-focusable Expand Sidebar button, workspace selector, and New Task icon from left to right with safe gaps; put Workbench and Settings at the far right. Do not add a separate full-width title bar or divider. Reopening restores the last expanded width. In system full screen, let macOS govern traffic-light visibility rather than drawing replacements.
 
 **Windows:** Retain the native title bar and system minimize/maximize/close controls in this pass; harmonize its color and brand icon with the content. Do not apply macOS left-side safe spacing on Windows. A later unified custom bar would require separate design and acceptance for Windows controls overlay, system menu, dragging, resizing, and accessibility before adopting `titleBarOverlay`.
 
@@ -87,13 +91,13 @@ The current Settings page remains a long column capped at `max-width: 780px` on 
 
 ## R6: Resizable task sidebar
 
-Use one grid-column width state as the layout source, removing conflicting fixed widths on `.app-frame` and `.sidebar`. The expanded sidebar defaults to about 224 px; dragging its boundary updates it live, clamped to about 160–360 px while leaving at least about 520 px for the main area. Shrinking the window temporarily clamps the displayed width without overwriting the saved preference; expanding it restores that preference. Set collapsed width by platform: about 88–96 px on macOS to contain the fixed traffic-light safe area, and about the current 64 px on Windows; reopening restores the last expanded width.
+Use one grid-column width state as the layout source, removing conflicting fixed widths on `.app-frame` and `.sidebar`. The expanded sidebar defaults to about 224 px; dragging its boundary updates it live, clamped to about 160–360 px while leaving at least about 520 px for the main area. Shrinking the window temporarily clamps the displayed width without overwriting the saved preference; expanding it restores that preference. On macOS the selected collapsed state has no sidebar column; the native traffic-light hit area is accounted for by the main content's top controls. Windows retains its native title bar; its collapsed layout needs separate review rather than inheriting macOS spacing. Reopening restores the last expanded width.
 
 - Put a subtle visual affordance and a generous hit target at the sidebar's right edge. Start dragging only from this handle, without stealing task clicks or text selection. Use Pointer Events and pointer capture, with cleanup on release, cancellation, blur, or component unmount.
 - Make the handle focusable with separator semantics, current/min/max values, arrow-key increments, Home/End bounds, and double-click to restore the default width. Show visible focus; resizing must not require a mouse.
 - Persist only expanded width as a local UI preference, outside Forge model configuration and sessions. Settings, conversations, and the right workbench panel share this width. When a narrow-window right panel stacks below the conversation, preserve usable main content and composer controls; the two resize handles must not contend for pointer capture.
-- Check the macOS traffic-light layout at minimum and maximum sidebar widths so it never collides with the brand, collapse control, or resize handle. Check the Windows native title bar separately.
-- Add real-window expand→collapse→expand screenshots and click acceptance: all three traffic lights stay fixed and clickable, the anvil expand control cannot activate a window control, and the main area uses the freed width. Repeat at minimum window size, in full screen, and on Settings.
+- Check the macOS traffic-light layout at minimum and maximum expanded-sidebar widths and with the sidebar hidden. Traffic lights must not collide with the toggle, workspace selector, New Task, or drag region. Check the Windows native title bar separately.
+- Add real-window expand→collapse→expand screenshots and click acceptance: all three traffic lights stay fixed and clickable; the top-row toggle restores the sidebar; New Task, Settings, workspace selection, and Workbench remain accessible; and the main area uses the freed width. Repeat at minimum window size, in full screen, and on Settings.
 
 ## Implementation sequence and acceptance
 
@@ -110,4 +114,4 @@ After implementation, run focused tests, `CI=true pnpm check`, the documentation
 
 ## Approval points
 
-Confirm especially: `deepseek-flash` as the new default with old IDs retained for compatibility; closing the picker after model selection; native macOS traffic lights integrated into the sidebar's top row while Windows keeps its native title bar; four-section Settings navigation; and pointer/keyboard task-sidebar resizing with remembered width. No runtime code, styles, or icon resources change before approval.
+The macOS collapsed-sidebar direction was selected on 2026-09-26; its implementation and acceptance remain outstanding. Other original approval points were `deepseek-flash` as the new default with old IDs retained for compatibility, picker dismissal after model selection, four-section Settings navigation, and pointer/keyboard task-sidebar resizing with remembered width. Recheck their implementation state against current source rather than treating this dated plan as product evidence.
