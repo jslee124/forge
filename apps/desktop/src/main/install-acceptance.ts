@@ -82,6 +82,9 @@ export async function runInstallAcceptance(
     () => undefined,
   );
   await js(
+    `new Promise((resolve,reject) => { let n=0; const poll=()=> { const session=Array.from(document.querySelectorAll('[data-session-id]')).find((node)=>node.getAttribute('data-session-id')===${JSON.stringify(created.sessionId)}); if(session) { session.click(); resolve(true); } else if(n++>200) reject(new Error('Resumed session not shown')); else setTimeout(poll,50); }; poll(); })`,
+  );
+  await js(
     `new Promise((resolve,reject) => { let n=0; const poll=()=> { const input=document.querySelector('[data-testid=file-path]'); if(input) { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'sample.pdf'); input.dispatchEvent(new Event('input',{bubbles:true})); resolve(true); } else if(n++>200) reject(new Error('No file control')); else setTimeout(poll,50); }; poll(); })`,
   );
   await js(`new Promise(resolve=>setTimeout(resolve,100))`);
