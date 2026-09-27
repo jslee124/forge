@@ -1,20 +1,11 @@
-# Desktop 0.3.4 Preview 4 release candidate
+# Desktop 0.3.4 Preview 4 release evidence
 
-Status on 2026-09-27: **prepared locally; not published**. This record concerns the candidate based on `dev` commit `6371281` plus the Preview 4 preparation changes. It is not public release or cross-platform acceptance evidence. [中文](README.zh-CN.md).
+Published on 2026-09-27 as a public GitHub prerelease: [Preview 4](https://github.com/jslee124/forge/releases/tag/desktop-0.3.4-preview.4). See [machine-readable evidence](release.json) and [中文](README.zh-CN.md).
 
-## Local verification
+- The annotated tag resolves to `34e6d60a9038ca5a539dd3581358b445548acf53`, the [Preview 4 PR](https://github.com/jslee124/forge/pull/7) merge commit on `dev`. The release trigger commit is `e01b362391da780845fdd28751b4f6c778ed8d71`; Windows and macOS packaging checked out the tag.
+- The [candidate PR CI](https://github.com/jslee124/forge/actions/runs/36298516298) passed Ubuntu verification, Windows x64 packaging, packaged-app smoke, and NSIS install/start/uninstall using a CI build identity. The [publication CI](https://github.com/jslee124/forge/actions/runs/36298823728) passed all four jobs. It rebuilt the Windows x64 installer and macOS arm64/x64 DMGs from the tag, ran packaged-app smoke on both platforms and Windows NSIS install/start/uninstall, checked asset SHA-256 values against platform manifests, verified all five uploaded GitHub assets by size and digest, then published the prerelease.
+- Public `SHA256SUMS` and `desktop-build.json` downloads succeeded. Their local SHA-256 values match GitHub asset digests, and the three installer entries match both manifests and GitHub's installer digests. All three public installer URLs returned HTTP 200 to HEAD requests. Full installers were not downloaded again after publication.
+- Before tagging, local `CI=true pnpm check`, `CI=true pnpm check:docs`, `CI=true pnpm package:verify`, and `CI=true pnpm eval:deterministic` passed; the deterministic evaluation had 13 files and 71 tests. A local unsigned macOS arm64/x64 build passed four local artifact checksum checks. The candidate arm64 packaged-app smoke and temporary DMG installation checks passed; the [installed-app result](local-macos-arm64/installed.json) and [PDF screenshot](local-macos-arm64/installed-pdf.png) are preserved separately from older D13 evidence. This local installed-app result predates the final documentation-only tag change and is not downloaded-release acceptance.
+- The release is a prerelease, not a draft. Stable latest remains `v0.3.4`; the `desktop-*` tag did not publish a new npm CLI version.
 
-- `CI=true pnpm check` passed after the preparation and installed-acceptance fix. The existing Biome diagnostics were 4 warnings and 18 informational messages.
-- `CI=true pnpm check:docs` passed: 212 Markdown files and 830 local references.
-- `CI=true pnpm package:verify` passed for the separate CLI npm package; `CI=true pnpm eval:deterministic` passed 13 files and 71 tests.
-- `CI=true FORGE_DESKTOP_BUILD_TAG=desktop-0.3.4-preview.4 pnpm desktop:package` produced unsigned arm64/x64 DMGs and ZIPs locally. `release-contract.mjs` recorded the full preview identity and four asset hashes; `shasum -a 256 -c SHA256SUMS` verified all four files.
-- The local arm64 packaged-app smoke passed. An initial installed-app probe found that the redesigned Workbench panel starts closed; the probe now selects the resumed task through the UI before opening its file. After rebuilding, the arm64 DMG passed the temporary installation, LaunchServices startup, Agent shutdown, PDF preview, and isolated-home checks. The candidate's [installed-app result](local-macos-arm64/installed.json) and [PDF screenshot](local-macos-arm64/installed-pdf.png) are preserved separately from older D13 evidence.
-- The candidate branch [CI run](https://github.com/jslee124/forge/actions/runs/36297371802) passed Ubuntu verification and Windows x64 packaging, packaged-app smoke, and NSIS install/start/uninstall. It used a CI build identity and skipped the macOS preview and publication jobs.
-
-## Still required before publication
-
-- Re-run the Windows x64 checks from the final Preview 4 tag so the installer embeds the release identity, and compare its assets with the candidate CI result.
-- Run macOS packaging and smoke from the final tag in CI; assemble Windows and macOS assets, verify their SHA-256 values and remote GitHub asset sizes/digests, then publish the prerelease.
-- Confirm the English/Chinese Desktop and installation guides included in the final tag identify Preview 4. The source guides are being updated for publication; Preview 3 remains the public release until Preview 4 is published.
-
-The candidate remains unsigned and the macOS DMGs are not notarized. Local arm64 acceptance does not establish Intel hardware, macOS 13, downloaded-file quarantine/Gatekeeper behavior, native traffic-light hit targets, system full screen, or live-provider calls. Windows ARM64 and signed Windows installer acceptance are outside this preview.
+The installers are unsigned; macOS DMGs are not notarized. The checks do not establish real-provider login or calls, every network route, Windows ARM64, SmartScreen acceptance, Intel hardware, macOS 13, downloaded-file quarantine/Gatekeeper behavior, native macOS traffic-light hit targets, system full screen, or installed-app acceptance on every target machine. See the [Windows](../../../apps/desktop/INSTALL-WINDOWS.md) and [macOS](../../../apps/desktop/INSTALL.md) installation guides.
