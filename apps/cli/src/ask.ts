@@ -124,7 +124,14 @@ function assertImageModel(
     (entry) => entry.id === model,
   )?.supportsImages;
   if (
-    !(provider === "deepseek" && model === "deepseek-v4-flash-vision-exp") &&
+    !(
+      provider === "deepseek" &&
+      [
+        "deepseek-flash",
+        "deepseek-v4-flash",
+        "deepseek-v4-flash-vision-exp",
+      ].includes(model)
+    ) &&
     routeSupportsImages !== true
   ) {
     throw new ModelConfigurationError(

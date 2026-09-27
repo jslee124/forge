@@ -255,6 +255,24 @@ describe("Forge configuration", () => {
     });
   });
 
+  it("uses the current Flash ID only when no model is explicitly configured", async () => {
+    const { nested, forgeHome } = await fixture();
+    const fresh = await loadForgeConfig({
+      cwd: nested,
+      env: { FORGE_HOME: forgeHome },
+    });
+    expect(fresh.config.model.id).toBe("deepseek-flash");
+    expect(fresh.config.model.reasoningEffort).toBe("high");
+    const legacy = await loadForgeConfig({
+      cwd: nested,
+      env: {
+        FORGE_HOME: forgeHome,
+        FORGE_MODEL: "deepseek-v4-flash-vision-exp",
+      },
+    });
+    expect(legacy.config.model.id).toBe("deepseek-v4-flash-vision-exp");
+  });
+
   it("rejects project attempts to select a permission profile", async () => {
     const { root, nested, forgeHome } = await fixture();
     const sourcePath = path.join(root, ".forge", "config.json");

@@ -1248,7 +1248,7 @@ export function InteractiveApp({
     const model =
       activeOptions.model?.trim() ||
       providerProfiles[provider]?.models?.[0]?.id ||
-      "deepseek-v4-flash";
+      "deepseek-flash";
     const thinking =
       provider === "deepseek"
         ? effort === "none"

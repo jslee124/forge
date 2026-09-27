@@ -45,6 +45,7 @@ export async function runUpdateUiAcceptance(
       await wait(
         `document.documentElement.lang === ${JSON.stringify(language)}`,
       );
+      await click(".settings-nav button:nth-child(4)");
       for (const phase of [
         "unchecked",
         "checking",
@@ -90,13 +91,19 @@ export async function runUpdateUiAcceptance(
       window.setSize(720, 600);
       await click('[data-testid="sidebar-toggle"]');
       await new Promise((resolve) => setTimeout(resolve, 200));
+      const settingsSelector =
+        process.platform === "darwin"
+          ? ".studio-toolbar-settings"
+          : '[data-testid="settings"]';
+      await click(".settings-nav button:nth-child(4)");
       const compact = await js(
-        `{const settings = document.querySelector('[data-testid=settings]'); settings.focus(); ({focus: document.activeElement === settings, settingsVisible: settings.getBoundingClientRect().width > 0, accessibleAction: !!document.querySelector('.update-compact button[aria-label]'), overflow: document.documentElement.scrollWidth > innerWidth});}`,
+        `{const settings = document.querySelector(${JSON.stringify(settingsSelector)}); settings.focus(); ({focus: document.activeElement === settings, settingsVisible: settings.getBoundingClientRect().width > 0, accessibleAction: !!document.querySelector('#settings-updates button'), sidebarHidden: ${process.platform === "darwin"} ? getComputedStyle(document.querySelector('.sidebar')).display === 'none' : true, overflow: document.documentElement.scrollWidth > innerWidth});}`,
       );
       if (
         !compact.focus ||
         !compact.settingsVisible ||
         !compact.accessibleAction ||
+        !compact.sidebarHidden ||
         compact.overflow
       )
         throw new Error("Collapsed update controls inaccessible");
@@ -105,8 +112,13 @@ export async function runUpdateUiAcceptance(
         (await window.webContents.capturePage()).toPNG(),
       );
       evidence.push({ name: `${theme}-${language}-collapsed`, ...compact });
-      await click('[data-testid="sidebar-toggle"]');
+      await click(
+        process.platform === "darwin"
+          ? '.live-toolbar [data-testid="sidebar-toggle"]'
+          : '[data-testid="sidebar-toggle"]',
+      );
       window.setSize(1100, 760);
+      await click(".settings-nav button:first-child");
     }
   }
   await click('[data-testid="settings"]');

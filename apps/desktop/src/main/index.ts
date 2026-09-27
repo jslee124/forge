@@ -102,6 +102,12 @@ async function createWindow(show = true): Promise<BrowserWindow> {
     minWidth: 720,
     minHeight: 520,
     show,
+    ...(process.platform === "win32"
+      ? { icon: join(import.meta.dirname, "../../build/icon.ico") }
+      : {}),
+    ...(process.platform === "darwin"
+      ? { titleBarStyle: "hiddenInset" as const }
+      : {}),
     webPreferences: {
       preload: join(import.meta.dirname, "../preload/index.cjs"),
       contextIsolation: true,

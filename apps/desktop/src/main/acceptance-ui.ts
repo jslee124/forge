@@ -157,11 +157,17 @@ export async function runUiAcceptance(
   );
   await capture("home-dark");
   await click('[data-testid="sidebar-toggle"]');
-  await until(
-    "document.querySelector('.studio-square-mark')?.complete && document.querySelector('.studio-square-mark')?.naturalWidth > 0 && getComputedStyle(document.querySelector('.sidebar')).display === 'none'",
+  await until("document.querySelector('.app-shell.sidebar-collapsed')");
+  await js(
+    `(() => { const toolbar = document.querySelector('.live-toolbar'); const toggle = toolbar.querySelector('[data-testid=sidebar-toggle]'); if (getComputedStyle(document.querySelector('.sidebar')).display !== 'none') throw new Error('Collapsed sidebar remains visible'); if (!toolbar.querySelector('.studio-toolbar-new-task') || !toolbar.querySelector('.studio-toolbar-settings')) throw new Error('Collapsed toolbar controls missing'); if (toggle.getBoundingClientRect().left < 96) throw new Error('Sidebar toggle overlaps the native traffic lights'); if ([...document.querySelectorAll('.studio-square-mark')].some(el => el.getClientRects().length)) throw new Error('Collapsed macOS sidebar mark remains visible'); if (document.querySelector('.live-main').getBoundingClientRect().left !== 0) throw new Error('Collapsed sidebar has not released its width'); })()`,
   );
   await capture("home-dark-collapsed");
-  await click('[data-testid="sidebar-toggle"]');
+  await click(".studio-toolbar-settings");
+  await until("document.querySelector('.live-settings')");
+  await capture("settings-dark-collapsed");
+  await click(".studio-toolbar-settings");
+  await until("document.querySelector('.studio-welcome')");
+  await click('.live-toolbar [data-testid="sidebar-toggle"]');
   await until(
     "!document.querySelector('.studio-square-mark') && getComputedStyle(document.querySelector('.sidebar')).display !== 'none' && !document.querySelector('.studio-brand').textContent.includes('DESKTOP')",
   );
@@ -173,11 +179,14 @@ export async function runUiAcceptance(
   await click(".sidebar > button:first-of-type");
   await capture("home-light");
   await click('[data-testid="sidebar-toggle"]');
-  await until(
-    "document.querySelector('.studio-square-mark')?.complete && document.querySelector('.studio-square-mark')?.naturalWidth > 0 && getComputedStyle(document.querySelector('.sidebar')).display === 'none'",
-  );
+  await until("document.querySelector('.app-shell.sidebar-collapsed')");
   await capture("home-light-collapsed");
-  await click('[data-testid="sidebar-toggle"]');
+  window.setContentSize(720, 600);
+  await capture("home-light-collapsed-narrow");
+  await click(".studio-toolbar-new-task");
+  await until("document.querySelector('.studio-welcome')");
+  window.setContentSize(1100, 728);
+  await click('.live-toolbar [data-testid="sidebar-toggle"]');
   await until(
     "!document.querySelector('.studio-square-mark') && getComputedStyle(document.querySelector('.sidebar')).display !== 'none' && !document.querySelector('.studio-brand').textContent.includes('DESKTOP')",
   );
@@ -350,7 +359,7 @@ export async function runUiAcceptance(
     `document.querySelector('.live-composer textarea').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}))`,
   );
   await until(
-    "document.querySelector('.studio-management') && !document.querySelector('.studio-management select').disabled",
+    "document.querySelector('#settings-extensions .studio-management') && !document.querySelector('.studio-management button').disabled",
   );
   await js(
     "document.querySelector('.studio-management').scrollIntoView({block:'start'})",
@@ -374,6 +383,7 @@ export async function runUiAcceptance(
       await click(
         `.theme-options button:nth-child(${appearance === "light" ? 1 : 2})`,
       );
+      await click(".settings-nav button:nth-child(2)");
       window.setContentSize(840, 800);
       await until(
         "document.querySelector('.studio-management select') && !document.querySelector('.studio-management select').disabled",
@@ -439,6 +449,7 @@ export async function runUiAcceptance(
       }),
     );
     await click('[data-testid="settings"]');
+    await click(".settings-nav button:nth-child(2)");
     await until(
       "!document.querySelector('.studio-management select').disabled",
     );
@@ -468,7 +479,7 @@ export async function runUiAcceptance(
     );
     await capture("p4-long-model-picker-narrow");
     await js(
-      "document.querySelector('.studio-model-popover > button:last-of-type').click()",
+      "document.querySelector('.studio-model-footer > button:last-of-type').click()",
     );
     await until(
       "document.activeElement === document.querySelector('[data-testid=composer-model]')",

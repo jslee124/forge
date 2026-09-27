@@ -3,15 +3,15 @@ import { EFFORT_ARGUMENTS } from "./slash-commands.js";
 export const BUILTIN_NATIVE_MODELS = [
   {
     provider: "deepseek",
-    id: "deepseek-v4-flash",
-    label: "DeepSeek V4 Flash",
-    defaultEffort: "medium",
+    id: "deepseek-flash",
+    label: "DeepSeek V4.1 Flash",
+    defaultEffort: "high",
   },
   {
     provider: "deepseek",
     id: "deepseek-v4-pro",
     label: "DeepSeek V4 Pro",
-    defaultEffort: "medium",
+    defaultEffort: "high",
   },
   {
     provider: "openai",
@@ -24,12 +24,6 @@ export const BUILTIN_NATIVE_MODELS = [
     id: "gpt-5.4",
     label: "GPT-5.4",
     defaultEffort: "high",
-  },
-  {
-    provider: "deepseek",
-    id: "deepseek-v4-flash-vision-exp",
-    label: "DeepSeek V4 Flash Vision Experimental",
-    defaultEffort: "medium",
   },
 ] as const;
 export interface ModelCatalogEntry {
@@ -55,7 +49,11 @@ export function nativeModelCatalog(
         engine: "native" as const,
         provider,
         id: model.id,
-        label: model.name ?? model.id,
+        label:
+          model.id === "deepseek-v4-flash" ||
+          model.id === "deepseek-v4-flash-vision-exp"
+            ? `${model.name ?? model.id} (compatibility alias)`
+            : (model.name ?? model.id),
         efforts: efforts.length ? [...efforts] : ["none"],
         defaultEffort: efforts.includes("medium")
           ? "medium"
@@ -71,7 +69,10 @@ export function nativeModelCatalog(
     ).map((x) => ({
       ...x,
       engine: "native" as const,
-      efforts: EFFORT_ARGUMENTS.filter((x) => x !== "ultra"),
+      efforts:
+        x.provider === "deepseek"
+          ? ["low", "high", "max"]
+          : EFFORT_ARGUMENTS.filter((x) => x !== "ultra"),
     })),
   ];
 }
