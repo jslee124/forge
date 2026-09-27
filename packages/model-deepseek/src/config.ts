@@ -1,6 +1,6 @@
 import { AuthenticationManager } from "@forge/auth";
 
-export const DEFAULT_DEEPSEEK_MODEL = "deepseek-v4-flash";
+export const DEFAULT_DEEPSEEK_MODEL = "deepseek-flash";
 
 export type DeepSeekThinkingMode = "enabled" | "disabled";
 export type DeepSeekReasoningEffort =

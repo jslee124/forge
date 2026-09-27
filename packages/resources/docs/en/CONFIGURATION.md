@@ -61,8 +61,8 @@ values keep their defaults.
   "model": {
     "engine": "forge",
     "provider": "deepseek",
-    "id": "deepseek-v4-flash",
-    "reasoningEffort": "medium",
+    "id": "deepseek-flash",
+    "reasoningEffort": "high",
     "thinking": "enabled"
   },
   "permissionProfile": "safe",
@@ -96,8 +96,8 @@ atomically.
 | --- | --- | --- | --- |
 | `model.engine` | `forge` | `forge`, `codex` | Chooses the native Forge Engine or separate Codex Engine for interactive model selection. |
 | `model.provider` | `deepseek` | `deepseek`, `openai`, or a configured route name | Native Forge Engine provider. A route must exist under `providers`. |
-| `model.id` | `deepseek-v4-flash` | Non-empty model ID | Defaults to `gpt-5.4-mini` when `openai` is selected without an explicit model; configured routes use their first model. |
-| `model.reasoningEffort` | `medium` | `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`, `ultra` | The selected provider/model may support only a subset. `ultra` is reserved for a Codex model that advertises it. |
+| `model.id` | `deepseek-flash` | Non-empty model ID | Defaults to `gpt-5.4-mini` when `openai` is selected without an explicit model; configured routes use their first model. |
+| `model.reasoningEffort` | `high` for DeepSeek; `medium` for other providers | `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`, `ultra` | The selected provider/model may support only a subset. `ultra` is reserved for a Codex model that advertises it. |
 | `model.thinking` | `enabled` | `enabled`, `disabled` | Native provider thinking mode; provider capability still applies. |
 
 Changing provider without setting a model selects that provider's default.

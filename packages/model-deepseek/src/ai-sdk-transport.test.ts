@@ -31,7 +31,7 @@ describe("AI SDK DeepSeek transport", () => {
     for await (const _event of transport.stream(
       {
         apiKey: "test-secret",
-        model: "deepseek-v4-flash-vision-exp",
+        model: "deepseek-flash",
         thinking: "enabled",
         prompt: "What is shown?",
         images: [
@@ -101,7 +101,7 @@ describe("AI SDK DeepSeek transport", () => {
       for await (const _event of transport.stream(
         {
           apiKey: "test-secret",
-          model: "deepseek-v4-flash-vision-exp",
+          model: "deepseek-flash",
           thinking: "enabled",
           reasoningEffort: "max",
           prompt: "Inspect",
@@ -122,7 +122,7 @@ describe("AI SDK DeepSeek transport", () => {
 
     expect(requestUrl).toBe("https://api.deepseek.com/chat/completions");
     expect(requestBody).toMatchObject({
-      model: "deepseek-v4-flash-vision-exp",
+      model: "deepseek-flash",
       messages: [
         {
           role: "system",

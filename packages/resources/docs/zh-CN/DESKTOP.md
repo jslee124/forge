@@ -2,9 +2,9 @@
 
 English · 中文目录
 
-截至 2026-09-23，[Desktop 0.3.4 Preview 3](https://github.com/jslee124/forge/releases/tag/desktop-0.3.4-preview.3)
+截至 2026-09-27，[Desktop 0.3.4 Preview 4](https://github.com/jslee124/forge/releases/tag/desktop-0.3.4-preview.4)
 提供 Windows x64 安装包和 macOS arm64/x64 DMG。桌面版与 `@jslee124/forge`
-npm CLI 分开发行。Preview 3 安装包均未签名，macOS DMG 也未公证；安装和替换需手动完成。
+npm CLI 分开发行。Preview 4 安装包均未签名，macOS DMG 也未公证；安装和替换需手动完成。
 配置、认证与更新步骤见 [Windows 安装指南](https://github.com/jslee124/forge/blob/dev/apps/desktop/INSTALL-WINDOWS.zh-CN.md)
 或 [macOS 安装指南](https://github.com/jslee124/forge/blob/dev/apps/desktop/INSTALL.zh-CN.md)。
 较早的 [Preview 2](https://github.com/jslee124/forge/releases/tag/desktop-0.3.4-preview.2)
@@ -23,11 +23,13 @@ npm CLI 分开发行。Preview 3 安装包均未签名，macOS DMG 也未公证�
 
 ## 验证边界
 
-[Preview 3 CI](https://github.com/jslee124/forge/actions/runs/35825140016)
+[Preview 4 候选版 CI](https://github.com/jslee124/forge/actions/runs/36298064888)
 在 Windows runner 上构建安装包，并执行打包应用与安装后 smoke。这些离线检查
 不能证明 Windows 真实模型登录、所有网络路径、Windows ARM64 或已签名安装的验收。
+Preview 4 发布记录
+随流程完成情况分别记录源代码 CI、发布 CI、公开下载检查和剩余限制。
 Preview 3 发布记录
-分别记录源代码 CI、发布 CI、公开下载检查和剩余限制。
+保留上一版的发布证据。
 [Preview 2 发布记录](https://github.com/jslee124/forge/blob/main/evals/reports/desktop-0.3.4-preview.2/README.zh-CN.md)
 保留此前的 macOS 验证边界，包括真实未认证 GitHub 更新 API、Intel 硬件、
 macOS 13、VoiceOver 和签名/公证安装。

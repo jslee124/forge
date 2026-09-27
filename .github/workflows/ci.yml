@@ -67,7 +67,7 @@ jobs:
     env:
       CI: "true"
       CSC_IDENTITY_AUTO_DISCOVERY: "false"
-      DESKTOP_RELEASE_TAG: ${{ github.ref == 'refs/heads/dev' && contains(github.event.head_commit.message, '[desktop-preview-release]') && 'desktop-0.3.4-preview.3' || '' }}
+      DESKTOP_RELEASE_TAG: ${{ github.ref == 'refs/heads/dev' && contains(github.event.head_commit.message, '[desktop-preview-release]') && 'desktop-0.3.4-preview.4' || '' }}
 
     steps:
       - name: Check out repository
@@ -139,7 +139,7 @@ jobs:
     env:
       CI: "true"
       CSC_IDENTITY_AUTO_DISCOVERY: "false"
-      DESKTOP_RELEASE_TAG: ${{ github.ref == 'refs/heads/dev' && contains(github.event.head_commit.message, '[desktop-preview-release]') && 'desktop-0.3.4-preview.3' || '' }}
+      DESKTOP_RELEASE_TAG: ${{ github.ref == 'refs/heads/dev' && contains(github.event.head_commit.message, '[desktop-preview-release]') && 'desktop-0.3.4-preview.4' || '' }}
 
     steps:
       - name: Check out repository
@@ -188,7 +188,7 @@ jobs:
       contents: write
     env:
       GH_TOKEN: ${{ github.token }}
-      DESKTOP_RELEASE_TAG: desktop-0.3.4-preview.3
+      DESKTOP_RELEASE_TAG: desktop-0.3.4-preview.4
 
     steps:
       - name: Check out release tooling and notes
@@ -220,7 +220,7 @@ jobs:
             exit 1
           fi
           if [ "$existing" != "true" ]; then
-            gh release create "$DESKTOP_RELEASE_TAG" --verify-tag --draft --prerelease --title "Forge Desktop 0.3.4 Preview 3" --notes-file .github/release-notes/desktop-0.3.4-preview.3.md
+            gh release create "$DESKTOP_RELEASE_TAG" --verify-tag --draft --prerelease --title "Forge Desktop 0.3.4 Preview 4" --notes-file .github/release-notes/desktop-0.3.4-preview.4.md
           fi
           gh release upload "$DESKTOP_RELEASE_TAG" release-ready/* --clobber
           node apps/desktop/scripts/verify-preview-release.mjs release-ready "$DESKTOP_RELEASE_TAG"

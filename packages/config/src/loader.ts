@@ -382,6 +382,18 @@ export async function loadForgeConfig(options: {
   config = applyEnvironment(config, provenance, env);
   config = applyCli(config, provenance, options.cli ?? {});
 
+  // The built-in DeepSeek models use high by default. Preserve the previous
+  // provider-neutral default for other routes unless an effort was explicit.
+  if (
+    provenance["model.reasoningEffort"].kind === "default" &&
+    config.model.provider !== "deepseek"
+  ) {
+    config = {
+      ...config,
+      model: { ...config.model, reasoningEffort: "medium" },
+    };
+  }
+
   parseProvider(
     config.model.provider,
     provenance["model.provider"].label,
@@ -922,7 +934,7 @@ function defaultModelId(
   source: string,
 ): string {
   if (provider === "openai") return "gpt-5.4-mini";
-  if (provider === "deepseek") return "deepseek-v4-flash";
+  if (provider === "deepseek") return "deepseek-flash";
   const first = providers[provider]?.models?.[0]?.id;
   if (first !== undefined) return first;
   throw new ForgeConfigError(

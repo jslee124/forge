@@ -1,0 +1,56 @@
+{
+  "tag": "desktop-0.3.4-preview.4",
+  "releaseId": 397530278,
+  "url": "https://github.com/jslee124/forge/releases/tag/desktop-0.3.4-preview.4",
+  "publishedAt": "2026-09-27T06:05:56Z",
+  "draft": false,
+  "prerelease": true,
+  "sourceCommit": "34e6d60a9038ca5a539dd3581358b445548acf53",
+  "releaseTriggerCommit": "e01b362391da780845fdd28751b4f6c778ed8d71",
+  "candidateCi": "https://github.com/jslee124/forge/actions/runs/36298516298",
+  "publicationCi": "https://github.com/jslee124/forge/actions/runs/36298823728",
+  "assets": [
+    {
+      "name": "desktop-build.json",
+      "size": 738,
+      "sha256": "380e7797be74d54430f6ba7ce40b883d1346f77317de5ce3ae19003c37aebdd3"
+    },
+    {
+      "name": "forge-desktop-0.3.4-arm64.dmg",
+      "size": 166488835,
+      "sha256": "f58b7d378d4d9c2d83639e231e86b2a75a9cf9e1172cf9810efeac84f37b4881"
+    },
+    {
+      "name": "forge-desktop-0.3.4-x64.dmg",
+      "size": 170174105,
+      "sha256": "17d0f6d53ca36f917148bf0dd084f7a2fb891a0b6fd5e5a6ee6dfd3c590b85ca"
+    },
+    {
+      "name": "forge-desktop-0.3.4-x64.exe",
+      "size": 140158395,
+      "sha256": "419a30144b605434158a3836b785bd14523a7e7aff5ff0b59ddabf030e6925da"
+    },
+    {
+      "name": "SHA256SUMS",
+      "size": 284,
+      "sha256": "d8ecf18e317cbec0f23482c27c62ea03bc35b8aaaf7081a6e789d2153237a408"
+    }
+  ],
+  "verification": {
+    "githubDigestsMatchBuildManifest": true,
+    "publicInstallerHeadStatus": 200,
+    "publicMetadataMatchesGithubDigests": true,
+    "tagMatchesSource": true,
+    "stableLatest": "v0.3.4",
+    "deterministicTestsPassed": 71,
+    "windowsInstalledAppSmoke": true,
+    "windowsUninstallSmoke": true,
+    "macosPackagedAppSmoke": true,
+    "localMacArm64InstalledAppSmoke": true
+  },
+  "limitations": [
+    "Unsigned installers and macOS DMGs not notarized",
+    "Real-provider login and calls, every network route, Windows ARM64, SmartScreen acceptance, Intel hardware, and macOS 13 not tested",
+    "No downloaded-release install acceptance, quarantine/Gatekeeper, native traffic-light hit-target, or full-screen proof"
+  ]
+}
