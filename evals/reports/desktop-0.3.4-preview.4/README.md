@@ -15,6 +15,6 @@ Status on 2026-09-27: **prepared locally; not published**. This record concerns 
 
 - Re-run the Windows x64 checks from the final Preview 4 tag so the installer embeds the release identity, and compare its assets with the candidate CI result.
 - Run macOS packaging and smoke from the final tag in CI; assemble Windows and macOS assets, verify their SHA-256 values and remote GitHub asset sizes/digests, then publish the prerelease.
-- Update the current English/Chinese Desktop and installation guides to identify Preview 4 after it is public. Until then, they correctly identify Preview 3 as the current published preview.
+- Confirm the English/Chinese Desktop and installation guides included in the final tag identify Preview 4. The source guides are being updated for publication; Preview 3 remains the public release until Preview 4 is published.
 
 The candidate remains unsigned and the macOS DMGs are not notarized. Local arm64 acceptance does not establish Intel hardware, macOS 13, downloaded-file quarantine/Gatekeeper behavior, native traffic-light hit targets, system full screen, or live-provider calls. Windows ARM64 and signed Windows installer acceptance are outside this preview.

@@ -15361,7 +15361,7 @@
           "start": 0,
           "end": 799,
           "keywords": [
-            "2026-09-23",
+            "2026-09-27",
             "4-preview",
             "all",
             "also",
@@ -15508,10 +15508,10 @@
           "title": "Validation limits",
           "level": 2,
           "start": 1478,
-          "end": 2540,
+          "end": 2642,
           "keywords": [
             "13",
-            "35825140016",
+            "36298064888",
             "4-preview",
             "above",
             "acceptance",
@@ -15522,16 +15522,19 @@
             "apps",
             "are",
             "arm64",
+            "as",
             "baseline",
             "behavior",
             "blob",
-            "builds",
+            "built",
             "by",
+            "candidate",
             "checklist",
             "checks",
             "ci",
             "com",
             "command-specific",
+            "completed",
             "consult",
             "contract",
             "current",
@@ -15542,6 +15545,7 @@
             "desktop-0",
             "do",
             "download",
+            "each",
             "earlier",
             "established",
             "evals",
@@ -15574,22 +15578,18 @@
             "or",
             "original",
             "packaged",
+            "preceding",
             "preview",
             "prove",
             "public",
             "publication",
             "qa",
+            "ran",
             "readme",
             "real",
             "real-provider",
             "record",
-            "records",
-            "release",
-            "remaining",
-            "reports",
-            "retains",
-            "route",
-            "run"
+            "records"
           ]
         }
       ],
@@ -15604,7 +15604,7 @@
         "what"
       ],
       "path": "en/DESKTOP.md",
-      "sha256": "65820c2a3d7d6137820db1450959d14e8279d0fcde9999d3f9b6b957a06117ad"
+      "sha256": "6098e4fedb6f2cd2425c23c7f9a3d9870c53e343b0563196e1a0d48a9d7d3826"
     },
     {
       "id": "getting-started",
@@ -25342,7 +25342,7 @@
           "start": 0,
           "end": 573,
           "keywords": [
-            "2026-09-23",
+            "2026-09-27",
             "4-preview",
             "apps",
             "arm64",
@@ -25429,10 +25429,10 @@
           "title": "验证边界",
           "level": 2,
           "start": 838,
-          "end": 1410,
+          "end": 1448,
           "keywords": [
             "13",
-            "35825140016",
+            "36298064888",
             "4-preview",
             "actions",
             "api",
@@ -25467,10 +25467,11 @@
             "zh-cn",
             "上构建安装包",
             "不能证明",
+            "保留上一版的发布证据",
             "保留此前的",
+            "候选版",
             "公开下载检查和剩余限制",
             "公证安装",
-            "分别记录源代码",
             "包括真实未认证",
             "原桌面实施合同",
             "发布",
@@ -25490,6 +25491,7 @@
             "硬件",
             "记录",
             "这些离线检查",
+            "随流程完成情况分别记录源代码",
             "验证边界"
           ]
         }
@@ -25502,7 +25504,7 @@
         "验证边界"
       ],
       "path": "zh-CN/DESKTOP.md",
-      "sha256": "b3c08abfb7cac68af8a7035a8e1380c7a0f877f7774d92ce317fa21d6f6bffa2"
+      "sha256": "696d27361c471a458f29fc9af721c1af74cb68d29c9ad2bffac865971d062856"
     }
   ]
 }

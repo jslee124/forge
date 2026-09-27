@@ -15,6 +15,6 @@
 
 - 从 Preview 4 最终标签重新运行 Windows x64 检查，使安装包写入正式预览版身份，并与候选 CI 产物比较。
 - 从最终标签在 CI 运行 macOS 打包与启动检查；汇总双平台产物，核对 SHA-256 及 GitHub 远端产物大小／摘要，再公开预览版。
-- Preview 4 公开后，将当前中英文 Desktop 与安装指南中的当前版本更新为 Preview 4。在此之前，这些指南继续准确指向已发布的 Preview 3。
+- 确认最终标签中的中英文 Desktop 与安装指南指向 Preview 4。源码指南正在为发布更新；Preview 4 公开前，Preview 3 仍是公开发布的预览版。
 
 候选包未签名，macOS DMG 未公证。本机 arm64 验收不能证明 Intel 实机、macOS 13、下载文件的隔离标记与 Gatekeeper 表现、原生红绿灯点击区域、系统全屏或真实模型调用。Windows ARM64 与已签名 Windows 安装包不在本预览版范围内。

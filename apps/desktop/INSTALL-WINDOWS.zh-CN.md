@@ -2,7 +2,7 @@
 
 [English](INSTALL-WINDOWS.md) · [桌面版指南](../../docs/zh-CN/DESKTOP.md)
 
-Windows 预览版面向 x64 电脑。从同一个 [Desktop Preview 3 发布页](https://github.com/jslee124/forge/releases/tag/desktop-0.3.4-preview.3)
+Windows 预览版面向 x64 电脑。从同一个 [Desktop Preview 4 发布页](https://github.com/jslee124/forge/releases/tag/desktop-0.3.4-preview.4)
 下载 `forge-desktop-0.3.4-x64.exe` 和 `SHA256SUMS`。在 PowerShell 中运行
 `Get-FileHash .\forge-desktop-0.3.4-x64.exe -Algorithm SHA256`，安装前将结果
 与 `SHA256SUMS` 中该安装包对应的摘要比较。

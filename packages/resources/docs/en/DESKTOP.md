@@ -2,9 +2,9 @@
 
 简体中文 · Documentation index
 
-As of 2026-09-23, [Desktop 0.3.4 Preview 3](https://github.com/jslee124/forge/releases/tag/desktop-0.3.4-preview.3)
+As of 2026-09-27, [Desktop 0.3.4 Preview 4](https://github.com/jslee124/forge/releases/tag/desktop-0.3.4-preview.4)
 provides a Windows x64 installer and macOS arm64/x64 DMGs. Desktop releases are
-separate from the `@jslee124/forge` npm CLI. All Preview 3 installers are
+separate from the `@jslee124/forge` npm CLI. All Preview 4 installers are
 unsigned; the macOS DMGs are also not notarized. Installation and replacement
 are manual. See the [Windows installation guide](https://github.com/jslee124/forge/blob/dev/apps/desktop/INSTALL-WINDOWS.md)
 or [macOS installation guide](https://github.com/jslee124/forge/blob/dev/apps/desktop/INSTALL.md)
@@ -26,12 +26,15 @@ still provides macOS ZIPs.
 
 ## Validation limits
 
-The [Preview 3 CI run](https://github.com/jslee124/forge/actions/runs/35825140016)
-builds the Windows installer and runs packaged and installed-app smoke on a
+The [Preview 4 candidate CI run](https://github.com/jslee124/forge/actions/runs/36298064888)
+built the Windows installer and ran packaged and installed-app smoke on a
 Windows runner. These offline checks do not prove Windows real-provider login,
 every network route, Windows ARM64 support, or signed installer acceptance.
+The Preview 4 release record
+records source CI, publication and public download checks, and remaining limits
+as each stage is completed.
 The Preview 3 release record
-separates source CI, publication CI, public download checks, and remaining limits.
+retains the preceding release evidence.
 The [Preview 2 release record](https://github.com/jslee124/forge/blob/main/evals/reports/desktop-0.3.4-preview.2/README.md)
 retains earlier macOS limits, including real unauthenticated GitHub update API
 checks, Intel hardware, macOS 13, VoiceOver, and signed/notarized installation.
