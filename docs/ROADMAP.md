@@ -22,6 +22,10 @@ compaction remains an explicit user opt-in. See the
 
 ## Current development
 
+- Planned 0.4.0 chat channels: [intent](CHAT_CHANNELS_INTENT.md) and
+  [specification](CHAT_CHANNELS_SPEC.md). Telegram private-chat gateway first;
+  implementation and release acceptance are pending.
+
 - [Desktop preview guide](DESKTOP.md): current prerelease behavior and validation limits.
 - [Desktop implementation contract](history/desktop-0.3.4-preview.2/DESKTOP_APP_PLAN.md)
   and [D01–D13 checklist](history/desktop-0.3.4-preview.2/DESKTOP_APP_TASKS.md)

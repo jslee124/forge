@@ -16,7 +16,13 @@
     "PRODUCT",
     "DESKTOP"
   ],
-  "currentDevelopment": ["README", "EVALUATION", "ROADMAP"],
+  "currentDevelopment": [
+    "README",
+    "EVALUATION",
+    "ROADMAP",
+    "CHAT_CHANNELS_INTENT",
+    "CHAT_CHANNELS_SPEC"
+  ],
   "history": [
     {
       "path": "history/desktop-0.3.4-preview.2/DESKTOP_APP_PLAN.md",

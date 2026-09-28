@@ -62,6 +62,8 @@ Forge 文档按“读者想完成什么”组织。第一次接触项目时无�
 | --- | --- |
 | [评测指南](EVALUATION.md) | 运行确定性证据与显式 opt-in live trials |
 | [路线图](ROADMAP.md) | 当前开发、已完成 milestone 摘要与后续方向 |
+| [聊天渠道 Intent](CHAT_CHANNELS_INTENT.md) | 拟定 0.4.0 目标、范围与产品决策 |
+| [聊天渠道 Spec](CHAT_CHANNELS_SPEC.md) | 拟定 Telegram 网关契约、安全、恢复与验收 |
 
 ## 历史与发布证据
 

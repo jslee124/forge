@@ -66,6 +66,8 @@ Use source, tests, and recorded acceptance results to establish completion.
 | --- | --- |
 | [Evaluation guide](EVALUATION.md) | Run deterministic evidence and explicit opt-in live trials |
 | [Roadmap](ROADMAP.md) | Current development, completed milestone summary, and later directions |
+| [Chat channels intent](CHAT_CHANNELS_INTENT.md) | Proposed 0.4.0 outcomes, scope, and product decisions |
+| [Chat channels specification](CHAT_CHANNELS_SPEC.md) | Proposed Telegram gateway contracts, security, recovery, and acceptance |
 
 ## History and release evidence
 
