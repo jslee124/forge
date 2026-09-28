@@ -112,6 +112,39 @@ try {
     );
   }
   run(binPath, ["--help"], temporaryRoot, smokeEnv);
+  for (const subcommand of ["setup", "run", "status", "retry-delivery"]) {
+    run(binPath, ["gateway", subcommand, "--help"], temporaryRoot, smokeEnv);
+  }
+  // Exercise installed gateway configuration without a network call or real bot credentials.
+  run(
+    binPath,
+    [
+      "gateway",
+      "setup",
+      "telegram",
+      "--owner",
+      "7",
+      "--workspace",
+      temporaryRoot,
+      "--alias",
+      "package-smoke",
+      "--permission-profile",
+      "safe",
+      "--accept-remote-disclosure",
+    ],
+    temporaryRoot,
+    { ...smokeEnv, FORGE_TELEGRAM_BOT_TOKEN: "123:package-smoke-placeholder" },
+  );
+  const gatewayStatus = JSON.parse(
+    run(binPath, ["gateway", "status"], temporaryRoot, smokeEnv),
+  );
+  if (
+    gatewayStatus.workspace !== "package-smoke" ||
+    gatewayStatus.connection !== "disconnected"
+  ) {
+    throw new Error("Installed gateway setup/status failed.");
+  }
+  run(binPath, ["gateway", "retry-delivery"], temporaryRoot, smokeEnv);
   run(binPath, ["config", "validate"], temporaryRoot, smokeEnv);
   const resourcesOutput = run(
     binPath,

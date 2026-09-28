@@ -17,6 +17,7 @@ export {
   type PersistedModelSelection,
   removeUserProviderModel,
   removeUserProviderRoute,
+  resolveForgeWorkspace,
   saveUserContextMode,
   saveUserModelSelection,
   saveUserProviderRoute,

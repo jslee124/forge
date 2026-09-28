@@ -14,6 +14,7 @@ import {
   type ModelAdapter,
   ModelConfigurationError,
   type ModelConversationMessage,
+  PerActionApprovalPolicy,
   type RunEvent,
   type RunResult,
   runAgent,
@@ -25,8 +26,10 @@ import {
 } from "@forge/core";
 import type { DeepSeekThinkingMode } from "@forge/model-deepseek";
 import {
+  acquireWorkspaceLease,
   type ContextCheckpoint,
   configuredSecrets,
+  type ExecutionLease,
   JsonlTraceWriter,
   PersistenceError,
   redactValue,
@@ -59,6 +62,8 @@ import {
 import type { AskOptions, WritableOutput } from "./options.js";
 import { parseThinkingMode } from "./options.js";
 export interface RunDependencies {
+  readonly workspaceLease?: ExecutionLease;
+  readonly perActionApproval?: boolean;
   readonly env: NodeJS.ProcessEnv;
   readonly cwd: string;
   readonly stderr: WritableOutput;
@@ -111,12 +116,16 @@ export async function runTask(
   options: AskOptions,
   dependencies: RunDependencies,
 ): Promise<number> {
+  let ownedLease: ExecutionLease | undefined;
   try {
     const loaded = await loadForgeConfig({
       cwd: dependencies.cwd,
       env: dependencies.env,
       cli: options,
     });
+    if (dependencies.workspaceLease)
+      await dependencies.workspaceLease.assertWorkspace(loaded.workspaceRoot);
+    else ownedLease = await acquireWorkspaceLease(loaded.workspaceRoot);
     const instructions = await loadInstructions(loaded);
     for (const warning of instructions.warnings) {
       dependencies.stderr.write(`Configuration warning: ${warning}\n`);
@@ -254,11 +263,14 @@ export async function runTask(
             sessionId: dependencies.sessionId ?? runId,
           })
         : undefined);
-    const policy = pluginHost.extendPolicy(
+    const basePolicy = pluginHost.extendPolicy(
       loaded.config.permissionProfile === "workspace-write"
         ? new AutomaticWorkspaceWritePolicy()
         : new WorkspaceWritePolicy(),
     );
+    const policy = dependencies.perActionApproval
+      ? new PerActionApprovalPolicy(basePolicy)
+      : basePolicy;
     const toolContext: ToolContext = {
       workspace,
       signal: dependencies.signal,
@@ -512,8 +524,16 @@ export async function runTask(
       dependencies.stderr.write(`Persistence error: ${error.message}\n`);
       return 1;
     }
+    if (error instanceof Error && error.message.startsWith("workspace-busy")) {
+      dependencies.stderr.write(
+        "Workspace busy: another Forge run is active.\n",
+      );
+      return 1;
+    }
     dependencies.stderr.write("Unexpected error while starting the run.\n");
     return 1;
+  } finally {
+    await ownedLease?.release();
   }
 }
 

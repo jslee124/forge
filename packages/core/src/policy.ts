@@ -138,3 +138,20 @@ export class ReadOnlyPolicy implements ApprovalPolicy {
     };
   }
 }
+
+/** Tightens an existing policy without overriding denials or caching grants. */
+export class PerActionApprovalPolicy implements ApprovalPolicy {
+  constructor(private readonly base: ApprovalPolicy) {}
+  async evaluate(
+    action: ProposedAction,
+    signal: AbortSignal,
+  ): Promise<ApprovalDecision> {
+    const decision = await this.base.evaluate(action, signal);
+    if (decision.kind === "deny" || action.tool.risk === "read")
+      return decision;
+    return {
+      kind: "confirm",
+      reason: "Remote actions require one-time approval.",
+    };
+  }
+}

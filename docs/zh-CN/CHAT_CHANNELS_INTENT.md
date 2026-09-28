@@ -2,7 +2,7 @@
 
 [English](../CHAT_CHANNELS_INTENT.md) · [规格](CHAT_CHANNELS_SPEC.md) · [路线图](ROADMAP.md)
 
-> 文档角色：current-development。状态：待实现的开发合同。
+> 文档角色：current-development。状态：开发合同，源码实现进行中。
 > 目标版本：Forge 0.4.0，以验收结果为准。本文不表示渠道功能已实现、
 > 版本号已升级或新版本已发布。
 

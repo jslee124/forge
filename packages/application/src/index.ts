@@ -8,6 +8,7 @@ export {
 } from "@forge/config";
 export { discoverPlugins } from "@forge/plugin-api";
 export * from "./codex.js";
+export * from "./gateway/index.js";
 export * from "./http-dispatcher.js";
 export * from "./image-input.js";
 export * from "./model-adapter.js";

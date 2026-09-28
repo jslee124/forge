@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { AuthenticationManager } from "@forge/auth";
@@ -8,7 +8,7 @@ import type {
   JsonRpcNotification,
   JsonRpcServerRequest,
 } from "@forge/codex-app-server";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
   type CodexClient,
@@ -20,6 +20,13 @@ import {
 } from "./codex-command.js";
 
 const temporaryDirectories: string[] = [];
+let testWorkspace: string;
+beforeEach(async () => {
+  testWorkspace = await realpath(
+    await mkdtemp(path.join(tmpdir(), "forge-codex-workspace-")),
+  );
+  temporaryDirectories.push(testWorkspace);
+});
 
 afterEach(async () => {
   await Promise.all(
@@ -245,6 +252,20 @@ describe("Codex commands", () => {
     expect(stdout.value).toContain("low, high");
   });
 
+  it("does not parse unrelated provider configuration when acquiring a Codex workspace lease", async () => {
+    await mkdir(path.join(testWorkspace, ".forge"));
+    await writeFile(
+      path.join(testWorkspace, ".forge", "config.json"),
+      "invalid provider config",
+    );
+    const result = await runCodexTask(
+      "hello",
+      {},
+      dependencies(new FakeClient(), new BufferOutput(), new BufferOutput()),
+    );
+    expect(result).toBe(0);
+  });
+
   it("runs Codex read-only by default with the selected model and effort", async () => {
     const client = new FakeClient();
     const stdout = new BufferOutput();
@@ -268,7 +289,7 @@ describe("Codex commands", () => {
       params: {
         model: "gpt-test",
         modelProvider: "openai",
-        cwd: "/workspace",
+        cwd: testWorkspace,
         approvalPolicy: "never",
         sandbox: "read-only",
         serviceName: "forge",
@@ -524,8 +545,8 @@ function dependencies(
   extra: Partial<CodexCommandDependencies> = {},
 ): CodexCommandDependencies {
   return {
-    env: {},
-    cwd: "/workspace",
+    env: { FORGE_HOME: path.join(testWorkspace, "home") },
+    cwd: testWorkspace,
     stdout,
     stderr,
     signal: new AbortController().signal,

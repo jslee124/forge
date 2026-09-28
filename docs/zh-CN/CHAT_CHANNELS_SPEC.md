@@ -2,8 +2,20 @@
 
 [English](../CHAT_CHANNELS_SPEC.md) · [Intent](CHAT_CHANNELS_INTENT.md) · [路线图](ROADMAP.md)
 
-> 文档角色：current-development。状态：待实现。目标版本：0.4.0。
-> 以下命令、配置、限制和新增接口均为拟定合同，不是当前已发布 Forge 的操作指南。
+> 文档角色：current-development。状态：源码实现进行中，真实验收待完成。目标版本：0.4.0。
+> 本文为验收合同；已实现命令见[源码使用指南](CHAT_CHANNELS.md)，已发布的 0.3.4 不包含此功能。
+
+## 实现说明
+
+源码已包含网关及 Telegram 传输。验证结果记录于路线图链接的带日期开发证据；
+C10 真实验收仍待完成。远程策略比普通 `safe` 和 `workspace-write` 更严格：
+每个非只读动作都要求单次审批。CLI、Desktop、Gateway 的原生/Codex 执行入口
+共用宿主级租约，包括只读运行；不协调其他机器或外部编辑器。
+
+新增本地恢复命令 `forge gateway retry-delivery`：网关停止时重置投递重试次数，
+不重跑任务或恢复审批。当前审批 renderer 拒绝超过单消息预算的动作描述
+（最多 1,450 个 UTF-16 code unit），也拒绝被脱敏改变的描述。
+outbox 为终态与审批预留容量，达到 80 条待投递消息时暂停新任务，inbox 最多保留 10,000 条记录。
 
 ## 1. 当前基础与架构边界
 

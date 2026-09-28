@@ -1,6 +1,5 @@
 import { FORGE_VERSION } from "@forge/core";
 import { Command } from "commander";
-
 import { type AskOptions, runAskFromCli } from "./ask.js";
 import {
   type CodexAuthOptions,
@@ -9,6 +8,7 @@ import {
   runCodexTaskFromCli,
 } from "./codex-command.js";
 import { runConfigCommand } from "./config-command.js";
+import { runGatewayCommand } from "./gateway-command.js";
 import { runInspectFromCli } from "./inspect.js";
 import { runPluginsCommand } from "./plugins-command.js";
 import { runResourcesCommand } from "./resources-command.js";
@@ -173,6 +173,34 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
     .action(async (options: AskOptions) => {
       setExitCode(await interactive(options, env));
     });
+
+  const gateway = program
+    .command("gateway")
+    .description("Run the Telegram private-chat gateway (experimental)");
+  gateway
+    .command("setup")
+    .argument("<channel>", "telegram")
+    .requiredOption("--owner <id>", "allowed Telegram numeric user ID")
+    .requiredOption("--workspace <path>", "workspace to bind locally")
+    .requiredOption("--alias <name>", "workspace display alias")
+    .requiredOption(
+      "--permission-profile <profile>",
+      "safe or workspace-write; remote actions still require approval",
+    )
+    .option(
+      "--accept-remote-disclosure",
+      "acknowledge task text and results pass through Telegram",
+    )
+    .action(async (channel: string, options) => {
+      if (channel !== "telegram")
+        throw new Error("Only telegram is supported.");
+      setExitCode(await runGatewayCommand("setup", options, env));
+    });
+  for (const mode of ["run", "status", "retry-delivery"] as const) {
+    gateway.command(mode).action(async () => {
+      setExitCode(await runGatewayCommand(mode, {}, env));
+    });
+  }
 
   program
     .command("ask")

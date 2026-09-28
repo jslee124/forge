@@ -326,14 +326,26 @@ export async function removeUserProviderModel(options: {
   return { path: savedPath, removed: true };
 }
 
+/** Resolve execution identity without parsing model/provider configuration. */
+export async function resolveForgeWorkspace(
+  cwd: string,
+): Promise<{ workingDirectory: string; workspaceRoot: string }> {
+  const workingDirectory = await canonicalDirectory(cwd);
+  return {
+    workingDirectory,
+    workspaceRoot: await findWorkspaceRoot(workingDirectory),
+  };
+}
+
 export async function loadForgeConfig(options: {
   readonly cwd: string;
   readonly env?: NodeJS.ProcessEnv;
   readonly cli?: ConfigOverrides;
 }): Promise<LoadedForgeConfig> {
   const env: ForgeEnvironment = options.env ?? process.env;
-  const workingDirectory = await canonicalDirectory(options.cwd);
-  const workspaceRoot = await findWorkspaceRoot(workingDirectory);
+  const { workingDirectory, workspaceRoot } = await resolveForgeWorkspace(
+    options.cwd,
+  );
   const forgeHome = path.resolve(
     env.FORGE_HOME?.trim() || path.join(homedir(), ".forge"),
   );

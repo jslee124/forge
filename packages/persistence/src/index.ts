@@ -1,3 +1,12 @@
+export { acquireWorkspaceLease, ExecutionLease } from "./execution-lease.js";
+export {
+  type GatewayDelivery,
+  type GatewayState,
+  GatewayStore,
+  type GatewayTask,
+  gatewayStateSchema,
+  writePrivateJson,
+} from "./gateway-store.js";
 export { configuredSecrets, redactValue } from "./redaction.js";
 export {
   type ContextCheckpoint,

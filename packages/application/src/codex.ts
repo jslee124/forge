@@ -14,6 +14,7 @@ import {
   type JsonRpcNotification,
   type JsonRpcServerRequest,
 } from "@forge/codex-app-server";
+import { resolveForgeWorkspace } from "@forge/config";
 import {
   conservativeTextTokens,
   DEFAULT_CONTEXT_CONFIGURATION,
@@ -23,6 +24,7 @@ import {
 } from "@forge/core";
 import { openAIModelContext } from "@forge/model-openai";
 import type { ContextCheckpoint } from "@forge/persistence";
+import { acquireWorkspaceLease, type ExecutionLease } from "@forge/persistence";
 
 import type { AskOptions, WritableOutput } from "./options.js";
 
@@ -283,6 +285,26 @@ export async function discoverCodexModels(
 }
 
 export async function runCodexTask(
+  prompt: string,
+  options: AskOptions,
+  dependencies: CodexCommandDependencies,
+): Promise<number> {
+  let lease: ExecutionLease | undefined;
+  try {
+    const loaded = await resolveForgeWorkspace(dependencies.cwd);
+    lease = await acquireWorkspaceLease(loaded.workspaceRoot);
+    return await runCodexTaskWithLease(prompt, options, dependencies);
+  } catch {
+    dependencies.stderr.write(
+      "Workspace unavailable or busy: cannot start Codex run.\n",
+    );
+    return 1;
+  } finally {
+    await lease?.release();
+  }
+}
+
+async function runCodexTaskWithLease(
   prompt: string,
   options: AskOptions,
   dependencies: CodexCommandDependencies,

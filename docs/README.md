@@ -15,6 +15,7 @@ with the shortest path below instead of reading every page in order.
 | Understand what Forge can and cannot protect | [Security model](SECURITY_MODEL.md) | [Architecture](ARCHITECTURE.md) |
 | Resume a conversation or inspect a run | [Sessions and traces](SESSIONS.md) | [CLI UI](CLI_UI.md) |
 | Add project instructions or a portable Skill | [Project context](PROJECT_CONTEXT.md) | [Security model](SECURITY_MODEL.md) |
+| Try Telegram from the development checkout | [Chat channels (experimental)](CHAT_CHANNELS.md) | [Security model](SECURITY_MODEL.md) |
 | Build a plugin or study an extension example | [Plugin authoring](PLUGINS.md) | [Architecture](ARCHITECTURE.md) |
 | Reproduce the published evidence | [Evaluation](EVALUATION.md) | [Versioned reports](../evals/reports/README.md) |
 | Contribute to Forge | [Contributing](../CONTRIBUTING.md) | [Architecture](ARCHITECTURE.md) · [Roadmap](ROADMAP.md) |

@@ -2,9 +2,25 @@
 
 [简体中文](zh-CN/CHAT_CHANNELS_SPEC.md) · [Intent](CHAT_CHANNELS_INTENT.md) · [Roadmap](ROADMAP.md)
 
-> Document role: current-development. Status: proposed, not implemented.
-> Target: 0.4.0. All commands, configuration, limits, and new interfaces below are
-> proposed contracts, not instructions for the currently released Forge.
+> Document role: current-development. Status: source implementation in progress; live acceptance pending.
+> Target: 0.4.0. This is the acceptance contract. See [the source guide](CHAT_CHANNELS.md) for
+> implemented commands; the published 0.3.4 release does not include them.
+
+## Implementation notes
+
+The source now includes the gateway and Telegram transport. Validation results belong
+in the dated development evidence linked from the roadmap; C10 live acceptance is
+still pending. Remote policy is deliberately stricter than ordinary `safe` and
+`workspace-write`: every non-read action requires one-time approval. CLI, Desktop,
+and Gateway native/Codex run entry paths share a host-local lease; read-only runs
+also participate. The lock does not coordinate other machines or external editors.
+
+`forge gateway retry-delivery` is a local recovery addition: while the gateway is
+stopped, reset delivery attempts without rerunning tasks or restoring approvals.
+The approval renderer currently denies descriptions exceeding its single-message
+budget (at most 1,450 UTF-16 code units), including descriptions changed by redaction.
+Outbox capacity reserves slots for final outcomes and approvals. The implementation
+pauses admission at 80 queued messages and bounds retained inbox records at 10,000.
 
 ## 1. Current foundation and architectural boundary
 

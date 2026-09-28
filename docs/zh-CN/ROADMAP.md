@@ -19,7 +19,9 @@
 ## 当前开发
 
 - 计划中的 0.4.0 聊天渠道：[Intent](CHAT_CHANNELS_INTENT.md) 与
-  [Spec](CHAT_CHANNELS_SPEC.md)。首版为 Telegram 私聊网关，待实现与发布验收。
+  [Spec](CHAT_CHANNELS_SPEC.md)。首版为 Telegram 私聊网关，源码已开始实现，真实和发布验收待完成。
+  参见[开发证据](../../evals/reports/v0.4.0/CHAT_CHANNELS_DEVELOPMENT.zh-CN.md)与
+  [实验性源码指南](CHAT_CHANNELS.md)。
 
 - [桌面预览版指南](DESKTOP.md)：当前预览版行为与验证边界。
 - [桌面实施合同](history/desktop-0.3.4-preview.2/DESKTOP_APP_PLAN.md)和

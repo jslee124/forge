@@ -2,7 +2,7 @@
 
 [简体中文](zh-CN/CHAT_CHANNELS_INTENT.md) · [Specification](CHAT_CHANNELS_SPEC.md) · [Roadmap](ROADMAP.md)
 
-> Document role: current-development. Status: proposed implementation contract.
+> Document role: current-development. Status: implementation contract; source work in progress.
 > Target: Forge 0.4.0, subject to acceptance. This document does not declare
 > implemented channel support, a version bump, or a published release.
 

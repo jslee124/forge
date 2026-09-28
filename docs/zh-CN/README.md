@@ -14,6 +14,7 @@ Forge 文档按“读者想完成什么”组织。第一次接触项目时无�
 | 理解 Forge 能保护什么、不能保护什么 | [安全模型](SECURITY_MODEL.md) | [架构](ARCHITECTURE.md) |
 | 恢复 conversation 或检查 run | [会话与 trace](SESSIONS.md) | [CLI UI](CLI_UI.md) |
 | 添加项目指令或 portable Skill | [项目上下文](PROJECT_CONTEXT.md) | [安全模型](SECURITY_MODEL.md) |
+| 从开发 checkout 试用 Telegram | [聊天渠道（实验性）](CHAT_CHANNELS.md) | [安全模型](SECURITY_MODEL.md) |
 | 编写 plugin 或学习扩展示例 | [插件开发](PLUGINS.md) | [架构](ARCHITECTURE.md) |
 | 复现发布证据 | [评测指南](EVALUATION.md) | [版本报告](../../evals/reports/README.md) |
 | 为 Forge 贡献代码或文档 | [贡献指南](../../CONTRIBUTING.zh-CN.md) | [架构](ARCHITECTURE.md) · [路线图](ROADMAP.md) |

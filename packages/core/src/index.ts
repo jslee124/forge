@@ -1,3 +1,5 @@
+export { PerActionApprovalPolicy } from "./policy.js";
+
 export const FORGE_VERSION = "0.3.4";
 
 export {

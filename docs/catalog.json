@@ -14,7 +14,8 @@
     "CLI_UI",
     "ARCHITECTURE",
     "PRODUCT",
-    "DESKTOP"
+    "DESKTOP",
+    "CHAT_CHANNELS"
   ],
   "currentDevelopment": [
     "README",
