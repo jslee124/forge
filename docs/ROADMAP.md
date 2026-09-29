@@ -22,11 +22,11 @@ compaction remains an explicit user opt-in. See the
 
 ## Current development
 
-- Planned 0.4.0 chat channels: [intent](CHAT_CHANNELS_INTENT.md) and
-  [specification](CHAT_CHANNELS_SPEC.md). Telegram private-chat gateway first;
-  source implementation is underway; live and release acceptance are pending.
-  See [development evidence](../evals/reports/v0.4.0/CHAT_CHANNELS_DEVELOPMENT.md)
-  and the [experimental source guide](CHAT_CHANNELS.md).
+- 0.4.0 includes the experimental Telegram private-chat gateway. See
+  [intent](CHAT_CHANNELS_INTENT.md), [specification](CHAT_CHANNELS_SPEC.md), and
+  [setup guide](CHAT_CHANNELS.md). Core macOS live tests and Linux/Windows automation
+  passed; full C10 live acceptance remains incomplete.
+  See [release verification scope](../evals/reports/v0.4.0/RELEASE_VERIFICATION.md).
 
 - [Desktop preview guide](DESKTOP.md): current prerelease behavior and validation limits.
 - [Desktop implementation contract](history/desktop-0.3.4-preview.2/DESKTOP_APP_PLAN.md)

@@ -2,16 +2,29 @@
 
 [English](../CHAT_CHANNELS.md) · [中文目录](README.md)
 
-开发 checkout 已提供前台 Telegram 网关，限定一个所有者、一个私聊和一个工作区。
-它复用 Forge 原生引擎、模型配置、工具及持久化会话。这是目标为 0.4.0 的未发布源码功能，
-macOS 上的 Telegram 核心真实测试已通过，完整验收与发布仍待完成。不支持 Codex 引擎、群聊、语音、附件、后台服务安装
-或 Desktop 网关设置。
+Forge 0.4.0 提供实验性前台 Telegram 网关，限定一个所有者、一个私聊和一个工作区。
+它复用 Forge 原生引擎、模型配置、工具及持久化会话。macOS 核心真实测试和
+Linux/Windows 自动化测试已通过；完整真实验收仍未完成。
+不支持 Codex 引擎、群聊、语音、附件、后台服务安装或 Desktop 网关设置。
+
+## 安装 0.4.0
+
+需要 Node.js 24 或更高版本：
+
+```bash
+npm install --global @jslee124/forge@0.4.0
+forge --version
+```
+
+安装包用户可以按下文创建配置和工作区，直接运行 `forge` 配置模型，
+并将所有 `node "$FORGE_CHECKOUT/apps/cli/dist/index.js"` 替换为 `forge`。
+无需设置 `FORGE_CHECKOUT` 或执行源码构建。开发者继续使用下方 checkout 流程。
 
 ## 1. 准备源码、模型和工作区
 
 以下命令适用于 macOS 的 zsh 或 Linux 的 Bash；不是 PowerShell 教程。
 需要 Node.js 24+、pnpm 11.18.0、已登录的 Telegram 账号和可用的原生模型凭据。
-此功能尚未正式发布，请使用包含 gateway 命令的开发源码，不要假定 npm 稳定包已有此功能。
+源码方式需要包含 gateway 命令的 0.4.0 checkout。
 在 Forge checkout 根目录执行：
 
 ```bash
@@ -243,4 +256,4 @@ node "$FORGE_CHECKOUT/apps/cli/dist/index.js" gateway run
 确定性测试使用 fake provider/transport，包括不支持按钮的第二个适配器，
 不能证明 Telegram 网络可达或真实 provider 行为。
 [Spec](CHAT_CHANNELS_SPEC.md) 保留真实验收和发布 gates。
-本文不表示包版本已升级、npm 已发布或 Desktop 已发布新版本。
+0.4.0 是 CLI/npm 版本；Desktop 使用独立版本和发布流程。

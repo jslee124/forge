@@ -2,9 +2,9 @@
 
 [English](../CHAT_CHANNELS_INTENT.md) · [规格](CHAT_CHANNELS_SPEC.md) · [路线图](ROADMAP.md)
 
-> 文档角色：current-development。状态：开发合同，源码实现进行中。
-> 目标版本：Forge 0.4.0，以验收结果为准。本文不表示渠道功能已实现、
-> 版本号已升级或新版本已发布。
+> 文档角色：current-development。0.4.0 已实现 Telegram 实验性功能。
+> 维护者选择直接发布 0.4.0 CLI；下方原定预发布顺序被此决定取代。
+> C10 完整真实验收仍未完成，不宣称全部验收门槛通过。
 
 ## 问题与预期结果
 

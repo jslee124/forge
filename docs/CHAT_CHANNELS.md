@@ -2,20 +2,32 @@
 
 [简体中文](zh-CN/CHAT_CHANNELS.md) · [Documentation index](README.md)
 
-The development checkout provides a foreground Telegram gateway for one owner,
-one private conversation, and one workspace. It reuses the Forge native engine,
-model configuration, tools, and persisted sessions. This is an unreleased source
-feature targeting 0.4.0. Core live Telegram tests passed on macOS; full acceptance
-and publication remain pending.
-Codex engine, groups, voice, attachments, background service installation, and
-Desktop gateway settings are not supported.
+Forge 0.4.0 provides an experimental foreground Telegram gateway for one owner,
+one private conversation and one workspace. It reuses the native engine, model
+configuration, tools and persisted sessions. Core macOS live tests and Linux/Windows
+automated tests passed; full live acceptance remains incomplete. Codex engine,
+groups, voice, attachments, background service installation and Desktop gateway
+settings are not supported.
+
+## Install 0.4.0
+
+Node.js 24 or newer is required:
+
+```bash
+npm install --global @jslee124/forge@0.4.0
+forge --version
+```
+
+Package users can create the profile and workspace below, run `forge` to configure
+the model, and replace every `node "$FORGE_CHECKOUT/apps/cli/dist/index.js"` command
+with `forge`. Skip FORGE_CHECKOUT and source build steps. Contributors can follow
+the checkout procedure below.
 
 ## 1. Prepare source, model and workspace
 
 These commands target macOS zsh or Linux Bash, not PowerShell. You need Node.js 24+,
 pnpm 11.18.0, a signed-in Telegram account and native model credentials. Use a
-source checkout containing the gateway command; this feature is unreleased, so do
-not assume the stable npm package includes it. From the Forge checkout root:
+0.4.0 source checkout containing the gateway command. From the Forge checkout root:
 
 ```bash
 pnpm install --frozen-lockfile
@@ -276,4 +288,4 @@ platforms, remains incomplete.
 Deterministic tests use fake providers/transports, including a second adapter without
 buttons. They do not prove Telegram network reachability or real-provider behavior.
 The [specification](CHAT_CHANNELS_SPEC.md) retains live acceptance and release gates.
-No new package version, npm publication, or Desktop release is implied by this guide.
+0.4.0 is the CLI/npm version; Desktop uses a separate version and release process.

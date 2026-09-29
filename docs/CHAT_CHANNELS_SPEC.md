@@ -2,9 +2,9 @@
 
 [简体中文](zh-CN/CHAT_CHANNELS_SPEC.md) · [Intent](CHAT_CHANNELS_INTENT.md) · [Roadmap](ROADMAP.md)
 
-> Document role: current-development. Status: source implementation in progress; live acceptance pending.
-> Target: 0.4.0. This is the acceptance contract. See [the source guide](CHAT_CHANNELS.md) for
-> implemented commands; the published 0.3.4 release does not include them.
+> Document role: current-development. Telegram is implemented as experimental in 0.4.0.
+> The maintainer chose a direct 0.4.0 CLI release, superseding the planned prerelease sequence below.
+> Full C10 live acceptance remains incomplete; not all acceptance gates are claimed complete.
 
 ## Implementation notes
 

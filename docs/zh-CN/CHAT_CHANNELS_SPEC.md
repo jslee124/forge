@@ -2,8 +2,9 @@
 
 [English](../CHAT_CHANNELS_SPEC.md) · [Intent](CHAT_CHANNELS_INTENT.md) · [路线图](ROADMAP.md)
 
-> 文档角色：current-development。状态：源码实现进行中，真实验收待完成。目标版本：0.4.0。
-> 本文为验收合同；已实现命令见[源码使用指南](CHAT_CHANNELS.md)，已发布的 0.3.4 不包含此功能。
+> 文档角色：current-development。0.4.0 已实现 Telegram 实验性功能。
+> 维护者选择直接发布 0.4.0 CLI；下方原定预发布顺序被此决定取代。
+> C10 完整真实验收仍未完成，不宣称全部验收门槛通过。
 
 ## 实现说明
 

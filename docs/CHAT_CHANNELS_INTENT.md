@@ -2,9 +2,9 @@
 
 [简体中文](zh-CN/CHAT_CHANNELS_INTENT.md) · [Specification](CHAT_CHANNELS_SPEC.md) · [Roadmap](ROADMAP.md)
 
-> Document role: current-development. Status: implementation contract; source work in progress.
-> Target: Forge 0.4.0, subject to acceptance. This document does not declare
-> implemented channel support, a version bump, or a published release.
+> Document role: current-development. Telegram is implemented as experimental in 0.4.0.
+> The maintainer chose a direct 0.4.0 CLI release, superseding the planned prerelease sequence below.
+> Full C10 live acceptance remains incomplete; not all acceptance gates are claimed complete.
 
 ## Problem and intended outcome
 
