@@ -1,6 +1,6 @@
 # 结构化 Session History 与 Resume 实现方案
 
-[English](../../../history/v0.3.3/STRUCTURED_SESSION_HISTORY.md) · [路线图](../../ROADMAP.md) · [当前 Session 行为](../../SESSIONS.md)
+[English](../../../history/v0.3.3/STRUCTURED_SESSION_HISTORY.md) · [路线图](../../development/ROADMAP.md) · [当前 Session 行为](../../product/reference/SESSIONS.md)
 
 > **文档角色：历史设计记录。** 本文记录 Milestone 14 的实现决策；当前行为
 > 以源码、测试及当前 session/architecture 指南为准。

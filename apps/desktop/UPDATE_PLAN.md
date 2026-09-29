@@ -1,6 +1,6 @@
 # Forge Desktop unsigned update plan
 
-Date: 2026-09-22. Status: U01–U04 implemented and controlled acceptance complete; validation is recorded in [update QA](update-qa.md). Published as [Preview 2](https://github.com/jslee124/forge/releases/tag/desktop-0.3.4-preview.2) on 2026-09-23; see [release evidence](../../evals/reports/desktop-0.3.4-preview.2/README.md). No Developer ID or signing certificate is configured.
+Date: 2026-09-22. Status: U01–U04 implemented and controlled acceptance complete; validation is recorded in [update QA](../../evals/reports/desktop-0.3.4-preview.2/UPDATE_QA.md). Published as [Preview 2](https://github.com/jslee124/forge/releases/tag/desktop-0.3.4-preview.2) on 2026-09-23; see [release evidence](../../evals/reports/desktop-0.3.4-preview.2/README.md). No Developer ID or signing certificate is configured.
 
 [中文](UPDATE_PLAN.zh-CN.md) · [Development plan](WORKBENCH_DEVELOPMENT_PLAN.md) · [Installation](INSTALL.md)
 
@@ -45,7 +45,7 @@ SHA-256 establishes integrity, not Apple signing, notarization or independent so
 
 ## Implementation and acceptance
 
-U01–U04 are implemented in the current source. Controlled U04 results and evidence boundaries are in [update QA](update-qa.md); P4 evidence is not reused.
+U01–U04 are implemented in the current source. Controlled U04 results and evidence boundaries are in [update QA](../../evals/reports/desktop-0.3.4-preview.2/UPDATE_QA.md); P4 evidence is not reused.
 
 1. U01 — implemented: Define build identity and Release/checksum contracts. Test stable/preview ordering, equal/older versions, CLI exclusion, pagination, missing assets and architecture selection.
 2. U02 — implemented: Implement main service, IPC and preferences. Fixture tests cover redirect restrictions, rate limits/timeouts, cancellation, disk errors, checksum failure, repeated clicks and cache tampering.

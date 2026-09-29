@@ -1,6 +1,6 @@
 # 聊天渠道开发证据 — 2026-09-28
 
-[English](CHAT_CHANNELS_DEVELOPMENT.md) · [Spec](../../../docs/zh-CN/CHAT_CHANNELS_SPEC.md) · [源码指南](../../../docs/zh-CN/CHAT_CHANNELS.md)
+[English](CHAT_CHANNELS_DEVELOPMENT.md) · [Spec](../../../docs/zh-CN/development/CHAT_CHANNELS_SPEC.md) · [源码指南](../../../docs/zh-CN/product/operations/CHAT_CHANNELS.md)
 
 本文为开发快照，不是发布声明。目标版本为 0.4.0，workspace/package 仍为 0.3.4，
 未创建发布标签或执行发布。开发位于 `dev`，文档基线提交为 `8149271`。
@@ -50,4 +50,4 @@
 - 版本准备、预发布分发、发布说明及不可变标签、npm 发布、Desktop 发布仍是独立工作。
 
 不能只凭离线结果就标记功能发布验收完成，完整合同仍是
-[Spec 验收矩阵](../../../docs/zh-CN/CHAT_CHANNELS_SPEC.md#7-验收矩阵)。
+[Spec 验收矩阵](../../../docs/zh-CN/development/CHAT_CHANNELS_SPEC.md#7-验收矩阵)。

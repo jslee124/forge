@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-  <a href="docs/GETTING_STARTED.md">Getting started</a> ·
+  <a href="docs/product/start/GETTING_STARTED.md">Getting started</a> ·
   <a href="#why-forge">Why Forge?</a> ·
   <a href="#safety-model">Safety</a> ·
   <a href="#evaluation">Evaluation</a> ·
@@ -42,7 +42,7 @@ end, experiment with, and measure. Forge now has a single-package npm release
 path while retaining the source checkout for contributors. It is not a turnkey
 replacement for a hardened coding environment.
 
-The separately distributed [macOS desktop preview](docs/DESKTOP.md) has its own
+The separately distributed [macOS desktop preview](docs/product/operations/DESKTOP.md) has its own
 installation steps and validation limits; the npm package below is the CLI.
 
 ## Why Forge?
@@ -137,7 +137,7 @@ forge
 The link points to the current checkout. Run `pnpm build` after source changes
 and `pnpm unlink:global` when you no longer need it.
 
-The [complete getting-started guide](docs/GETTING_STARTED.md) explains each
+The [complete getting-started guide](docs/product/start/GETTING_STARTED.md) explains each
 authentication route, local validation, first-run approvals, sessions, and run
 inspection.
 
@@ -171,7 +171,7 @@ pnpm forge auth login openai
 pnpm forge codex "Inspect this repository and summarize it"
 ```
 
-See the [CLI UI guide](docs/CLI_UI.md) for keyboard shortcuts, image paste and
+See the [CLI UI guide](docs/product/reference/CLI_UI.md) for keyboard shortcuts, image paste and
 drag-and-drop, slash commands, file mentions, diff review, and interactive
 provider management.
 
@@ -197,7 +197,7 @@ with `shell: false`, a 60-second default timeout, and bounded output.
 > **Security boundary:** Approval is not isolation. Forge is **not an
 > operating-system sandbox**. An approved child process runs with the privileges
 > of the user who launched Forge, and trusted plugins are in-process code. Read
-> the [security model](docs/SECURITY_MODEL.md) before using Forge on untrusted
+> the [security model](docs/product/concepts/SECURITY_MODEL.md) before using Forge on untrusted
 > repositories.
 
 ## Providers and engines
@@ -215,7 +215,7 @@ separate.
 API keys may be entered through the masked `/login` flow or supplied through
 environment variables. Environment credentials take precedence. Forge stores
 saved API keys in an owner-only local file; Codex continues to own ChatGPT
-credentials and refresh. See [Authentication](docs/AUTHENTICATION.md) for the
+credentials and refresh. See [Authentication](docs/product/start/AUTHENTICATION.md) for the
 complete boundary and third-party route configuration.
 
 ## Architecture
@@ -241,7 +241,7 @@ requests and continuation metadata; the core owns lifecycle state, policy,
 limits, tools, and trace events. The Codex Engine is deliberately separate and
 uses Codex's conversation, sandbox, approval, and authentication behavior.
 
-Read the [architecture guide](docs/ARCHITECTURE.md) for package boundaries and
+Read the [architecture guide](docs/product/concepts/ARCHITECTURE.md) for package boundaries and
 the full call path.
 
 ## Evaluation
@@ -267,7 +267,7 @@ small TypeScript repair tasks. Seven of nine trials passed end to end:
 
 Both failures remain in the repository. A run counts as passing only when Forge
 finishes successfully and both fixture-owned tests and an external grader pass.
-Read the [evaluation guide](docs/EVALUATION.md), the
+Read the [evaluation guide](docs/development/EVALUATION.md), the
 [published report](evals/reports/v0.1/report.md), and the
 [v0.2.0 release notes](evals/reports/v0.2/RELEASE_NOTES.md), plus the
 [v0.2 context-management gate](evals/reports/v0.2/CONTEXT_MANAGEMENT.md).
@@ -302,11 +302,11 @@ Start at the [documentation hub](docs/README.md), which routes readers by task.
 
 | Topic | Guide |
 | --- | --- |
-| Install and first task | [Getting started](docs/GETTING_STARTED.md) · [Troubleshooting](docs/TROUBLESHOOTING.md) |
-| Daily use | [CLI UI](docs/CLI_UI.md) · [Configuration](docs/CONFIGURATION.md) · [Authentication](docs/AUTHENTICATION.md) · [Sessions](docs/SESSIONS.md) |
-| Boundaries and internals | [Architecture](docs/ARCHITECTURE.md) · [Security model](docs/SECURITY_MODEL.md) · [Context management](docs/CONTEXT_MANAGEMENT.md) |
-| Customization and extensions | [Project context](docs/PROJECT_CONTEXT.md) · [Plugins](docs/PLUGINS.md) · [examples](examples/plugins/) |
-| Evidence and direction | [Evaluation](docs/EVALUATION.md) · [published reports](evals/reports/README.md) · [Roadmap](docs/ROADMAP.md) |
+| Install and first task | [Getting started](docs/product/start/GETTING_STARTED.md) · [Troubleshooting](docs/product/start/TROUBLESHOOTING.md) |
+| Daily use | [CLI UI](docs/product/reference/CLI_UI.md) · [Configuration](docs/product/start/CONFIGURATION.md) · [Authentication](docs/product/start/AUTHENTICATION.md) · [Sessions](docs/product/reference/SESSIONS.md) |
+| Boundaries and internals | [Architecture](docs/product/concepts/ARCHITECTURE.md) · [Security model](docs/product/concepts/SECURITY_MODEL.md) · [Context management](docs/product/concepts/CONTEXT_MANAGEMENT.md) |
+| Customization and extensions | [Project context](docs/product/reference/PROJECT_CONTEXT.md) · [Plugins](docs/product/reference/PLUGINS.md) · [examples](examples/plugins/) |
+| Evidence and direction | [Evaluation](docs/development/EVALUATION.md) · [published reports](evals/reports/README.md) · [Roadmap](docs/development/ROADMAP.md) |
 | Contributing | [Contribution guide](CONTRIBUTING.md) |
 
 ## Current status and limitations
@@ -331,7 +331,7 @@ live provider-quality evidence is collected.
   RAG, IDE integration, cloud execution, autonomous Git pushes, and
   cross-machine session synchronization are out of scope.
 
-See the [roadmap](docs/ROADMAP.md) for completed acceptance criteria and future
+See the [roadmap](docs/development/ROADMAP.md) for completed acceptance criteria and future
 work.
 
 ## License

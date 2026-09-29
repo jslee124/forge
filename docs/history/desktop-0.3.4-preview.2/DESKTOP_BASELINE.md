@@ -8,7 +8,7 @@
 
 This historical D01 baseline was recorded on 2026-09-06. It documents the
 selected technical decisions and labeled unknowns at that checkout, not current
-behavior or live-provider evidence. Use the current [desktop preview guide](../../DESKTOP.md),
+behavior or live-provider evidence. Use the current [desktop preview guide](../../product/operations/DESKTOP.md),
 source, tests, and acceptance records for present behavior. Every check below
 was executed on the exact checkout recorded in section 1.
 

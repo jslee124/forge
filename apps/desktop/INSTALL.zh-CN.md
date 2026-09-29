@@ -1,6 +1,6 @@
 # Forge Desktop 本地安装
 
-[English](INSTALL.md) · [Windows 安装](INSTALL-WINDOWS.zh-CN.md) · [D13 开发验收](d13-qa.md)
+[English](INSTALL.md) · [Windows 安装](INSTALL-WINDOWS.zh-CN.md) · [D13 开发验收](../../evals/reports/desktop-0.3.4-preview.2/D13_QA.md)
 
 当前桌面本地产物版本 0.3.4，Electron 44.2.0，electron-builder 26.15.3。
 配置最低 macOS 13.0；不代表各系统版本都已实测。Apple Silicon 选择 arm64，Intel 选择 x64。
@@ -87,4 +87,4 @@ CLI npm 打包验证不等于桌面分发验证。
 
 旧版本首次需要手动安装带此功能的构建。`desktop-0.3.4-preview.4` 是[当前预览版](https://github.com/jslee124/forge/releases/tag/desktop-0.3.4-preview.4)的完整身份；完整身份缺失会明确显示，不能由 `0.3.4` 猜测预览序号。打包要求显式身份，并生成 `desktop-build.json` 与 `SHA256SUMS`。
 
-更新网络使用 Chromium 系统代理，不使用模型提供商凭据。API 限流、超时或代理错误不表示已是最新。SHA-256 不等于 Apple 签名或公证；不会自动移除 quarantine 或绕过 Gatekeeper。验证详情见[更新 QA](update-qa.zh-CN.md)。
+更新网络使用 Chromium 系统代理，不使用模型提供商凭据。API 限流、超时或代理错误不表示已是最新。SHA-256 不等于 Apple 签名或公证；不会自动移除 quarantine 或绕过 Gatekeeper。验证详情见[更新 QA](../../evals/reports/desktop-0.3.4-preview.2/UPDATE_QA.zh-CN.md)。

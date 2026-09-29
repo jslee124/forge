@@ -1,6 +1,6 @@
 # Forge Desktop 未签名版本更新计划
 
-日期：2026-09-22。状态：U01—U04 已实现并完成受控验收；验证结果见[更新验收记录](update-qa.zh-CN.md)。已于 2026-09-23 发布 [Preview 2](https://github.com/jslee124/forge/releases/tag/desktop-0.3.4-preview.2)，见[发布记录](../../evals/reports/desktop-0.3.4-preview.2/README.zh-CN.md)；没有配置 Developer ID 或签名证书。
+日期：2026-09-22。状态：U01—U04 已实现并完成受控验收；验证结果见[更新验收记录](../../evals/reports/desktop-0.3.4-preview.2/UPDATE_QA.zh-CN.md)。已于 2026-09-23 发布 [Preview 2](https://github.com/jslee124/forge/releases/tag/desktop-0.3.4-preview.2)，见[发布记录](../../evals/reports/desktop-0.3.4-preview.2/README.zh-CN.md)；没有配置 Developer ID 或签名证书。
 
 [English](UPDATE_PLAN.md) · [开发计划](WORKBENCH_DEVELOPMENT_PLAN.zh-CN.md) · [安装说明](INSTALL.zh-CN.md)
 
@@ -45,7 +45,7 @@ SHA-256 用于完整性检测，不等于 Apple 签名、公证或独立来源�
 
 ## 实现与验收
 
-U01—U04 已在当前源码中实现。U04 受控验收结果和证据边界见[更新验收记录](update-qa.zh-CN.md)，不复用 P4 历史证据。
+U01—U04 已在当前源码中实现。U04 受控验收结果和证据边界见[更新验收记录](../../evals/reports/desktop-0.3.4-preview.2/UPDATE_QA.zh-CN.md)，不复用 P4 历史证据。
 
 1. U01（已实现）：建立桌面构建身份与 Release/校验文件契约；测试稳定/预览顺序、同版、旧版、CLI 排除、分页、缺资产及架构匹配。
 2. U02（已实现）：实现主进程检查与下载服务、IPC 和偏好；使用本地固定数据测试重定向约束、限流/超时、取消、磁盘错误、校验失败、重复点击与缓存篡改。

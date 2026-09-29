@@ -8,7 +8,7 @@
 
 这是 2026-09-06 创建的历史 D01—D13 执行清单；任务后来已完成至本地未签名交付。
 下方最初的执行规则描述当时阶段，不构成重新实施任务的指令。当前能力请查看
-[桌面预览版指南](../../DESKTOP.md)、源码、测试与验收记录。
+[桌面预览版指南](../../product/operations/DESKTOP.md)、源码、测试与验收记录。
 
 按依赖执行，每个任务保持可独立审查和回退。技术细节由执行 agent 核实并记录；
 涉及改变已确定范围或增加外部成本时才请求新的决定。不要反复询问已确定的技术栈。
@@ -366,7 +366,7 @@ DOCX/XLSX 或 OCR。
 锁定依赖随桌面应用打包在 ASAR 外。
 
 聚焦测试、仓库检查、确定性评估、文档/包检查及本地 arm64 打包记录见
-[D11 开发验收](../../../../apps/desktop/d11-qa.md)。2026-09-11 真实 DuckDuckGo 搜索和
+[D11 开发验收](../../../../evals/reports/desktop-0.3.4-preview.2/D11_QA.md)。2026-09-11 真实 DuckDuckGo 搜索和
 Example Domain 读取成功；Codex 独立完成了 Markdown 报告。Brave 缺少密钥，
 尚未验证真实服务。这些是有界冒烟证据，不是服务推荐或研究质量基准。
 Codex 报告内容未被伪造成原生来源字段。最终英文/窄屏视觉验收、更广泛的双引擎研究质量
@@ -383,7 +383,7 @@ Codex 报告内容未被伪造成原生来源字段。最终英文/窄屏视觉�
 **验证**：`CI=true pnpm check`、`CI=true pnpm eval:deterministic`、聚焦回归与实际 UI 检查。
 资源/公开制品改变时加 `CI=true pnpm package:verify`。列出未运行的检查及原因。
 
-D12 于 2026-09-11 完成：[开发验收与明确缺口](../../../../apps/desktop/d12-qa.zh-CN.md)。
+D12 于 2026-09-11 完成：[开发验收与明确缺口](../../../../evals/reports/desktop-0.3.4-preview.2/D12_QA.zh-CN.md)。
 双引擎真实测试 2 项、聚焦回归 69 项、确定性评估 71 项、中英文 Electron 截图、
 check 和 CLI 打包安装验证通过。安装后 GUI 环境验收留给 D13。
 
@@ -399,7 +399,7 @@ check 和 CLI 打包安装验证通过。安装后 GUI 环境验收留给 D13。
 缺少签名或发布授权时交付可审查的本地产物与剩余步骤，不擅自发布或宣称正式交付。
 
 D13 于 2026-09-13 完成本地未签名交接：[安装指南](../../../../apps/desktop/INSTALL.zh-CN.md)、
-[开发验收](../../../../apps/desktop/d13-qa.md)。arm64/x64 DMG/ZIP 共四个产物均通过隔离的
+[开发验收](../../../../evals/reports/desktop-0.3.4-preview.2/D13_QA.md)。arm64/x64 DMG/ZIP 共四个产物均通过隔离的
 LaunchServices 安装验收；主机 macOS 26.6.2 arm64，x64 经 Rosetta 运行。
 修复打包 PDF worker 定位和共享包旧构建问题。check、文档、39 项聚焦测试、71 项确定性
 评估及 CLI 打包安装验证通过。Intel/macOS 13、安装后真实登录/代理场景、开发者签名、

@@ -1,6 +1,6 @@
 # Structured Session History and Resume Implementation Plan
 
-[简体中文](../../zh-CN/history/v0.3.3/STRUCTURED_SESSION_HISTORY.md) · [Roadmap](../../ROADMAP.md) · [Current session behavior](../../SESSIONS.md)
+[简体中文](../../zh-CN/history/v0.3.3/STRUCTURED_SESSION_HISTORY.md) · [Roadmap](../../development/ROADMAP.md) · [Current session behavior](../../product/reference/SESSIONS.md)
 
 > **Document role: historical design record.** This records the Milestone 14
 > implementation decision. Current behavior is defined by source, tests, and

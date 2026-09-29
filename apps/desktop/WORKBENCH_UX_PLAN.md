@@ -203,4 +203,4 @@ Validation: 15 focused tests, production build, and TypeScript checks passed. Ac
 
 ## Update entry (2026-09-22)
 
-The [unsigned update design](UPDATE_PLAN.md) specifies a Download update / Open installer action beside Settings, including collapsed-sidebar and failure states. U01–U04 are implemented and have controlled acceptance recorded in [update QA](update-qa.md); the published [Preview 2](../../evals/reports/desktop-0.3.4-preview.2/README.md) includes them. Existing reference images do not depict these new states. The real unauthenticated update API check and manual application replacement remain unverified.
+The [unsigned update design](UPDATE_PLAN.md) specifies a Download update / Open installer action beside Settings, including collapsed-sidebar and failure states. U01–U04 are implemented and have controlled acceptance recorded in [update QA](../../evals/reports/desktop-0.3.4-preview.2/UPDATE_QA.md); the published [Preview 2](../../evals/reports/desktop-0.3.4-preview.2/README.md) includes them. Existing reference images do not depict these new states. The real unauthenticated update API check and manual application replacement remain unverified.

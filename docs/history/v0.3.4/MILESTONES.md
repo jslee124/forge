@@ -1,6 +1,6 @@
 # Milestone 0–15 Acceptance Records
 
-[简体中文](../../zh-CN/history/v0.3.4/MILESTONES.md) · [Current roadmap](../../ROADMAP.md)
+[简体中文](../../zh-CN/history/v0.3.4/MILESTONES.md) · [Current roadmap](../../development/ROADMAP.md)
 
 > **Document role: historical acceptance record (v0.3.4).** Archived from the roadmap,
 > preserving milestone goals, acceptance criteria, and their recorded validation
@@ -164,7 +164,7 @@ Acceptance criteria:
 
 Goal: replace the minimal readline prompt with a discoverable, multi-line
 terminal interface while preserving the Forge-owned runtime and safety model.
-The detailed interaction contract lives in [Interactive CLI UI](../../CLI_UI.md).
+The detailed interaction contract lives in [Interactive CLI UI](../../product/reference/CLI_UI.md).
 
 - [x] Use Ink for the interactive rendering layer inside `apps/cli`
 - [x] Implement a multi-line prompt editor where Enter submits and Shift+Enter
@@ -228,7 +228,7 @@ Acceptance criteria:
 Goal: make every run inspectable, continue completed conversations after a
 restart, and verify that persistence cannot weaken the safety boundary. The
 detailed persistence contract lives in [Persistent Sessions and Run
-Traces](../../SESSIONS.md).
+Traces](../../product/reference/SESSIONS.md).
 
 - [x] Define versioned run-event schemas
 - [x] Render terminal output from the event stream
@@ -346,7 +346,7 @@ Acceptance criteria:
 Goal: keep long-running sessions useful and predictable without hiding dropped
 context, weakening instruction precedence, or introducing retrieval
 infrastructure before it has measurable value. The detailed design and rollout
-plan lives in [Context Management Improvement Plan](../../CONTEXT_MANAGEMENT.md).
+plan lives in [Context Management Improvement Plan](../../product/concepts/CONTEXT_MANAGEMENT.md).
 
 ### 10.1 Budget accounting and observability
 

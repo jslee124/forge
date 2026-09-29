@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-  <a href="docs/zh-CN/GETTING_STARTED.md">快速上手</a> ·
+  <a href="docs/zh-CN/product/start/GETTING_STARTED.md">快速上手</a> ·
   <a href="#为什么是-forge">为什么是 Forge？</a> ·
   <a href="#安全模型">安全</a> ·
   <a href="#评测">评测</a> ·
@@ -36,7 +36,7 @@ Forge 是一个开源 TypeScript 项目，用于学习和展示编码 Agent 背�
 
 它最适合希望从头读懂一个小型 runtime、亲自实验并测量结果的开发者。Forge 现在具备单 package 的 npm 发布路径，同时保留面向贡献者的源码 checkout；它仍不是 hardened coding environment 的开箱即用替代品。
 
-独立分发的 [macOS 桌面预览版](docs/zh-CN/DESKTOP.md)有自己的安装步骤和验证边界；下方 npm package 是 CLI。
+独立分发的 [macOS 桌面预览版](docs/zh-CN/product/operations/DESKTOP.md)有自己的安装步骤和验证边界；下方 npm package 是 CLI。
 
 ## 为什么是 Forge？
 
@@ -121,7 +121,7 @@ forge
 
 该链接指向当前 checkout。修改源码后运行 `pnpm build`，不再需要时运行 `pnpm unlink:global`。
 
-[完整快速上手指南](docs/zh-CN/GETTING_STARTED.md)进一步解释每种认证方式、本地验证、首次审批、session 与 run inspection。
+[完整快速上手指南](docs/zh-CN/product/start/GETTING_STARTED.md)进一步解释每种认证方式、本地验证、首次审批、session 与 run inspection。
 
 ## Forge 能做什么
 
@@ -150,7 +150,7 @@ pnpm forge auth login openai
 pnpm forge codex "检查这个仓库并总结它"
 ```
 
-键盘快捷键、图片粘贴与拖放、斜杠命令、文件引用、diff 审查和交互式 provider 管理，请看 [CLI UI 指南](docs/zh-CN/CLI_UI.md)。
+键盘快捷键、图片粘贴与拖放、斜杠命令、文件引用、diff 审查和交互式 provider 管理，请看 [CLI UI 指南](docs/zh-CN/product/reference/CLI_UI.md)。
 
 ## 安全模型
 
@@ -169,7 +169,7 @@ Forge 的“默认安全”是具体且可检查的：
 
 内置文件工具会在执行 workspace 边界检查前解析规范路径和符号链接。进程命令使用结构化的 `program + args[]` 输入，`shell: false`，默认超时 60 秒，并限制输出。
 
-> **安全边界：** 审批不是隔离。Forge **不是操作系统 sandbox**。获批的子进程拥有启动 Forge 的用户权限，受信任插件则是进程内代码。在不受信任的仓库上使用 Forge 前，请阅读[安全模型](docs/zh-CN/SECURITY_MODEL.md)。
+> **安全边界：** 审批不是隔离。Forge **不是操作系统 sandbox**。获批的子进程拥有启动 Forge 的用户权限，受信任插件则是进程内代码。在不受信任的仓库上使用 Forge 前，请阅读[安全模型](docs/zh-CN/product/concepts/SECURITY_MODEL.md)。
 
 ## Provider 与 Engine
 
@@ -182,7 +182,7 @@ Forge 将认证方式、provider 协议和运行时所有权分开处理。
 | OpenAI-compatible 路由 | Native Forge Engine | 用户配置的 HTTPS endpoint 或无认证 loopback server |
 | ChatGPT 订阅 | Codex Engine | 使用官方 Codex App Server 及其账号边界 |
 
-API key 可以通过带掩码的 `/login` 输入，也可以通过环境变量提供。环境凭据优先。Forge 将保存的 API key 存在本地仅 owner 可读的文件中；Codex 继续负责 ChatGPT 凭据和刷新。完整边界及第三方路由配置见[认证模型](docs/zh-CN/AUTHENTICATION.md)。
+API key 可以通过带掩码的 `/login` 输入，也可以通过环境变量提供。环境凭据优先。Forge 将保存的 API key 存在本地仅 owner 可读的文件中；Codex 继续负责 ChatGPT 凭据和刷新。完整边界及第三方路由配置见[认证模型](docs/zh-CN/product/start/AUTHENTICATION.md)。
 
 ## 架构
 
@@ -202,7 +202,7 @@ Interactive CLI
      `-- Official Codex App Server
 ```
 
-Native runtime 与 provider 无关。适配器转换 provider 请求和 continuation metadata；核心负责生命周期状态、策略、限制、工具和 trace 事件。Codex Engine 刻意独立，使用 Codex 自己的 conversation、sandbox、审批和认证行为。包边界及完整调用路径请看[架构指南](docs/zh-CN/ARCHITECTURE.md)。
+Native runtime 与 provider 无关。适配器转换 provider 请求和 continuation metadata；核心负责生命周期状态、策略、限制、工具和 trace 事件。Codex Engine 刻意独立，使用 Codex 自己的 conversation、sandbox、审批和认证行为。包边界及完整调用路径请看[架构指南](docs/zh-CN/product/concepts/ARCHITECTURE.md)。
 
 ## 评测
 
@@ -222,7 +222,7 @@ pnpm eval:deterministic
 | `retry-cache` | 2/3 | 66.7% |
 | `validation-bug` | 2/3 | 66.7% |
 
-两次失败仍保留在仓库中。只有 Forge 成功完成，且 fixture 自有测试和外部 grader 都通过时，运行才计为通过。请阅读[评测指南](docs/zh-CN/EVALUATION.md)、[已发布报告](evals/reports/v0.1/report.md)、[v0.2.0 发布说明](evals/reports/v0.2/RELEASE_NOTES.md)以及 [v0.2 上下文 gate](evals/reports/v0.2/CONTEXT_MANAGEMENT.md)。
+两次失败仍保留在仓库中。只有 Forge 成功完成，且 fixture 自有测试和外部 grader 都通过时，运行才计为通过。请阅读[评测指南](docs/zh-CN/development/EVALUATION.md)、[已发布报告](evals/reports/v0.1/report.md)、[v0.2.0 发布说明](evals/reports/v0.2/RELEASE_NOTES.md)以及 [v0.2 上下文 gate](evals/reports/v0.2/CONTEXT_MANAGEMENT.md)。
 
 真实试验是显式 opt-in，因为会产生付费 provider 请求：
 
@@ -249,11 +249,11 @@ pnpm forge --help        # 构建并查看 CLI 帮助
 
 | 主题 | 指南 |
 | --- | --- |
-| 安装与第一次任务 | [快速上手](docs/zh-CN/GETTING_STARTED.md) · [故障排查](docs/zh-CN/TROUBLESHOOTING.md) |
-| 日常使用 | [CLI UI](docs/zh-CN/CLI_UI.md) · [配置](docs/zh-CN/CONFIGURATION.md) · [认证](docs/zh-CN/AUTHENTICATION.md) · [会话](docs/zh-CN/SESSIONS.md) |
-| 边界与内部原理 | [架构](docs/zh-CN/ARCHITECTURE.md) · [安全模型](docs/zh-CN/SECURITY_MODEL.md) · [上下文管理](docs/zh-CN/CONTEXT_MANAGEMENT.md) |
-| 定制与扩展 | [项目上下文](docs/zh-CN/PROJECT_CONTEXT.md) · [插件](docs/zh-CN/PLUGINS.md) · [示例](examples/plugins/) |
-| 证据与方向 | [评测](docs/zh-CN/EVALUATION.md) · [已发布报告](evals/reports/README.md) · [路线图](docs/zh-CN/ROADMAP.md) |
+| 安装与第一次任务 | [快速上手](docs/zh-CN/product/start/GETTING_STARTED.md) · [故障排查](docs/zh-CN/product/start/TROUBLESHOOTING.md) |
+| 日常使用 | [CLI UI](docs/zh-CN/product/reference/CLI_UI.md) · [配置](docs/zh-CN/product/start/CONFIGURATION.md) · [认证](docs/zh-CN/product/start/AUTHENTICATION.md) · [会话](docs/zh-CN/product/reference/SESSIONS.md) |
+| 边界与内部原理 | [架构](docs/zh-CN/product/concepts/ARCHITECTURE.md) · [安全模型](docs/zh-CN/product/concepts/SECURITY_MODEL.md) · [上下文管理](docs/zh-CN/product/concepts/CONTEXT_MANAGEMENT.md) |
+| 定制与扩展 | [项目上下文](docs/zh-CN/product/reference/PROJECT_CONTEXT.md) · [插件](docs/zh-CN/product/reference/PLUGINS.md) · [示例](examples/plugins/) |
+| 证据与方向 | [评测](docs/zh-CN/development/EVALUATION.md) · [已发布报告](evals/reports/README.md) · [路线图](docs/zh-CN/development/ROADMAP.md) |
 | 贡献 | [贡献指南](CONTRIBUTING.zh-CN.md) |
 
 ## 当前状态与限制
@@ -266,7 +266,7 @@ Forge 仍在积极开发中。源码版本是 `0.4.0`；请查询 npm 当前 `la
 - 插件是受信任的本地代码，不是隔离扩展。
 - 除了有界的 plugin-declared subagent 之外，更通用的多 Agent 编排、RAG、IDE 集成、云端执行、自治 Git push 和跨机器会话同步不在范围内。
 
-已完成的验收标准和后续工作见[路线图](docs/zh-CN/ROADMAP.md)。
+已完成的验收标准和后续工作见[路线图](docs/zh-CN/development/ROADMAP.md)。
 
 ## 许可证
 

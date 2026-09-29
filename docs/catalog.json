@@ -1,28 +1,35 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 3,
   "currentProduct": [
-    "GETTING_STARTED",
-    "CONFIGURATION",
-    "AUTHENTICATION",
-    "PLUGINS",
-    "PROJECT_CONTEXT",
-    "SESSIONS",
-    "CONTEXT_MANAGEMENT",
-    "SECURITY_MODEL",
-    "RELEASING",
-    "TROUBLESHOOTING",
-    "CLI_UI",
-    "ARCHITECTURE",
-    "PRODUCT",
-    "DESKTOP",
-    "CHAT_CHANNELS"
+    "product/start/GETTING_STARTED.md",
+    "product/start/CONFIGURATION.md",
+    "product/start/AUTHENTICATION.md",
+    "product/reference/PLUGINS.md",
+    "product/reference/PROJECT_CONTEXT.md",
+    "product/reference/SESSIONS.md",
+    "product/concepts/CONTEXT_MANAGEMENT.md",
+    "product/concepts/SECURITY_MODEL.md",
+    "product/operations/RELEASING.md",
+    "product/start/TROUBLESHOOTING.md",
+    "product/reference/CLI_UI.md",
+    "product/concepts/ARCHITECTURE.md",
+    "product/concepts/PRODUCT.md",
+    "product/operations/DESKTOP.md",
+    "product/operations/CHAT_CHANNELS.md"
   ],
   "currentDevelopment": [
-    "README",
-    "EVALUATION",
-    "ROADMAP",
-    "CHAT_CHANNELS_INTENT",
-    "CHAT_CHANNELS_SPEC"
+    "README.md",
+    "development/ROADMAP.md",
+    "development/EVALUATION.md",
+    "development/CHAT_CHANNELS_INTENT.md",
+    "development/CHAT_CHANNELS_SPEC.md"
+  ],
+  "instructions": ["product/AGENTS.md", "development/AGENTS.md"],
+  "decisions": [
+    {
+      "path": "decisions/0001-gateway-single-owner-workspace.md",
+      "status": "accepted"
+    }
   ],
   "history": [
     {

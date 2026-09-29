@@ -14,21 +14,23 @@ const catalog = JSON.parse(
 const check = process.argv.includes("--check");
 const documents = catalog.currentProduct;
 if (
-  catalog.schemaVersion !== 1 ||
+  catalog.schemaVersion !== 3 ||
   !Array.isArray(documents) ||
-  documents.some((name) => !/^[A-Z0-9_]+$/u.test(name))
+  documents.some(
+    (entry) => !/^[A-Za-z0-9_]+(?:\/[A-Za-z0-9_]+)*\.md$/u.test(entry),
+  )
 ) {
   throw new Error("docs/catalog.json has an invalid currentProduct catalog.");
 }
 const entries = [];
 
 for (const locale of ["en", "zh-CN"]) {
-  for (const name of documents) {
+  for (const documentPath of documents) {
+    const name = path.basename(documentPath, ".md");
     const source = path.join(
       root,
       "docs",
-      locale === "en" ? "" : "zh-CN",
-      `${name}.md`,
+      locale === "en" ? documentPath : path.join("zh-CN", documentPath),
     );
     const content = sanitizePackagedMarkdown(await readFile(source, "utf8"));
     const relativePath = `${locale}/${name}.md`;

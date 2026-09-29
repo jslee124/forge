@@ -1,6 +1,6 @@
 # Chat channels development evidence — 2026-09-28
 
-[简体中文](CHAT_CHANNELS_DEVELOPMENT.zh-CN.md) · [Specification](../../../docs/CHAT_CHANNELS_SPEC.md) · [Source guide](../../../docs/CHAT_CHANNELS.md)
+[简体中文](CHAT_CHANNELS_DEVELOPMENT.zh-CN.md) · [Specification](../../../docs/development/CHAT_CHANNELS_SPEC.md) · [Source guide](../../../docs/product/operations/CHAT_CHANNELS.md)
 
 This is a development snapshot, not a release declaration. Target: 0.4.0. The
 workspace/package version remains 0.3.4; no release tag or publication was performed.
@@ -62,5 +62,5 @@ and injected failures; they do not claim a power-loss or cross-platform soak tes
   tags, npm publication, and any Desktop release remain separate work.
 
 Do not mark the feature release accepted solely from these offline results. The
-[specification acceptance matrix](../../../docs/CHAT_CHANNELS_SPEC.md#7-acceptance-matrix)
+[specification acceptance matrix](../../../docs/development/CHAT_CHANNELS_SPEC.md#7-acceptance-matrix)
 remains the complete release contract.

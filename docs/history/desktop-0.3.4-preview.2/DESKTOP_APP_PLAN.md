@@ -11,11 +11,11 @@
 Historical desktop design and coding-agent handoff recorded on 2026-09-06,
 before D01–D13 implementation. It is not current behavior or packaged product
 help. Source inspection used checkout `4a41f93`; use the current
-[desktop preview guide](../../DESKTOP.md), source, tests, and acceptance records
+[desktop preview guide](../../product/operations/DESKTOP.md), source, tests, and acceptance records
 for present behavior. The original implementation contract is retained below.
 
-Read repository `AGENTS.md`, this contract, [Architecture](../../ARCHITECTURE.md),
-[Sessions](../../SESSIONS.md), [Security](../../SECURITY_MODEL.md), and relevant source first.
+Read repository `AGENTS.md`, this contract, [Architecture](../../product/concepts/ARCHITECTURE.md),
+[Sessions](../../product/reference/SESSIONS.md), [Security](../../product/concepts/SECURITY_MODEL.md), and relevant source first.
 Implement settled requirements without repeatedly asking for approval. Resolve
 explicitly open decisions at the relevant stage. This contract does not authorize
 publication, uploading user files, enabling external accounts, or rewriting the TUI.

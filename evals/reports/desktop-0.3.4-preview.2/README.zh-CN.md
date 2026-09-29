@@ -8,4 +8,4 @@
 - 六个远端文件的大小及 SHA-256 与本地一致。六个公开下载地址的 HEAD 请求均返回 HTTP 200；Intel DMG 首次 TLS 失败后重试通过。公开校验清单及构建身份文件已下载并逐字节比对一致；发布后没有重新下载完整安装包。
 - 已公开、非草稿，标记为预览版。稳定 latest 仍为 `v0.3.4`，没有触发 npm 发布。
 
-安装包未签名、未公证。Preview 1 用户需要手动升级一次才能获得更新功能。受 API 配额及网络影响，完整的真实未认证 GitHub 更新检查仍未验证成功；发布与公开下载验证不能替代这项验收。本次不宣称 Applications 替换、Intel/Rosetta 运行或 macOS 13 真机验收。此前实现验收保留在[更新 QA](../../../apps/desktop/update-qa.zh-CN.md)。
+安装包未签名、未公证。Preview 1 用户需要手动升级一次才能获得更新功能。受 API 配额及网络影响，完整的真实未认证 GitHub 更新检查仍未验证成功；发布与公开下载验证不能替代这项验收。本次不宣称 Applications 替换、Intel/Rosetta 运行或 macOS 13 真机验收。此前实现验收保留在[更新 QA](UPDATE_QA.zh-CN.md)。

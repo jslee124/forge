@@ -76,13 +76,13 @@ await replaceText("README.zh-CN.md", [
     `当前源码和 npm release 目标版本是 \`${version}\``,
   ],
 ]);
-await replaceText("docs/GETTING_STARTED.md", [
+await replaceText("docs/product/start/GETTING_STARTED.md", [
   [
     /should print `[^`]+` for the current/gu,
     `should print \`${version}\` for the current`,
   ],
 ]);
-await replaceText("docs/zh-CN/GETTING_STARTED.md", [
+await replaceText("docs/zh-CN/product/start/GETTING_STARTED.md", [
   [
     /当前源码 release 应输出 `[^`]+`/gu,
     `当前源码 release 应输出 \`${version}\``,

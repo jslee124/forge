@@ -10,10 +10,10 @@
 
 这是 2026-09-06 固定的历史桌面设计与 coding agent 执行合同，早于 D01—D13 的实现，
 不是当前行为或打包产品帮助。源码阅读基线为 `4a41f93`；当前能力请查看
-[桌面预览版指南](../../DESKTOP.md)、源码、测试与验收记录。下文保留当时的实施合同。
+[桌面预览版指南](../../product/operations/DESKTOP.md)、源码、测试与验收记录。下文保留当时的实施合同。
 
-执行 agent 应先读仓库 `AGENTS.md`、本文、[架构](../../ARCHITECTURE.md)、
-[会话](../../SESSIONS.md)、[安全模型](../../SECURITY_MODEL.md) 和相关当前代码。
+执行 agent 应先读仓库 `AGENTS.md`、本文、[架构](../../product/concepts/ARCHITECTURE.md)、
+[会话](../../product/reference/SESSIONS.md)、[安全模型](../../product/concepts/SECURITY_MODEL.md) 和相关当前代码。
 已确定条目应直接落实；下文“待定”项需要在相关阶段给出方案，不能假装已获产品决定。
 不得把本文解读为发布、上传用户文件、启用外部账户或重写 TUI 的授权。
 

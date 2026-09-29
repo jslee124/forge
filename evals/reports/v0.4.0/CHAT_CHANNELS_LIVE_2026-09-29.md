@@ -1,6 +1,6 @@
 # Telegram live smoke — 2026-09-29
 
-[简体中文](CHAT_CHANNELS_LIVE_2026-09-29.zh-CN.md) · [Source guide](../../../docs/CHAT_CHANNELS.md)
+[简体中文](CHAT_CHANNELS_LIVE_2026-09-29.zh-CN.md) · [Source guide](../../../docs/product/operations/CHAT_CHANNELS.md)
 
 Development evidence on macOS, branch `dev`, package version 0.3.4. This is not a
 release or full acceptance declaration. The user authorized creation of a dedicated

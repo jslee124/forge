@@ -247,4 +247,4 @@ Figma: [Forge — Workbench UX v2](https://www.figma.com/design/sk9IZlKqoRF8PEpA
 
 ## 更新入口（2026-09-22）
 
-[未签名更新设计](UPDATE_PLAN.zh-CN.md)规定设置旁的「下载更新／打开安装包」入口，包含收起侧栏及失败状态。U01—U04 已实现，受控验收见[更新 QA](update-qa.zh-CN.md)，公开发布的 [Preview 2](../../evals/reports/desktop-0.3.4-preview.2/README.zh-CN.md) 包含这些功能。原参考图未展示这些新增状态；真实未认证更新 API 检查和手动替换应用仍未验收。
+[未签名更新设计](UPDATE_PLAN.zh-CN.md)规定设置旁的「下载更新／打开安装包」入口，包含收起侧栏及失败状态。U01—U04 已实现，受控验收见[更新 QA](../../evals/reports/desktop-0.3.4-preview.2/UPDATE_QA.zh-CN.md)，公开发布的 [Preview 2](../../evals/reports/desktop-0.3.4-preview.2/README.zh-CN.md) 包含这些功能。原参考图未展示这些新增状态；真实未认证更新 API 检查和手动替换应用仍未验收。

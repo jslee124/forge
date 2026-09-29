@@ -46,3 +46,17 @@ The original desktop implementation contract,
 D01–D13 checklist, and
 D01 baseline are historical
 records. Current behavior is established by source, tests, and the evidence above.
+
+## Desktop development records
+
+These records describe in-progress desktop work. They are not shipped-behavior
+declarations; source, tests, and the release evidence above remain authoritative.
+
+| Record | Status |
+| --- | --- |
+| Workbench design | Layout, theming, and interaction behavior of the live workbench |
+| Workbench follow-up plan | Ordered tasks, acceptance gates, and current progress |
+| Workbench UX specification | Proposed layout and slash-command parity; full parity still pending |
+| Model and workbench refinement plan | Refinement design and local implementation record |
+| Unsigned update plan | U01–U04 update flow, published through Preview 2 |
+| Desktop QA record | Command-specific and accessibility limits |

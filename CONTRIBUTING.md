@@ -8,10 +8,10 @@ boundary, deterministic tests, and evidence that matches the claim.
 
 ## Before you start
 
-- Read [Getting started](docs/GETTING_STARTED.md) and run the checkout once.
-- Read [Security model](docs/SECURITY_MODEL.md) before changing tools, approvals, plugins,
+- Read [Getting started](docs/product/start/GETTING_STARTED.md) and run the checkout once.
+- Read [Security model](docs/product/concepts/SECURITY_MODEL.md) before changing tools, approvals, plugins,
   credentials, persistence, network behavior, or delegated model runs.
-- Check the [Roadmap](docs/ROADMAP.md) for completed acceptance criteria and
+- Check the [Roadmap](docs/development/ROADMAP.md) for completed acceptance criteria and
   deferred scope.
 - For a bug, preserve a minimal reproduction and the first actionable error.
 - For a feature, define the user-visible outcome and how it will be verified

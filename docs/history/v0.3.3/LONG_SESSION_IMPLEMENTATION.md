@@ -1,6 +1,6 @@
 # Forge v0.3.3 Detailed Implementation Plan
 
-[简体中文](../../zh-CN/history/v0.3.3/LONG_SESSION_IMPLEMENTATION.md) · [Roadmap](../../ROADMAP.md) · [Context management](../../CONTEXT_MANAGEMENT.md)
+[简体中文](../../zh-CN/history/v0.3.3/LONG_SESSION_IMPLEMENTATION.md) · [Roadmap](../../development/ROADMAP.md) · [Context management](../../product/concepts/CONTEXT_MANAGEMENT.md)
 
 > **Document role: historical design record.** This preserves the Milestone 13
 > design and delivery decisions. It cannot independently establish current

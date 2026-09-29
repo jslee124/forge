@@ -1,6 +1,6 @@
 # Forge Desktop for Windows (preview)
 
-[简体中文](INSTALL-WINDOWS.zh-CN.md) · [Desktop guide](../../docs/DESKTOP.md)
+[简体中文](INSTALL-WINDOWS.zh-CN.md) · [Desktop guide](../../docs/product/operations/DESKTOP.md)
 
 The Windows preview is for x64 PCs. Download `forge-desktop-0.3.4-x64.exe`
 and `SHA256SUMS` from the same [Desktop Preview 4 release](https://github.com/jslee124/forge/releases/tag/desktop-0.3.4-preview.4).

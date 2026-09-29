@@ -9,7 +9,7 @@
 Historical D01–D13 handoff created 2026-09-06 and completed through the local
 unsigned desktop handoff. The initial instructions below describe that earlier
 stage; they are not a new request to implement the tasks. Use the current
-[desktop preview guide](../../DESKTOP.md), source, tests, and acceptance records
+[desktop preview guide](../../product/operations/DESKTOP.md), source, tests, and acceptance records
 for present behavior.
 
 Follow dependencies with independently reviewable and reversible changes. Verify
@@ -434,7 +434,7 @@ approval. CLI and desktop share HTTP proxy initialization. The bundled plugin in
 its locked dependencies outside ASAR.
 
 Focused tests, repository checks, deterministic evaluation, docs/package checks and
-local arm64 packaging are recorded in [D11 development QA](../../../apps/desktop/d11-qa.md).
+local arm64 packaging are recorded in [D11 development QA](../../../evals/reports/desktop-0.3.4-preview.2/D11_QA.md).
 Live DuckDuckGo search and Example Domain reading succeeded on 2026-09-11; Codex
 independently completed a Markdown report. Brave had no key and remains live-unverified.
 These are bounded smoke observations, not service recommendations or a research-quality
@@ -452,7 +452,7 @@ Mark unverified cells rather than using mocks as real support evidence.
 **Verify:** CI=true pnpm check, CI=true pnpm eval:deterministic, focused tests and rendered UI.
 Run CI=true pnpm package:verify for packaged-resource/public-artifact changes; record omissions.
 
-D12 completed 2026-09-11: [development acceptance and explicit gaps](../../../apps/desktop/d12-qa.md).
+D12 completed 2026-09-11: [development acceptance and explicit gaps](../../../evals/reports/desktop-0.3.4-preview.2/D12_QA.md).
 Two live engine tests, 69 focused regressions, 71 deterministic checks, both-locale Electron
 captures, check and CLI packed-install verification passed. Installed GUI validation remains D13.
 
@@ -468,7 +468,7 @@ notarization, updates and publication. Without signing or publication permission
 reviewable local artifacts and remaining steps without publishing or claiming release.
 
 D13 completed 2026-09-13 for local unsigned handoff: [installation guide](../../../apps/desktop/INSTALL.md)
-and [current development evidence](../../../apps/desktop/d13-qa.md). Four arm64/x64 DMG/ZIP artifacts
+and [current development evidence](../../../evals/reports/desktop-0.3.4-preview.2/D13_QA.md). Four arm64/x64 DMG/ZIP artifacts
 passed isolated LaunchServices installation probes on macOS 26.6.2 arm64 (x64 via Rosetta).
 Fixed packaged PDF worker lookup and stale shared-package builds. Check, docs, 39 focused tests,
 71 deterministic tests and CLI packed-install verification passed. Intel hardware, macOS 13,

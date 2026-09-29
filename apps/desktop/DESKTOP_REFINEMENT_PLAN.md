@@ -2,7 +2,7 @@
 
 Original plan: 2026-09-25. macOS sidebar decision: 2026-09-26. Status: **design and local implementation record**. The original source descriptions are dated snapshots; the implementation status below reflects current source and local checks, not behavior shipped in Preview 3.
 
-[简体中文](DESKTOP_REFINEMENT_PLAN.zh-CN.md) · [Workbench development plan](WORKBENCH_DEVELOPMENT_PLAN.md) · [Current desktop guide](../../docs/DESKTOP.md)
+[简体中文](DESKTOP_REFINEMENT_PLAN.zh-CN.md) · [Workbench development plan](WORKBENCH_DEVELOPMENT_PLAN.md) · [Current desktop guide](../../docs/product/operations/DESKTOP.md)
 
 ## Visual references (generated concepts)
 

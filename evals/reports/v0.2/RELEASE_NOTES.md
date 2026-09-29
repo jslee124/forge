@@ -59,5 +59,5 @@ v0.1 live evaluation's seven-of-nine result should not be interpreted as a
 v0.2 provider-quality benchmark.
 
 See the [context-management gate](CONTEXT_MANAGEMENT.md), the
-[evaluation guide](../../../docs/EVALUATION.md), and the
+[evaluation guide](../../../docs/development/EVALUATION.md), and the
 [v0.1 report](../v0.1/report.md) for the underlying evidence.

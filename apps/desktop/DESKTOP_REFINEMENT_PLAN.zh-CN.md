@@ -2,7 +2,7 @@
 
 原方案日期：2026-09-25。macOS 侧栏设计决定：2026-09-26。状态：**设计记录与本地实施记录**；方案中的原始源码描述是当时的快照，下述实现进度以当前源码和本地验证为准，不代表 Preview 3 已发布行为。
 
-[English](DESKTOP_REFINEMENT_PLAN.md) · [工作台开发计划](WORKBENCH_DEVELOPMENT_PLAN.zh-CN.md) · [当前桌面产品说明](../../docs/zh-CN/DESKTOP.md)
+[English](DESKTOP_REFINEMENT_PLAN.md) · [工作台开发计划](WORKBENCH_DEVELOPMENT_PLAN.zh-CN.md) · [当前桌面产品说明](../../docs/zh-CN/product/operations/DESKTOP.md)
 
 ## 视觉参考（图片生成草案）
 

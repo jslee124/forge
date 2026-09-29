@@ -1,6 +1,6 @@
 # Milestone 0–15 验收记录
 
-[English](../../../history/v0.3.4/MILESTONES.md) · [当前路线图](../../ROADMAP.md)
+[English](../../../history/v0.3.4/MILESTONES.md) · [当前路线图](../../development/ROADMAP.md)
 
 > **文档角色：历史验收记录（v0.3.4）。** 本文从路线图归档，保留各阶段的目标、
 > 验收条目和当时的验证边界，不代表当前 checkout 已重新验证。当前行为以源码和测试为准。
@@ -31,7 +31,7 @@
 
 ## Milestone 4.6：交互 TUI 与上下文引用（已完成）
 
-使用 Ink 作为 `apps/cli` renderer，实现多行编辑、Enter/Shift+Enter/Ctrl+J、`/` 命令菜单、统一 command registry、`@` 有界 fuzzy 文件 picker、结构化 workspace-relative mention、running/streaming/cancel/approval 状态和精确 diff panel。UI 不依赖 paid model；runtime/tools 不 import React/Ink。详细交互合约见[交互式 CLI UI](../../CLI_UI.md)。
+使用 Ink 作为 `apps/cli` renderer，实现多行编辑、Enter/Shift+Enter/Ctrl+J、`/` 命令菜单、统一 command registry、`@` 有界 fuzzy 文件 picker、结构化 workspace-relative mention、running/streaming/cancel/approval 状态和精确 diff panel。UI 不依赖 paid model；runtime/tools 不 import React/Ink。详细交互合约见[交互式 CLI UI](../../product/reference/CLI_UI.md)。
 
 ## Milestone 5：配置、指令与 permission profile（已完成）
 
@@ -39,7 +39,7 @@
 
 ## Milestone 6：结构化 trace、会话与 resume（已完成）
 
-定义 versioned run event，从同一 event stream 渲染终端并写 JSONL；持久化 session snapshot，区分 session/run ID，只保存完成对话，typed provider reasoning，脱敏 credential，提供 `forge inspect`、`forge resume`、`--last` 和 workspace-scoped `/resume`。恢复重新加载配置/指令，绝不恢复旧审批、continuation 或未完成工具调用。详细合约见[持久化会话](../../SESSIONS.md)。
+定义 versioned run event，从同一 event stream 渲染终端并写 JSONL；持久化 session snapshot，区分 session/run ID，只保存完成对话，typed provider reasoning，脱敏 credential，提供 `forge inspect`、`forge resume`、`--last` 和 workspace-scoped `/resume`。恢复重新加载配置/指令，绝不恢复旧审批、continuation 或未完成工具调用。详细合约见[持久化会话](../../product/reference/SESSIONS.md)。
 
 ## Milestone 7：评测与首个 release（已完成）
 
@@ -47,7 +47,7 @@
 
 ## Milestone 8：受信任插件 API（v0.2，已完成）
 
-定义 versioned manifest/API，发现 user plugin、portable project Skill 和 `.forge/plugins` 项目插件；注册 tools/commands，暴露 immutable event，提供 prompt/policy hook，项目插件先 trust，并禁止削弱 core policy。Forge 无插件也必须正常工作；plugin tool 走与内置工具相同的 policy/trace pipeline。详细合约见[插件指南](../../PLUGINS.md)。
+定义 versioned manifest/API，发现 user plugin、portable project Skill 和 `.forge/plugins` 项目插件；注册 tools/commands，暴露 immutable event，提供 prompt/policy hook，项目插件先 trust，并禁止削弱 core policy。Forge 无插件也必须正常工作；plugin tool 走与内置工具相同的 policy/trace pipeline。详细合约见[插件指南](../../product/reference/PLUGINS.md)。
 
 ## Milestone 9：OpenAI 认证扩展（已完成）
 
@@ -71,7 +71,7 @@ checkpoint 与 canonical session transcript 分离；可用时支持 adapter-own
 
 ### 10.4 评测与默认 rollout
 
-增加 long-session、recall、指令变化、tool-result pressure、resume 和 hostile history fixture；测量任务成功、tokens、估算误差、延迟、压缩和 summary regeneration；比较 `off`/`warn`/`compact`；在 automatic compaction 默认前定义 threshold；semantic/vector retrieval 保持延后。中文详细设计见[上下文管理](../../CONTEXT_MANAGEMENT.md)。
+增加 long-session、recall、指令变化、tool-result pressure、resume 和 hostile history fixture；测量任务成功、tokens、估算误差、延迟、压缩和 summary regeneration；比较 `off`/`warn`/`compact`；在 automatic compaction 默认前定义 threshold；semantic/vector retrieval 保持延后。中文详细设计见[上下文管理](../../product/concepts/CONTEXT_MANAGEMENT.md)。
 
 ## Milestone 11：OpenAI-compatible provider routes（已完成）
 

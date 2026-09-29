@@ -19,7 +19,7 @@ test("desktop packaging skips CLI, evaluation, and prose-only changes", () => {
   for (const file of [
     "apps/cli/src/index.ts",
     "evals/src/evaluation.test.ts",
-    "docs/ROADMAP.md",
+    "docs/development/ROADMAP.md",
     "README.md",
   ]) {
     assert.equal(affectsDesktop(file), false, file);

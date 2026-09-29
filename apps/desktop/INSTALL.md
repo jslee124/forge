@@ -1,6 +1,6 @@
 # Forge Desktop local installation
 
-[简体中文](INSTALL.zh-CN.md) · [Windows installation](INSTALL-WINDOWS.md) · [D13 development evidence](d13-qa.md)
+[简体中文](INSTALL.zh-CN.md) · [Windows installation](INSTALL-WINDOWS.md) · [D13 development evidence](../../evals/reports/desktop-0.3.4-preview.2/D13_QA.md)
 
 Forge Desktop is a private workspace application, separate from the public Forge CLI package.
 The current local build is 0.3.4, Electron 44.2.0 and electron-builder 26.15.3.
@@ -101,4 +101,4 @@ Choose Download update beside Settings. After downloading and SHA-256 verificati
 
 Existing old builds require one manual upgrade to obtain this feature. `desktop-0.3.4-preview.4` is the [current preview identity](https://github.com/jslee124/forge/releases/tag/desktop-0.3.4-preview.4). Missing identity is explicit and is never guessed from `0.3.4`. Packaging requires an explicit identity and generates `desktop-build.json` and `SHA256SUMS`.
 
-Update networking uses Chromium's system proxy support and no model-provider credentials. Rate limits, timeouts and proxy errors never mean up to date. SHA-256 is not Apple signing or notarization; the updater never removes quarantine or bypasses Gatekeeper. See [update QA](update-qa.md) for evidence.
+Update networking uses Chromium's system proxy support and no model-provider credentials. Rate limits, timeouts and proxy errors never mean up to date. SHA-256 is not Apple signing or notarization; the updater never removes quarantine or bypasses Gatekeeper. See [update QA](../../evals/reports/desktop-0.3.4-preview.2/UPDATE_QA.md) for evidence.

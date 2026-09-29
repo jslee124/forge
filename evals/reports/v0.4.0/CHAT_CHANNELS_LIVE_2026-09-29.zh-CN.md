@@ -1,6 +1,6 @@
 # Telegram 真实冒烟测试 — 2026-09-29
 
-[English](CHAT_CHANNELS_LIVE_2026-09-29.md) · [使用指南](../../../docs/zh-CN/CHAT_CHANNELS.md)
+[English](CHAT_CHANNELS_LIVE_2026-09-29.md) · [使用指南](../../../docs/zh-CN/product/operations/CHAT_CHANNELS.md)
 
 macOS、`dev` 分支、包版本 0.3.4 的开发证据，不是发布或完整验收声明。
 用户授权创建专用测试 bot，并使用已登录的 Telegram Web 账号进行测试。

@@ -1,6 +1,6 @@
 # D03 visual QA
 
-Desktop update acceptance / 桌面更新验收（2026-09-22）：[English](update-qa.md) · [简体中文](update-qa.zh-CN.md). The records below retain their original scope and dates.
+Desktop update acceptance / 桌面更新验收（2026-09-22）：[English](../../evals/reports/desktop-0.3.4-preview.2/UPDATE_QA.md) · [简体中文](../../evals/reports/desktop-0.3.4-preview.2/UPDATE_QA.zh-CN.md). The records below retain their original scope and dates.
 
 Date: 2026-09-07
 

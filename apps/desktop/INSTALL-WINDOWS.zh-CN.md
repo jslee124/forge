@@ -1,6 +1,6 @@
 # Forge Desktop Windows 预览版安装说明
 
-[English](INSTALL-WINDOWS.md) · [桌面版指南](../../docs/zh-CN/DESKTOP.md)
+[English](INSTALL-WINDOWS.md) · [桌面版指南](../../docs/zh-CN/product/operations/DESKTOP.md)
 
 Windows 预览版面向 x64 电脑。从同一个 [Desktop Preview 4 发布页](https://github.com/jslee124/forge/releases/tag/desktop-0.3.4-preview.4)
 下载 `forge-desktop-0.3.4-x64.exe` 和 `SHA256SUMS`。在 PowerShell 中运行
