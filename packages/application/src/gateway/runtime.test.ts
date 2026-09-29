@@ -156,3 +156,128 @@ it("allows delivery-only recovery locally and refuses it while the bot lease is 
     await rm(root, { recursive: true, force: true });
   }
 });
+
+it.each(["disconnect", "timeout", "503", "429"])(
+  "recovers polling and delivery after %s without replaying the native task",
+  async (fault) => {
+    const root = await realpath(
+      await mkdtemp(join(tmpdir(), "forge-network-")),
+    );
+    const accountId = String(Date.now());
+    const env = {
+      FORGE_HOME: join(root, "home"),
+      FORGE_TELEGRAM_BOT_TOKEN: `${accountId}:fake`,
+    };
+    const config = await setupGateway(
+      {
+        owner: "7",
+        workspace: root,
+        alias: "network",
+        permissionProfile: "safe",
+      },
+      env,
+    );
+    const store = new GatewayStore(env.FORGE_HOME);
+    const controller = new AbortController();
+    let polls = 0;
+    let executions = 0;
+    let terminalAttempts = 0;
+    let sawReconnecting = false;
+    let sawPersistedRetry = false;
+    const delivered: string[] = [];
+    const failure = () => {
+      if (fault === "disconnect") throw new TypeError("fetch failed");
+      if (fault === "timeout")
+        throw new DOMException("timed out", "TimeoutError");
+      return new Response(
+        JSON.stringify({
+          ok: false,
+          error_code: Number(fault),
+          parameters: { retry_after: 1 },
+        }),
+        { status: Number(fault) },
+      );
+    };
+    const update = {
+      update_id: 10,
+      message: {
+        from: { id: 7, is_bot: false },
+        chat: { id: 7, type: "private" },
+        date: Math.floor(Date.now() / 1000),
+        text: "network recovery probe",
+      },
+    };
+    const fetcher: typeof fetch = async (url, init) => {
+      const method = String(url).split("/").at(-1);
+      const payload = JSON.parse(String(init?.body)) as { text?: string };
+      let result: unknown = {};
+      if (method === "getMe") result = { id: Number(accountId), is_bot: true };
+      else if (method === "getWebhookInfo") result = { url: "" };
+      else if (method === "getUpdates") {
+        polls++;
+        if (polls === 1) return failure();
+        if (polls === 2) {
+          sawReconnecting =
+            (await store.load(gatewayBinding(config))).connection ===
+            "reconnecting";
+        }
+        await delay(20);
+        // Repeat the same update even after acknowledgement to exercise deduplication.
+        result = [update];
+      } else if (method === "sendMessage") {
+        if (payload.text?.includes(": completed")) {
+          terminalAttempts++;
+          if (terminalAttempts === 1) return failure();
+          const state = await store.load(gatewayBinding(config));
+          sawPersistedRetry = state.outbox.some(
+            (item) => item.kind === "terminal" && item.attempts === 2,
+          );
+          delivered.push(payload.text);
+          controller.abort();
+        }
+      }
+      return new Response(JSON.stringify({ ok: true, result }));
+    };
+    const model: ModelAdapter = {
+      async *stream(): AsyncIterable<ModelStreamEvent> {
+        executions++;
+        yield { type: "text.delta", text: "recovered answer" };
+        yield {
+          type: "finish",
+          finishReason: "stop",
+          usage: {
+            inputTokens: 1,
+            outputTokens: 1,
+            reasoningTokens: 0,
+            cachedInputTokens: 0,
+            cacheWriteTokens: 0,
+            totalTokens: 2,
+          },
+        };
+      },
+    };
+    const watchdog = setTimeout(() => controller.abort(), 10000);
+    try {
+      await runGateway(env, controller.signal, {
+        fetcher,
+        createAdapter: () => model,
+      });
+      expect(sawReconnecting).toBe(true);
+      expect(sawPersistedRetry).toBe(true);
+      expect(terminalAttempts).toBe(2);
+      expect(executions).toBe(1);
+      expect(delivered).toHaveLength(1);
+      expect(delivered[0]).toContain("recovered answer");
+      const state = await store.load(gatewayBinding(config));
+      expect(state.offset).toBe(11);
+      expect(state.task?.state).toBe("completed");
+      expect(state.outbox).toHaveLength(0);
+      expect(state.connection).toBe("disconnected");
+    } finally {
+      controller.abort();
+      clearTimeout(watchdog);
+      await rm(root, { recursive: true, force: true });
+    }
+  },
+  15000,
+);

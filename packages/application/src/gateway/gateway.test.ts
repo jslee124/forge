@@ -149,6 +149,16 @@ async function waitForApproval(service: GatewayService) {
 }
 
 describe("gateway admission and lifecycle", () => {
+  it("welcomes Telegram start without running a model task", async () => {
+    const f = await fixture();
+    await f.service.receive(event("/start"));
+    await f.service.idle();
+    expect(f.run).not.toHaveBeenCalled();
+    expect(f.state.task).toBeUndefined();
+    expect(f.state.outbox.some((item) => item.text.includes("/help"))).toBe(
+      true,
+    );
+  });
   it.each([
     { senderId: "8" },
     { private: false },

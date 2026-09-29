@@ -48,6 +48,45 @@ jobs:
           pnpm forge --version
           pnpm forge --help
 
+  gateway-windows:
+    name: Windows gateway contracts
+    runs-on: windows-latest
+    timeout-minutes: 15
+    env:
+      CI: "true"
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build workspace packages
+        run: pnpm build
+
+      # Fake Telegram transport and model; no live credentials or provider requests.
+      - name: Test gateway, network recovery, approvals and persistence
+        run: >-
+          pnpm exec vitest run
+          packages/application/src/gateway/gateway.test.ts
+          packages/application/src/gateway/runtime.test.ts
+          packages/application/src/workspace-lease.test.ts
+          packages/persistence/src/gateway-store.test.ts
+          packages/core/src/per-action-policy.test.ts
+
+      - name: Verify gateway CLI command registration
+        run: node apps/cli/dist/index.js gateway --help
+
   desktop-windows:
     runs-on: windows-latest
     env:

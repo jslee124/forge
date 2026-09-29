@@ -136,7 +136,7 @@ export class GatewayService {
     // Cancellation/status are idempotent; approval tokens are consumed independently.
     const control =
       event.kind === "approval" ||
-      /^(?:\/(?:cancel|status|help)|\/(?:approve|deny) [a-f0-9]{32})$/u.test(
+      /^(?:\/(?:cancel|status|help|start)|\/(?:approve|deny) [a-f0-9]{32})$/u.test(
         event.text.trim(),
       );
     if (this.state.inbox.length >= 10000 && !control) {
@@ -196,7 +196,7 @@ export class GatewayService {
         this.enqueue(event.conversationId, "Approval is invalid or expired.");
       return;
     }
-    if (text === "/help") {
+    if (text === "/help" || text === "/start") {
       this.enqueue(
         event.conversationId,
         "/new /status /cancel /help\nSend text to start a task. The host must be awake and online. Workspace: " +
