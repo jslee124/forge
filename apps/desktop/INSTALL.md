@@ -3,7 +3,7 @@
 [简体中文](INSTALL.zh-CN.md) · [Windows installation](INSTALL-WINDOWS.md) · [D13 development evidence](../../evals/reports/desktop-0.3.4-preview.2/D13_QA.md)
 
 Forge Desktop is a private workspace application, separate from the public Forge CLI package.
-The current local build is 0.3.4, Electron 44.2.0 and electron-builder 26.15.3.
+The current local build is 0.4.0, Electron 44.2.0 and electron-builder 26.15.3.
 The configured minimum is macOS 13.0; this does not imply testing on every macOS release.
 Choose arm64 for Apple Silicon or x64 for Intel. See the acceptance record for actual host coverage.
 
@@ -15,7 +15,7 @@ From the repository root, with Node 24+ and the pinned pnpm version in package.j
 CI=true pnpm install --frozen-lockfile
 CI=true pnpm check
 pnpm desktop:dev
-CI=true FORGE_DESKTOP_BUILD_TAG=desktop-0.3.4-preview.4 pnpm desktop:package
+CI=true FORGE_DESKTOP_BUILD_TAG=desktop-0.4.0-preview.1 pnpm desktop:package
 ```
 
 Packaging builds the renderer, preload, main and Agent, prepares the locked web plugin,
@@ -32,7 +32,7 @@ Alternatively extract the ZIP and move the app to Applications. Quit an existing
 replacing it. Keep the previous local artifact if a rollback may be needed.
 These development artifacts have no Developer ID signature or notarization. macOS can block
 them; inspect the source and checksum before using the system's explicit Open Anyway option
-for a trusted local build. Do not disable Gatekeeper globally. [Preview 4](https://github.com/jslee124/forge/releases/tag/desktop-0.3.4-preview.4) provides unsigned, non-notarized DMGs; [Preview 2](https://github.com/jslee124/forge/releases/tag/desktop-0.3.4-preview.2) retains the ZIP downloads.
+for a trusted local build. Do not disable Gatekeeper globally. [0.4.0 Preview 1](https://github.com/jslee124/forge/releases/tag/desktop-0.4.0-preview.1) provides unsigned, non-notarized DMGs; [Preview 2](https://github.com/jslee124/forge/releases/tag/desktop-0.3.4-preview.2) retains the ZIP downloads.
 
 Launch the app from Applications. Closing its last window quits the app and shuts down its
 Agent; it is not a background worker. Cancellation/exit does not roll back existing file edits.
@@ -79,8 +79,8 @@ not gain OCR. The installation smoke covers a simple text PDF, not every font/en
 After packaging, run from `apps/desktop`:
 
 ```sh
-node scripts/acceptance-installed.mjs release/forge-desktop-0.3.4-arm64.dmg
-node scripts/acceptance-installed.mjs release/forge-desktop-0.3.4-arm64.zip
+node scripts/acceptance-installed.mjs release/forge-desktop-0.4.0-arm64.dmg
+node scripts/acceptance-installed.mjs release/forge-desktop-0.4.0-arm64.zip
 ```
 
 Use x64 filenames for the other architecture. The harness mounts DMG read-only or extracts ZIP,
@@ -99,6 +99,6 @@ Builds with the update feature check official desktop releases in the background
 
 Choose Download update beside Settings. After downloading and SHA-256 verification, choose Open installer. Cancellation preserves the notice; failures can be retried. Opening rechecks the managed file and explains the steps: save work, quit the old Forge, then drag into Applications to replace it. Opening a DMG does not quit or install automatically; draft and active-task exit guards remain.
 
-Existing old builds require one manual upgrade to obtain this feature. `desktop-0.3.4-preview.4` is the [current preview identity](https://github.com/jslee124/forge/releases/tag/desktop-0.3.4-preview.4). Missing identity is explicit and is never guessed from `0.3.4`. Packaging requires an explicit identity and generates `desktop-build.json` and `SHA256SUMS`.
+Existing old builds require one manual upgrade to obtain this feature. `desktop-0.4.0-preview.1` is the [current preview identity](https://github.com/jslee124/forge/releases/tag/desktop-0.4.0-preview.1). Missing identity is explicit and is never guessed from `0.4.0`. Packaging requires an explicit identity and generates `desktop-build.json` and `SHA256SUMS`.
 
 Update networking uses Chromium's system proxy support and no model-provider credentials. Rate limits, timeouts and proxy errors never mean up to date. SHA-256 is not Apple signing or notarization; the updater never removes quarantine or bypasses Gatekeeper. See [update QA](../../evals/reports/desktop-0.3.4-preview.2/UPDATE_QA.md) for evidence.

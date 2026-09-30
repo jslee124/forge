@@ -2,12 +2,15 @@
 
 [English](../../../product/operations/DESKTOP.md) · [中文目录](../../README.md)
 
-截至 2026-09-27，[Desktop 0.3.4 Preview 4](https://github.com/jslee124/forge/releases/tag/desktop-0.3.4-preview.4)
-提供 Windows x64 安装包和 macOS arm64/x64 DMG。桌面版与 `@jslee124/forge`
-npm CLI 分开发行。Preview 4 安装包均未签名，macOS DMG 也未公证；安装和替换需手动完成。
+[Desktop 0.4.0 Preview 1](https://github.com/jslee124/forge/releases/tag/desktop-0.4.0-preview.1)
+内置 Forge 0.4.0 共享运行层。桌面版与 `@jslee124/forge` npm CLI 分开发行；
+升级 npm 不会更新已安装的桌面应用。发布面向 Windows x64 和 macOS arm64/x64。
+安装包未签名，macOS DMG 未公证；安装和替换需手动完成。
 配置、认证与更新步骤见 [Windows 安装指南](https://github.com/jslee124/forge/blob/dev/apps/desktop/INSTALL-WINDOWS.zh-CN.md)
 或 [macOS 安装指南](https://github.com/jslee124/forge/blob/dev/apps/desktop/INSTALL.zh-CN.md)。
-较早的 [Preview 2](https://github.com/jslee124/forge/releases/tag/desktop-0.3.4-preview.2)
+发布状态和已完成检查见
+[0.4.0 Preview 1 发布记录](../../../../evals/reports/desktop-0.4.0-preview.1/README.zh-CN.md)。
+较早的 [0.3.4 Preview 2](https://github.com/jslee124/forge/releases/tag/desktop-0.3.4-preview.2)
 仍提供 macOS ZIP。
 
 ## 预览版支持的能力
@@ -21,7 +24,21 @@ npm CLI 分开发行。Preview 4 安装包均未签名，macOS DMG 也未公证�
 - 后台检查更新；用户主动下载并经 SHA-256 校验后打开安装包。
   打开 DMG 或 EXE 不会自动替换正在运行的应用。
 
+## 工作区协调与 Telegram
+
+Native Forge 与 Codex 任务执行共用宿主机上的工作区租约，并与 Forge 0.4.0 CLI
+及实验性 Telegram 网关协调。工作区被占用时，另一任务会被拒绝，直到活跃任务完成或
+取消。旧桌面版本不参与这套协调；依赖该能力前需先更新。租约只协调任务执行，
+不阻止手工编辑或其他应用修改文件。
+
+Telegram 配置与前台网关运行仍通过 CLI 完成；Desktop 没有网关设置页或后台网关服务。
+独立入口的使用方法见 [Telegram 教程](CHAT_CHANNELS.md)。
+
 ## 验证边界
+
+[0.4.0 Preview 1 发布记录](../../../../evals/reports/desktop-0.4.0-preview.1/README.zh-CN.md)
+分别记录候选检查、准确源码 CI、发布和公开下载验证。下方旧记录是对应构建的历史证据，
+不能当作 0.4.0 Preview 1 的验收结果。
 
 [Preview 4 候选版 CI](https://github.com/jslee124/forge/actions/runs/36298064888)
 在 Windows runner 上构建安装包，并执行打包应用与安装后 smoke。这些离线检查

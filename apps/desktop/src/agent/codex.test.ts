@@ -7,6 +7,7 @@ import type {
   JsonRpcNotification,
   JsonRpcServerRequest,
 } from "@forge/codex-app-server";
+import { acquireWorkspaceLease } from "@forge/persistence";
 import { expect, it } from "vitest";
 import { DesktopApplication } from "./application.js";
 
@@ -93,6 +94,56 @@ class Client implements CodexClient {
     this.closed = true;
   }
 }
+
+it("blocks Codex execution under a shared workspace lease and recovers after release", async () => {
+  const cwd = await mkdtemp(join(tmpdir(), "forge-desktop-codex-lease-"));
+  const clients: Client[] = [];
+  const app = new DesktopApplication({ FORGE_HOME: join(cwd, "home") }, cwd, {
+    connect: async () => {
+      const client = new Client();
+      client.turnStart = () => queueMicrotask(() => client.complete());
+      clients.push(client);
+      return client;
+    },
+  });
+  try {
+    await app.manage({ type: "workspace", cwd });
+    const state = await app.manage({ type: "create", prompt: "test" });
+    const execute = () =>
+      app.execute(
+        {
+          type: "start",
+          requestId: randomUUID(),
+          runId: randomUUID(),
+          sessionId: state.sessionId,
+          engine: "codex",
+          prompt: "test",
+        },
+        {
+          signal: new AbortController().signal,
+          text: () => {},
+          detail: () => {},
+          approve: async () => false,
+        },
+      );
+    const lease = await acquireWorkspaceLease(cwd);
+    try {
+      await expect(execute()).rejects.toThrow("run-failed");
+      expect(clients.flatMap((client) => client.calls)).not.toContain(
+        "turn/start",
+      );
+    } finally {
+      await lease.release();
+    }
+    await expect(execute()).resolves.toBe("completed");
+    expect(clients.flatMap((client) => client.calls)).toContain("turn/start");
+    const available = await acquireWorkspaceLease(cwd);
+    await available.release();
+  } finally {
+    app.close();
+    await rm(cwd, { recursive: true, force: true });
+  }
+});
 
 it("executes and restores Codex desktop turns using only text history", async () => {
   const cwd = await mkdtemp(join(tmpdir(), "forge-desktop-codex-"));

@@ -2,14 +2,16 @@
 
 [简体中文](../../zh-CN/product/operations/DESKTOP.md) · [Documentation index](../../README.md)
 
-As of 2026-09-27, [Desktop 0.3.4 Preview 4](https://github.com/jslee124/forge/releases/tag/desktop-0.3.4-preview.4)
-provides a Windows x64 installer and macOS arm64/x64 DMGs. Desktop releases are
-separate from the `@jslee124/forge` npm CLI. All Preview 4 installers are
-unsigned; the macOS DMGs are also not notarized. Installation and replacement
-are manual. See the [Windows installation guide](https://github.com/jslee124/forge/blob/dev/apps/desktop/INSTALL-WINDOWS.md)
-or [macOS installation guide](https://github.com/jslee124/forge/blob/dev/apps/desktop/INSTALL.md)
-for configuration, authentication, and update steps. The older
-[Preview 2](https://github.com/jslee124/forge/releases/tag/desktop-0.3.4-preview.2)
+[Desktop 0.4.0 Preview 1](https://github.com/jslee124/forge/releases/tag/desktop-0.4.0-preview.1)
+bundles the Forge 0.4.0 shared runtime. Desktop releases are separate from the
+`@jslee124/forge` npm CLI; upgrading npm does not update an installed desktop app.
+The release targets Windows x64 and macOS arm64/x64. Installers are unsigned;
+macOS DMGs are not notarized. Installation and replacement are manual. See the
+[Windows installation guide](https://github.com/jslee124/forge/blob/dev/apps/desktop/INSTALL-WINDOWS.md)
+or [macOS installation guide](https://github.com/jslee124/forge/blob/dev/apps/desktop/INSTALL.md).
+Publication status and completed checks are recorded in the
+[0.4.0 Preview 1 release record](../../../evals/reports/desktop-0.4.0-preview.1/README.md).
+The older [0.3.4 Preview 2](https://github.com/jslee124/forge/releases/tag/desktop-0.3.4-preview.2)
 still provides macOS ZIPs.
 
 ## What the preview supports
@@ -24,7 +26,24 @@ still provides macOS ZIPs.
 - Background update checks and explicit, SHA-256-verified installer downloads.
   Opening a DMG or EXE does not replace the running app automatically.
 
+## Workspace coordination and Telegram
+
+Native Forge and Codex task execution shares a host-local workspace lease with
+Forge 0.4.0 CLI and the experimental Telegram gateway. An occupied workspace
+rejects another task until the active run finishes or is cancelled. Older desktop
+builds do not participate in this coordination; update them before relying on it.
+The lease coordinates task execution, not manual edits or other applications.
+
+Telegram setup and foreground gateway execution remain CLI commands; Desktop has
+no gateway settings or background gateway service. Follow the
+[Telegram guide](CHAT_CHANNELS.md) to use that separate entry point.
+
 ## Validation limits
+
+The [0.4.0 Preview 1 release record](../../../evals/reports/desktop-0.4.0-preview.1/README.md)
+separates candidate checks, exact-source CI, publication and public download
+verification. The preceding records below are historical evidence for their own
+builds, not acceptance results for 0.4.0 Preview 1.
 
 The [Preview 4 candidate CI run](https://github.com/jslee124/forge/actions/runs/36298064888)
 built the Windows installer and ran packaged and installed-app smoke on a

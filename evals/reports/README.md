@@ -48,6 +48,10 @@ artifacts are written to the ignored `evals/artifacts/` directory first.
 
 ## Desktop preview reports
 
+- [desktop-0.4.0-preview.1](desktop-0.4.0-preview.1/README.md) ·
+  [简体中文](desktop-0.4.0-preview.1/README.zh-CN.md) — Forge 0.4.0 shared runtime;
+  candidate, publication, and public-asset verification are recorded separately
+
 - [desktop-0.3.4-preview.4](desktop-0.3.4-preview.4/README.md) ·
   [简体中文](desktop-0.3.4-preview.4/README.zh-CN.md) — Windows x64 installer and
   macOS arm64/x64 DMGs, all unsigned

@@ -12,6 +12,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createPersistentInteractiveSession } from "@forge/application";
 import type { ModelAdapter, ModelRequest, ModelStreamEvent } from "@forge/core";
+import { acquireWorkspaceLease } from "@forge/persistence";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { RunChannel } from "../main/run-channel.js";
 import type { RunEvent } from "../shared/run-protocol.js";
@@ -124,6 +125,33 @@ async function run(
   return { events, final };
 }
 describe("desktop native execution", () => {
+  it("honors the shared workspace lease and resumes after its owner releases it", async () => {
+    const f = await fixture([]);
+    const lease = await acquireWorkspaceLease(f.cwd);
+    try {
+      const blocked = await run(f.application, f.sessionId);
+      expect(blocked.final.payload).toEqual({
+        type: "complete",
+        outcome: "failed",
+      });
+      expect(JSON.stringify(blocked.events)).toContain("Workspace busy");
+      expect(f.requests).toHaveLength(0);
+    } finally {
+      await lease.release();
+    }
+    try {
+      expect((await run(f.application, f.sessionId)).final.payload).toEqual({
+        type: "complete",
+        outcome: "completed",
+      });
+      expect(f.requests).toHaveLength(1);
+      const available = await acquireWorkspaceLease(f.cwd);
+      await available.release();
+    } finally {
+      f.application.close();
+    }
+  });
+
   it("rejects management mutations while a run is active but permits state reads", async () => {
     const entered = Promise.withResolvers<void>();
     const release = Promise.withResolvers<void>();

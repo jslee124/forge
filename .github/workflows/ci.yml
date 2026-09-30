@@ -55,6 +55,12 @@ jobs:
       - name: Test
         run: pnpm test
 
+      - name: Verify desktop release contracts
+        if: github.ref == 'refs/heads/dev' && contains(github.event.head_commit.message, '[desktop-preview-release]')
+        run: |
+          pnpm eval:deterministic
+          pnpm package:verify
+
       - name: Verify CLI
         run: |
           pnpm forge --version
@@ -106,7 +112,7 @@ jobs:
     env:
       CI: "true"
       CSC_IDENTITY_AUTO_DISCOVERY: "false"
-      DESKTOP_RELEASE_TAG: ${{ github.ref == 'refs/heads/dev' && contains(github.event.head_commit.message, '[desktop-preview-release]') && 'desktop-0.3.4-preview.4' || '' }}
+      DESKTOP_RELEASE_TAG: ${{ github.ref == 'refs/heads/dev' && contains(github.event.head_commit.message, '[desktop-preview-release]') && 'desktop-0.4.0-preview.1' || '' }}
 
     steps:
       - name: Check out repository
@@ -135,7 +141,7 @@ jobs:
         run: pnpm build
 
       - name: Test Windows desktop contracts
-        run: pnpm exec vitest run apps/desktop/src/main/update-service.test.ts apps/desktop/src/main/file-service.test.ts apps/desktop/src/agent/application.test.ts packages/tools/src/tools.test.ts packages/codex-app-server/src/client.test.ts
+        run: pnpm exec vitest run apps/desktop/src/main/update-service.test.ts apps/desktop/src/main/file-service.test.ts apps/desktop/src/agent/application.test.ts apps/desktop/src/agent/codex.test.ts packages/tools/src/tools.test.ts packages/codex-app-server/src/client.test.ts
 
       - name: Package Windows x64 installer
         run: pnpm desktop:package:win
@@ -178,7 +184,7 @@ jobs:
     env:
       CI: "true"
       CSC_IDENTITY_AUTO_DISCOVERY: "false"
-      DESKTOP_RELEASE_TAG: ${{ github.ref == 'refs/heads/dev' && contains(github.event.head_commit.message, '[desktop-preview-release]') && 'desktop-0.3.4-preview.4' || '' }}
+      DESKTOP_RELEASE_TAG: ${{ github.ref == 'refs/heads/dev' && contains(github.event.head_commit.message, '[desktop-preview-release]') && 'desktop-0.4.0-preview.1' || '' }}
 
     steps:
       - name: Check out repository
@@ -227,11 +233,16 @@ jobs:
       contents: write
     env:
       GH_TOKEN: ${{ github.token }}
-      DESKTOP_RELEASE_TAG: desktop-0.3.4-preview.4
+      DESKTOP_RELEASE_TAG: desktop-0.4.0-preview.1
 
     steps:
       - name: Check out release tooling and notes
         uses: actions/checkout@v7
+
+      - name: Verify immutable release source
+        run: |
+          git fetch origin "refs/tags/$DESKTOP_RELEASE_TAG:refs/tags/$DESKTOP_RELEASE_TAG"
+          test "$(git rev-parse "$DESKTOP_RELEASE_TAG^{commit}")" = "$GITHUB_SHA"
 
       - name: Download Windows installer
         uses: actions/download-artifact@v4
@@ -259,8 +270,8 @@ jobs:
             exit 1
           fi
           if [ "$existing" != "true" ]; then
-            gh release create "$DESKTOP_RELEASE_TAG" --verify-tag --draft --prerelease --title "Forge Desktop 0.3.4 Preview 4" --notes-file .github/release-notes/desktop-0.3.4-preview.4.md
+            gh release create "$DESKTOP_RELEASE_TAG" --verify-tag --draft --prerelease --title "Forge Desktop 0.4.0 Preview 1" --notes-file .github/release-notes/desktop-0.4.0-preview.1.md
           fi
           gh release upload "$DESKTOP_RELEASE_TAG" release-ready/* --clobber
           node apps/desktop/scripts/verify-preview-release.mjs release-ready "$DESKTOP_RELEASE_TAG"
-          gh release edit "$DESKTOP_RELEASE_TAG" --draft=false --prerelease
+          gh release edit "$DESKTOP_RELEASE_TAG" --draft=false --prerelease --latest=false
