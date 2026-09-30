@@ -10,10 +10,34 @@ desktop package to 0.4.0 and bundles the shared Forge 0.4.0 runtime and current
 bilingual product help. Telegram remains an experimental CLI foreground gateway;
 Desktop does not add gateway settings or a background service.
 
-Publication and exact-source CI are pending. This candidate record alone does not
-establish a public release or completed checks. Results will be recorded after
-each stage finishes. The immutable release tag must resolve to the same source
-commit checked by the publication CI. No main-branch integration was requested.
+Published on 2026-09-30 as a public GitHub prerelease:
+[0.4.0 Preview 1](https://github.com/jslee124/forge/releases/tag/desktop-0.4.0-preview.1).
+The annotated tag and release-trigger commit both resolve to
+`cf9ebf26b07795d13458fec92698e64bcf8395ff`. The
+[publication CI](https://github.com/jslee124/forge/actions/runs/36669286127)
+verified and packaged that exact source. See [machine-readable evidence](release.json).
+The source and evidence are on `dev`; no main-branch integration was requested.
+
+## Publication and public verification
+
+- All five publication CI jobs passed: Ubuntu source/full-suite/deterministic/npm
+  installation verification, Windows gateway contracts, Windows x64 packaging
+  and packaged smoke plus NSIS install/start/uninstall, macOS arm64/x64 packaging
+  and packaged smoke, and release assembly/upload verification/publication.
+- Assembly verified all three installer SHA-256 values against platform build
+  manifests. The publisher verified all five uploaded asset names, sizes and
+  digests before making the release public.
+- Public `SHA256SUMS` and `desktop-build.json` downloads succeeded; their computed
+  SHA-256 values match GitHub metadata. The three installer digests match both
+  public manifests and GitHub metadata. All three public installer HEAD requests
+  returned HTTP 200 with the expected content length. Full installers were not
+  downloaded again after publication; this is not downloaded-installer acceptance.
+- Release notes match the tagged source. The current release selector accepts the
+  public installer for Preview 4 on macOS arm64/x64 and Windows x64, excludes the
+  preview on the stable channel, and does not offer the current version itself.
+  This is selector execution with public metadata, not end-to-end updater UI QA.
+- Stable GitHub Latest remains `v0.4.0`; this desktop prerelease did not publish a
+  new npm version. The release is public, marked prerelease, and not a draft.
 
 ## Required checks
 

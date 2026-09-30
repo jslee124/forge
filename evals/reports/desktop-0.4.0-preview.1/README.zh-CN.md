@@ -9,9 +9,28 @@ Windows x64 和 macOS arm64/x64 安装包。候选版将桌面包更新到 0.4.0
 Forge 0.4.0 共享运行层与当前中英文产品帮助。Telegram 仍为实验性 CLI 前台网关；
 Desktop 没有新增网关设置页或后台服务。
 
-公开发布和准确源码 CI 尚待完成。本候选记录本身不能证明已发布或检查通过。
-各阶段完成后补充结果。不可变发布标签必须指向发布 CI 验证的同一源码提交。
-本次未要求合并 main。
+已于 2026-09-30 公开发布 GitHub 预览版：
+[0.4.0 Preview 1](https://github.com/jslee124/forge/releases/tag/desktop-0.4.0-preview.1)。
+注释标签与发布触发提交均解析到 `cf9ebf26b07795d13458fec92698e64bcf8395ff`。
+[发布 CI](https://github.com/jslee124/forge/actions/runs/36669286127) 验证并打包了
+同一源码。另见[机器可读记录](release.json)。源码与证据位于 `dev`；本次未要求合并 main。
+
+## 发布与公开核验
+
+- 发布 CI 五个任务全部通过：Ubuntu 源码／完整测试／确定性评估／npm 安装验证、
+  Windows 网关合约、Windows x64 打包与打包应用启动及 NSIS 安装／启动／卸载、
+  macOS arm64/x64 打包与打包应用启动、发布组装／上传核验／公开。
+- 组装过程按平台清单核对三个安装包的 SHA-256；公开前核对五个上传文件的名称、
+  大小和摘要。
+- 公开下载 `SHA256SUMS` 和 `desktop-build.json` 成功，计算出的摘要与 GitHub
+  元数据一致；三个安装包摘要与两个公开清单及 GitHub 元数据一致。三个安装包的
+  公开 HEAD 请求均返回 HTTP 200，内容长度符合预期。发布后未重新下载完整安装包，
+  本项不代表公开下载包的安装验收。
+- 发布说明与标签源码一致。当前版本选择器用公开元数据执行，确认 Preview 4 可选中
+  macOS arm64/x64、Windows x64 的新版安装包；稳定通道排除预览版，当前版本不会
+  重复推荐自己。这是选择器验证，不代表更新界面的端到端验收。
+- GitHub Latest 稳定版仍为 `v0.4.0`；桌面预览发布没有发布新的 npm 版本。
+  本次 Release 已公开，标记为 prerelease，非草稿。
 
 ## 必需检查
 

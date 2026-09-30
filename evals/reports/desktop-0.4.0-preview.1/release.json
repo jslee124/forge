@@ -1,0 +1,115 @@
+{
+  "tag": "desktop-0.4.0-preview.1",
+  "releaseId": 399722925,
+  "url": "https://github.com/jslee124/forge/releases/tag/desktop-0.4.0-preview.1",
+  "publishedAt": "2026-09-30T04:38:21Z",
+  "verifiedAt": "2026-09-30T04:38:53.488109+00:00",
+  "draft": false,
+  "prerelease": true,
+  "sourceCommit": "cf9ebf26b07795d13458fec92698e64bcf8395ff",
+  "releaseTriggerCommit": "cf9ebf26b07795d13458fec92698e64bcf8395ff",
+  "publicationCi": "https://github.com/jslee124/forge/actions/runs/36669286127",
+  "ciJobs": [
+    {
+      "name": "verify",
+      "conclusion": "success",
+      "url": "https://github.com/jslee124/forge/actions/runs/36669286127/job/109740603070"
+    },
+    {
+      "name": "Windows gateway contracts",
+      "conclusion": "success",
+      "url": "https://github.com/jslee124/forge/actions/runs/36669286127/job/109740603300"
+    },
+    {
+      "name": "desktop-macos-preview",
+      "conclusion": "success",
+      "url": "https://github.com/jslee124/forge/actions/runs/36669286127/job/109740928969"
+    },
+    {
+      "name": "desktop-windows",
+      "conclusion": "success",
+      "url": "https://github.com/jslee124/forge/actions/runs/36669286127/job/109740929000"
+    },
+    {
+      "name": "desktop-publish-preview",
+      "conclusion": "success",
+      "url": "https://github.com/jslee124/forge/actions/runs/36669286127/job/109741879005"
+    }
+  ],
+  "assets": [
+    {
+      "name": "SHA256SUMS",
+      "size": 284,
+      "sha256": "04b3744294ccd7ee463664273aea448d9dfd4d9fae2ac5a325d1acfcef011b6e",
+      "url": "https://github.com/jslee124/forge/releases/download/desktop-0.4.0-preview.1/SHA256SUMS"
+    },
+    {
+      "name": "desktop-build.json",
+      "size": 738,
+      "sha256": "9c70c8343037a2bca326c40026bce43f2024a815ad0bec99c89c722a69b470d9",
+      "url": "https://github.com/jslee124/forge/releases/download/desktop-0.4.0-preview.1/desktop-build.json"
+    },
+    {
+      "name": "forge-desktop-0.4.0-arm64.dmg",
+      "size": 166556189,
+      "sha256": "e317b80de2d6af8eb84419107db90d04e80641f2aada5f407b9602cafa6d9f7a",
+      "url": "https://github.com/jslee124/forge/releases/download/desktop-0.4.0-preview.1/forge-desktop-0.4.0-arm64.dmg"
+    },
+    {
+      "name": "forge-desktop-0.4.0-x64.dmg",
+      "size": 170244625,
+      "sha256": "36269c75fbbba3ddbd6c7834aa80cfb034cab22cc44ac5d45c08ea68e8b8f46d",
+      "url": "https://github.com/jslee124/forge/releases/download/desktop-0.4.0-preview.1/forge-desktop-0.4.0-x64.dmg"
+    },
+    {
+      "name": "forge-desktop-0.4.0-x64.exe",
+      "size": 140230857,
+      "sha256": "6ff07fb077fe8b5718659059bd5698fe213837ec19f5124506e5d42aab6f0ac0",
+      "url": "https://github.com/jslee124/forge/releases/download/desktop-0.4.0-preview.1/forge-desktop-0.4.0-x64.exe"
+    }
+  ],
+  "verification": {
+    "githubDigestsMatchBuildManifest": true,
+    "publicInstallerHead": [
+      {
+        "name": "forge-desktop-0.4.0-x64.exe",
+        "status": 200,
+        "size": 140230857
+      },
+      {
+        "name": "forge-desktop-0.4.0-arm64.dmg",
+        "status": 200,
+        "size": 166556189
+      },
+      {
+        "name": "forge-desktop-0.4.0-x64.dmg",
+        "status": 200,
+        "size": 170244625
+      }
+    ],
+    "publicMetadataMatchesGithubDigests": true,
+    "tagMatchesSource": true,
+    "releaseNotesMatchSource": true,
+    "stableLatest": "v0.4.0",
+    "fullTestsPassed": 545,
+    "deterministicTestsPassed": 71,
+    "windowsInstalledAppSmoke": true,
+    "windowsUninstallSmoke": true,
+    "macosPackagedAppSmoke": true,
+    "localMacArm64PackagedAppSmoke": true,
+    "fullInstallersRedownloaded": false,
+    "preview4UpdateSelection": {
+      "darwin-arm64": "forge-desktop-0.4.0-arm64.dmg",
+      "darwin-x64": "forge-desktop-0.4.0-x64.dmg",
+      "win32-x64": "forge-desktop-0.4.0-x64.exe"
+    },
+    "stableChannelExcludesPreview": true,
+    "currentPreviewDoesNotOfferItself": true
+  },
+  "limitations": [
+    "Unsigned installers; macOS DMGs not notarized",
+    "No downloaded-release install acceptance, Gatekeeper/SmartScreen, Intel hardware, macOS 13 or native-window-control acceptance",
+    "No new real-provider login/call or live Telegram evidence; no Windows ARM64 installer",
+    "No main branch integration requested"
+  ]
+}
