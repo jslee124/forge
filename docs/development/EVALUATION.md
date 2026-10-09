@@ -121,8 +121,13 @@ The default `deepseek-flash` ID follows the current [DeepSeek model table](https
 
 ## v0.1 evidence
 
-The 2026-08-19 release evaluation used `deepseek-v4-flash` with thinking enabled
-at Forge commit `65c0a51`. It recorded nine fresh trials and passed seven:
+The 2026-08-19 release evaluation (Beijing time) used `deepseek-v4-flash`
+with thinking enabled at Forge commit `65c0a51`. Three small TypeScript repair
+tasks ran three fresh trials each: seven of nine passed end to end. A trial
+passes only when its status is `completed` and both the fixture-owned tests and
+external hidden grader pass. This historical small-sample baseline used the
+then-current `apply_patch` contract; it does not establish general coding
+capability for the current version.
 
 | Task | Passed | Pass rate |
 | --- | ---: | ---: |
@@ -130,15 +135,26 @@ at Forge commit `65c0a51`. It recorded nine fresh trials and passed seven:
 | `retry-cache` | 2/3 | 66.7% |
 | `validation-bug` | 2/3 | 66.7% |
 
-The two failed runs are intentionally retained. In both, the patch reached the
-grader, but the model requested `timeoutMs: 120000`; the narrow evaluation
-approval allowed only 60000ms and Forge denied the command. One failed
-`validation-bug` patch also failed the hidden grader.
+Both unsuccessful runs remain in the [original JSON report](../../evals/reports/v0.1/report.json).
+Their termination status and post-run grading describe different facts:
 
-The [published JSON report](../../evals/reports/v0.1/report.json),
-[Markdown summary](../../evals/reports/v0.1/report.md), and all nine JSONL traces
-are checked in. Every trace was revalidated for schema, sequence, run ID, and
-terminal-status consistency, and the configured API key was not present.
+| Task and trial | Run status | Post-run public tests | Post-run hidden tests | Trace |
+| --- | --- | --- | --- | --- |
+| `retry-cache` trial 1 | `denied` | Passed | Passed | [16c7e4a1](../../evals/reports/v0.1/traces/16c7e4a1-02cf-45f3-bf9c-f97a7e9020d1.jsonl) |
+| `validation-bug` trial 2 | `denied` | Passed | Failed | [d7547e89](../../evals/reports/v0.1/traces/d7547e89-f74c-4392-b502-ef75018ee462.jsonl) |
+
+Both traces record a command request with `timeoutMs: 120000`. The narrow
+evaluation approval allowed only 60000ms, so the command was not approved and
+the run ended as `denied`; this was not a command timing out after 60 seconds.
+The `retry-cache` patch passed post-run tests, but its run did not complete and
+therefore did not pass end to end. The `validation-bug` patch also failed the
+hidden grader. Approval denial and repair failure are not mutually exclusive
+categories, and the first result is not a grader false positive.
+
+The [Markdown summary](../../evals/reports/v0.1/report.md) and all nine JSONL
+traces are checked in. At publication, every trace was revalidated for schema,
+sequence, run ID, and terminal-status consistency, and the configured API key
+was not present. These are historical publication checks, not a new live run.
 
 ## Milestone 10 context gate
 

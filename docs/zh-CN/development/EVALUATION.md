@@ -68,7 +68,18 @@ JSON 报告记录 Forge commit、任务、trial、model、thinking、status、gr
 
 ## v0.1 证据
 
-2026-08-19 的 release evaluation 在 commit `65c0a51` 上使用开启 thinking 的 `deepseek-v4-flash`，记录 9 次试验并通过 7 次：`config-merge` 为 3/3，`retry-cache` 为 2/3，`validation-bug` 为 2/3。失败运行刻意保留；其中命令请求 120000ms，但窄审批只允许 60000ms，Forge 因此拒绝。发布 JSON、Markdown 和 9 个 JSONL trace 已检查 schema、序号、run ID、终止状态及 API key 泄漏。
+2026-08-19（北京时间）的 release evaluation 在 commit `65c0a51` 上使用开启 thinking 的 `deepseek-v4-flash`，对 3 个小型 TypeScript 修复任务各运行 3 次，共 9 次，端到端通过 7 次：`config-merge` 为 3/3，`retry-cache` 为 2/3，`validation-bug` 为 2/3。只有运行状态为 `completed`，且 fixture 自有测试与外部隐藏 grader 均通过，才计为端到端通过。这是历史小样本基线，使用当时的 `apply_patch` 工具契约，不能代表当前版本的通用编码能力。
+
+两次未通过运行均保留在[原始 JSON 报告](../../../evals/reports/v0.1/report.json)中，需要区分运行终止原因与事后评分：
+
+| 任务与 trial | 运行状态 | 事后公开测试 | 事后隐藏测试 | Trace |
+| --- | --- | --- | --- | --- |
+| `retry-cache` trial 1 | `denied` | 通过 | 通过 | [16c7e4a1](../../../evals/reports/v0.1/traces/16c7e4a1-02cf-45f3-bf9c-f97a7e9020d1.jsonl) |
+| `validation-bug` trial 2 | `denied` | 通过 | 失败 | [d7547e89](../../../evals/reports/v0.1/traces/d7547e89-f74c-4392-b502-ef75018ee462.jsonl) |
+
+两份 trace 都记录了命令请求 `timeoutMs: 120000`；窄评测审批只允许 60000ms，因此命令未获批准，运行以 `denied` 结束。这不是命令执行 60 秒后超时。`retry-cache` 的修复通过了事后测试，但运行未完成，仍计为未通过；`validation-bug` 同时还未通过隐藏测试。不能将两个样本简单划分为互斥的“审批失败”和“修复失败”，也不能把前者称为评分器误判。
+
+[Markdown 汇总](../../../evals/reports/v0.1/report.md)与 9 个 JSONL trace 已检入仓库。发布时已检查 schema、序号、run ID、终止状态及 API key 泄漏；这些是历史发布检查记录，不等于本次重跑 live 评测。
 
 ## Milestone 10 context gate
 
