@@ -14,7 +14,7 @@
 <p align="center">
   <a href="https://github.com/jslee124/forge/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/jslee124/forge/ci.yml?branch=main&amp;style=flat-square&amp;label=CI" alt="CI 状态"></a>
   <img src="https://img.shields.io/badge/source-v0.4.0-0e7490?style=flat-square" alt="源码版本 0.4.0">
-  <img src="https://img.shields.io/badge/Node.js-%3E%3D24-525252?style=flat-square&amp;logo=nodedotjs&amp;logoColor=white" alt="Node.js 24 或更高版本">
+  <img src="https://img.shields.io/badge/Node.js-%3E%3D24.22.1-525252?style=flat-square&amp;logo=nodedotjs&amp;logoColor=white" alt="Node.js 24.22.1 或更高版本">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-525252?style=flat-square" alt="MIT 许可证"></a>
 </p>
 
@@ -61,7 +61,7 @@ npm install --global @jslee124/forge
 forge config validate
 ```
 
-贡献者可以使用下面的源码 checkout。源码开发需要 Node.js 24 或更高版本、pnpm 11.18.0、Git，以及一种受支持的模型访问方式：
+贡献者可以使用下面的源码 checkout。源码开发需要 Node.js 24.22.1 或更高版本、pnpm 11.18.0、Git，以及一种受支持的模型访问方式：
 
 ```bash
 git clone https://github.com/jslee124/forge.git

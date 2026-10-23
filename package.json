@@ -10,7 +10,7 @@
     "evals"
   ],
   "engines": {
-    "node": ">=24"
+    "node": ">=24.22.1"
   },
   "scripts": {
     "build": "tsc -b",
@@ -45,6 +45,6 @@
     "esbuild": "^0.28.2",
     "jsdom": "26.1.0",
     "typescript": "^7.0.2",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.12"
   }
 }

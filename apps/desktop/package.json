@@ -47,10 +47,10 @@
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.2.0",
-    "electron": "44.2.0",
+    "electron": "44.9.3",
     "electron-builder": "^26.15.3",
     "electron-vite": "5.0.0",
     "tailwindcss": "^4.1.13",
-    "vite": "^7.3.6"
+    "vite": "^7.3.7"
   }
 }

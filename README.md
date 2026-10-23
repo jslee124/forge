@@ -14,7 +14,7 @@
 <p align="center">
   <a href="https://github.com/jslee124/forge/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/jslee124/forge/ci.yml?branch=main&amp;style=flat-square&amp;label=CI" alt="CI status"></a>
   <img src="https://img.shields.io/badge/source-v0.4.0-0e7490?style=flat-square" alt="Source version 0.4.0">
-  <img src="https://img.shields.io/badge/Node.js-%3E%3D24-525252?style=flat-square&amp;logo=nodedotjs&amp;logoColor=white" alt="Node.js 24 or newer">
+  <img src="https://img.shields.io/badge/Node.js-%3E%3D24.22.1-525252?style=flat-square&amp;logo=nodedotjs&amp;logoColor=white" alt="Node.js 24.22.1 or newer">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-525252?style=flat-square" alt="MIT license"></a>
 </p>
 
@@ -71,7 +71,7 @@ forge config validate
 ```
 
 Contributors can use the source checkout below. Source development requires
-Node.js 24 or newer, pnpm 11.18.0, Git, and one supported model-access route:
+Node.js 24.22.1 or newer, pnpm 11.18.0, Git, and one supported model-access route:
 
 ```bash
 git clone https://github.com/jslee124/forge.git

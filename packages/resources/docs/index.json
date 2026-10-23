@@ -91,10 +91,11 @@
           "title": "Prerequisites",
           "level": 2,
           "start": 495,
-          "end": 1201,
+          "end": 1206,
           "keywords": [
             "11",
             "18",
+            "22",
             "24",
             "account",
             "an",
@@ -174,8 +175,8 @@
           "id": "1-install-the-checkout",
           "title": "1. Install the checkout",
           "level": 2,
-          "start": 1201,
-          "end": 1775,
+          "start": 1206,
+          "end": 1780,
           "keywords": [
             "after",
             "and",
@@ -240,8 +241,8 @@
           "id": "2-choose-an-access-route",
           "title": "2. Choose an access route",
           "level": 2,
-          "start": 1775,
-          "end": 2671,
+          "start": 1780,
+          "end": 2676,
           "keywords": [
             "access",
             "add",
@@ -312,8 +313,8 @@
           "id": "option-a-interactive-api-key-setup",
           "title": "Option A: interactive API-key setup",
           "level": 3,
-          "start": 2671,
-          "end": 3189,
+          "start": 2676,
+          "end": 3194,
           "keywords": [
             "advertised",
             "and",
@@ -376,8 +377,8 @@
           "id": "option-b-environment-variables",
           "title": "Option B: environment variables",
           "level": 3,
-          "start": 3189,
-          "end": 3348,
+          "start": 3194,
+          "end": 3353,
           "keywords": [
             "and",
             "api",
@@ -401,8 +402,8 @@
           "id": "or",
           "title": "or",
           "level": 1,
-          "start": 3348,
-          "end": 3576,
+          "start": 3353,
+          "end": 3581,
           "keywords": [
             "and",
             "api",
@@ -440,8 +441,8 @@
           "id": "option-c-chatgpt-subscription-through-codex",
           "title": "Option C: ChatGPT subscription through Codex",
           "level": 3,
-          "start": 3576,
-          "end": 4137,
+          "start": 3581,
+          "end": 4142,
           "keywords": [
             "agent",
             "and",
@@ -509,8 +510,8 @@
           "id": "3-validate-configuration-locally",
           "title": "3. Validate configuration locally",
           "level": 2,
-          "start": 4137,
-          "end": 4823,
+          "start": 4142,
+          "end": 4828,
           "keywords": [
             "12",
             "40",
@@ -590,8 +591,8 @@
           "id": "4-run-a-first-task",
           "title": "4. Run a first task",
           "level": 2,
-          "start": 4823,
-          "end": 4847,
+          "start": 4828,
+          "end": 4852,
           "keywords": [
             "first",
             "run",
@@ -602,8 +603,8 @@
           "id": "start-read-only",
           "title": "Start read-only",
           "level": 3,
-          "start": 4847,
-          "end": 5353,
+          "start": 4852,
+          "end": 5358,
           "keywords": [
             "allowed",
             "and",
@@ -668,8 +669,8 @@
           "id": "try-a-coding-task",
           "title": "Try a coding task",
           "level": 3,
-          "start": 5353,
-          "end": 5917,
+          "start": 5358,
+          "end": 5922,
           "keywords": [
             "action",
             "an",
@@ -745,8 +746,8 @@
           "id": "one-shot-commands",
           "title": "One-shot commands",
           "level": 3,
-          "start": 5917,
-          "end": 6203,
+          "start": 5922,
+          "end": 6208,
           "keywords": [
             "and",
             "architecture",
@@ -776,8 +777,8 @@
           "id": "equivalent-engine-selection",
           "title": "equivalent engine selection:",
           "level": 1,
-          "start": 6203,
-          "end": 6604,
+          "start": 6208,
+          "end": 6609,
           "keywords": [
             "action",
             "an",
@@ -834,8 +835,8 @@
           "id": "5-continue-and-inspect",
           "title": "5. Continue and inspect",
           "level": 2,
-          "start": 6604,
-          "end": 7309,
+          "start": 6609,
+          "end": 7314,
           "keywords": [
             "agent-loop",
             "an",
@@ -919,8 +920,8 @@
           "id": "next-steps",
           "title": "Next steps",
           "level": 2,
-          "start": 7309,
-          "end": 7769,
+          "start": 7314,
+          "end": 7774,
           "keywords": [
             "add",
             "an",
@@ -1025,7 +1026,7 @@
         "you"
       ],
       "path": "en/GETTING_STARTED.md",
-      "sha256": "d0b5866de8623bc047b02860701dcb7b8d4c623c40875ae19ae877332f508864"
+      "sha256": "928bbe6f7f6b64ed83d27e46689affa0814a0423500f5e7a40cc8cd6446e405a"
     },
     {
       "id": "configuration",
@@ -16813,10 +16814,11 @@
           "title": "前置条件",
           "level": 2,
           "start": 246,
-          "end": 669,
+          "end": 674,
           "keywords": [
             "11",
             "18",
+            "22",
             "24",
             "api",
             "bash",
@@ -16871,8 +16873,8 @@
           "id": "1-安装-checkout",
           "title": "1. 安装 checkout",
           "level": 2,
-          "start": 669,
-          "end": 1057,
+          "start": 674,
+          "end": 1062,
           "keywords": [
             "bash",
             "build",
@@ -16914,8 +16916,8 @@
           "id": "2-选择访问方式",
           "title": "2. 选择访问方式",
           "level": 2,
-          "start": 1057,
-          "end": 1677,
+          "start": 1062,
+          "end": 1682,
           "keywords": [
             "api",
             "app",
@@ -16961,8 +16963,8 @@
           "id": "方案-a-交互式保存-api-key",
           "title": "方案 A：交互式保存 API key",
           "level": 3,
-          "start": 1677,
-          "end": 1984,
+          "start": 1682,
+          "end": 1989,
           "keywords": [
             "api",
             "auth",
@@ -17005,8 +17007,8 @@
           "id": "方案-b-环境变量",
           "title": "方案 B：环境变量",
           "level": 3,
-          "start": 1984,
-          "end": 2067,
+          "start": 1989,
+          "end": 2072,
           "keywords": [
             "api",
             "bash",
@@ -17024,8 +17026,8 @@
           "id": "或",
           "title": "或",
           "level": 1,
-          "start": 2067,
-          "end": 2220,
+          "start": 2072,
+          "end": 2225,
           "keywords": [
             "api",
             "config",
@@ -17056,8 +17058,8 @@
           "id": "方案-c-通过-codex-使用-chatgpt-订阅",
           "title": "方案 C：通过 Codex 使用 ChatGPT 订阅",
           "level": 3,
-          "start": 2220,
-          "end": 2626,
+          "start": 2225,
+          "end": 2631,
           "keywords": [
             "agent",
             "app",
@@ -17108,8 +17110,8 @@
           "id": "3-在本地验证配置",
           "title": "3. 在本地验证配置",
           "level": 2,
-          "start": 2626,
-          "end": 2998,
+          "start": 2631,
+          "end": 3003,
           "keywords": [
             "12",
             "40",
@@ -17159,8 +17161,8 @@
           "id": "4-完成第一次任务",
           "title": "4. 完成第一次任务",
           "level": 2,
-          "start": 2998,
-          "end": 3013,
+          "start": 3003,
+          "end": 3018,
           "keywords": [
             "完成第一次任务"
           ]
@@ -17169,8 +17171,8 @@
           "id": "先从只读任务开始",
           "title": "先从只读任务开始",
           "level": 3,
-          "start": 3013,
-          "end": 3266,
+          "start": 3018,
+          "end": 3271,
           "keywords": [
             "bash",
             "engine",
@@ -17207,8 +17209,8 @@
           "id": "再尝试-coding-task",
           "title": "再尝试 coding task",
           "level": 3,
-          "start": 3266,
-          "end": 3504,
+          "start": 3271,
+          "end": 3509,
           "keywords": [
             "coding",
             "denial",
@@ -17244,8 +17246,8 @@
           "id": "one-shot-命令",
           "title": "One-shot 命令",
           "level": 3,
-          "start": 3504,
-          "end": 3656,
+          "start": 3509,
+          "end": 3661,
           "keywords": [
             "bash",
             "codex",
@@ -17267,8 +17269,8 @@
           "id": "等价的-engine-选择",
           "title": "等价的 engine 选择：",
           "level": 1,
-          "start": 3656,
-          "end": 3807,
+          "start": 3661,
+          "end": 3812,
           "keywords": [
             "closed",
             "codex",
@@ -17296,8 +17298,8 @@
           "id": "5-继续会话与检查证据",
           "title": "5. 继续会话与检查证据",
           "level": 2,
-          "start": 3807,
-          "end": 4262,
+          "start": 3812,
+          "end": 4267,
           "keywords": [
             "agent-loop",
             "bash",
@@ -17354,8 +17356,8 @@
           "id": "下一步",
           "title": "下一步",
           "level": 2,
-          "start": 4262,
-          "end": 4482,
+          "start": 4267,
+          "end": 4487,
           "keywords": [
             "agents",
             "cli",
@@ -17418,7 +17420,7 @@
         "通过"
       ],
       "path": "zh-CN/GETTING_STARTED.md",
-      "sha256": "232566b131bad107921aa951973961917f652f2365e55b2ebc398e1fb1864dca"
+      "sha256": "9ecc1c928ac3217d576584f40546def903f14d6979f48bfc12514a93514d9b75"
     },
     {
       "id": "configuration",

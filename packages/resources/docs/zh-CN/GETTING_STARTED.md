@@ -14,7 +14,7 @@ English · 中文文档目录
 
 ## 前置条件
 
-- Node.js 24 或更高版本
+- Node.js 24.22.1 或更高版本
 - pnpm 11.18.0，版本由根目录 `packageManager` 固定
 - Git
 - 以下任意一种模型访问方式：DeepSeek API key、OpenAI API key、已配置的 OpenAI-compatible endpoint，或通过 Codex CLI 使用 ChatGPT 账号

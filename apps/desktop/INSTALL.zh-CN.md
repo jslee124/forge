@@ -2,13 +2,16 @@
 
 [English](INSTALL.md) · [Windows 安装](INSTALL-WINDOWS.zh-CN.md) · [D13 开发验收](../../evals/reports/desktop-0.3.4-preview.2/D13_QA.md)
 
-当前桌面本地产物版本 0.4.0，Electron 44.2.0，electron-builder 26.15.3。
+当前工作区目标版本为 Forge 0.4.0、Electron 44.9.3、electron-builder 26.15.3。
+Electron 44.9.3 内置 Node 24.22.0；更新本机 Node 不会更新这个内置运行时。
+[10 月 21 日 Node 安全修复](https://nodejs.org/en/blog/vulnerability/october-2026-security-releases)
+仍需包含这些补丁的 Electron 更新；依赖审计通过不能证明内置运行时已修复。
 配置最低 macOS 13.0；不代表各系统版本都已实测。Apple Silicon 选择 arm64，Intel 选择 x64。
 桌面应用是私有工作区应用，与公开 CLI npm 包分别验证。
 
 ## 开发与构建
 
-仓库根目录使用 Node 24+ 和 package.json 固定的 pnpm：
+仓库根目录使用 Node 24.22.1+ 和 package.json 固定的 pnpm：
 
 ```sh
 CI=true pnpm install --frozen-lockfile

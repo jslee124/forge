@@ -16,7 +16,7 @@ a provider.
 
 ## Prerequisites
 
-- Node.js 24 or newer
+- Node.js 24.22.1 or newer
 - pnpm 11.18.0, as pinned by the root `packageManager` field
 - Git
 - One model-access route:

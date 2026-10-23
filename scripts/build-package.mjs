@@ -93,7 +93,7 @@ const packageManifest = {
   type: "module",
   bin: { forge: "dist/index.js" },
   files: ["dist", "resources", "README.md", "LICENSE"],
-  engines: { node: ">=24" },
+  engines: rootPackage.engines,
   repository: {
     type: "git",
     url: "git+https://github.com/jslee124/forge.git",

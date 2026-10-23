@@ -3,13 +3,17 @@
 [简体中文](INSTALL.zh-CN.md) · [Windows installation](INSTALL-WINDOWS.md) · [D13 development evidence](../../evals/reports/desktop-0.3.4-preview.2/D13_QA.md)
 
 Forge Desktop is a private workspace application, separate from the public Forge CLI package.
-The current local build is 0.4.0, Electron 44.2.0 and electron-builder 26.15.3.
+The workspace targets Forge 0.4.0, Electron 44.9.3 and electron-builder 26.15.3.
+Electron 44.9.3 bundles Node 24.22.0. Updating the host Node does not update this
+embedded runtime; the [October 21 Node security fixes](https://nodejs.org/en/blog/vulnerability/october-2026-security-releases)
+require a separate Electron update that includes those fixes. Dependency audit results
+alone do not establish that the embedded runtime is patched.
 The configured minimum is macOS 13.0; this does not imply testing on every macOS release.
 Choose arm64 for Apple Silicon or x64 for Intel. See the acceptance record for actual host coverage.
 
 ## Develop and build
 
-From the repository root, with Node 24+ and the pinned pnpm version in package.json:
+From the repository root, with Node 24.22.1+ and the pinned pnpm version in package.json:
 
 ```sh
 CI=true pnpm install --frozen-lockfile
