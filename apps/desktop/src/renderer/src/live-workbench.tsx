@@ -898,7 +898,9 @@ export function LiveWorkbench(): React.JSX.Element {
                         <summary>
                           {t("live.activity")} · {details.length}
                         </summary>
-                        <pre>{details.at(-1)?.text}</pre>
+                        <pre>
+                          {details.map((detail) => detail.text).join("\n")}
+                        </pre>
                       </details>
                     )}
                   </div>
@@ -940,7 +942,9 @@ export function LiveWorkbench(): React.JSX.Element {
                     {details.length > 0 && (
                       <details>
                         <summary>{t("live.activity")}</summary>
-                        <pre>{details.at(-1)?.text}</pre>
+                        <pre>
+                          {details.map((detail) => detail.text).join("\n")}
+                        </pre>
                       </details>
                     )}
                   </div>
@@ -968,7 +972,12 @@ export function LiveWorkbench(): React.JSX.Element {
                       : undefined
                   }
                   onKeyDown={(event) => {
-                    if (event.nativeEvent.isComposing) return;
+                    if (
+                      event.nativeEvent.isComposing ||
+                      event.nativeEvent.keyCode === 229
+                    )
+                      return;
+                    if (event.key === "Enter" && event.shiftKey) return;
                     if (candidates.length) {
                       if (event.key === "Escape") {
                         event.preventDefault();
@@ -1010,16 +1019,17 @@ export function LiveWorkbench(): React.JSX.Element {
                         return;
                       }
                     }
-                    if (
-                      event.key === "Enter" &&
-                      (event.metaKey || event.ctrlKey) &&
-                      !event.nativeEvent.isComposing
-                    ) {
+                    if (event.key === "Enter" && !event.altKey) {
                       event.preventDefault();
                       void send();
                     }
                   }}
                   aria-label={t("home.placeholder")}
+                  title={
+                    zh
+                      ? "Enter 发送，Shift+Enter 换行"
+                      : "Enter to send, Shift+Enter for a new line"
+                  }
                   placeholder={t("home.placeholder")}
                   value={draft}
                   onChange={(event) => {

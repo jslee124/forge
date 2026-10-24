@@ -18,6 +18,10 @@
 
 ## 当前开发
 
+- Desktop 产品化：[PRD](DESKTOP_PRODUCT_PRD.md)与[实现方案](DESKTOP_PRODUCT_IMPLEMENTATION.md)
+  定义面向本地小型开发任务的 M0—M4 计划，覆盖结构化运行／审批事件、收敛、恢复与产品验收。
+  新任务全部待实现；不修改已有完成记录，也不代表已发布行为。
+
 - 0.4.0 提供 Telegram 实验性私聊网关，详见 [Intent](CHAT_CHANNELS_INTENT.md)、
   [Spec](CHAT_CHANNELS_SPEC.md) 和[接入教程](../product/operations/CHAT_CHANNELS.md)。
   macOS 核心真实测试、Linux/Windows 自动化测试已通过；C10 完整真实验收仍未完成。

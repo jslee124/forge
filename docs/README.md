@@ -78,6 +78,8 @@ Use source, tests, and recorded acceptance results to establish completion.
 | --- | --- |
 | [Evaluation guide](development/EVALUATION.md) | Run deterministic evidence and explicit opt-in live trials |
 | [Roadmap](development/ROADMAP.md) | Current development, completed milestone summary, and later directions |
+| [Desktop productization PRD](development/DESKTOP_PRODUCT_PRD.md) | Proposed product scope, core journeys, requirements, and release gates |
+| [Desktop productization implementation](development/DESKTOP_PRODUCT_IMPLEMENTATION.md) | Proposed run contracts, persistence, tools, convergence, UI, and ordered tasks |
 | [Chat channels intent](development/CHAT_CHANNELS_INTENT.md) | Proposed 0.4.0 outcomes, scope, and product decisions |
 | [Chat channels specification](development/CHAT_CHANNELS_SPEC.md) | Proposed Telegram gateway contracts, security, recovery, and acceptance |
 

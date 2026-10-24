@@ -21,6 +21,8 @@
     "README.md",
     "development/ROADMAP.md",
     "development/EVALUATION.md",
+    "development/DESKTOP_PRODUCT_PRD.md",
+    "development/DESKTOP_PRODUCT_IMPLEMENTATION.md",
     "development/CHAT_CHANNELS_INTENT.md",
     "development/CHAT_CHANNELS_SPEC.md"
   ],

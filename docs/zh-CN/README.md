@@ -72,6 +72,8 @@ Forge 文档按“读者想完成什么”组织。第一次接触项目时无�
 | --- | --- |
 | [评测指南](development/EVALUATION.md) | 运行确定性证据与显式 opt-in live trials |
 | [路线图](development/ROADMAP.md) | 当前开发、已完成 milestone 摘要与后续方向 |
+| [Desktop 产品化 PRD](development/DESKTOP_PRODUCT_PRD.md) | 拟议产品范围、核心流程、需求与发布门槛 |
+| [Desktop 产品化实现方案](development/DESKTOP_PRODUCT_IMPLEMENTATION.md) | 拟议运行契约、持久化、工具、收敛、界面与有序任务 |
 | [聊天渠道 Intent](development/CHAT_CHANNELS_INTENT.md) | 拟定 0.4.0 目标、范围与产品决策 |
 | [聊天渠道 Spec](development/CHAT_CHANNELS_SPEC.md) | 拟定 Telegram 网关契约、安全、恢复与验收 |
 
