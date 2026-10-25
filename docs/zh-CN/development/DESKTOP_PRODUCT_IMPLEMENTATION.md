@@ -82,6 +82,22 @@ renderer 重载、可见历史选择与已记录工具成功、历史没有可�
 活动页将运行记录置顶，上下文诊断默认折叠。本地界面产物位于 `/tmp/forge-durable-ui/`，
 属于脚本回环测试证据，不是真实模型质量验收。
 
+## 调查工具增量（2026-10-25）
+
+T05 已新增流式、从 1 开始的行窗口读取，明确 EOF／范围／扫描元数据、资源元数据版本、
+UTF-8 安全输出；部分读取不会返回 rewrite 哈希。搜索新增合并后的有界上下文与
+workspace-relative include/exclude glob，并明确仅支持字面量，不执行任意正则。
+保留既有 edit_file 整文件哈希与陈旧基线检查。
+[调查工具合同测试](../../../packages/tools/src/investigation.test.ts) 覆盖中部读取、EOF、
+Unicode、扫描上限、取消、路径边界、上下文合并、过滤、元字符和省略信息。
+精确字段与上限见[当前工具合同](../product/concepts/ARCHITECTURE.md)。这不包含 T06 的
+预留最终总结预算，也不证明真实模型调查质量；产品验收前 T05 仍标为部分完成。
+
+本轮本地验证：54 项工具测试、102 项确定性合同测试、37 项 Desktop／application／
+cache 回归通过；`pnpm check`、`pnpm check:docs`、`pnpm desktop:build` 与
+`pnpm package:verify` 通过。这些是本地脚本与源码合同证据，不是真实模型评估或安装版
+Desktop 验收。
+
 ## 1. 实现目标与不变量
 
 目标：贯通原生引擎的“调查 → 审批 → 执行 → 验证 → 交付／恢复”，并维护 CLI、
@@ -365,7 +381,7 @@ core／adapter 的可选字段有旧缺省路径；CLI／gateway 不必升级到
 | T02 | [~] | persistence run store、redaction、配额、crash reconciliation、历史投影 | T01；R05/R08/R13 |
 | T03 | [~] | application run coordinator；接入现有 session／lease／revision；完成与存储顺序 | T02；R01/R08/R13 |
 | T04 | [~] | IPC v2、版本握手、顺序与身份检查、typed approval、断连取消 | T03；R02/R04/R14 |
-| T05 | [ ] | read_file 行范围、partial hash 规则、搜索上下文／过滤及受限 regex | T01；R06 |
+| T05 | [~] | read_file 行范围、partial hash 规则、搜索上下文／过滤及受限 regex | T01；R06 |
 | T06 | [ ] | core finalizing／budget／no-progress；adapter toolChoice none 及 continuation 测试 | T05；R07/R14 |
 | T07 | [ ] | summarize/continue/retry 服务、能力与新 run 关联、事实交付模型 | T03/T06；R09/R11 |
 | T08 | [~] | renderer reducer、合并／分页、浏览与执行分离、旧消息投影接入 | T04；R02/R05/R13 |

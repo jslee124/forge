@@ -104,6 +104,26 @@ approval/stop/failure workflow and 720/840/980/1100 layout matrix. The Activity 
 places records first and collapses context diagnostics. UI output is local at
 `/tmp/forge-durable-ui/`; this is scripted loopback evidence, not a live model run.
 
+## Investigation-tool follow-up (2026-10-25)
+
+T05 now has streaming 1-based line windows, explicit EOF/range/scan metadata,
+metadata resource versions, UTF-8-safe output, and no rewrite hashes from partial
+reads. Search adds merged bounded context and restricted workspace-relative
+include/exclude globs; it explicitly advertises literal-only capability rather
+than arbitrary regex. Existing edit-file full-hash/stale checks remain in force.
+The [investigation contracts](../../packages/tools/src/investigation.test.ts)
+cover middle-file reads, EOF, Unicode, scan limits, cancellation, path boundaries,
+context merging, filtering, metacharacters, and omission disclosure.
+See the [current tool contract](../product/concepts/ARCHITECTURE.md) for exact fields
+and limits. This does not implement T06's reserved finalization budget or prove
+live-model investigation quality. T05 remains partial until product acceptance.
+
+Local checks for this increment: 54 tool tests, 102 deterministic contract tests,
+and 37 Desktop/application/cache regressions passed. `pnpm check`,
+`pnpm check:docs`, `pnpm desktop:build`, and `pnpm package:verify` passed.
+These are local scripted/source-contract checks, not live-model evaluation or
+installed Desktop acceptance.
+
 ## 1. Goal and invariants
 
 Complete the native-engine investigation → approval → execution → verification →
@@ -455,7 +475,7 @@ tests. A partial vertical increment does not complete a milestone.
 | T02 | [~] | Run store, redaction, quotas, crash reconciliation, history projection | T01; R05/R08/R13 |
 | T03 | [~] | Run coordinator with existing session/lease/revision and finish/write ordering | T02; R01/R08/R13 |
 | T04 | [~] | IPC v2, handshake, sequence/identity checks, typed approvals, disconnect cancellation | T03; R02/R04/R14 |
-| T05 | [ ] | Line ranges, partial-hash rules, search context/filtering, bounded regex | T01; R06 |
+| T05 | [~] | Line ranges, partial-hash rules, search context/filtering, bounded regex | T01; R06 |
 | T06 | [ ] | Core finalization/budgets/no-progress, adapter none and continuation tests | T05; R07/R14 |
 | T07 | [ ] | Summarize/continue/retry services, capabilities, linked runs, factual delivery model | T03/T06; R09/R11 |
 | T08 | [~] | Renderer reducer, merging/paging, separate viewed/active state, old-message projection | T04; R02/R05/R13 |

@@ -113,7 +113,7 @@ describe("read-only tools", () => {
 
     const result = await readFile({ path: "README.md" }, limitedContext);
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       ok: true,
       output: {
         path: "README.md",

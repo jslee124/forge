@@ -293,6 +293,36 @@ The native tools and checked-in extension examples are:
 | `web_fetch` (example plugin) | Fetch bounded readable public HTTP(S) text | Network |
 | `delegate_code_review` (example plugin) | Run an isolated read-only review role | Model |
 
+`read_file` accepts optional `startLine` (1–10,000,000) and `lineCount`
+(1–2,000; default 200 when a start is supplied). Omit both fields to retain the
+complete bounded read. It returns actual `startLine`/`endLine`, `returnedLines`,
+`totalLinesKnown`/`totalLines`, `partial`, `resourceVersion`, and `scannedBytes`.
+Total lines remain unknown until EOF is reached. Range scanning stops at 64 MiB;
+output/scan limits are explicit in `limitReason` and `truncated`. UTF-8 prefixes
+never end inside a character; invalid or binary selected content returns
+`not_text`. A file changing during the read returns retryable `stale_file`.
+
+An explicit range always has `sha256: null` and `rewriteAvailable: false`, even
+when it covers a small entire file. `resourceVersion` is a metadata identity for
+rereading, not a content hash, rewrite baseline, or permission. Only a complete,
+non-truncated read supplies the full-content SHA-256 accepted by `edit_file`.
+
+`search` supports only `mode: "literal"`. Optional `contextBefore`/`contextAfter`
+are 0–20 lines and overlapping context is merged. `include`/`exclude` accept at
+most 20 workspace-root-relative globs of 256 characters, using `*`, `?`, and
+whole-segment `**` (for example `src/**/*.ts` and `node_modules/**`). Regex,
+extglob, traversal patterns, and unknown fields are rejected. These filters
+narrow discovery; they never widen workspace access.
+
+Search skips files over 1 MiB, accounts against a 16 MiB scan budget, and retains
+entry/match/output limits. Failed reads conservatively consume their attempted
+byte allowance. `skippedFiles`, `scanBudgetBytes`, and `limits` disclose omitted
+work; no matches in an incomplete search is not evidence of absence. Directory
+iteration is bounded before sorting discovered entries. Line previews are capped
+at 2,048 UTF-16 code units with complete characters and explicit truncation;
+`column` and `previewStartColumn` are 1-based UTF-16 offsets in the original line.
+Context lines carry their original line numbers and clipping indicators.
+
 `edit_file` uses a flat model-facing object with an `operation` enum so
 compatible endpoints do not need to accept `anyOf`/`oneOf`. The runtime then
 enforces the create, replace, and rewrite field combinations before approval or
