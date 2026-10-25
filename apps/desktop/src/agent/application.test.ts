@@ -60,9 +60,18 @@ async function fixture(
   };
   const requests: ModelRequest[] = [];
   const model: ModelAdapter = {
+    supportsToolChoiceNone: true,
     async *stream(request) {
       await beforeStream?.();
       requests.push(request);
+      if (request.toolChoice === "none") {
+        yield {
+          type: "text.delta",
+          text: "Partial fixture summary; investigation is unavailable.",
+        };
+        yield finish("stop");
+        return;
+      }
       yield* steps.shift() ?? [
         { type: "text.delta", text: "done" },
         finish("stop"),
@@ -128,7 +137,7 @@ async function run(
   return { events, final, accepted };
 }
 describe("desktop native execution", () => {
-  it("preserves a real step-limit outcome and classifies its internal history separately", async () => {
+  it("keeps a one-step answering-only summary partial and classifies its outcome separately", async () => {
     const f = await fixture([
       [call("read_file", { path: "note.txt" }), finish("tool-calls")],
     ]);
@@ -144,7 +153,8 @@ describe("desktop native execution", () => {
       outcome: "limit_reached",
       reason: "model_step_limit",
       modelSteps: 1,
-      toolCalls: 1,
+      toolCalls: 0,
+      partial: true,
     });
     const state = await f.application.state();
     expect(
@@ -177,8 +187,8 @@ describe("desktop native execution", () => {
           event.payload.type === "action" &&
           event.payload.action.status === "succeeded",
       ),
-    ).toBe(true);
-    expect(JSON.stringify(saved)).toContain("were not returned to the model");
+    ).toBe(false);
+    expect(f.requests[0]?.toolChoice).toBe("none");
     expect(JSON.stringify(saved)).toContain("[Forge run outcome");
     f.application.close();
   });

@@ -12,10 +12,12 @@ export const productCompletionSchema = z
       "limit_reached",
       "interrupted",
     ]),
+    partial: z.boolean().optional(),
     reason: z
       .enum([
         "model_step_limit",
         "tool_call_limit",
+        "no_progress",
         "context_limit",
         "configuration_error",
         "workspace_conflict",

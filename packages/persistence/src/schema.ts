@@ -502,6 +502,13 @@ const terminalEvent = (
 export const runEventSchema = z.discriminatedUnion("type", [
   z
     .object({
+      type: z.literal("run.finalizing"),
+      step: z.number().int().positive(),
+      reason: z.enum(["model_step_limit", "tool_call_limit", "no_progress"]),
+    })
+    .strict(),
+  z
+    .object({
       type: z.literal("skill.discovery"),
       catalogCount: z.number().int().nonnegative().max(64),
       diagnosticCount: z.number().int().nonnegative(),

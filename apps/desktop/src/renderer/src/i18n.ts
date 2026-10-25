@@ -8,6 +8,9 @@ export const resources = {
     translation: {
       runUi: {
         history: "Run records",
+        noProgressTitle: "Investigation stopped",
+        partialResult:
+          "Partial result based on available evidence; the task is not confirmed complete.",
         refreshHistory: "Latest records",
         noHistory:
           "No product run records. Older sessions may have no activity history.",
@@ -82,6 +85,7 @@ export const resources = {
         },
         phases: {
           running: "Preparing request",
+          finalizing: "Summarizing available evidence",
           responding: "Waiting for the model",
           executing: "Executing a tool",
           stopping: "Stopping",
@@ -95,6 +99,8 @@ export const resources = {
           denied: "Run could not proceed with the current permissions",
         },
         reasons: {
+          no_progress:
+            "Investigation repeated the same reads without new evidence and was stopped.",
           model_step_limit:
             "The model-step budget was reached. Work may be incomplete.",
           tool_call_limit:
@@ -411,6 +417,8 @@ export const resources = {
     translation: {
       runUi: {
         history: "运行记录",
+        noProgressTitle: "调查已停止",
+        partialResult: "基于已有证据的部分结果，尚未确认任务完成。",
         refreshHistory: "最新记录",
         noHistory: "暂无产品运行记录。旧会话可能没有活动历史。",
         historyError: "无法读取运行记录，对话内容仍可查看。",
@@ -476,6 +484,7 @@ export const resources = {
         },
         phases: {
           running: "准备请求",
+          finalizing: "正在基于已有信息总结",
           responding: "等待模型响应",
           executing: "正在执行工具",
           stopping: "正在停止",
@@ -489,6 +498,7 @@ export const resources = {
           denied: "当前权限下无法继续",
         },
         reasons: {
+          no_progress: "连续重复读取未获得新证据，已停止调查并总结。",
           model_step_limit: "已达到模型步骤上限，任务可能尚未完成。",
           tool_call_limit: "已达到工具调用上限，任务可能尚未完成。",
           context_limit: "当前可用上下文预算不足。",

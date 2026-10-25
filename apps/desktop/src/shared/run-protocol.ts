@@ -46,7 +46,10 @@ export type RunPayload =
       readonly step?: number;
     }
   | { readonly type: "action"; readonly action: ProductActionUpdate }
-  | { readonly type: "phase"; readonly phase: "responding" | "executing" }
+  | {
+      readonly type: "phase";
+      readonly phase: "responding" | "executing" | "finalizing";
+    }
   | {
       readonly type: "approval-resolved";
       readonly approvalId: string;
@@ -258,7 +261,7 @@ export const runPayloadSchema = z.discriminatedUnion("type", [
   z
     .object({
       type: z.literal("phase"),
-      phase: z.enum(["responding", "executing"]),
+      phase: z.enum(["responding", "executing", "finalizing"]),
     })
     .strict(),
   z
@@ -314,6 +317,7 @@ export const runPayloadSchema = z.discriminatedUnion("type", [
         .enum([
           "model_step_limit",
           "tool_call_limit",
+          "no_progress",
           "context_limit",
           "configuration_error",
           "workspace_conflict",
@@ -328,6 +332,7 @@ export const runPayloadSchema = z.discriminatedUnion("type", [
       modelSteps: z.number().int().nonnegative().optional(),
       toolCalls: z.number().int().nonnegative().optional(),
       durationMs: z.number().nonnegative().optional(),
+      partial: z.boolean().optional(),
     })
     .strict(),
 ]);

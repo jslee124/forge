@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, realpath, writeFile } from "node:fs/promises";
+import { mkdir, readFile, realpath, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { FileSessionStore, recordRunInSession } from "@forge/persistence";
 import { app, type BrowserWindow, dialog } from "electron";
@@ -647,6 +647,65 @@ export async function runUiAcceptance(
       "(() => {const r=document.querySelector('[data-run-result=current]').getBoundingClientRect();return r.top>=0 && r.bottom<=innerHeight;})()",
     );
     await capture("p4-error");
+    const finalizationCallsBefore = provider.calls;
+    const finalizationConfig = JSON.parse(
+      await readFile(join(home, "config.json"), "utf8"),
+    );
+    await writeFile(
+      join(home, "config.json"),
+      JSON.stringify({
+        ...finalizationConfig,
+        limits: { ...finalizationConfig.limits, maxSteps: 2 },
+      }),
+    );
+    provider.setMode("finalize");
+    await click(".sidebar > button:first-of-type");
+    await until(
+      "document.querySelector('.studio-welcome') && !document.querySelector('[data-testid=composer-engine]').disabled",
+    );
+    await enterDraft("P4 bounded finalization fixture");
+    await click(".studio-composer-footer > button:last-child");
+    try {
+      await until(
+        "document.querySelector('[data-run-result=current]')?.textContent.includes('Partial result based on available evidence') && document.querySelector('.live-transcript')?.textContent.includes('Partial fixture summary') && !document.querySelector('[data-testid=composer-engine]').disabled",
+      );
+    } catch (error) {
+      console.error(
+        "Finalization fixture diagnostic",
+        provider.calls,
+        provider.noneRequests,
+        await js(
+          "(async()=>JSON.stringify({text:document.querySelector('.live-main')?.textContent,history:(await window.forgeDesktop.manage({type:'state'})).runHistory}))()",
+        ),
+      );
+      await capture("product-finalization-failure");
+      throw error;
+    }
+    if (
+      provider.calls - finalizationCallsBefore !== 2 ||
+      provider.noneRequests !== 1
+    )
+      throw new Error(
+        "Finalization exceeded its two-call budget or omitted toolChoice none",
+      );
+    const partial = await js(
+      "window.forgeDesktop.manage({type:'state'}).then(state=>state.runHistory?.selected?.summary.completion)",
+    );
+    if (
+      partial?.outcome !== "limit_reached" ||
+      partial.partial !== true ||
+      partial.modelSteps !== 2 ||
+      partial.toolCalls !== 1
+    )
+      throw new Error("Partial finalization metadata was lost");
+    await capture("product-budget-finalization");
+    results.push({
+      name: "reserved-finalization",
+      calls: 2,
+      tools: 1,
+      partial: true,
+      externalProvider: false,
+    });
     if (provider.calls < 4) throw new Error("offline transport not exercised");
     results.push({
       name: "p4-loopback-workflow",

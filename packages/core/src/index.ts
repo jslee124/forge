@@ -86,6 +86,7 @@ export {
   DEFAULT_MAX_MODEL_STEPS,
   DEFAULT_MAX_TOOL_CALLS,
   exitCodeForRunStatus,
+  type FinalizationReason,
   type RunAgentOptions,
   type RunContextSnapshot,
   type RunEvent,

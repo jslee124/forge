@@ -4,6 +4,7 @@ export type ProductRunOutcome = RunStatus | "interrupted";
 export type ProductRunReason =
   | "model_step_limit"
   | "tool_call_limit"
+  | "no_progress"
   | "context_limit"
   | "configuration_error"
   | "workspace_conflict"
@@ -16,6 +17,7 @@ export type ProductRunReason =
 /** Presentation facts only. None of these fields authorize execution. */
 export interface ProductRunCompletion {
   readonly outcome: ProductRunOutcome;
+  readonly partial?: boolean | undefined;
   readonly reason?: ProductRunReason | undefined;
   readonly message?: string | undefined;
   readonly modelSteps?: number | undefined;
@@ -96,20 +98,21 @@ export function projectActionEvent(
 export function projectRunCompletion(result: RunResult): ProductRunCompletion {
   let reason: ProductRunReason | undefined;
   if (result.status === "limit_reached") {
-    reason = result.events.some(
-      (event) => event.type === "context.limit_reached",
-    )
-      ? "context_limit"
-      : result.message === "The tool-call limit was reached."
-        ? "tool_call_limit"
-        : result.message === "The model-step limit was reached."
-          ? "model_step_limit"
-          : undefined;
+    reason =
+      result.limitReason ??
+      (result.events.some((event) => event.type === "context.limit_reached")
+        ? "context_limit"
+        : result.message === "The tool-call limit was reached."
+          ? "tool_call_limit"
+          : result.message === "The model-step limit was reached."
+            ? "model_step_limit"
+            : undefined);
   } else if (result.status === "cancelled") reason = "cancelled";
   else if (result.status === "denied") reason = "permission_denied";
   else if (result.status === "failed") reason = "execution_error";
   return {
     outcome: result.status,
+    ...(result.partial !== undefined ? { partial: result.partial } : {}),
     ...(reason ? { reason } : {}),
     ...(result.message ? { message: result.message } : {}),
     modelSteps: result.modelSteps,

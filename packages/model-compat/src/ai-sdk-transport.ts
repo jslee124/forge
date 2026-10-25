@@ -76,6 +76,7 @@ export class AiSdkCompatTransport implements CompatTransport {
         ...(request.instructions ? { instructions: request.instructions } : {}),
         messages,
         abortSignal: signal,
+        ...(request.toolChoice ? { toolChoice: request.toolChoice } : {}),
         onError: () => undefined,
         ...(request.tools?.length
           ? { tools: toAiSdkTools(request.tools) }

@@ -283,6 +283,7 @@ export interface ModelRequest {
   readonly instructions?: string;
   readonly conversation?: readonly ModelConversationMessage[];
   readonly tools?: readonly ModelToolDefinition[];
+  readonly toolChoice?: "none";
   readonly continuation?: ModelContinuation;
   readonly toolResults?: readonly ModelToolResult[];
   readonly cacheControl?: {
@@ -339,6 +340,8 @@ export type ModelStreamEvent =
     };
 
 export interface ModelAdapter {
+  /** Transport can request tool-free output; runtime still blocks returned calls. */
+  readonly supportsToolChoiceNone?: boolean;
   readonly context?: ModelContextCapabilities;
   readonly promptCache?: PromptCacheCapabilities;
   stream(

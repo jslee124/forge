@@ -22,7 +22,7 @@ export interface ExecutionContext {
     step?: number,
   ): void;
   action(action: ProductActionUpdate): void;
-  phase(phase: "responding" | "executing"): void;
+  phase(phase: "responding" | "executing" | "finalizing"): void;
   approve(description: string, descriptor?: ApprovalView): Promise<boolean>;
 }
 export type RunExecutor = ((

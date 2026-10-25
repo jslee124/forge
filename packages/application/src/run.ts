@@ -62,6 +62,7 @@ import {
 import type { AskOptions, WritableOutput } from "./options.js";
 import { parseThinkingMode } from "./options.js";
 export interface RunDependencies {
+  readonly completionPolicy?: "direct" | "reserve-final-step";
   readonly workspaceLease?: ExecutionLease;
   readonly perActionApproval?: boolean;
   readonly env: NodeJS.ProcessEnv;
@@ -419,6 +420,9 @@ export async function runTask(
     );
     const result = await runAgent({
       runId,
+      ...(dependencies.completionPolicy
+        ? { completionPolicy: dependencies.completionPolicy }
+        : {}),
       prompt,
       ...(images.length ? { images } : {}),
       context: {

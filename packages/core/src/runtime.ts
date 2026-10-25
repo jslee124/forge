@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-
 import {
   type ApprovalDescriptor,
   type ApprovalResponse,
@@ -38,6 +37,7 @@ import type {
   ApprovalPolicy,
   ProposedAction,
 } from "./policy.js";
+import { unchangedReadFingerprint } from "./read-progress.js";
 import type {
   ForgeTool,
   ModelToolDefinition,
@@ -48,6 +48,11 @@ import type {
 
 export const DEFAULT_MAX_MODEL_STEPS = 12;
 export const DEFAULT_MAX_TOOL_CALLS = 40;
+
+export type FinalizationReason =
+  | "model_step_limit"
+  | "tool_call_limit"
+  | "no_progress";
 
 export type RunStatus =
   | "completed"
@@ -113,6 +118,11 @@ export type RunEvent =
       readonly prompt: string;
       readonly imageCount?: number;
       readonly context?: RunContextSnapshot;
+    }
+  | {
+      readonly type: "run.finalizing";
+      readonly step: number;
+      readonly reason: FinalizationReason;
     }
   | { readonly type: "model.started"; readonly step: number }
   | {
@@ -275,6 +285,7 @@ export interface RunContextSnapshot {
 
 export interface RunAgentOptions {
   readonly runId?: string;
+  readonly completionPolicy?: "direct" | "reserve-final-step";
   readonly prompt: string;
   readonly images?: readonly ModelImageInput[];
   readonly context?: RunContextSnapshot;
@@ -298,6 +309,8 @@ export interface RunAgentOptions {
 }
 
 export interface RunResult {
+  readonly partial?: boolean;
+  readonly limitReason?: FinalizationReason;
   readonly status: RunStatus;
   readonly exitCode: number;
   readonly finalText: string;
@@ -415,6 +428,10 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
     await options.onEvent?.(event);
   };
   const tools = toModelToolDefinitions(options.tools);
+  const reserveFinalStep = options.completionPolicy === "reserve-final-step";
+  let finalizing: FinalizationReason | undefined;
+  let previousReadFingerprint: string | undefined;
+  let unchangedReadSteps = 0;
   let modelSteps = 0;
   let toolCalls = 0;
   const deniedCalls = new Set<string>();
@@ -471,6 +488,24 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
     }
 
     const nextStep = modelSteps + 1;
+    if (
+      reserveFinalStep &&
+      !finalizing &&
+      (nextStep >= limits.maxModelSteps || toolCalls >= limits.maxToolCalls)
+    ) {
+      finalizing =
+        toolCalls >= limits.maxToolCalls
+          ? "tool_call_limit"
+          : "model_step_limit";
+      await emit({
+        type: "run.finalizing",
+        step: nextStep,
+        reason: finalizing,
+      });
+    }
+    if (finalizing && options.model.supportsToolChoiceNone !== true) {
+      return fallback("The adapter cannot request tool-free finalization.");
+    }
     let request: import("./model.js").ModelRequest = {
       prompt: options.prompt,
       ...(options.images?.length ? { images: options.images } : {}),
@@ -479,11 +514,34 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
       tools,
       ...(continuation ? { continuation } : {}),
       ...(toolResults ? { toolResults } : {}),
+      ...(finalizing
+        ? {
+            toolChoice: "none" as const,
+            instructions: [
+              options.instructions,
+              `Finalization required: ${finalizing}. The total run budget is fixed. No further tools may execute. Answer the user's original request using only observed evidence and tool results. Distinguish completed work, failed verification, unknowns, and next options. Do not claim the task succeeded merely because you can summarize. ${limits.maxModelSteps === 1 ? "This one-step budget permits answering only; investigation is unavailable." : ""}`,
+            ]
+              .filter(Boolean)
+              .join("\n\n"),
+          }
+        : {}),
     };
     if (activePromptPrefix) {
       const observation = observePromptPrefix({
         request,
-        inputs: activePromptPrefix,
+        inputs: finalizing
+          ? {
+              ...activePromptPrefix,
+              instructions: [
+                ...activePromptPrefix.instructions,
+                request.instructions ?? "",
+              ],
+              providerOptions: {
+                ...activePromptPrefix.providerOptions,
+                toolChoice: "none",
+              },
+            }
+          : activePromptPrefix,
         capabilities: options.model.promptCache ?? { mode: "unsupported" },
         ...(previousPrefix ? { previous: previousPrefix } : {}),
         ...(options.sessionId ? { sessionId: options.sessionId } : {}),
@@ -525,6 +583,7 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
     const activationThreshold =
       contextConfiguration.activationThreshold ?? 0.78;
     if (
+      !finalizing &&
       contextConfiguration.mode === "automatic" &&
       !autoCompactionPaused &&
       pressure.ratio >= activationThreshold &&
@@ -662,18 +721,20 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
         message,
         budget,
       });
+      if (finalizing) return fallback(message);
       return finish("limit_reached", message);
     }
     if (!budget.fits) {
       const message = contextLimitMessage(budget, "complete request");
       await emit({ type: "context.warning", step: nextStep, message, budget });
-      if (contextConfiguration.mode === "automatic") {
+      if (contextConfiguration.mode === "automatic" || finalizing) {
         await emit({
           type: "context.limit_reached",
           step: nextStep,
           message,
           budget,
         });
+        if (finalizing) return fallback(message);
         return finish("limit_reached", message);
       }
     }
@@ -694,6 +755,7 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
         options.signal,
         modelSteps,
         emit,
+        Boolean(finalizing),
       );
     } catch (error) {
       if (options.signal.aborted || error instanceof RunCancellationError) {
@@ -703,6 +765,7 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
       const overflowError = stepFailure?.error ?? error;
       const capabilities = options.model.context;
       if (
+        !finalizing &&
         !overflowRecoveryUsed &&
         stepFailure &&
         !stepFailure.producedEvidence &&
@@ -731,6 +794,7 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
         }
       }
       const message = safeErrorMessage(overflowError);
+      if (finalizing) return fallback(message);
       return finish("failed", message);
     }
 
@@ -758,7 +822,35 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
       });
     }
 
+    if (
+      finalizing &&
+      (step.calls.length > 0 ||
+        step.finishReason !== "stop" ||
+        !step.text.trim())
+    ) {
+      if (step.calls.length > 0) {
+        const refused = await refuseCalls(
+          step.calls,
+          "Finalization is tool-free; no operation was executed.",
+        );
+        canonicalDelta.push(
+          ...canonicalExchange(
+            runId,
+            modelSteps,
+            { ...step, text: "" },
+            refused,
+          ),
+        );
+      }
+      return fallback(
+        step.calls.length
+          ? "The provider returned tools despite toolChoice=none; all were refused."
+          : "The finalization stream did not produce a complete answer.",
+      );
+    }
     if (step.calls.length === 0) {
+      if (finalizing)
+        await emit({ type: "model.text", step: modelSteps, text: step.text });
       finalText = step.text;
       if (step.finishReason === "tool-calls") {
         return finish(
@@ -778,11 +870,32 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
           content: [{ type: "text", text: step.text }],
         });
       }
-      return finish("completed");
+      return finalizing
+        ? finish("limit_reached", finalizationMessage())
+        : finish("completed");
     }
 
     if (toolCalls + step.calls.length > limits.maxToolCalls) {
-      return finish("limit_reached", "The tool-call limit was reached.");
+      if (!reserveFinalStep)
+        return finish("limit_reached", "The tool-call limit was reached.");
+      finalizing = "tool_call_limit";
+      await emit({
+        type: "run.finalizing",
+        step: modelSteps + 1,
+        reason: finalizing,
+      });
+      const refused = await refuseCalls(
+        step.calls,
+        "The remaining tool allowance cannot admit this batch; no operation was executed.",
+      );
+      pendingExchange = canonicalExchange(runId, modelSteps, step, refused);
+      if (!step.continuation)
+        return fallback(
+          "The adapter did not preserve continuation for the refused batch.",
+        );
+      continuation = step.continuation;
+      toolResults = refused;
+      continue;
     }
     if (!step.continuation) {
       return finish(
@@ -1130,25 +1243,120 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
 
     toolResults = nextResults;
     pendingExchange = canonicalExchange(runId, modelSteps, step, nextResults);
+    if (reserveFinalStep) {
+      const fingerprint = unchangedReadFingerprint(step.calls, nextResults);
+      unchangedReadSteps = fingerprint
+        ? fingerprint === previousReadFingerprint
+          ? unchangedReadSteps + 1
+          : 1
+        : 0;
+      previousReadFingerprint = fingerprint;
+      if (unchangedReadSteps >= 3) {
+        finalizing = "no_progress";
+        await emit({
+          type: "run.finalizing",
+          step: modelSteps + 1,
+          reason: finalizing,
+        });
+      }
+    }
   }
 
+  function finalizationMessage(): string {
+    if (finalizing === "no_progress")
+      return "Investigation stopped after three unchanged read-only steps.";
+    return finalizing === "tool_call_limit"
+      ? "The tool-call limit was reached."
+      : "The model-step limit was reached.";
+  }
+  async function refuseCalls(
+    calls: readonly ToolCall[],
+    message: string,
+  ): Promise<ModelToolResult[]> {
+    const results: ModelToolResult[] = [];
+    for (const call of calls) {
+      const result: ToolResult = {
+        ok: false,
+        error: { code: "limit_reached", message, retryable: false },
+      };
+      await emit({ type: "tool.proposed", step: modelSteps, call });
+      await emit({ type: "tool.failed", step: modelSteps, call, result });
+      results.push({ callId: call.id, toolName: call.name, result });
+    }
+    return results;
+  }
+  async function fallback(diagnostic: string): Promise<RunResult> {
+    await emit({
+      type: "model.warning",
+      step: Math.max(1, modelSteps),
+      message: diagnostic,
+    });
+    const facts = events.flatMap((event) =>
+      event.type === "tool.completed"
+        ? [`Observed tool success: ${summarizeToolCall(event.call)}`]
+        : event.type === "tool.failed"
+          ? [
+              `Tool not successful: ${summarizeToolCall(event.call)}${event.result.ok ? "" : ` [${event.result.error.code}]`}`,
+            ]
+          : [],
+    );
+    finalText = [
+      finalizing === "no_progress"
+        ? "Partial run result. Investigation repeated unchanged reads and was stopped."
+        : "Partial run result. The total budget does not permit further investigation.",
+      ...(facts.length
+        ? facts.slice(-20).map((fact) => truncateRunOutcome(fact, 240))
+        : ["No successful tool operations were observed."]),
+      "The task goal and missing verification remain unconfirmed. Inspect current state before starting a new run.",
+    ].join("\n");
+    if (pendingExchange) {
+      canonicalDelta.push(...pendingExchange);
+      pendingExchange = undefined;
+      pendingToolOutcomes = [];
+    }
+    canonicalDelta.push({
+      id: `${runId}:fallback:${modelSteps}`,
+      runId,
+      role: "assistant",
+      step: Math.max(1, modelSteps),
+      content: [{ type: "text", text: finalText }],
+    });
+    await emit({
+      type: "model.text",
+      step: Math.max(1, modelSteps),
+      text: `\n\n${finalText}`,
+    });
+    return finish("limit_reached", finalizationMessage());
+  }
   async function finish(
     status: RunStatus,
     message?: string,
   ): Promise<RunResult> {
     const type = `run.${status}` as RunEvent["type"];
     await emit({ type, ...(message ? { message } : {}) } as RunEvent);
+    if (reserveFinalStep && pendingExchange) {
+      canonicalDelta.push(...pendingExchange);
+      pendingExchange = undefined;
+      pendingToolOutcomes = [];
+    }
     const committed = canonicalDeltaWithOutcome(
       canonicalDelta,
       runId,
       status,
-      finalText,
+      reserveFinalStep &&
+        finalizing &&
+        canonicalDelta.at(-1)?.role === "assistant" &&
+        JSON.stringify(canonicalDelta.at(-1)?.content) ===
+          JSON.stringify([{ type: "text", text: finalText }])
+        ? ""
+        : finalText,
       message,
       pendingToolOutcomes,
     );
     validateCanonicalConversation(committed);
     return {
       status,
+      ...(finalizing ? { partial: true, limitReason: finalizing } : {}),
       exitCode: exitCodeForRunStatus(status),
       finalText,
       modelSteps,
@@ -1275,6 +1483,7 @@ async function consumeModelStep(
   signal: AbortSignal,
   step: number,
   emit: (event: RunEvent) => Promise<void>,
+  bufferText = false,
 ): Promise<StepOutcome> {
   const calls: ToolCall[] = [];
   let text = "";
@@ -1295,7 +1504,12 @@ async function consumeModelStep(
         case "text.delta":
           producedEvidence = true;
           text += event.text;
-          await emit({ type: "model.text", step, text: event.text });
+          if (bufferText && text.length > 1_000_000)
+            throw new Error(
+              "Finalization output exceeds the bounded answer limit.",
+            );
+          if (!bufferText)
+            await emit({ type: "model.text", step, text: event.text });
           break;
         case "warning":
           await emit({ type: "model.warning", step, message: event.message });

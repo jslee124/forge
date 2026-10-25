@@ -18,7 +18,14 @@ export function RunResult({
       data-run-result={historical ? "historical" : "current"}
       role={failed ? "alert" : "status"}
     >
-      <strong>{t(`runUi.outcomes.${result.outcome}`)}</strong>
+      <strong>
+        {t(
+          result.reason === "no_progress"
+            ? "runUi.noProgressTitle"
+            : `runUi.outcomes.${result.outcome}`,
+        )}
+      </strong>
+      {result.partial && <p>{t("runUi.partialResult")}</p>}
       {result.reason && <p>{t(`runUi.reasons.${result.reason}`)}</p>}
       <div className="run-result-metrics">
         {result.durationMs !== undefined && (

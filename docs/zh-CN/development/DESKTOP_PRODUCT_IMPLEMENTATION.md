@@ -2,7 +2,7 @@
 
 [English](../../development/DESKTOP_PRODUCT_IMPLEMENTATION.md) · [PRD](DESKTOP_PRODUCT_PRD.md) · [路线图](ROADMAP.md) · [文档目录](../README.md)
 
-日期：2026-10-25。状态：首批展示链路与持久历史增量已实现，其余 gate 待验收。本文是分层实现合同与任务清单，不是已发布行为。
+日期：2026-10-25。状态：展示链路、持久历史、调查工具与有界总结增量已实现，其余 gate 待验收。本文是分层实现合同与任务清单，不是已发布行为。
 新增文件名、类型、字段和配置均为拟实现设计；已有源码入口在第 2 节单独列出。
 本文与 PRD 冲突时先修订两份合同再实施，不通过猜测扩展范围。
 
@@ -16,7 +16,7 @@ Desktop v2 事件与版本检查、结构化审批／动作绑定、细分结束
 这是 T01/T04/T08—T11 的部分实现，不是完整 M1。v2 当前保留 text/detail/action/phase/
 approval/approval-resolved/complete payload 名称，先迁移语义，不宣称第 4 节全量协议已落地。
 Codex 缺失的调用计数不展示为 0；其工具活动仍为描述型信息。
-下文持久历史增量已补充产品运行记录与中断后活动恢复；预算预留、工具扩展与 summarize/continue/retry 尚未实施。
+下文增量已补充持久历史、调查工具与原生桌面的预算内总结；显式 summarize/continue/retry 尚未实施。
 固定 24 任务的模型基线和 5 用户试用尚未执行；新增确定性复现不是这些结果的替代。
 
 任务表 `[ ]` 表示待实现，`[~]` 表示部分实现／尚未通过完整 gate。
@@ -90,13 +90,44 @@ workspace-relative include/exclude glob，并明确仅支持字面量，不执�
 保留既有 edit_file 整文件哈希与陈旧基线检查。
 [调查工具合同测试](../../../packages/tools/src/investigation.test.ts) 覆盖中部读取、EOF、
 Unicode、扫描上限、取消、路径边界、上下文合并、过滤、元字符和省略信息。
-精确字段与上限见[当前工具合同](../product/concepts/ARCHITECTURE.md)。这不包含 T06 的
-预留最终总结预算，也不证明真实模型调查质量；产品验收前 T05 仍标为部分完成。
+精确字段与上限见[当前工具合同](../product/concepts/ARCHITECTURE.md)。后续增量已加入
+T06 预算内总结；这仍不证明真实模型调查质量，产品验收前 T05 仍标为部分完成。
 
 本轮本地验证：54 项工具测试、102 项确定性合同测试、37 项 Desktop／application／
 cache 回归通过；`pnpm check`、`pnpm check:docs`、`pnpm desktop:build` 与
 `pnpm package:verify` 通过。这些是本地脚本与源码合同证据，不是真实模型评估或安装版
 Desktop 验收。
+
+## 预留总结增量（2026-10-25）
+
+[ADR-0004](../../decisions/0004-reserved-desktop-finalization.md) 记录本轮核心 opt-in
+边界。原生桌面显式启用 `completionPolicy: reserve-final-step`；CLI、网关、子运行与
+Codex 保留既有默认行为。最后一次逻辑模型调用从原有总预算内预留，1 步预算只允许回答。
+工具额度用完、或批次超过剩余额度时停止工具并总结；拒绝的调用有配对的“未执行”结果。
+
+[Runtime](../../../packages/core/src/runtime.ts) 保留工具 schema、原始问题、历史、
+真实工具结果与 adapter continuation，同时请求 `toolChoice: none`。OpenAI Responses、
+DeepSeek chat、兼容 chat／Responses transport 均投影这个字段。能力未知、上下文准入
+失败、供应商忽略 none、流不完整或模型报错时，使用有界事实回退，不额外重试；取消仍是
+取消。总结正文在合法的无工具 stop 前先缓冲，避免展示被拒绝或不完整的“完成回答”。
+
+[重复读取保护](../../../packages/core/src/read-progress.ts) 检查连续 3 步相同的、
+具有已知资源版本的 `read_file` 调用；比较规范化输入、版本与已观测输出，忽略尝试 ID。
+版本未知、证据变化、失败／混合操作、进程或网络调用不会触发；此机制不缓存工具结果。
+
+总结后仍保留 `limit_reached`、结构化 reason 与 `partial: true`。桌面展示“正在总结”
+和“部分结果”，历史保留该标记；无进展停止使用“调查已停止”，不冒充数值预算耗尽。
+完整的待返回交换保留在 canonical history 中，终态记录不再复制已经存在的总结正文。
+
+验证：124 项确定性测试、226 项 Desktop／application／provider 回归通过，6 项真实模型
+opt-in 跳过。包括实际 HTTP 请求序列化断言：none 与历史工具 schema 同时保留，未请求
+外部 provider。隔离的真实 Electron fixture 恰好进行 2 次脚本模型请求、1 次读取，并保留
+partial 元数据、显示部分总结与预算结果；原有审批／停止／失败、布局验收通过。界面产物
+位于 `/tmp/forge-finalization-ui/`。`pnpm check`、`pnpm desktop:build` 已通过；
+`pnpm package:verify` 与 `pnpm check:docs` 也通过。
+
+T06 在更完整的产品验收前仍标为部分完成；不代表 M2/T07、两轮真实模型基线、用户试用、
+安装版桌面或发布 gate 完成。Transport 自身的重试上限仍与 runtime 逻辑步骤计数分别计算。
 
 ## 1. 实现目标与不变量
 
@@ -382,7 +413,7 @@ core／adapter 的可选字段有旧缺省路径；CLI／gateway 不必升级到
 | T03 | [~] | application run coordinator；接入现有 session／lease／revision；完成与存储顺序 | T02；R01/R08/R13 |
 | T04 | [~] | IPC v2、版本握手、顺序与身份检查、typed approval、断连取消 | T03；R02/R04/R14 |
 | T05 | [~] | read_file 行范围、partial hash 规则、搜索上下文／过滤及受限 regex | T01；R06 |
-| T06 | [ ] | core finalizing／budget／no-progress；adapter toolChoice none 及 continuation 测试 | T05；R07/R14 |
+| T06 | [~] | core finalizing／budget／no-progress；adapter toolChoice none 及 continuation 测试 | T05；R07/R14 |
 | T07 | [ ] | summarize/continue/retry 服务、能力与新 run 关联、事实交付模型 | T03/T06；R09/R11 |
 | T08 | [~] | renderer reducer、合并／分页、浏览与执行分离、旧消息投影接入 | T04；R02/R05/R13 |
 | T09 | [~] | ApprovalCard 与连续请求、键盘、决定记录、稳定按钮区 | T08；R03/R04/R15 |

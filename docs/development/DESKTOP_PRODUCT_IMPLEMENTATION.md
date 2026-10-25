@@ -2,7 +2,7 @@
 
 [简体中文](../zh-CN/development/DESKTOP_PRODUCT_IMPLEMENTATION.md) · [PRD](DESKTOP_PRODUCT_PRD.md) · [Roadmap](ROADMAP.md) · [Documentation index](../README.md)
 
-Date: 2026-10-25. Status: presentation and initial durable-history increments implemented; remaining gates pending. This is a layered development
+Date: 2026-10-25. Status: presentation, durable-history, investigation, and bounded-finalization increments implemented; remaining gates pending. This is a layered development
 contract and task list, not shipped behavior. New filenames, types, fields, and
 configuration below are proposed; section 2 separately identifies existing code.
 Resolve PRD/implementation disagreements in both documents before implementing.
@@ -19,8 +19,8 @@ This partially implements T01/T04/T08–T11, not all of M1. Wire v2 currently re
 text/detail/action/phase/approval/approval-resolved/complete payload names as an
 incremental migration rather than claiming the entire section 4 protocol.
 Unavailable Codex counters are omitted; its tool activity remains descriptive.
-The durable-record follow-up below adds crash activity restoration. Budget reservation, tool improvements,
-and summarize/continue/retry remain pending. The 24-task live baseline and five-user
+The follow-ups below add durable activity restoration, investigation tools, and native Desktop finalization.
+Explicit summarize/continue/retry remain pending. The 24-task live baseline and five-user
 trial have not run; deterministic reproductions do not substitute for them.
 
 Task status `[ ]` means pending and `[~]` means partial/not through the complete gate.
@@ -115,14 +115,57 @@ The [investigation contracts](../../packages/tools/src/investigation.test.ts)
 cover middle-file reads, EOF, Unicode, scan limits, cancellation, path boundaries,
 context merging, filtering, metacharacters, and omission disclosure.
 See the [current tool contract](../product/concepts/ARCHITECTURE.md) for exact fields
-and limits. This does not implement T06's reserved finalization budget or prove
-live-model investigation quality. T05 remains partial until product acceptance.
+and limits. This tool increment does not establish live-model investigation quality. The
+following increment adds T06 finalization; T05 remains partial until product acceptance.
 
 Local checks for this increment: 54 tool tests, 102 deterministic contract tests,
 and 37 Desktop/application/cache regressions passed. `pnpm check`,
 `pnpm check:docs`, `pnpm desktop:build`, and `pnpm package:verify` passed.
 These are local scripted/source-contract checks, not live-model evaluation or
 installed Desktop acceptance.
+
+## Reserved-finalization follow-up (2026-10-25)
+
+[ADR-0004](../decisions/0004-reserved-desktop-finalization.md) records the opt-in
+core boundary. Native Desktop enables `completionPolicy: reserve-final-step`;
+CLI, gateway, child runs, and Codex retain existing defaults. The final logical
+model step is reserved within the configured total. A one-step budget is
+answer-only. Tool-allowance exhaustion and oversized batches also stop tools and
+request a partial answer; refused calls receive paired nonexecuted results.
+
+The [runtime](../../packages/core/src/runtime.ts) retains tool schemas, original
+prompt/history, exact observed results and adapter continuation while requesting
+`toolChoice: none`. OpenAI Responses, DeepSeek chat, and compatible chat/Responses
+transports project that option. Unknown transport capability, context admission
+failure, ignored none, incomplete streams and model errors use bounded factual
+fallbacks without a new attempt. Cancellation stays cancelled. Finalization text
+is buffered until a valid tool-free stop so rejected or incomplete summaries are
+not presented as a finished answer.
+
+The [read-progress guard](../../packages/core/src/read-progress.ts) stops three
+consecutive unchanged versioned `read_file` steps. It compares normalized input,
+resource version and observed output, ignoring attempt IDs. Unknown versions,
+changed evidence, failed/mixed operations, process and network calls do not
+trigger it. No results are cached by this guard.
+
+Completion remains `limit_reached` with a structured reason and `partial: true`.
+Desktop shows finalizing/partial states; history preserves the flag. A no-progress
+stop has its own investigation-stopped label. Complete pending exchanges are
+retained without duplicating final prose in canonical outcome records.
+
+Validation: 124 deterministic tests and 226 Desktop/application/provider regression
+tests passed (six opt-in live tests skipped). This includes real serialized HTTP
+request assertions for none plus retained schemas; no external provider was used.
+The isolated real Electron fixture performed exactly two scripted model requests
+and one read, retained partial metadata, and showed the partial summary with the
+budget result. Existing approval/stop/failure and layout checks passed. Local UI
+artifacts are `/tmp/forge-finalization-ui/`. `pnpm check` and `pnpm desktop:build`
+passed; `pnpm check:docs` and `pnpm package:verify` also passed.
+
+T06 remains partial until its broader product acceptance; this does not complete
+M2/T07, two live-model baseline rounds, user trials, installed Desktop acceptance,
+or release gates. Transport-owned retry limits remain distinct from logical
+runtime model-step accounting.
 
 ## 1. Goal and invariants
 
@@ -476,7 +519,7 @@ tests. A partial vertical increment does not complete a milestone.
 | T03 | [~] | Run coordinator with existing session/lease/revision and finish/write ordering | T02; R01/R08/R13 |
 | T04 | [~] | IPC v2, handshake, sequence/identity checks, typed approvals, disconnect cancellation | T03; R02/R04/R14 |
 | T05 | [~] | Line ranges, partial-hash rules, search context/filtering, bounded regex | T01; R06 |
-| T06 | [ ] | Core finalization/budgets/no-progress, adapter none and continuation tests | T05; R07/R14 |
+| T06 | [~] | Core finalization/budgets/no-progress, adapter none and continuation tests | T05; R07/R14 |
 | T07 | [ ] | Summarize/continue/retry services, capabilities, linked runs, factual delivery model | T03/T06; R09/R11 |
 | T08 | [~] | Renderer reducer, merging/paging, separate viewed/active state, old-message projection | T04; R02/R05/R13 |
 | T09 | [~] | ApprovalCard, ordered requests, keyboard, decision records, stable buttons | T08; R03/R04/R15 |

@@ -55,6 +55,7 @@ Forge 文档按“读者想完成什么”组织。第一次接触项目时无�
 | [ADR-0001](../decisions/0001-gateway-single-owner-workspace.md) | 聊天网关只服务一个 owner 和一个 workspace（英文） |
 | [ADR-0002](../decisions/0002-desktop-run-presentation-contract.md) | 桌面运行展示保留语义，不恢复执行权限（英文） |
 | [ADR-0003](../decisions/0003-desktop-durable-run-records.md) | 桌面持久运行记录只读，不重放操作、不恢复审批（英文） |
+| [ADR-0004](../decisions/0004-reserved-desktop-finalization.md) | 原生桌面在既有总预算内预留无工具总结步骤（英文） |
 
 ## 扩展 Forge
 

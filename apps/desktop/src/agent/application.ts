@@ -730,6 +730,7 @@ export class DesktopApplication {
         };
         let approvalSequence = 0;
         let result: RunResult | undefined;
+        let finalizing = false;
         const { FORGE_DESKTOP_RESOURCE_ROOT: builtinResourceRoot } = this.#env;
         const shared = {
           env: this.#env,
@@ -764,6 +765,7 @@ export class DesktopApplication {
             },
             {
               ...shared,
+              completionPolicy: "reserve-final-step",
               ...(builtinResourceRoot ? { builtinResourceRoot } : {}),
               sessionId: request.sessionId,
               runId: request.runId,
@@ -807,7 +809,25 @@ export class DesktopApplication {
                   await record.record({ type: "action", action });
                   context.action(action);
                 }
-                if (event.type === "model.started") context.phase("responding");
+                if (event.type === "run.finalizing") {
+                  finalizing = true;
+                  await record.record({
+                    type: "detail",
+                    kind: "system",
+                    text: `Finalizing within the total budget: ${event.reason}`,
+                  });
+                  context.phase("finalizing");
+                }
+                if (event.type === "model.started" && !finalizing)
+                  context.phase("responding");
+                if (event.type === "model.warning") {
+                  await record.record({
+                    type: "detail",
+                    kind: "system",
+                    text: redact(event.message).slice(0, 65_536),
+                  });
+                  detail("system", event.message);
+                }
                 if (event.type === "tool.started") context.phase("executing");
                 if (event.type === "model.text") {
                   await record.record({
