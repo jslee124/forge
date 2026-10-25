@@ -1,3 +1,4 @@
+import type { ProductRunCompletion } from "@forge/application";
 import { ChatCircle } from "@phosphor-icons/react/ChatCircle";
 import { Code } from "@phosphor-icons/react/Code";
 import { FileText } from "@phosphor-icons/react/FileText";
@@ -14,12 +15,16 @@ import type {
   ModelSelection,
 } from "../../shared/application-protocol.js";
 import type { ChangeReview, FilePreview } from "../../shared/file-protocol.js";
-import type { RunEvent } from "../../shared/run-protocol.js";
+import type { RunEvent, RunPayload } from "../../shared/run-protocol.js";
+import { ApprovalCard } from "./approval-card.js";
 import logoUrl from "./assets/forge-logo.svg";
 import markUrl from "./assets/forge-mark.svg";
 import { ComposerControls } from "./composer-controls.js";
 import { ContentPreview, DiffViewer } from "./file-preview.js";
 import { Markdown } from "./markdown.js";
+import { RunActivity } from "./run-activity.js";
+import { RunResult } from "./run-result.js";
+import { activityReducer, initialActivity } from "./run-state.js";
 import { SettingsView } from "./settings-view.js";
 import { SlashCommandMenu } from "./slash-command-menu.js";
 import { commands, routeCommand, suggestions } from "./slash-commands.js";
@@ -75,17 +80,26 @@ export function LiveWorkbench(): React.JSX.Element {
   const [status, setStatus] = React.useState("ready");
   const [answer, setAnswer] = React.useState("");
   const [prompt, setPrompt] = React.useState("");
-  const [details, setDetails] = React.useState<
-    { id: number; kind: string; text: string }[]
+  const [activity, dispatchActivity] = React.useReducer(
+    activityReducer,
+    initialActivity,
+  );
+  const [completion, setCompletion] = React.useState<ProductRunCompletion>();
+  const [completionRunId, setCompletionRunId] = React.useState<string>();
+  const submittedRef = React.useRef<
+    { sessionId: string; prompt: string } | undefined
+  >(undefined);
+  const [approvals, setApprovals] = React.useState<
+    Extract<RunPayload, { type: "approval" }>[]
   >([]);
-  const [approval, setApproval] = React.useState<{
-    approvalId: string;
-    description: string;
-  }>();
-  const approvalRef = React.useRef<HTMLButtonElement>(null);
-  React.useEffect(() => {
-    if (approval) approvalRef.current?.focus();
-  }, [approval]);
+  const approval = approvals[0];
+  const [approvalPending, setApprovalPending] = React.useState(false);
+  const approvalSubmitting = React.useRef(false);
+  const clearActivity = () => {
+    dispatchActivity({ type: "reset" });
+    setCompletion(undefined);
+    setCompletionRunId(undefined);
+  };
   const [error, setError] = React.useState("");
   const [pending, setPending] = React.useState(false);
   const [settings, setSettings] = React.useState(false);
@@ -203,23 +217,34 @@ export function LiveWorkbench(): React.JSX.Element {
       )
         return;
       const payload = event.payload;
+      dispatchActivity({ type: "event", event });
       if (payload.type === "text")
         setAnswer((value) => (value + payload.text).slice(-1_000_000));
-      else if (payload.type === "detail")
-        setDetails((value) => [
-          ...value.slice(-199),
-          { ...payload, id: event.sequence },
-        ]);
+      else if (payload.type === "phase") setStatus(payload.phase);
       else if (payload.type === "approval") {
-        setApproval(payload);
+        setApprovals((values) => [...values, payload]);
         setStatus("approval");
-      } else {
+      } else if (payload.type === "approval-resolved") {
+        setApprovals((values) =>
+          values.filter((value) => value.approvalId !== payload.approvalId),
+        );
+        setStatus("running");
+      } else if (payload.type === "complete") {
         activeRef.current = undefined;
         setActive(undefined);
-        setApproval(undefined);
+        setApprovals([]);
+        setCompletion(payload);
+        setCompletionRunId(current.runId);
         setStatus(payload.outcome);
-        if (payload.outcome === "completed")
-          setDrafts((values) => ({ ...values, [current.sessionId]: "" }));
+        if (payload.outcome !== "completed") {
+          const submitted = submittedRef.current;
+          if (submitted?.sessionId === current.sessionId)
+            setDrafts((values) =>
+              values[current.sessionId]?.trim()
+                ? values
+                : { ...values, [current.sessionId]: submitted.prompt },
+            );
+        }
         if (payload.outcome !== "interrupted") {
           setPending(true);
           void api
@@ -275,7 +300,7 @@ export function LiveWorkbench(): React.JSX.Element {
         setState(next);
         setPrompt("");
         setAnswer("");
-        setDetails([]);
+        clearActivity();
       }
     } catch (cause) {
       setError(operationError(cause));
@@ -288,7 +313,7 @@ export function LiveWorkbench(): React.JSX.Element {
     if (!next) return false;
     setPrompt("");
     setAnswer("");
-    setDetails([]);
+    clearActivity();
     setNotice("");
     setLiteralOffer(false);
     setSettings(false);
@@ -485,11 +510,20 @@ export function LiveWorkbench(): React.JSX.Element {
         requestId: crypto.randomUUID(),
       };
       activeRef.current = identity;
+      submittedRef.current = { sessionId: current.sessionId, prompt: draft };
       setActive(identity);
       setStatus("running");
       setPrompt(draft);
       setAnswer("");
-      setDetails([]);
+      clearActivity();
+      setDrafts((values) => ({
+        ...values,
+        [key]: values[key] === draft ? "" : (values[key] ?? ""),
+        [current.sessionId]:
+          values[current.sessionId] === draft
+            ? ""
+            : (values[current.sessionId] ?? ""),
+      }));
       const accepted = await api.runCommand({
         type: "start",
         ...identity,
@@ -512,16 +546,25 @@ export function LiveWorkbench(): React.JSX.Element {
         activeRef.current = undefined;
         setActive(undefined);
         setStatus("failed");
+        setCompletion({ outcome: "failed", reason: "execution_error" });
+        setDrafts((values) =>
+          values[current.sessionId]?.trim()
+            ? values
+            : { ...values, [current.sessionId]: draft },
+        );
         setError("management-failed");
-      } else
-        setDrafts((values) => ({
-          ...values,
-          [key]: "",
-          [current.sessionId]: draft,
-        }));
+      }
     } catch {
       setError("management-failed");
       setStatus("failed");
+      setCompletion({ outcome: "failed", reason: "execution_error" });
+      const submitted = submittedRef.current;
+      if (submitted)
+        setDrafts((values) =>
+          values[submitted.sessionId]?.trim()
+            ? values
+            : { ...values, [submitted.sessionId]: submitted.prompt },
+        );
       activeRef.current = undefined;
       setActive(undefined);
     } finally {
@@ -529,9 +572,14 @@ export function LiveWorkbench(): React.JSX.Element {
     }
   };
   const cancel = async () => {
-    if (!active || !api) return;
+    if (!active || !api || status === "stopping") return;
+    const current = active;
     setStatus("stopping");
-    setApproval(undefined);
+    const rejected = () => {
+      setError("management-failed");
+      if (activeRef.current === current)
+        setStatus(approval ? "approval" : "running");
+    };
     try {
       if (
         !(await api.runCommand({
@@ -540,16 +588,16 @@ export function LiveWorkbench(): React.JSX.Element {
           requestId: crypto.randomUUID(),
         }))
       )
-        setError("management-failed");
+        rejected();
     } catch {
-      setError("management-failed");
+      rejected();
     }
   };
   const decide = async (allow: boolean) => {
-    if (!active || !approval || !api) return;
+    if (!active || !approval || !api || approvalSubmitting.current) return;
     const approvalId = approval.approvalId;
-    setApproval(undefined);
-    setStatus("running");
+    approvalSubmitting.current = true;
+    setApprovalPending(true);
     try {
       if (
         !(await api.runCommand({
@@ -557,12 +605,18 @@ export function LiveWorkbench(): React.JSX.Element {
           type: "approve",
           requestId: crypto.randomUUID(),
           approvalId,
+          ...(approval.descriptor
+            ? { actionId: approval.descriptor.actionId }
+            : {}),
           allow,
         }))
       )
         setError("management-failed");
     } catch {
       setError("management-failed");
+    } finally {
+      approvalSubmitting.current = false;
+      setApprovalPending(false);
     }
   };
   return (
@@ -667,10 +721,10 @@ export function LiveWorkbench(): React.JSX.Element {
                     setPanelTab("files");
                     setStatus("ready");
                     setSettings(false);
-                    setDetails([]);
+                    clearActivity();
                     setPrompt("");
                     setAnswer("");
-                    setApproval(undefined);
+                    setApprovals([]);
                   }}
                 >
                   <ChatCircle size={16} />
@@ -823,7 +877,7 @@ export function LiveWorkbench(): React.JSX.Element {
             />
           ) : (
             <>
-              <div className="live-transcript" aria-live="polite">
+              <div className="live-transcript" aria-busy={Boolean(active)}>
                 {!state?.messages.length && !prompt && (
                   <div className="studio-welcome">
                     <span className="studio-welcome-icon">
@@ -857,23 +911,44 @@ export function LiveWorkbench(): React.JSX.Element {
                     </div>
                   </div>
                 )}
-                {state?.messages.map((message) => (
-                  <div
-                    key={message.id}
-                    className={
-                      message.role === "user" ? "live-user" : "live-answer"
-                    }
-                  >
-                    {message.role === "assistant" && (
-                      <img
-                        className="studio-answer-avatar"
-                        src={markUrl}
-                        alt="Forge"
+                {state?.messages
+                  .filter(
+                    (message) =>
+                      !(
+                        message.kind === "system-outcome" &&
+                        message.runId === completionRunId &&
+                        completion
+                      ),
+                  )
+                  .map((message) =>
+                    message.kind === "system-outcome" ? (
+                      <RunResult
+                        key={message.id}
+                        historical
+                        result={{
+                          outcome: message.outcome ?? "failed",
+                          message: message.content,
+                        }}
                       />
-                    )}
-                    <Markdown>{message.content}</Markdown>
-                  </div>
-                ))}
+                    ) : (
+                      <div
+                        key={message.id}
+                        className={
+                          message.role === "user" ? "live-user" : "live-answer"
+                        }
+                      >
+                        {message.role === "assistant" && (
+                          <img
+                            className="studio-answer-avatar"
+                            src={markUrl}
+                            alt=""
+                            aria-hidden="true"
+                          />
+                        )}
+                        <Markdown>{message.content}</Markdown>
+                      </div>
+                    ),
+                  )}
                 {prompt && (
                   <div className="live-user">
                     <Markdown>{prompt}</Markdown>
@@ -890,65 +965,38 @@ export function LiveWorkbench(): React.JSX.Element {
                   </div>
                 )}
                 {active && (
-                  <div className="studio-run-state" role="status">
-                    <span className="spinner" />
-                    <span>{t(`live.${status}`)}</span>
-                    {details.length > 0 && (
-                      <details>
-                        <summary>
-                          {t("live.activity")} · {details.length}
-                        </summary>
-                        <pre>
-                          {details.map((detail) => detail.text).join("\n")}
-                        </pre>
-                      </details>
-                    )}
+                  <div
+                    className="studio-run-state"
+                    role="status"
+                    aria-live="polite"
+                  >
+                    {!approval && <span className="spinner" />}
+                    <span>
+                      {approval
+                        ? t("runUi.waiting")
+                        : t(`runUi.phases.${status}`, {
+                            defaultValue: t("live.running"),
+                          })}
+                    </span>
                   </div>
                 )}
-                {approval && (
-                  <section
-                    className="approval-card"
-                    aria-labelledby="approval-title"
-                  >
-                    <h3 id="approval-title">{t("live.approval")}</h3>
-                    <pre>{approval.description}</pre>
-                    <button
-                      ref={approvalRef}
-                      type="button"
-                      onClick={() => void decide(false)}
-                    >
-                      {t("common.deny")}
-                    </button>
-                    <button type="button" onClick={() => void decide(true)}>
-                      {t("common.approve")}
-                    </button>
-                  </section>
+                {activity.items.length > 0 && (
+                  <details className="run-activity-disclosure">
+                    <summary>{t("live.activity")}</summary>
+                    <RunActivity state={activity} />
+                  </details>
                 )}
               </div>
-              {!active &&
-                (status === "failed" ||
-                  status === "interrupted" ||
-                  status === "cancelled") && (
-                  <div
-                    className="studio-run-result"
-                    role={status === "failed" ? "alert" : "status"}
-                  >
-                    <strong>{t(`live.${status}`)}</strong>
-                    <p>
-                      {zh
-                        ? "草稿已保留，可以修改后重新发送。"
-                        : "Your draft is retained. Edit it and send again when ready."}
-                    </p>
-                    {details.length > 0 && (
-                      <details>
-                        <summary>{t("live.activity")}</summary>
-                        <pre>
-                          {details.map((detail) => detail.text).join("\n")}
-                        </pre>
-                      </details>
-                    )}
-                  </div>
-                )}
+              {approval && (
+                <ApprovalCard
+                  key={approval.approvalId}
+                  approval={approval}
+                  count={approvals.length}
+                  pending={approvalPending || status === "stopping"}
+                  onDecide={decide}
+                />
+              )}
+              {!active && completion && <RunResult result={completion} />}
               <div className="live-composer">
                 {candidates.length > 0 && (
                   <SlashCommandMenu
@@ -1297,12 +1345,7 @@ export function LiveWorkbench(): React.JSX.Element {
                 {t("live.compact")}
               </button>
               <h3>{t("live.activity")}</h3>
-              {details.map((detail) => (
-                <details key={detail.id} open={detail.kind === "error"}>
-                  <summary>{detail.kind}</summary>
-                  <pre>{detail.text}</pre>
-                </details>
-              ))}
+              <RunActivity state={activity} />
               <p>{t("live.verification")}</p>
             </div>
           </aside>

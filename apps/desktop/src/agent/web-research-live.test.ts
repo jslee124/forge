@@ -96,6 +96,8 @@ it.skipIf(FORGE_D11_LIVE_CODEX !== "1")(
         },
         {
           signal: controller.signal,
+          phase: () => undefined,
+          action: () => undefined,
           text: (text) => {
             answer += text;
           },
@@ -119,7 +121,7 @@ it.skipIf(FORGE_D11_LIVE_CODEX !== "1")(
           nativeSourceMetadata: false,
         }),
       );
-      expect(outcome).toBe("completed");
+      expect(outcome).toMatchObject({ outcome: "completed" });
       expect(report.length).toBeGreaterThan(0);
     } finally {
       clearTimeout(timer);

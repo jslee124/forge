@@ -1,6 +1,7 @@
 import { configureHttpDispatcher } from "@forge/application";
 import { z } from "zod";
 import { managementCommandSchema } from "../shared/application-protocol.js";
+import { RUN_PROTOCOL_VERSION } from "../shared/run-protocol.js";
 import { DesktopApplication, desktopError } from "./application.js";
 import { RunService } from "./run-service.js";
 import { createAgentRequestHandler } from "./runtime.js";
@@ -66,4 +67,8 @@ parentPort.on("message", (event) => {
   runs.handle(event.data);
   void handleRequest(event.data);
 });
-parentPort.postMessage({ type: "ready", pid: process.pid });
+parentPort.postMessage({
+  type: "ready",
+  pid: process.pid,
+  runProtocolVersion: RUN_PROTOCOL_VERSION,
+});

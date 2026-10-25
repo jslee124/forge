@@ -92,28 +92,33 @@ for (const engine of ["native", "codex"] as const) {
           },
           {
             signal: controller.signal,
+            phase: () => undefined,
+            action: () => {
+              toolEvents++;
+            },
             text: (value) => {
               answer += value;
             },
             detail: (kind) => {
               if (kind === "tool") toolEvents++;
             },
-            approve: async (description) => {
+            approve: async (description, descriptor) => {
+              const input = descriptor?.input ?? description;
               approvals++;
               return (
                 engine === "native" &&
-                (description.includes("web_search") ||
-                  description.includes("web_fetch") ||
-                  (description.includes('"operation":') &&
+                (input.includes("web_search") ||
+                  input.includes("web_fetch") ||
+                  (input.includes('"operation":') &&
                     ["sum.js", "output.csv", "report.md"].some((path) =>
-                      description.includes(`"path": "${path}"`),
+                      input.includes(`"path": "${path}"`),
                     )))
               );
             },
           },
         );
         Object.assign(result, { outcome });
-        expect(outcome).toBe("completed");
+        expect(outcome).toMatchObject({ outcome: "completed" });
         const code = await readFile(join(cwd, "sum.js"), "utf8");
         expect(code).toBe(expected);
         const csv = await readFile(join(cwd, "output.csv"), "utf8");

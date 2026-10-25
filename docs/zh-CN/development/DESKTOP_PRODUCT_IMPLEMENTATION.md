@@ -2,9 +2,43 @@
 
 [English](../../development/DESKTOP_PRODUCT_IMPLEMENTATION.md) · [PRD](DESKTOP_PRODUCT_PRD.md) · [路线图](ROADMAP.md) · [文档目录](../README.md)
 
-日期：2026-10-25。状态：待实现。本文是分层实现合同与任务清单，不是已发布行为。
+日期：2026-10-25。状态：首批展示链路已实现，其余任务待实施。本文是分层实现合同与任务清单，不是已发布行为。
 新增文件名、类型、字段和配置均为拟实现设计；已有源码入口在第 2 节单独列出。
 本文与 PRD 冲突时先修订两份合同再实施，不通过猜测扩展范围。
+
+## 本轮实现进度
+
+2026-10-25 已接入一条原生运行展示链路：application 的 `product-run.ts`／`session-view.ts`、
+Desktop v2 事件与版本检查、结构化审批／动作绑定、细分结束原因、片段聚合、审批队列及
+独立结果卡片。空工具消息不再渲染头像；提交内容与下一条草稿分离，完成不清除新草稿。
+选择记录于 [ADR-0002](../../decisions/0002-desktop-run-presentation-contract.md)。
+
+这是 T01/T04/T08—T11 的部分实现，不是完整 M1。v2 当前保留 text/detail/action/phase/
+approval/approval-resolved/complete payload 名称，先迁移语义，不宣称第 4 节全量协议已落地。
+Codex 缺失的调用计数不展示为 0；其工具活动仍为描述型信息。
+产品运行记录、崩溃后活动恢复、预算预留、工具扩展与 summarize/continue/retry 尚未实施。
+固定 24 任务的模型基线和 5 用户试用尚未执行；新增确定性复现不是这些结果的替代。
+
+任务表 `[ ]` 表示待实现，`[~]` 表示部分实现／尚未通过完整 gate。
+
+本轮验证（2026-10-25，本地开发构建）：
+
+- `CI=true pnpm exec vitest run apps/desktop/src packages/application/src/product-run.test.ts packages/application/src/persistent-session.test.ts`：125 项通过，6 项真实模型 opt-in 测试跳过。
+- `CI=true pnpm eval:deterministic`：71 项通过。
+- `CI=true pnpm check`、`CI=true pnpm check:docs`、`CI=true pnpm desktop:build` 通过。
+- 在 `apps/desktop` 运行 `CI=true FORGE_UI_OUTPUT=/tmp/forge-productization-ui node scripts/acceptance-ui.mjs`：隔离配置、本地脚本 provider、真实 Electron/main/preload/Agent IPC；审批 → 允许一次 → 回答、取消、失败恢复通过。截图检查了展开审批详情的 840×800 窗口和活动列表，审批底部按钮可见，无页面横向溢出。原有中英／明暗布局矩阵同时运行。
+- 回归覆盖 10,000 reasoning 片段聚合、actionId 决策匹配、协议版本／非法事件、步骤上限、canonical history 不变、完成后新草稿保留、审批与取消请求失败时保留决策入口。
+
+这些结果不包含真实 provider 质量、24 任务基线、用户试用、崩溃恢复、安装包或发布验收。
+当前活动只在内存保留，500 项上限与输出截断均显式提示；不是可持久回看的产品运行记录。
+
+同日布局跟进：正文、输入框、审批和结果使用共同宽度与边距；会话容器不足 740px 时，
+权限、引擎、模型、发送／停止切换为单行图标模式，悬停显示当前选项，点击仍打开完整
+选项；宽列保留权限和模型文字，但引擎始终用品牌图标，模型控件最多 200px，不重复显示
+“引擎／模型”标签；窄列保留可访问名称和键盘焦点。macOS
+顶部工具栏、侧栏开关与窗口按钮增加留白。Electron 验收新增 720/840/980/1100 宽度 ×
+工作台开关的几何检查，检查控件越界、重叠、图标压缩、顶部安全边距与正文／输入框
+对齐、紧凑模式隐藏长文字且保持单行；同时运行既有截图矩阵。13 项 renderer 回归、类型检查和桌面构建通过。
 
 ## 1. 实现目标与不变量
 
@@ -23,7 +57,7 @@
 
 ## 2. 当前源码基线
 
-本节为 2026-10-25 静态核对；没有因此新增测试或 live 验证结论。
+本节为 2026-10-25 开始实施前的静态基线；实施变化见上方进度，不代表 live 验证结论。
 
 | 当前事实 | 源码入口 | 拟改动 |
 | --- | --- | --- |
@@ -280,22 +314,22 @@ core／adapter 的可选字段有旧缺省路径；CLI／gateway 不必升级到
 
 ## 10. 实现任务与依赖
 
-全部任务当前为 `[ ]`；按 M0→M1→M2→M3→M4 推进。跨层任务需先完成契约测试再改展示。
+按 M0→M1→M2→M3→M4 推进；跨层接入以契约测试保护。部分纵向接入不等同于阶段完成。
 
 | 任务 | 状态 | 具体改动与交付 | 依赖／PRD |
 | --- | --- | --- | --- |
 | T00 | [ ] | 固定 24 任务、评分、两轮基线；记录本次失败为可重放 fixture，明确主验收模型配置 | M0；R01—R15 |
-| T01 | [ ] | 新 ADR、产品状态／事件 schema、reason 映射、native/Codex 能力表 | T00；R02/R08/R14 |
+| T01 | [~] | 新 ADR、产品状态／事件 schema、reason 映射、native/Codex 能力表 | T00；R02/R08/R14 |
 | T02 | [ ] | persistence run store、redaction、配额、crash reconciliation、历史投影 | T01；R05/R08/R13 |
 | T03 | [ ] | application run coordinator；接入现有 session／lease／revision；完成与存储顺序 | T02；R01/R08/R13 |
-| T04 | [ ] | IPC v2、版本握手、顺序与身份检查、typed approval、断连取消 | T03；R02/R04/R14 |
+| T04 | [~] | IPC v2、版本握手、顺序与身份检查、typed approval、断连取消 | T03；R02/R04/R14 |
 | T05 | [ ] | read_file 行范围、partial hash 规则、搜索上下文／过滤及受限 regex | T01；R06 |
 | T06 | [ ] | core finalizing／budget／no-progress；adapter toolChoice none 及 continuation 测试 | T05；R07/R14 |
 | T07 | [ ] | summarize/continue/retry 服务、能力与新 run 关联、事实交付模型 | T03/T06；R09/R11 |
-| T08 | [ ] | renderer reducer、合并／分页、浏览与执行分离、旧消息投影接入 | T04；R02/R05/R13 |
-| T09 | [ ] | ApprovalCard 与连续请求、键盘、决定记录、稳定按钮区 | T08；R03/R04/R15 |
-| T10 | [ ] | 运行摘要／活动／失败／交付视图，控制事件与诊断分区 | T07/T09；R05/R08/R11 |
-| T11 | [ ] | composer 草稿、消息操作、跟随滚动、恢复交互 | T10；R09/R10/R12 |
+| T08 | [~] | renderer reducer、合并／分页、浏览与执行分离、旧消息投影接入 | T04；R02/R05/R13 |
+| T09 | [~] | ApprovalCard 与连续请求、键盘、决定记录、稳定按钮区 | T08；R03/R04/R15 |
+| T10 | [~] | 运行摘要／活动／失败／交付视图，控制事件与诊断分区 | T07/T09；R05/R08/R11 |
+| T11 | [~] | composer 草稿、消息操作、跟随滚动、恢复交互 | T10；R09/R10/R12 |
 | T12 | [ ] | 双语主题、200% 缩放、窄窗口、读屏／减少动效与流式压力验收 | T11；R15 |
 | T13 | [ ] | 24 任务两轮、5 用户试用、CLI／gateway／Codex 回归及各平台安装证据 | T12；所有 R |
 | T14 | [ ] | 更新当前产品双语文档、packaged help、版本证据索引；满足门槛后再提出发布 | T13；所有 R |
@@ -383,7 +417,7 @@ CI=true pnpm package:verify
 
 跨层 runtime／adapter／persistence 合同需要 deterministic eval；packaged resources 或公共
 产物改动需要 package:verify。loopback 测试可能需要 127.0.0.1 绑定权限。真实模型调用
-显式 opt-in，与离线结果分开。当前任务仅编写文档，实际只需运行文档检查。
+显式 opt-in，与离线结果分开。初始文档任务仅执行文档检查；本轮代码改动须执行构建、类型检查、相关测试与跨层评测。
 
 UI 证据矩阵：中英 × 明暗 × 1100×728／840px，含审批、拒绝、停止、错误、预算耗尽、
 恢复、长回答、开面板、长模型名、IME、200% 缩放与减少动效；人工读屏单独记录。

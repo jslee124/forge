@@ -121,6 +121,8 @@ it("blocks Codex execution under a shared workspace lease and recovers after rel
         },
         {
           signal: new AbortController().signal,
+          phase: () => undefined,
+          action: () => undefined,
           text: () => {},
           detail: () => {},
           approve: async () => false,
@@ -128,14 +130,14 @@ it("blocks Codex execution under a shared workspace lease and recovers after rel
       );
     const lease = await acquireWorkspaceLease(cwd);
     try {
-      await expect(execute()).rejects.toThrow("run-failed");
+      await expect(execute()).resolves.toMatchObject({ outcome: "failed" });
       expect(clients.flatMap((client) => client.calls)).not.toContain(
         "turn/start",
       );
     } finally {
       await lease.release();
     }
-    await expect(execute()).resolves.toBe("completed");
+    await expect(execute()).resolves.toMatchObject({ outcome: "completed" });
     expect(clients.flatMap((client) => client.calls)).toContain("turn/start");
     const available = await acquireWorkspaceLease(cwd);
     await available.release();
@@ -178,6 +180,8 @@ it("executes and restores Codex desktop turns using only text history", async ()
       },
       {
         signal: new AbortController().signal,
+        phase: () => undefined,
+        action: () => undefined,
         text: (text) => output.push(text),
         detail: () => undefined,
         approve: async () => false,
@@ -201,6 +205,8 @@ it("executes and restores Codex desktop turns using only text history", async ()
       },
       {
         signal: new AbortController().signal,
+        phase: () => undefined,
+        action: () => undefined,
         text: () => undefined,
         detail: () => undefined,
         approve: async () => false,
@@ -243,12 +249,14 @@ it("reports missing Codex without falling back to native execution", async () =>
         },
         {
           signal: new AbortController().signal,
+          phase: () => undefined,
+          action: () => undefined,
           text: () => undefined,
           detail: () => undefined,
           approve: async () => false,
         },
       ),
-    ).rejects.toThrow("run-failed");
+    ).resolves.toMatchObject({ outcome: "failed" });
     app.close();
   } finally {
     await rm(cwd, { recursive: true, force: true });
@@ -428,6 +436,8 @@ it.each(["safe", "workspace-write"] as const)(
         },
         {
           signal: new AbortController().signal,
+          phase: () => undefined,
+          action: () => undefined,
           text: () => {},
           detail: () => {},
           approve: async () => false,

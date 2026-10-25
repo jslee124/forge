@@ -1,4 +1,5 @@
 import { ArrowUp } from "@phosphor-icons/react/ArrowUp";
+import { Square } from "@phosphor-icons/react/Square";
 import { useTranslation } from "react-i18next";
 import type {
   DesktopState,
@@ -70,14 +71,25 @@ export function ComposerControls({
         <button
           type="button"
           disabled={status === "stopping"}
+          aria-label={t(status === "stopping" ? "live.stopping" : "live.stop")}
+          title={t(status === "stopping" ? "live.stopping" : "live.stop")}
           onClick={() => void cancel()}
         >
-          {t(status === "stopping" ? "live.stopping" : "live.stop")}
+          <Square size={16} aria-hidden="true" />
+          <span className="studio-action-label">
+            {t(status === "stopping" ? "live.stopping" : "live.stop")}
+          </span>
         </button>
       ) : (
-        <button type="button" disabled={!canSend} onClick={() => void send()}>
-          <ArrowUp size={16} />
-          {t("live.send")}
+        <button
+          type="button"
+          disabled={!canSend}
+          onClick={() => void send()}
+          aria-label={t("live.send")}
+          title={t("live.send")}
+        >
+          <ArrowUp size={16} aria-hidden="true" />
+          <span className="studio-action-label">{t("live.send")}</span>
         </button>
       )}
     </div>

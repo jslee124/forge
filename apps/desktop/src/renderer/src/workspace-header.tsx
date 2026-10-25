@@ -56,9 +56,15 @@ export function WorkspaceHeader({
           )}
         </button>
       )}
-      <button type="button" disabled={busy} onClick={onChooseWorkspace}>
+      <button
+        className="studio-workspace-button"
+        type="button"
+        disabled={busy}
+        onClick={onChooseWorkspace}
+        title={state?.cwd || t("live.folder")}
+      >
         <FolderOpen size={17} />
-        {state?.cwd?.split("/").pop() || t("live.folder")}
+        <span>{state?.cwd?.split("/").pop() || t("live.folder")}</span>
       </button>
       {collapsedMac && (
         <button
@@ -82,10 +88,12 @@ export function WorkspaceHeader({
         type="button"
         className="studio-panel-toggle"
         aria-expanded={panel}
+        aria-label={t("studio.workbench")}
+        title={t("studio.workbench")}
         onClick={() => setPanel(!panel)}
       >
         <SidebarSimple size={17} />
-        {t("studio.workbench")}
+        <span>{t("studio.workbench")}</span>
       </button>
       {collapsedMac && (
         <button

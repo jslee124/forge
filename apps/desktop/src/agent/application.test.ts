@@ -104,6 +104,9 @@ async function run(
                 requestId: randomUUID(),
                 type: "approve",
                 approvalId: event.payload.approvalId,
+                ...(event.payload.descriptor
+                  ? { actionId: event.payload.descriptor.actionId }
+                  : {}),
                 allow: decision === "allow",
               },
         );
@@ -125,12 +128,66 @@ async function run(
   return { events, final };
 }
 describe("desktop native execution", () => {
+  it("preserves a real step-limit outcome and classifies its internal history separately", async () => {
+    const f = await fixture([
+      [call("read_file", { path: "note.txt" }), finish("tool-calls")],
+    ]);
+    await writeFile(join(f.cwd, "note.txt"), "source evidence");
+    await mkdir(f.env.FORGE_HOME, { recursive: true });
+    await writeFile(
+      join(f.env.FORGE_HOME, "config.json"),
+      JSON.stringify({ schemaVersion: 1, limits: { maxSteps: 1 } }),
+    );
+    const result = await run(f.application, f.sessionId);
+    expect(result.final.payload).toMatchObject({
+      type: "complete",
+      outcome: "limit_reached",
+      reason: "model_step_limit",
+      modelSteps: 1,
+      toolCalls: 1,
+    });
+    const state = await f.application.state();
+    expect(
+      state.messages.filter((message) => message.kind === "system-outcome"),
+    ).toMatchObject([{ outcome: "limit_reached" }]);
+    expect(
+      state.messages.some(
+        (message) =>
+          message.kind === "answer" &&
+          message.content.includes("[Forge run outcome"),
+      ),
+    ).toBe(false);
+    expect(state.messages.some((message) => !message.content.trim())).toBe(
+      false,
+    );
+    const saved = JSON.parse(
+      await readFile(
+        join(f.env.FORGE_HOME, "sessions", `${f.sessionId}.json`),
+        "utf8",
+      ),
+    );
+    expect(
+      saved.history.some(
+        (message: { role: string }) => message.role === "tool",
+      ),
+    ).toBe(false);
+    expect(
+      result.events.some(
+        (event) =>
+          event.payload.type === "action" &&
+          event.payload.action.status === "succeeded",
+      ),
+    ).toBe(true);
+    expect(JSON.stringify(saved)).toContain("were not returned to the model");
+    expect(JSON.stringify(saved)).toContain("[Forge run outcome");
+    f.application.close();
+  });
   it("honors the shared workspace lease and resumes after its owner releases it", async () => {
     const f = await fixture([]);
     const lease = await acquireWorkspaceLease(f.cwd);
     try {
       const blocked = await run(f.application, f.sessionId);
-      expect(blocked.final.payload).toEqual({
+      expect(blocked.final.payload).toMatchObject({
         type: "complete",
         outcome: "failed",
       });
@@ -140,7 +197,9 @@ describe("desktop native execution", () => {
       await lease.release();
     }
     try {
-      expect((await run(f.application, f.sessionId)).final.payload).toEqual({
+      expect(
+        (await run(f.application, f.sessionId)).final.payload,
+      ).toMatchObject({
         type: "complete",
         outcome: "completed",
       });
@@ -259,7 +318,7 @@ describe("desktop native execution", () => {
         prompt: "No configured provider",
       });
       const result = await run(app, state.sessionId);
-      expect(result.final.payload).toEqual({
+      expect(result.final.payload).toMatchObject({
         type: "complete",
         outcome: "failed",
       });
@@ -297,7 +356,7 @@ describe("desktop native execution", () => {
       [{ type: "text.delta", text: "done" }, finish("stop")],
     ]);
     const first = await run(f.application, f.sessionId);
-    expect(first.final.payload, JSON.stringify(first.events)).toEqual({
+    expect(first.final.payload, JSON.stringify(first.events)).toMatchObject({
       type: "complete",
       outcome: "completed",
     });
@@ -324,7 +383,7 @@ describe("desktop native execution", () => {
     });
     await restarted.manage({ type: "workspace", cwd: f.cwd });
     await restarted.manage({ type: "resume", sessionId: f.sessionId });
-    expect((await run(restarted, f.sessionId)).final.payload).toEqual({
+    expect((await run(restarted, f.sessionId)).final.payload).toMatchObject({
       type: "complete",
       outcome: "completed",
     });
@@ -345,7 +404,7 @@ describe("desktop native execution", () => {
       ]);
       const result = await run(f.application, f.sessionId, decision);
       await expect(readFile(join(f.cwd, "denied.txt"))).rejects.toThrow();
-      expect(result.final.payload).toEqual({
+      expect(result.final.payload).toMatchObject({
         type: "complete",
         outcome: decision === "cancel" ? "cancelled" : "completed",
       });
@@ -360,10 +419,12 @@ describe("desktop native execution", () => {
       join(f.env.FORGE_HOME, "sessions", `${f.sessionId}.desktop-lock`),
       "busy",
     );
-    expect((await run(f.application, f.sessionId)).final.payload).toEqual({
-      type: "complete",
-      outcome: "failed",
-    });
+    expect((await run(f.application, f.sessionId)).final.payload).toMatchObject(
+      {
+        type: "complete",
+        outcome: "failed",
+      },
+    );
     expect(await readFile(snapshot, "utf8")).toBe(before);
   });
   it("restores a persisted engine boundary without transferring tool history", async () => {
@@ -428,7 +489,7 @@ describe("desktop native execution", () => {
     const changed = `${await readFile(snapshot, "utf8")} `;
     await writeFile(snapshot, changed);
     const result = await run(f.application, f.sessionId);
-    expect(result.final.payload).toEqual({
+    expect(result.final.payload).toMatchObject({
       type: "complete",
       outcome: "failed",
     });
@@ -453,7 +514,7 @@ describe("desktop native execution", () => {
       ),
     ).toBe(true);
     expect(state.sessionId).toMatch(/^[a-f0-9-]+$/);
-    expect((await run(app, state.sessionId)).final.payload).toEqual({
+    expect((await run(app, state.sessionId)).final.payload).toMatchObject({
       type: "complete",
       outcome: "completed",
     });

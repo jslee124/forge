@@ -2,10 +2,54 @@
 
 [简体中文](../zh-CN/development/DESKTOP_PRODUCT_IMPLEMENTATION.md) · [PRD](DESKTOP_PRODUCT_PRD.md) · [Roadmap](ROADMAP.md) · [Documentation index](../README.md)
 
-Date: 2026-10-25. Status: implementation pending. This is a layered development
+Date: 2026-10-25. Status: initial presentation increment implemented; remaining tasks pending. This is a layered development
 contract and task list, not shipped behavior. New filenames, types, fields, and
 configuration below are proposed; section 2 separately identifies existing code.
 Resolve PRD/implementation disagreements in both documents before implementing.
+
+## Implementation progress
+
+The 2026-10-25 increment connects application product-run/session-view projections,
+Desktop v2 events and version checks, structured approvals/action binding, detailed
+outcomes, fragment aggregation, queued approvals, and result cards. Tool-only
+messages no longer create avatars. Submitted prompts and next drafts are separate;
+completion preserves newer drafts. See [ADR-0002](../decisions/0002-desktop-run-presentation-contract.md).
+
+This partially implements T01/T04/T08–T11, not all of M1. Wire v2 currently retains
+text/detail/action/phase/approval/approval-resolved/complete payload names as an
+incremental migration rather than claiming the entire section 4 protocol.
+Unavailable Codex counters are omitted; its tool activity remains descriptive.
+Durable records, crash activity restoration, budget reservation, tool improvements,
+and summarize/continue/retry remain pending. The 24-task live baseline and five-user
+trial have not run; deterministic reproductions do not substitute for them.
+
+Task status `[ ]` means pending and `[~]` means partial/not through the complete gate.
+
+Validation on 2026-10-25 (local development build):
+
+- `CI=true pnpm exec vitest run apps/desktop/src packages/application/src/product-run.test.ts packages/application/src/persistent-session.test.ts`: 125 passed; six live-model opt-in tests skipped.
+- `CI=true pnpm eval:deterministic`: 71 passed.
+- `CI=true pnpm check`, `CI=true pnpm check:docs`, and `CI=true pnpm desktop:build` passed.
+- From `apps/desktop`, `CI=true FORGE_UI_OUTPUT=/tmp/forge-productization-ui node scripts/acceptance-ui.mjs` exercised isolated configuration, a scripted loopback provider, and real Electron/main/preload/Agent IPC. Approval → allow once → answer, cancellation, and failure recovery passed. Screenshot inspection covered expanded approval details at 840×800 and expanded activity; decision buttons remained visible with no page horizontal overflow. The existing locale/theme layout matrix also ran.
+- Regressions cover 10,000 reasoning deltas, actionId-bound decisions, protocol version/malformed events, step limits, unchanged canonical history, newer drafts surviving completion, and retained approval controls after rejected decision/cancel requests.
+
+This does not establish live-provider quality, the 24-task baseline, user trials,
+crash recovery, installed-package behavior, or release acceptance. Activity is
+currently memory-only, with explicit 500-item and output truncation notices;
+it is not a durable product run record.
+
+Layout follow-up on the same date: transcript, composer, approval, and result
+surfaces share width/gutters. At conversation widths below 740px, permission,
+engine, model, and send/stop controls use a single icon row with current-value
+tooltips and complete options on activation. Wider columns retain permission/model
+text, use the engine brand mark, cap the model control at 200px, and omit redundant
+engine/model labels. Compact
+controls preserve accessible names and keyboard focus. macOS toolbar, sidebar
+toggle, and window controls gain top spacing.
+Electron acceptance adds 720/840/980/1100 widths × workbench open/closed geometry
+checks for overflow, overlap, squeezed icons, top inset, and transcript/composer
+alignment, plus hidden long labels and single-row compact controls, alongside the existing screenshot matrix. The 13 renderer regressions,
+type checks, and desktop build passed.
 
 ## 1. Goal and invariants
 
@@ -30,7 +74,7 @@ boundaries. PRD R01–R15 are the acceptance identifiers.
 
 ## 2. Current source baseline
 
-Statically checked on 2026-10-25; these pointers do not add test/live evidence.
+Static pre-implementation baseline from 2026-10-25; changes are tracked above, not live evidence.
 
 | Existing fact | Source | Proposed change |
 | --- | --- | --- |
@@ -348,23 +392,23 @@ its packaged resources; plans do not change shipped claims.
 
 ## 10. Tasks and dependencies
 
-All tasks are `[ ]`. Follow M0 → M1 → M2 → M3 → M4. Establish cross-layer contract
-tests before replacing presentation.
+Follow M0 → M1 → M2 → M3 → M4, protecting cross-layer semantics with contract
+tests. A partial vertical increment does not complete a milestone.
 
 | Task | Status | Changes and deliverable | Dependencies / PRD |
 | --- | --- | --- | --- |
 | T00 | [ ] | Freeze 24 tasks/rubric, two baseline rounds; reproduce observed failure as fixture; pin primary model configuration | M0; R01–R15 |
-| T01 | [ ] | New ADR, states/events/reasons schema, native/Codex capabilities | T00; R02/R08/R14 |
+| T01 | [~] | New ADR, states/events/reasons schema, native/Codex capabilities | T00; R02/R08/R14 |
 | T02 | [ ] | Run store, redaction, quotas, crash reconciliation, history projection | T01; R05/R08/R13 |
 | T03 | [ ] | Run coordinator with existing session/lease/revision and finish/write ordering | T02; R01/R08/R13 |
-| T04 | [ ] | IPC v2, handshake, sequence/identity checks, typed approvals, disconnect cancellation | T03; R02/R04/R14 |
+| T04 | [~] | IPC v2, handshake, sequence/identity checks, typed approvals, disconnect cancellation | T03; R02/R04/R14 |
 | T05 | [ ] | Line ranges, partial-hash rules, search context/filtering, bounded regex | T01; R06 |
 | T06 | [ ] | Core finalization/budgets/no-progress, adapter none and continuation tests | T05; R07/R14 |
 | T07 | [ ] | Summarize/continue/retry services, capabilities, linked runs, factual delivery model | T03/T06; R09/R11 |
-| T08 | [ ] | Renderer reducer, merging/paging, separate viewed/active state, old-message projection | T04; R02/R05/R13 |
-| T09 | [ ] | ApprovalCard, ordered requests, keyboard, decision records, stable buttons | T08; R03/R04/R15 |
-| T10 | [ ] | Summary/activity/failure/delivery views, control handling, separate diagnostics | T07/T09; R05/R08/R11 |
-| T11 | [ ] | Drafts, message actions, scrolling, recovery interactions | T10; R09/R10/R12 |
+| T08 | [~] | Renderer reducer, merging/paging, separate viewed/active state, old-message projection | T04; R02/R05/R13 |
+| T09 | [~] | ApprovalCard, ordered requests, keyboard, decision records, stable buttons | T08; R03/R04/R15 |
+| T10 | [~] | Summary/activity/failure/delivery views, control handling, separate diagnostics | T07/T09; R05/R08/R11 |
+| T11 | [~] | Drafts, message actions, scrolling, recovery interactions | T10; R09/R10/R12 |
 | T12 | [ ] | Bilingual/themes, 200% zoom, narrow windows, screen reader/reduced motion, streaming stress | T11; R15 |
 | T13 | [ ] | Two 24-task rounds, five-user trial, CLI/gateway/Codex regression, platform installation evidence | T12; all R |
 | T14 | [ ] | Update bilingual product help, packaged resources, versioned evidence index; propose release after gates | T13; all R |
@@ -464,8 +508,8 @@ CI=true pnpm package:verify
 Cross-layer runtime/adapter/persistence contracts require deterministic evaluation.
 Resource/public-artifact changes require package:verify. Loopback tests may need
 permission to bind 127.0.0.1. Live provider calls are explicit opt-in and separate
-from offline evidence. This task writes documents only and requires documentation
-checks, not implementation validation.
+from offline evidence. The initial document task required documentation checks; this code increment
+requires build, type checks, related tests, and cross-layer evaluation.
 
 UI matrix: Chinese/English × light/dark × 1100×728/840px, approval/deny/stop/error/
 budget/recovery/long answer/open panel/long model names/IME/200% zoom/reduced motion.

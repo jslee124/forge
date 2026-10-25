@@ -32,10 +32,18 @@ class FakeUtilityProcess extends EventEmitter {
 }
 
 describe("AgentProcess", () => {
+  it("rejects mismatched run protocols and kills the incompatible child", async () => {
+    const child = new FakeUtilityProcess();
+    const agent = new AgentProcess(child as unknown as UtilityProcess);
+    child.emit("message", { type: "ready", pid: 42, runProtocolVersion: 1 });
+    await expect(agent.waitUntilReady()).rejects.toThrow("protocol mismatch");
+    expect(child.kill).toHaveBeenCalledOnce();
+    expect(child.listenerCount("message")).toBe(0);
+  });
   it("starts, communicates, exits, and removes owned listeners", async () => {
     const child = new FakeUtilityProcess();
     const agent = new AgentProcess(child as unknown as UtilityProcess);
-    child.emit("message", { type: "ready", pid: 42 });
+    child.emit("message", { type: "ready", pid: 42, runProtocolVersion: 2 });
 
     await expect(agent.waitUntilReady()).resolves.toBeUndefined();
     await expect(agent.ping()).resolves.toEqual({
@@ -53,7 +61,7 @@ describe("AgentProcess", () => {
     for (let index = 0; index < 20; index++) {
       const child = new FakeUtilityProcess();
       const agent = new AgentProcess(child as unknown as UtilityProcess);
-      child.emit("message", { type: "ready", pid: 42 });
+      child.emit("message", { type: "ready", pid: 42, runProtocolVersion: 2 });
       await agent.waitUntilReady();
       await Promise.all([agent.close(), agent.close()]);
       expect(child.listenerCount("message")).toBe(0);
@@ -65,7 +73,7 @@ describe("AgentProcess", () => {
   it("crash interrupts the active run and resolves its pending acknowledgement", async () => {
     const child = new FakeUtilityProcess();
     const agent = new AgentProcess(child as unknown as UtilityProcess);
-    child.emit("message", { type: "ready", pid: 42 });
+    child.emit("message", { type: "ready", pid: 42, runProtocolVersion: 2 });
     const events = vi.fn();
     agent.runs.subscribe(events);
     const pending = agent.runs.request({
@@ -96,7 +104,7 @@ describe("AgentProcess", () => {
         return true;
       });
       const agent = new AgentProcess(child as unknown as UtilityProcess);
-      child.emit("message", { type: "ready", pid: 42 });
+      child.emit("message", { type: "ready", pid: 42, runProtocolVersion: 2 });
       const closed = agent.close();
       await vi.runAllTimersAsync();
       await closed;
@@ -111,7 +119,7 @@ describe("AgentProcess", () => {
     const child = new FakeUtilityProcess();
     child.postMessage.mockImplementation(() => undefined);
     const agent = new AgentProcess(child as unknown as UtilityProcess);
-    child.emit("message", { type: "ready", pid: 42 });
+    child.emit("message", { type: "ready", pid: 42, runProtocolVersion: 2 });
 
     const ping = agent.ping();
     child.emit("exit", 9);

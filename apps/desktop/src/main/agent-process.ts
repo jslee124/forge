@@ -1,8 +1,8 @@
 import type { UtilityProcess } from "electron";
 import type { AgentRequest, AgentResponse } from "../agent/runtime.js";
 import type { AgentHealth } from "../shared/desktop-api.js";
+import { RUN_PROTOCOL_VERSION } from "../shared/run-protocol.js";
 import { ManagementChannel } from "./management-channel.js";
-
 import { RunChannel } from "./run-channel.js";
 
 const RESPONSE_TIMEOUT_MS = 5_000;
@@ -134,6 +134,15 @@ export class AgentProcess {
     if (typeof value !== "object" || value === null) return;
     const message = value as Partial<AgentResponse>;
     if (message.type === "ready" && typeof message.pid === "number") {
+      if (message.runProtocolVersion !== RUN_PROTOCOL_VERSION) {
+        this.#child.kill();
+        this.#fail(
+          new Error(
+            "Desktop run protocol mismatch; restart or rebuild the app",
+          ),
+        );
+        return;
+      }
       this.#resolveReady();
       return;
     }

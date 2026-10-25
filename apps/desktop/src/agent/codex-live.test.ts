@@ -63,6 +63,8 @@ it.skipIf(FORGE_DESKTOP_LIVE_CODEX !== "1")(
           },
           {
             signal: controller.signal,
+            phase: () => undefined,
+            action: () => undefined,
             text: (value) => {
               text += value;
             },
@@ -70,7 +72,10 @@ it.skipIf(FORGE_DESKTOP_LIVE_CODEX !== "1")(
             approve: async () => false,
           },
         );
-        return { outcome, text };
+        return {
+          outcome: typeof outcome === "object" ? outcome.outcome : outcome,
+          text,
+        };
       };
       const first = await execute(
         'Create only d08-proof.txt in your working directory containing exactly "D08 first\\n". Read it to verify. Remember the marker CEDAR-582. Reply briefly with that marker. Do not access other files or the network.',

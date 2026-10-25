@@ -31,6 +31,8 @@
   --shadow: 0 8px 32px #0002;
 }
 .live-shell {
+  --conversation-width: 820px;
+  --conversation-gutter: 24px;
   color: var(--text);
   background: var(--surface);
   font-size: 13px;
@@ -202,6 +204,9 @@
   display: flex;
   align-items: center;
   gap: 8px;
+}
+.live-shell .live-main {
+  container: conversation / inline-size;
 }
 .live-toolbar {
   padding: 14px 20px;
@@ -591,6 +596,155 @@
 .live-shell .approval-card button {
   margin-right: 8px;
 }
+
+.live-shell .run-approval {
+  flex: 0 1 auto;
+  width: min(
+    var(--conversation-width),
+    calc(100% - 2 * var(--conversation-gutter))
+  );
+  min-height: 0;
+  margin: 8px auto;
+  border: 1px solid var(--border-strong);
+  border-radius: 14px;
+  background: var(--surface-subtle);
+  overflow: auto;
+  max-height: 40vh;
+}
+.run-approval header {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 16px 18px 8px;
+}
+.run-approval h3,
+.run-approval p {
+  margin: 0;
+}
+.run-approval header p,
+.run-approval footer > span {
+  color: var(--muted);
+  font-size: 12px;
+}
+.run-approval dl {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 6px 12px;
+  margin: 8px 18px;
+  font-size: 12px;
+}
+.run-approval-preview {
+  display: block;
+  margin: 8px 18px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+.run-approval dt {
+  color: var(--muted);
+}
+.run-approval dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.run-approval .run-approval-details,
+.run-approval .run-approval-risk {
+  margin: 10px 18px;
+}
+.run-approval summary,
+.run-activity summary {
+  cursor: pointer;
+}
+.run-output {
+  max-height: 180px;
+  overflow: auto;
+  min-width: 0;
+}
+.live-shell .run-output pre {
+  max-height: none;
+  overflow: visible;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding: 12px;
+  border-radius: 8px;
+  background: var(--background);
+  font-size: 12px;
+}
+.run-approval footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 18px;
+  position: sticky;
+  bottom: 0;
+  background: var(--surface-subtle);
+  border-top: 1px solid var(--border);
+}
+.run-approval footer > span {
+  margin-right: auto;
+}
+.live-shell .run-approval-allow {
+  background: var(--text);
+  color: var(--background);
+  border-color: var(--text);
+}
+.run-activity-disclosure {
+  margin-top: 12px;
+  color: var(--muted);
+}
+.run-activity {
+  color: var(--text);
+}
+.run-activity-summary,
+.run-result-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.run-activity ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.run-activity li {
+  border-top: 1px solid var(--border);
+  padding: 10px 0;
+}
+.run-activity li summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  list-style: none;
+}
+.run-activity li summary::-webkit-details-marker {
+  display: none;
+}
+.run-activity li summary::before {
+  content: "›";
+  width: 12px;
+  flex-shrink: 0;
+  color: var(--muted);
+}
+.run-activity li details[open] > summary::before {
+  transform: rotate(90deg);
+}
+.run-activity summary svg {
+  flex-shrink: 0;
+}
+.run-activity summary small {
+  margin-left: auto;
+  white-space: nowrap;
+  color: var(--muted);
+}
+.run-activity nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
 .live-shell .field-error {
   color: var(--danger);
   padding: 10px 20px;
@@ -809,7 +963,11 @@
   text-overflow: ellipsis;
 }
 .live-shell .live-transcript {
-  padding: 34px max(34px, calc((100% - 820px) / 2));
+  padding: 24px
+    max(
+      var(--conversation-gutter),
+      calc((100% - var(--conversation-width)) / 2)
+    );
 }
 .live-shell .live-user {
   margin-left: auto;
@@ -839,8 +997,13 @@
   filter: invert(0.9);
 }
 .live-shell .live-composer {
-  width: min(790px, calc(100% - 40px));
-  margin: 18px auto 24px;
+  width: min(
+    var(--conversation-width),
+    calc(100% - 2 * var(--conversation-gutter))
+  );
+  max-width: var(--conversation-width);
+  margin: 16px auto 24px;
+  flex-shrink: 0;
   padding: 16px;
   border-radius: 16px;
   box-shadow: none;
@@ -875,7 +1038,14 @@
   border-radius: 8px;
 }
 .studio-context-controls {
-  display: contents;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex-wrap: nowrap;
+}
+.studio-context-controls > * {
+  flex-shrink: 0;
 }
 .studio-permission {
   display: flex;
@@ -933,8 +1103,75 @@
   display: none;
 }
 .live-shell .studio-composer-footer {
-  flex-wrap: wrap;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+}
+.live-shell .studio-composer-footer svg {
+  flex-shrink: 0;
+}
+.live-shell .studio-composer-footer > button {
+  min-height: 34px;
+  white-space: nowrap;
+}
+.studio-model-controls {
+  width: auto;
+  justify-self: end;
+  margin-left: 0;
+  gap: 8px;
+}
+.studio-model-controls > label {
+  flex-shrink: 0;
+}
+.studio-model-picker > label {
+  width: 100%;
+}
+.studio-control-label {
+  display: none;
+}
+.studio-compact-icon {
+  display: none;
+}
+.studio-engine-mark {
+  display: block;
+  flex-shrink: 0;
+  object-fit: contain;
+  pointer-events: none;
+}
+.live-shell .studio-engine-picker {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  padding: 7px;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+.live-shell .studio-engine-picker > select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+.studio-engine-picker:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.studio-engine-picker:hover {
+  background: var(--surface-active);
+}
+[data-theme="dark"] .studio-engine-mark {
+  filter: invert(0.9);
+}
+.studio-model-label {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .live-shell .live-settings {
   max-width: 780px;
@@ -1192,10 +1429,17 @@
 .studio-model-picker {
   min-width: 0;
 }
+.studio-model-picker {
+  flex: 0 1 200px;
+  width: 200px;
+  max-width: 200px;
+}
 .live-shell [data-testid="composer-model"] {
   display: inline-block;
   text-align: left;
-  max-width: min(220px, 34vw);
+  flex: 1;
+  min-width: 0;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1279,6 +1523,16 @@
   border: 1px solid var(--border-strong);
   border-radius: 12px;
   background: var(--surface-subtle);
+}
+.live-main > .studio-run-result {
+  width: min(
+    var(--conversation-width),
+    calc(100% - 2 * var(--conversation-gutter))
+  );
+  margin-inline: auto;
+}
+.live-transcript > .studio-run-result {
+  margin-inline: 0;
 }
 .studio-run-result p {
   color: var(--muted);
@@ -1414,7 +1668,7 @@
 }
 .live-shell.platform-mac .studio-brand .studio-sidebar-toggle {
   position: absolute;
-  top: 3px;
+  top: 16px;
   right: 18px;
   z-index: 1;
   -webkit-app-region: no-drag;
@@ -1423,12 +1677,113 @@
   display: none;
 }
 .live-shell.platform-mac .live-toolbar {
-  flex: 0 0 40px;
-  min-height: 40px;
+  flex: 0 0 64px;
+  min-height: 64px;
   flex-wrap: nowrap;
-  padding-block: 2px;
+  padding-block: 14px;
   border-bottom: 0;
   -webkit-app-region: drag;
+}
+.live-toolbar svg {
+  flex-shrink: 0;
+}
+.live-shell .live-toolbar > .studio-workspace-button,
+.live-shell.platform-mac .live-toolbar > .studio-workspace-button {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 180px;
+}
+.studio-workspace-button > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@container conversation (max-width: 740px) {
+  .studio-control-label,
+  .studio-model-label,
+  .studio-action-label,
+  .studio-context-percent {
+    display: none;
+  }
+  .studio-compact-icon {
+    display: block;
+  }
+  .studio-model-controls {
+    justify-content: flex-end;
+    gap: 8px;
+  }
+  .studio-model-picker {
+    flex: 0 0 auto;
+    width: auto;
+  }
+  .live-shell .studio-permission {
+    position: relative;
+    width: 34px;
+    height: 34px;
+    padding: 7px;
+    gap: 0;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+  }
+  .studio-permission > svg {
+    pointer-events: none;
+  }
+  .live-shell .studio-permission > select {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+  }
+  .studio-permission:focus-within {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+  }
+  .studio-permission:hover {
+    background: var(--surface-active);
+  }
+  .live-shell [data-testid="composer-model"],
+  .live-shell .studio-composer-footer > button,
+  .studio-context-controls > .studio-add,
+  .studio-context-popover > summary {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    min-width: 34px;
+    height: 34px;
+    padding: 7px;
+    gap: 0;
+    border-radius: 8px;
+  }
+  .studio-context-popover > summary {
+    border: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .studio-context-popover > summary:hover {
+    background: var(--surface-active);
+  }
+}
+@container conversation (max-width: 480px) {
+  .live-shell .live-toolbar {
+    gap: 8px;
+    padding-inline: 16px;
+  }
+  .studio-task-title,
+  .studio-control-label,
+  .studio-panel-toggle > span {
+    display: none;
+  }
+  .live-shell .live-composer,
+  .live-shell .run-approval,
+  .live-main > .studio-run-result {
+    width: calc(100% - 32px);
+  }
+  .live-shell .live-transcript {
+    padding-inline: 16px;
+  }
 }
 .live-shell.platform-mac .live-toolbar > button {
   flex: 0 0 auto;

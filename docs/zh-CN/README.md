@@ -53,6 +53,7 @@ Forge 文档按“读者想完成什么”组织。第一次接触项目时无�
 | 记录 | 决策 |
 | --- | --- |
 | [ADR-0001](../decisions/0001-gateway-single-owner-workspace.md) | 聊天网关只服务一个 owner 和一个 workspace（英文） |
+| [ADR-0002](../decisions/0002-desktop-run-presentation-contract.md) | 桌面运行展示保留语义，不恢复执行权限（英文） |
 
 ## 扩展 Forge
 

@@ -15,5 +15,7 @@ export * from "./model-adapter.js";
 export * from "./model-catalog.js";
 export * from "./options.js";
 export * from "./persistent-session.js";
+export * from "./product-run.js";
 export * from "./run.js";
+export * from "./session-view.js";
 export * from "./startup-resources.js";

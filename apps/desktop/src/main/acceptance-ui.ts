@@ -460,16 +460,79 @@ export async function runUiAcceptance(
     );
     await enterDraft("P4 offline approval workflow");
     await click(".studio-composer-footer > button:last-child");
-    await until("document.querySelector('.approval-card')");
+    await until("document.querySelector('.run-approval')");
     await until(
-      "document.activeElement === document.querySelector('.approval-card button')",
+      "document.activeElement === document.querySelector('.run-approval button')",
     );
     await capture("p4-approval");
-    await click(".approval-card button:last-child");
+    await js("document.querySelector('.run-approval-details').open = true");
+    window.setContentSize(840, 800);
+    await until(
+      "(() => {const r=document.querySelector('.run-approval footer').getBoundingClientRect();return r.top>=0 && r.bottom<=innerHeight && document.querySelector('.run-approval .run-output');})()",
+    );
+    await capture("product-approval-details-narrow");
+    window.setContentSize(1100, 728);
+    await click(".run-approval button:last-child");
     await until(
       "document.querySelector('.live-transcript')?.textContent.includes('P4 offline fixture completed after approval.') && !document.querySelector('[data-testid=composer-engine]').disabled",
     );
     await capture("p4-completed");
+    await js("document.querySelector('.run-activity-disclosure').open = true");
+    await until(
+      "document.querySelectorAll('.run-activity li').length >= 2 && document.querySelector('.run-activity').textContent.includes('Succeeded')",
+    );
+    await js("document.querySelector('.run-activity li details').open = true");
+    await capture("product-activity-expanded");
+    // The conversation container, rather than the window alone, owns responsive controls.
+    for (const width of [1100, 980, 840, 720]) {
+      window.setContentSize(width, 800);
+      for (const panelOpen of [true, false]) {
+        await click(".studio-panel-toggle");
+        await until(
+          `Boolean(document.querySelector('.live-panel')) === ${panelOpen}`,
+        );
+        const layoutError = await js(`(() => { try {
+          const footer = document.querySelector('.studio-composer-footer');
+          const bounds = footer.getBoundingClientRect();
+          const controls = [...footer.children].filter(e => getComputedStyle(e).display !== 'none');
+          const rects = controls.map(e => e.getBoundingClientRect());
+          if (rects.some(r => r.left < bounds.left - 1 || r.right > bounds.right + 1)) throw new Error('Composer control outside footer');
+          for (let i = 0; i < rects.length; i++) for (let j = i + 1; j < rects.length; j++) {
+            const a = rects[i], b = rects[j];
+            if (Math.min(a.right,b.right) - Math.max(a.left,b.left) > 1 && Math.min(a.bottom,b.bottom) - Math.max(a.top,b.top) > 1) throw new Error('Overlapping composer groups');
+          }
+          if ([...footer.querySelectorAll('svg')].filter(e => e.getClientRects().length).some(e => e.getBoundingClientRect().width < 14)) throw new Error('Squeezed composer icon');
+          const compact = document.querySelector('.live-main').getBoundingClientRect().width <= 740;
+          const engineMark = document.querySelector('.studio-engine-mark');
+          if (!engineMark.complete || !engineMark.naturalWidth || engineMark.getBoundingClientRect().width < 18) throw new Error('Engine brand mark missing');
+          if (!compact && document.querySelector('[data-testid=composer-model]').getBoundingClientRect().width > 200) throw new Error('Expanded model control stretches too wide');
+          if (document.querySelector('[data-testid=composer-model]').getBoundingClientRect().width < (compact ? 34 : 60)) throw new Error('Model selector too narrow');
+          if (compact) {
+            if ([...footer.querySelectorAll('.studio-control-label,.studio-model-label,.studio-action-label')].some(e => getComputedStyle(e).display !== 'none')) throw new Error('Compact composer retains long labels');
+            const centers = rects.map(r => r.top + r.height / 2);
+            if (Math.max(...centers) - Math.min(...centers) > 1) throw new Error('Compact composer wraps into multiple rows');
+            if (!document.querySelector('[data-testid=composer-model]').title || !document.querySelector('[data-testid=composer-engine]').title) throw new Error('Compact selector lacks tooltip');
+          }
+          const toolbar = document.querySelector('.live-toolbar').getBoundingClientRect();
+          if ([...document.querySelectorAll('.live-toolbar > button')].some(e => e.getBoundingClientRect().top < 10 || e.getBoundingClientRect().bottom > toolbar.bottom + 1)) throw new Error('Toolbar lacks safe top inset');
+          const transcript = document.querySelector('.live-transcript');
+          const main = document.querySelector('.live-main').getBoundingClientRect();
+          const composer = document.querySelector('.live-composer').getBoundingClientRect();
+          if (Math.abs(composer.left - main.left - parseFloat(getComputedStyle(transcript).paddingLeft)) > 1) throw new Error('Conversation surfaces misaligned');
+          return '';
+        } catch(error) { return String(error); } })()`);
+        if (layoutError) {
+          await capture(
+            `layout-failed-${width}-${panelOpen ? "panel" : "conversation"}`,
+          );
+          throw new Error(`${width}/${panelOpen}: ${layoutError}`);
+        }
+        await capture(
+          `layout-${width}-${panelOpen ? "panel" : "conversation"}`,
+        );
+      }
+    }
+    window.setContentSize(1100, 728);
     await click(".studio-panel-toggle");
     window.setContentSize(840, 800);
     await capture("p4-long-model-panel-narrow");
@@ -498,17 +561,17 @@ export async function runUiAcceptance(
       "!document.querySelector('[data-testid=composer-engine]').disabled",
     );
     await until(
-      "document.querySelector('.studio-run-result')?.textContent.includes('Stopped')",
+      "document.querySelector('[data-run-result=current]')?.textContent.includes('Run stopped')",
     );
     await capture("p4-stopped");
     provider.setMode("error");
     await enterDraft("P4 offline error workflow");
     await click(".studio-composer-footer > button:last-child");
     await until(
-      "!document.querySelector('[data-testid=composer-engine]').disabled && document.querySelector('.studio-run-result[role=alert]')",
+      "!document.querySelector('[data-testid=composer-engine]').disabled && document.querySelector('[data-run-result=current][role=alert]')",
     );
     await until(
-      "(() => {const r=document.querySelector('.studio-run-result').getBoundingClientRect();return r.top>=0 && r.bottom<=innerHeight;})()",
+      "(() => {const r=document.querySelector('[data-run-result=current]').getBoundingClientRect();return r.top>=0 && r.bottom<=innerHeight;})()",
     );
     await capture("p4-error");
     if (provider.calls < 4) throw new Error("offline transport not exercised");

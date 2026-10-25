@@ -20,6 +20,9 @@ import {
   type ModelCatalogEntry,
   nativeModelCatalog,
   type PersistentInteractiveSession,
+  projectActionEvent,
+  projectRunCompletion,
+  projectSessionMessages,
   type RunDependencies,
   removeUserProviderModel,
   runCodexAuthCommand,
@@ -29,7 +32,7 @@ import {
   setUserPluginEnabled,
 } from "@forge/application";
 import { CodexAppServerClient } from "@forge/codex-app-server";
-import { canonicalText, type RunEvent, type RunResult } from "@forge/core";
+import type { RunEvent, RunResult } from "@forge/core";
 import {
   configuredSecrets,
   FileSessionStore,
@@ -118,19 +121,15 @@ export class DesktopApplication {
         title: s.title,
         cwd: s.workingDirectory,
       })),
-      messages: (this.#session?.messages ?? []).flatMap((m, index) =>
-        m.role === "tool"
-          ? []
-          : [
-              {
-                id: `${this.#session?.sessionId}-${index}`,
-                role: m.role,
-                content: String(
-                  redactValue(canonicalText(m), configuredSecrets(this.#env)),
-                ),
-              },
-            ],
-      ),
+      messages: projectSessionMessages(
+        this.#session?.history ?? [],
+        this.#session?.recordedRunIds ?? [],
+      ).map((message) => ({
+        ...message,
+        content: String(
+          redactValue(message.content, configuredSecrets(this.#env)),
+        ),
+      })),
       context: this.#session?.contextStatus() ?? "",
       ...(this.#session?.sessionId && this.#session.contextDetails
         ? {
@@ -602,6 +601,7 @@ export class DesktopApplication {
     )
       throw new Error("session-mismatch");
     this.#busy = true;
+    const startedAt = performance.now();
     const session = this.#session;
     let release: (() => Promise<void>) | undefined;
     try {
@@ -709,21 +709,28 @@ export class DesktopApplication {
                 _toolContext,
                 descriptor,
               ) => ({
-                kind: (await context.approve(
-                  redact(
-                    `${descriptor.preview}\n${JSON.stringify(action.input, null, 2)}`,
-                  ),
-                ))
+                kind: (await context.approve(redact(descriptor.preview), {
+                  actionId: descriptor.actionId,
+                  effect: descriptor.effect,
+                  resource: redact(descriptor.resource),
+                  preview: redact(descriptor.preview),
+                  input: redact(JSON.stringify(action.input, null, 2)),
+                  riskFlags: descriptor.riskFlags,
+                }))
                   ? "allow-once"
                   : "deny",
               }),
             },
             onEvent: (event) => {
+              const action = projectActionEvent(
+                redactValue(event, configuredSecrets(this.#env)) as RunEvent,
+              );
+              if (action) context.action(action);
+              if (event.type === "model.started") context.phase("responding");
+              if (event.type === "tool.started") context.phase("executing");
               if (event.type === "model.text") context.text(redact(event.text));
               else if (event.type === "model.reasoning")
-                detail("reasoning", event.text);
-              else if (event.type.startsWith("tool."))
-                detail("tool", JSON.stringify(event));
+                context.detail("reasoning", redact(event.text), event.step);
               else if (event.type.startsWith("context."))
                 detail("context", JSON.stringify(event));
             },
@@ -733,7 +740,13 @@ export class DesktopApplication {
           },
         );
         if (!result)
-          throw new Error(code === 130 ? "cancelled" : "native-start-failed");
+          throw new Error(
+            code === 130
+              ? "cancelled"
+              : code === 2
+                ? "configuration-invalid"
+                : "native-start-failed",
+          );
       } else {
         let answer = "";
         const events: RunEvent[] = [];
@@ -792,12 +805,38 @@ export class DesktopApplication {
       this.#revision = await snapshotHash(snapshotPath);
       detail("context", session.contextStatus());
       if (result.message) detail("error", result.message);
-      if (result.status !== "completed" && result.status !== "cancelled")
-        throw new Error(`run-${result.status}`);
-      return result.status;
+      const projected = projectRunCompletion(result);
+      const {
+        modelSteps: _modelSteps,
+        toolCalls: _toolCalls,
+        ...opaqueCompletion
+      } = projected;
+      return {
+        ...(request.engine === "native" ? projected : opaqueCompletion),
+        ...(result.message ? { message: redact(result.message) } : {}),
+        durationMs: Math.max(0, performance.now() - startedAt),
+      };
     } catch (error) {
-      context.detail("error", desktopError(error));
-      throw error;
+      const code = desktopError(error);
+      context.detail("error", code);
+      return {
+        outcome: context.signal.aborted ? "cancelled" : "failed",
+        reason: context.signal.aborted
+          ? "cancelled"
+          : code === "configuration-invalid"
+            ? "configuration_error"
+            : code === "session-storage-failed"
+              ? "storage_error"
+              : [
+                    "session-conflict",
+                    "session-busy",
+                    "workspace-changed",
+                  ].includes(code)
+                ? "workspace_conflict"
+                : "execution_error",
+        message: code,
+        durationMs: Math.max(0, performance.now() - startedAt),
+      };
     } finally {
       try {
         await release?.();

@@ -1,4 +1,10 @@
+import type {
+  ProductActionUpdate,
+  ProductRunCompletion,
+} from "@forge/application";
 import {
+  type ApprovalView,
+  approvalViewSchema,
   parseRunCommand,
   type RunCommand,
   type RunEvent,
@@ -12,13 +18,18 @@ export interface ExecutionContext {
   detail(
     kind: "reasoning" | "tool" | "context" | "error" | "system",
     text: string,
+    step?: number,
   ): void;
-  approve(description: string): Promise<boolean>;
+  action(action: ProductActionUpdate): void;
+  phase(phase: "responding" | "executing"): void;
+  approve(description: string, descriptor?: ApprovalView): Promise<boolean>;
 }
 export type RunExecutor = (
   request: Extract<RunCommand, { type: "start" }>,
   context: ExecutionContext,
-) => Promise<void> | Promise<"completed" | "cancelled" | undefined>;
+) =>
+  | Promise<void>
+  | Promise<"completed" | "cancelled" | ProductRunCompletion | undefined>;
 
 /** One execution at a time. No retries, persisted authority, or effect replay. */
 export class RunService {
@@ -30,7 +41,10 @@ export class RunService {
         request: RunCommand;
         controller: AbortController;
         sequence: number;
-        approvals: Map<string, (allow: boolean) => void>;
+        approvals: Map<
+          string,
+          { resolve: (allow: boolean) => void; actionId?: string }
+        >;
       }
     | undefined;
   #closed = false;
@@ -71,13 +85,22 @@ export class RunService {
         request,
         controller: new AbortController(),
         sequence: 0,
-        approvals: new Map<string, (allow: boolean) => void>(),
+        approvals: new Map<
+          string,
+          { resolve: (allow: boolean) => void; actionId?: string }
+        >(),
       };
       this.#active = active;
-      const emit = (payload: RunPayload) => {
+      let buffered:
+        | Extract<RunPayload, { type: "detail" | "text" }>
+        | undefined;
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const send = (payload: RunPayload) => {
         if (this.#active !== active || this.#closed) return;
         this.#send({
           type: "run-event",
+          schemaVersion: 2,
+          occurredAt: new Date().toISOString(),
           requestId: request.requestId,
           sessionId: request.sessionId,
           runId: request.runId,
@@ -85,25 +108,69 @@ export class RunService {
           payload,
         });
       };
+      const flush = () => {
+        if (timer) clearTimeout(timer);
+        timer = undefined;
+        if (buffered) send(buffered);
+        buffered = undefined;
+      };
+      const emit = (payload: RunPayload) => {
+        flush();
+        send(payload);
+      };
+      const append = (
+        payload: Extract<RunPayload, { type: "detail" | "text" }>,
+      ) => {
+        if (active.controller.signal.aborted) return;
+        const same =
+          buffered?.type === payload.type &&
+          (payload.type === "text" ||
+            (buffered.type === "detail" &&
+              buffered.kind === payload.kind &&
+              buffered.step === payload.step));
+        if (
+          !same ||
+          (buffered?.text.length ?? 0) + payload.text.length > 100_000
+        )
+          flush();
+        buffered = buffered
+          ? { ...buffered, text: buffered.text + payload.text }
+          : payload;
+        timer ??= setTimeout(flush, 32);
+      };
       reply(true);
       this.#execution = Promise.resolve()
         .then(async () => {
           if (active.controller.signal.aborted) return;
           return await this.#execute?.(request, {
             signal: active.controller.signal,
-            detail: (kind, text) =>
-              emit({ type: "detail", kind, text: text.slice(0, 100_000) }),
+            detail: (kind, text, step) => {
+              const payload = {
+                type: "detail" as const,
+                kind,
+                text: text.slice(0, 100_000),
+                ...(step ? { step } : {}),
+              };
+              if (kind === "reasoning") append(payload);
+              else emit(payload);
+            },
+            action: (action) => emit({ type: "action", action }),
+            phase: (phase) => emit({ type: "phase", phase }),
             text: (text) => {
               if (!active.controller.signal.aborted) {
                 for (let offset = 0; offset < text.length; offset += 100_000)
-                  emit({
+                  append({
                     type: "text",
                     text: text.slice(offset, offset + 100_000),
                   });
               }
             },
-            approve: (description) => {
-              if (description.length > 100_000) {
+            approve: (description, descriptor) => {
+              if (
+                description.length > 100_000 ||
+                (descriptor &&
+                  !approvalViewSchema.safeParse(descriptor).success)
+              ) {
                 emit({
                   type: "detail",
                   kind: "error",
@@ -115,11 +182,15 @@ export class RunService {
                 return Promise.resolve(false);
               const approvalId = `approval-${active.sequence + 1}`;
               return new Promise<boolean>((resolve) => {
-                active.approvals.set(approvalId, resolve);
+                active.approvals.set(approvalId, {
+                  resolve,
+                  ...(descriptor ? { actionId: descriptor.actionId } : {}),
+                });
                 emit({
                   type: "approval",
                   approvalId,
                   description: description.slice(0, 100_000),
+                  ...(descriptor ? { descriptor } : {}),
                 });
               });
             },
@@ -129,9 +200,15 @@ export class RunService {
           (outcome) =>
             emit({
               type: "complete",
-              outcome:
-                outcome ??
-                (active.controller.signal.aborted ? "cancelled" : "completed"),
+              ...(typeof outcome === "object"
+                ? outcome
+                : {
+                    outcome:
+                      outcome ??
+                      (active.controller.signal.aborted
+                        ? "cancelled"
+                        : "completed"),
+                  }),
             }),
           () =>
             emit({
@@ -142,7 +219,9 @@ export class RunService {
             }),
         )
         .finally(() => {
-          for (const resolve of active.approvals.values()) resolve(false);
+          if (timer) clearTimeout(timer);
+          for (const approval of active.approvals.values())
+            approval.resolve(false);
           active.approvals.clear();
           if (this.#active === active) this.#active = undefined;
         });
@@ -161,13 +240,31 @@ export class RunService {
       this.#cancel();
       reply(true);
     } else {
-      const resolve = active.approvals.get(request.approvalId);
-      if (!resolve || active.controller.signal.aborted) {
+      const approval = active.approvals.get(request.approvalId);
+      if (
+        !approval ||
+        active.controller.signal.aborted ||
+        (approval.actionId && request.actionId !== approval.actionId)
+      ) {
         reply(false);
         return;
       }
       active.approvals.delete(request.approvalId);
-      resolve(request.allow);
+      this.#send({
+        type: "run-event",
+        schemaVersion: 2,
+        occurredAt: new Date().toISOString(),
+        requestId: active.request.requestId,
+        sessionId: active.request.sessionId,
+        runId: active.request.runId,
+        sequence: ++active.sequence,
+        payload: {
+          type: "approval-resolved",
+          approvalId: request.approvalId,
+          allow: request.allow,
+        },
+      });
+      approval.resolve(request.allow);
       reply(true);
     }
   }
@@ -186,8 +283,8 @@ export class RunService {
   }
   #cancel(): void {
     this.#active?.controller.abort();
-    for (const resolve of this.#active?.approvals.values() ?? [])
-      resolve(false);
+    for (const approval of this.#active?.approvals.values() ?? [])
+      approval.resolve(false);
     this.#active?.approvals.clear();
   }
 }

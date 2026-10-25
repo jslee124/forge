@@ -161,6 +161,17 @@ export const desktopStateSchema = z
         z.object({
           id: z.string(),
           role: z.enum(["user", "assistant"]),
+          kind: z.enum(["user", "answer", "system-outcome"]).optional(),
+          runId: z.string().optional(),
+          outcome: z
+            .enum([
+              "completed",
+              "failed",
+              "cancelled",
+              "denied",
+              "limit_reached",
+            ])
+            .optional(),
           content: z.string().max(4_194_304),
         }),
       )

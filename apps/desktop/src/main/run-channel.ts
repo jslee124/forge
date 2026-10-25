@@ -71,6 +71,18 @@ export class RunChannel {
     }
     const event = parseRunEvent(value);
     const active = this.#active;
+    if (!event && active && typeof value === "object" && value !== null) {
+      const candidate = value as Record<string, unknown>;
+      if (
+        candidate["type"] === "run-event" &&
+        candidate["requestId"] === active.request.requestId &&
+        candidate["runId"] === active.request.runId &&
+        candidate["sessionId"] === active.request.sessionId
+      ) {
+        this.#fault();
+        return;
+      }
+    }
     if (
       !event ||
       !active ||
@@ -106,6 +118,8 @@ export class RunChannel {
     if (active) {
       const event: RunEvent = {
         type: "run-event",
+        schemaVersion: 2,
+        occurredAt: new Date().toISOString(),
         requestId: active.request.requestId,
         sessionId: active.request.sessionId,
         runId: active.request.runId,

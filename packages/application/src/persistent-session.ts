@@ -193,6 +193,10 @@ export class PersistentInteractiveSession
     return this.#snapshot?.id;
   }
 
+  get recordedRunIds(): readonly string[] {
+    return this.#snapshot?.runIds ?? [];
+  }
+
   get reasoning(): readonly SessionReasoning[] {
     return this.#snapshot?.reasoning ?? [];
   }
