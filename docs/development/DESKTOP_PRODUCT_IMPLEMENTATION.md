@@ -244,6 +244,55 @@ were captured at `/tmp/forge-delivery-ui/`; the dark diff was visually checked.
 `pnpm check`, `pnpm check:docs`, `pnpm desktop:build` and `pnpm package:verify`
 passed locally. External providers and installed Desktop were not exercised.
 
+## Independent conversation browsing follow-up (2026-10-25)
+
+T08 now separates the execution session from a read-only browsed conversation.
+The preceding delivery increment is committed as `efd678a`. While a run is active,
+sidebar selection uses `browse-session`; idle selection retains normal explicit
+resume behavior. A viewed conversation after completion requires “Continue this
+task” before sending. The backend keeps its execution session, revision, leases,
+configuration, and pending approvals unchanged during a browse.
+
+`browse-session` is available during execution and projects a saved snapshot and
+bounded run history. It does not create/resume a session, reconcile unfinished
+records, restore grants, prepare recovery or call a model. Messages are limited
+to the latest 1,000 with a shared 262,144-character budget and explicit omission
+notice. Historical file actions and recovery are disabled until the conversation
+becomes the execution session; file services therefore cannot silently open a
+path in the wrong workspace.
+
+The renderer's `useConversationBrowser` owns navigation requests and an in-memory
+cache for 50 recent view positions. Drafts keep their existing session keys;
+transcript/panel scroll positions and tagged activity, approval and delivery
+disclosures restore per conversation. The active run's live answer, actions and
+approval queue stay separate from saved messages. A persistent navigation bar
+identifies the execution task, counts pending approvals, returns to it and stops
+that exact run. Approval controls appear only after returning to the execution
+conversation, so incoming approvals do not steal focus from a historical draft.
+Late snapshots are ignored after navigation; background completion refreshes the
+execution state without changing the viewed conversation or its draft.
+
+One execution remains the limit. Browsing is snapshot observation, not another
+live session. Navigation cache/drafts are not made durable by this increment;
+full renderer decomposition, streaming/follow-scroll stress, accessibility and
+installed-app gates remain pending. T08 stays partial until those acceptance
+items are complete.
+
+Local validation: 237 Desktop/application/finalization/persistence regressions and
+133 deterministic contracts passed; six opt-in live tests were skipped. The
+[backend contract](../../apps/desktop/src/agent/application.test.ts) verifies
+snapshot bytes and execution-session identity stay unchanged while approval is
+pending, and a normal resume is still rejected while busy. The
+[renderer contracts](../../apps/desktop/src/renderer/src/live-workbench.test.tsx)
+cover separate drafts/messages, focus, restored positions/disclosures, successful
+and cancelled background completion, explicit continuation and late-read discard.
+The isolated real Electron fixture exercises approval → browse a different
+workspace → type a draft → return/approve, plus stop from the browsed conversation.
+It verifies no added model requests during browsing and includes 840px return
+controls. Local screenshots are `/tmp/forge-browsing-ui/`. `pnpm check`,
+`pnpm check:docs` and `pnpm desktop:build` passed. This is scripted-loopback
+acceptance, not live-provider quality, installed-app or release evidence.
+
 ## 1. Goal and invariants
 
 Complete the native-engine investigation → approval → execution → verification →

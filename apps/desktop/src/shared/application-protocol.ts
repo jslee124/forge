@@ -50,6 +50,14 @@ export type RecoveryPlan = z.infer<typeof recoveryPlanSchema>;
 export const managementCommandSchema = z.discriminatedUnion("type", [
   z
     .object({
+      type: z.literal("browse-session"),
+      sessionId: id,
+      runId: id.optional(),
+      before: z.number().int().nonnegative().optional(),
+    })
+    .strict(),
+  z
+    .object({
       type: z.literal("prepare-recovery"),
       sourceRunId: id,
       kind: z.enum(["summarize", "continue", "retry"]),
@@ -132,9 +140,35 @@ export const managementCommandSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("cancel-login") }).strict(),
 ]);
 export type ManagementCommand = z.infer<typeof managementCommandSchema>;
+const sessionMessagesSchema = z
+  .array(
+    z.object({
+      id: z.string(),
+      role: z.enum(["user", "assistant"]),
+      kind: z.enum(["user", "answer", "system-outcome"]).optional(),
+      runId: z.string().optional(),
+      outcome: z
+        .enum(["completed", "failed", "cancelled", "denied", "limit_reached"])
+        .optional(),
+      content: z.string().max(4_194_304),
+    }),
+  )
+  .max(10000);
+export const browsedSessionSchema = z
+  .object({
+    sessionId: id,
+    cwd: text,
+    title: text,
+    messages: sessionMessagesSchema,
+    runHistory: productRunHistorySchema,
+    truncated: z.boolean(),
+  })
+  .strict();
+export type BrowsedSession = z.infer<typeof browsedSessionSchema>;
 export const desktopStateSchema = z
   .object({
     runHistory: productRunHistorySchema.optional(),
+    browsedSession: browsedSessionSchema.optional(),
     recoveryPlan: recoveryPlanSchema.optional(),
     management: z
       .object({
@@ -191,26 +225,7 @@ export const desktopStateSchema = z
     sessions: z
       .array(z.object({ id, title: text, cwd: text.optional() }))
       .max(1000),
-    messages: z
-      .array(
-        z.object({
-          id: z.string(),
-          role: z.enum(["user", "assistant"]),
-          kind: z.enum(["user", "answer", "system-outcome"]).optional(),
-          runId: z.string().optional(),
-          outcome: z
-            .enum([
-              "completed",
-              "failed",
-              "cancelled",
-              "denied",
-              "limit_reached",
-            ])
-            .optional(),
-          content: z.string().max(4_194_304),
-        }),
-      )
-      .max(10000),
+    messages: sessionMessagesSchema,
     context: text,
     contextUsage: z
       .object({ used: z.number().nonnegative(), total: z.number().positive() })

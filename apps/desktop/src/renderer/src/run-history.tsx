@@ -10,6 +10,7 @@ import { RunResult } from "./run-result.js";
 export function RunHistory({
   history,
   busy,
+  executionBusy = false,
   onLoad,
   onRecover,
   onPreview,
@@ -21,6 +22,7 @@ export function RunHistory({
     sourceRunId: string,
   ) => void;
   busy: boolean;
+  executionBusy?: boolean;
   onLoad: (
     command: Extract<ManagementCommand, { type: "run-history" }>,
   ) => Promise<void>;
@@ -56,7 +58,7 @@ export function RunHistory({
                 {run.engine === "native" ? "Forge" : "Codex"} ·{" "}
                 {run.completion
                   ? t(`runUi.outcomes.${run.completion.outcome}`)
-                  : t("live.running")}
+                  : t("browsing.unfinishedRecord")}
               </small>
             </button>
           </li>
@@ -74,7 +76,10 @@ export function RunHistory({
         </button>
       )}
       {selected && (
-        <div className="run-history-selected">
+        <div
+          className="run-history-selected"
+          data-history-run={selected.summary.runId}
+        >
           <h4>{selected.summary.prompt}</h4>
           <p>{t("runUi.historyReadOnly")}</p>
           {selected.summary.completion && (
@@ -86,7 +91,10 @@ export function RunHistory({
                   ? { recovery: selected.summary.recovery }
                   : {}),
               }}
-              recoveryDisabled={busy || selected.summary.engine !== "native"}
+              recoveryDisabled={
+                busy || executionBusy || selected.summary.engine !== "native"
+              }
+              sourceDisabled={busy}
               onRecover={
                 onRecover
                   ? (kind) => onRecover(kind, selected.summary.runId)
@@ -104,7 +112,7 @@ export function RunHistory({
             <RunDelivery
               key={selected.summary.runId}
               delivery={selected.delivery}
-              busy={busy}
+              busy={busy || executionBusy}
               onPreview={onPreview}
             />
           )}

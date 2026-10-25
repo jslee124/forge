@@ -105,6 +105,13 @@ export async function runUiAcceptance(
           );
         await click(`[data-session-id="${f.id}"]`);
         await until(
+          `document.querySelector('.live-transcript')?.textContent.includes('D12 ${f.kind}') && !document.querySelector('[data-testid=composer-engine]').disabled`,
+        );
+        // Each conversation now restores its own panel visibility instead of forcing it open.
+        if (!(await js("Boolean(document.querySelector('.live-panel'))")))
+          await click(".studio-panel-toggle");
+        await click(".studio-tabs button:first-child");
+        await until(
           `document.querySelector('[data-testid=file-path]') && !document.querySelector('[data-testid=refresh-review]').disabled && document.querySelector('.live-transcript')?.textContent.includes('D12 ${f.kind}') && !document.querySelector('[data-testid=composer-engine]').disabled`,
         );
         await until(
@@ -472,6 +479,48 @@ export async function runUiAcceptance(
     );
     await capture("product-approval-details-narrow");
     window.setContentSize(1100, 728);
+    const runningSession = await js(
+      "window.forgeDesktop.manage({type:'state'}).then(state=>state.sessionId)",
+    );
+    const browsingFixture = fixtures.find((entry) => entry.kind === "local");
+    if (!browsingFixture) throw new Error("Missing read-only browsing fixture");
+    const callsBeforeBrowsing = provider.calls;
+    await until(
+      `document.querySelector('[data-session-id="${runningSession}"] .session-running')`,
+    );
+    await enterDraft("Draft for running task A");
+    await click(`[data-session-id="${browsingFixture.id}"]`);
+    await until(
+      `document.querySelector('.live-transcript')?.getAttribute('data-view-session') === ${JSON.stringify(browsingFixture.id)}`,
+    );
+    if (await js("Boolean(document.querySelector('.run-approval'))"))
+      throw new Error("Approval leaked into the browsed conversation");
+    await enterDraft("Draft for viewed task B");
+    await js(
+      "document.querySelector('.live-composer textarea').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true}))",
+    );
+    if (provider.calls !== callsBeforeBrowsing)
+      throw new Error("Browsing started another model request");
+    await until(
+      "document.querySelector('.run-navigation')?.textContent.includes('Pending approvals:')",
+    );
+    await capture("product-browsing-during-approval");
+    window.setContentSize(840, 800);
+    await until(
+      "(() => {const r=document.querySelector('[data-testid=return-active]').getBoundingClientRect();return r.left>=0 && r.right<=innerWidth && r.top>=0 && r.bottom<=innerHeight;})()",
+    );
+    await capture("product-browsing-approval-narrow");
+    window.setContentSize(1100, 728);
+    await click('[data-testid="return-active"]');
+    await until(
+      "document.querySelector('.run-approval') && document.querySelector('.run-approval-details').open && document.querySelector('.live-composer textarea').value === 'Draft for running task A'",
+    );
+    if (
+      (await js(
+        "window.forgeDesktop.manage({type:'state'}).then(state=>state.sessionId)",
+      )) !== runningSession
+    )
+      throw new Error("Browsing changed the execution session");
     await click(".run-approval button:last-child");
     await until(
       "document.querySelector('.live-transcript')?.textContent.includes('P4 offline fixture completed after approval.') && !document.querySelector('[data-testid=composer-engine]').disabled",
@@ -917,6 +966,15 @@ export async function runUiAcceptance(
       externalProvider: false,
     });
     if (provider.calls < 4) throw new Error("offline transport not exercised");
+    results.push({
+      name: "independent-browsing",
+      executionSessionUnchanged: true,
+      draftPreserved: true,
+      approvalReturned: true,
+      stopFromOtherSession: true,
+      noReadReplay: true,
+      externalProvider: false,
+    });
     results.push({
       name: "p4-loopback-workflow",
       calls: provider.calls,

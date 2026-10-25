@@ -207,6 +207,7 @@ export class DesktopApplication {
     return entry;
   }
   async manage(command: ManagementCommand): Promise<DesktopState> {
+    if (command.type === "browse-session") return this.#browseSession(command);
     if (command.type === "state" || command.type === "cancel-login")
       return this.#manage(command);
     if (this.#managementBusy || this.#busy) throw new Error("busy");
@@ -1192,6 +1193,81 @@ export class DesktopApplication {
     },
     { deferStartReply: true },
   );
+  /** Snapshot observation only: never resume, reconcile, acquire execution authority, or change active state. */
+  async #browseSession(
+    command: Extract<ManagementCommand, { type: "browse-session" }>,
+  ): Promise<DesktopState> {
+    const state = await this.state();
+    const saved = await new FileSessionStore(this.#home).load(
+      command.sessionId,
+    );
+    const cwd = await directoryPath(saved.workingDirectory);
+    const loaded = await loadForgeConfig({ cwd, env: this.#env });
+    if (
+      cwd !== saved.workingDirectory ||
+      loaded.workspaceRoot !== saved.workspaceRoot
+    )
+      throw new Error("workspace-changed");
+    let remaining = 262_144;
+    let truncated = false;
+    const projected = projectSessionMessages(saved.history, saved.runIds);
+    if (projected.length > 1000) truncated = true;
+    const messages = projected
+      .slice(-1000)
+      .reverse()
+      .map((message) => {
+        const redacted = String(
+          redactValue(message.content, configuredSecrets(this.#env)),
+        );
+        const content = redacted.slice(0, remaining);
+        remaining -= content.length;
+        if (content.length < redacted.length) truncated = true;
+        return { ...message, content };
+      })
+      .filter((message) => message.content.length > 0)
+      .reverse();
+    let runHistory: NonNullable<DesktopState["runHistory"]>;
+    try {
+      const store = new FileProductRunStore(this.#home, {
+        secrets: configuredSecrets(this.#env),
+      });
+      const page = await store.list(command.sessionId, command.before);
+      const selectedId = command.runId ?? page.runs[0]?.runId;
+      const record = selectedId
+        ? await store.read(command.sessionId, selectedId)
+        : undefined;
+      runHistory = {
+        ...page,
+        ...(record
+          ? {
+              selected: {
+                summary: record.summary,
+                activity: projectRecordedActivity(record),
+                delivery: projectRunDelivery(record),
+                incomplete:
+                  record.incomplete ||
+                  Boolean(record.summary.journalIncomplete),
+              },
+            }
+          : {}),
+      };
+    } catch {
+      runHistory = { runs: [], error: "product-run-storage-failed" };
+    }
+    return {
+      ...state,
+      browsedSession: {
+        sessionId: saved.id,
+        cwd,
+        title:
+          state.sessions.find((entry) => entry.id === saved.id)?.title ??
+          saved.id,
+        messages,
+        runHistory,
+        truncated,
+      },
+    };
+  }
   async #loadRunHistory(before?: number, runId?: string): Promise<void> {
     const sessionId = this.#session?.sessionId;
     if (!sessionId) {

@@ -22,7 +22,7 @@ export function RunDelivery({
   const [commandCount, setCommandCount] = useState(10);
   const [issueCount, setIssueCount] = useState(10);
   return (
-    <details className="run-delivery">
+    <details className="run-delivery" data-view-disclosure="delivery">
       <summary>
         {t("delivery.title")}{" "}
         <small>
@@ -89,7 +89,10 @@ export function RunDelivery({
                 {facts.signal ? ` · ${facts.signal}` : ""}
               </small>
               {(facts.stdout !== undefined || facts.stderr !== undefined) && (
-                <details className="run-delivery-command-output">
+                <details
+                  className="run-delivery-command-output"
+                  data-view-disclosure={`command-${actionId}`}
+                >
                   <summary>{t("runUi.output")}</summary>
                   {facts.stdout !== undefined && (
                     <RunOutput label="stdout">
@@ -147,7 +150,10 @@ function RecordedFile({
   const [open, setOpen] = useState(false);
   return (
     <li>
-      <details onToggle={(event) => setOpen(event.currentTarget.open)}>
+      <details
+        data-view-disclosure={`file-${entry.actionId}`}
+        onToggle={(event) => setOpen(event.currentTarget.open)}
+      >
         <summary>
           <span>{entry.facts.path}</span>
           <small>

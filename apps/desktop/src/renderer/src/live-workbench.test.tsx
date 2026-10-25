@@ -14,7 +14,10 @@ import type {
 import "./i18n.js";
 import { LiveWorkbench } from "./live-workbench.js";
 
-vi.mock("./markdown.js", () => ({ Markdown: () => null }));
+vi.mock("./markdown.js", () => ({
+  Markdown: ({ children }: { children: string }) =>
+    createElement("p", null, children),
+}));
 vi.mock("./file-preview.js", () => ({
   ContentPreview: () => null,
   DiffViewer: () => null,
@@ -416,5 +419,222 @@ describe("reviewed recovery", () => {
       prompt: "edited original request",
       recovery: { kind: "retry", token: "review-token" },
     });
+  });
+});
+
+describe("separate execution and conversation browsing", () => {
+  let execution: DesktopState;
+  let delayed: ((value: DesktopState) => void) | undefined;
+  function snapshot(sessionId: string): DesktopState {
+    return {
+      ...execution,
+      browsedSession: {
+        sessionId,
+        cwd: `/tmp/${sessionId}`,
+        title: sessionId,
+        messages: [
+          {
+            id: "saved-message",
+            role: "assistant",
+            kind: "answer",
+            content: `saved ${sessionId} content`,
+          },
+        ],
+        runHistory: { runs: [] },
+        truncated: false,
+      },
+    };
+  }
+  beforeEach(async () => {
+    execution = {
+      ...state,
+      sessions: [
+        { id: state.sessionId, title: "task A", cwd: state.cwd },
+        { id: "task-B", title: "task B", cwd: "/tmp/task-B" },
+        { id: "task-C", title: "task C", cwd: "/tmp/task-C" },
+      ],
+    };
+    delayed = undefined;
+    vi.mocked(window.forgeDesktop.manage).mockImplementation(
+      async (command) => {
+        if (command.type === "browse-session") {
+          if (command.sessionId === "task-C")
+            return await new Promise<DesktopState>((resolve) => {
+              delayed = resolve;
+            });
+          return snapshot(command.sessionId);
+        }
+        if (command.type === "resume")
+          execution = {
+            ...execution,
+            sessionId: command.sessionId,
+            cwd: `/tmp/${command.sessionId}`,
+          };
+        return execution;
+      },
+    );
+    await act(async () => {
+      root.unmount();
+      root = createRoot(container);
+      root.render(createElement(LiveWorkbench));
+    });
+  });
+  async function click(selector: string) {
+    const button = container.querySelector<HTMLButtonElement>(selector);
+    if (!button || button.disabled) throw new Error(`Unavailable ${selector}`);
+    await act(async () => button.click());
+  }
+  it("isolates messages and drafts, preserves scroll/disclosures and binds approvals to A", async () => {
+    await draft("A prompt");
+    await key();
+    await draft("A next draft");
+    await deliver({ type: "text", text: "live only A" });
+    await deliver({ type: "detail", kind: "system", text: "A activity" }, 2);
+    const transcript = container.querySelector(".live-transcript");
+    const disclosure = container.querySelector<HTMLDetailsElement>(
+      ".run-activity-disclosure",
+    );
+    if (!transcript || !disclosure) throw new Error("Missing active view");
+    transcript.scrollTop = 123;
+    disclosure.open = true;
+    await click('[data-session-id="task-B"]');
+    expect(composer().value).toBe("");
+    expect(container.querySelector(".live-transcript")?.textContent).toContain(
+      "saved task-B content",
+    );
+    expect(
+      container.querySelector(".live-transcript")?.textContent,
+    ).not.toContain("live only A");
+    await draft("B draft");
+    await key();
+    expect(
+      runCommand.mock.calls.filter(([command]) => command.type === "start"),
+    ).toHaveLength(1);
+    composer().focus();
+    await deliver(
+      { type: "approval", approvalId: "pending-A", description: "A command" },
+      3,
+    );
+    expect(document.activeElement).toBe(composer());
+    expect(container.querySelector(".run-approval")).toBeNull();
+    expect(container.querySelector(".run-navigation")?.textContent).toContain(
+      "1 项审批",
+    );
+    await click('[data-testid="return-active"]');
+    expect(composer().value).toBe("A next draft");
+    expect(container.querySelector(".live-transcript")?.textContent).toContain(
+      "live only A",
+    );
+    expect(container.querySelector(".live-transcript")?.scrollTop).toBe(123);
+    expect(
+      container.querySelector<HTMLDetailsElement>(".run-activity-disclosure")
+        ?.open,
+    ).toBe(true);
+    await click(".run-approval-allow");
+    const start = runCommand.mock.calls[0]?.[0];
+    expect(runCommand).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        type: "approve",
+        sessionId: state.sessionId,
+        runId: start?.runId,
+        approvalId: "pending-A",
+      }),
+    );
+    await click('[data-session-id="task-B"]');
+    expect(composer().value).toBe("B draft");
+  });
+  it("stops A from B and keeps B selected when A completes; continuation is explicit", async () => {
+    await draft("A prompt");
+    await key();
+    await click('[data-session-id="task-B"]');
+    await draft("B future request");
+    await click('[data-testid="stop-active"]');
+    expect(runCommand).toHaveBeenLastCalledWith(
+      expect.objectContaining({ type: "cancel", sessionId: state.sessionId }),
+    );
+    await deliver({ type: "complete", outcome: "cancelled" }, 2);
+    expect(
+      container
+        .querySelector(".live-transcript")
+        ?.getAttribute("data-view-session"),
+    ).toBe("task-B");
+    expect(composer().value).toBe("B future request");
+    expect(
+      container.querySelector('[data-testid="resume-viewed"]'),
+    ).not.toBeNull();
+    await key();
+    expect(
+      runCommand.mock.calls.filter(([command]) => command.type === "start"),
+    ).toHaveLength(1);
+    await click('[data-testid="resume-viewed"]');
+    expect(composer().value).toBe("B future request");
+    await key();
+    expect(
+      runCommand.mock.calls.filter(
+        ([command]) => command.type === "start",
+      )[1]?.[0],
+    ).toMatchObject({ sessionId: "task-B", prompt: "B future request" });
+  });
+  it("ignores a late snapshot after returning to the execution view", async () => {
+    await draft("A prompt");
+    await key();
+    await deliver({ type: "text", text: "A stream" });
+    await click('[data-session-id="task-B"]');
+    await click('[data-session-id="task-C"]');
+    expect(delayed).toBeTypeOf("function");
+    await click('[data-testid="return-active"]');
+    await act(async () => delayed?.(snapshot("task-C")));
+    expect(
+      container
+        .querySelector(".live-transcript")
+        ?.getAttribute("data-view-session"),
+    ).toBe(state.sessionId);
+    expect(container.querySelector(".live-transcript")?.textContent).toContain(
+      "A stream",
+    );
+  });
+  it("keeps B visible after successful A completion and shows A's refreshed answer on return", async () => {
+    await draft("A prompt");
+    await key();
+    await click('[data-session-id="task-B"]');
+    await draft("B stays here");
+    execution = {
+      ...execution,
+      messages: [
+        {
+          id: "final-A",
+          role: "assistant",
+          kind: "answer",
+          content: "completed A answer",
+        },
+      ],
+    };
+    await deliver({ type: "complete", outcome: "completed" }, 2);
+    expect(container.querySelector(".live-transcript")?.textContent).toContain(
+      "saved task-B content",
+    );
+    expect(
+      container.querySelector(".live-transcript")?.textContent,
+    ).not.toContain("completed A answer");
+    expect(composer().value).toBe("B stays here");
+    await click('[data-testid="return-active"]');
+    expect(container.querySelector(".live-transcript")?.textContent).toContain(
+      "completed A answer",
+    );
+  });
+  it("can abandon the first pending snapshot without waiting for disk navigation", async () => {
+    await draft("A prompt");
+    await key();
+    await click('[data-session-id="task-C"]');
+    await click('[data-testid="return-active"]');
+    await act(async () => delayed?.(snapshot("task-C")));
+    expect(
+      container
+        .querySelector(".live-transcript")
+        ?.getAttribute("data-view-session"),
+    ).toBe(state.sessionId);
+    expect(
+      runCommand.mock.calls.filter(([command]) => command.type === "start"),
+    ).toHaveLength(1);
   });
 });

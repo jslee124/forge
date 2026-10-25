@@ -1188,3 +1188,106 @@ it("retains recorded writes and nonzero command results independently of current
   expect(desktopStateSchema.safeParse(history).success).toBe(true);
   f.application.close();
 });
+
+it("browses snapshots during approval without switching the execution session or reconciling records", async () => {
+  const f = await fixture([
+    [{ type: "text.delta", text: "saved B answer" }, finish("stop")],
+    [call("run_command", { program: "pwd", args: [] }), finish("tool-calls")],
+    [{ type: "text.delta", text: "active A answer" }, finish("stop")],
+  ]);
+  await run(f.application, f.sessionId, "allow", { prompt: "saved B task" });
+  const b = f.sessionId;
+  const active = await f.application.manage({
+    type: "create",
+    prompt: "active A task",
+  });
+  const bPath = join(f.env.FORGE_HOME, "sessions", `${b}.json`);
+  const before = await readFile(bPath, "utf8");
+  let approvalResolve: (event: RunEvent) => void = () => {};
+  let completionResolve: (event: RunEvent) => void = () => {};
+  const approval = new Promise<RunEvent>((resolve) => {
+    approvalResolve = resolve;
+  });
+  const completed = new Promise<RunEvent>((resolve) => {
+    completionResolve = resolve;
+  });
+  const channel = new RunChannel((command) => service.handle(command));
+  const service = new RunService(
+    (event) => channel.receive(event),
+    f.application.execute,
+  );
+  channel.subscribe((event) => {
+    if (event.payload.type === "approval") approvalResolve(event);
+    if (event.payload.type === "complete") completionResolve(event);
+  });
+  const identity = {
+    sessionId: active.sessionId,
+    runId: randomUUID(),
+    requestId: randomUUID(),
+  };
+  try {
+    expect(
+      await channel.request({
+        ...identity,
+        type: "start",
+        engine: "native",
+        prompt: "active A task",
+      }),
+    ).toBe(true);
+    const pendingApproval = await approval;
+    const observed = await f.application.manage({
+      type: "browse-session",
+      sessionId: b,
+    });
+    expect(observed.sessionId).toBe(active.sessionId);
+    expect(observed.browsedSession?.sessionId).toBe(b);
+    expect(
+      observed.browsedSession?.messages.some((message) =>
+        message.content.includes("saved B answer"),
+      ),
+    ).toBe(true);
+    expect(await readFile(bPath, "utf8")).toBe(before);
+    expect((await f.application.state()).sessionId).toBe(active.sessionId);
+    const current = await f.application.manage({
+      type: "browse-session",
+      sessionId: active.sessionId,
+      runId: identity.runId,
+    });
+    expect(current.browsedSession?.runHistory.selected?.summary.state).toBe(
+      "running",
+    );
+    expect(
+      current.browsedSession?.runHistory.selected?.activity.items.some(
+        (item) => item.kind === "approval",
+      ),
+    ).toBe(true);
+    await expect(
+      f.application.manage({ type: "resume", sessionId: b }),
+    ).rejects.toThrow("busy");
+    expect(f.requests).toHaveLength(2);
+    if (pendingApproval.payload.type !== "approval")
+      throw new Error("Missing approval");
+    expect(
+      await channel.request({
+        ...identity,
+        type: "approve",
+        requestId: randomUUID(),
+        approvalId: pendingApproval.payload.approvalId,
+        ...(pendingApproval.payload.descriptor
+          ? { actionId: pendingApproval.payload.descriptor.actionId }
+          : {}),
+        allow: true,
+      }),
+    ).toBe(true);
+    expect((await completed).payload).toMatchObject({
+      type: "complete",
+      outcome: "completed",
+    });
+    expect((await f.application.state()).sessionId).toBe(active.sessionId);
+    expect(f.requests).toHaveLength(3);
+    expect(desktopStateSchema.safeParse(current).success).toBe(true);
+  } finally {
+    service.close();
+    f.application.close();
+  }
+});

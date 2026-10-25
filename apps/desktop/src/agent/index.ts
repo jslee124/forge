@@ -49,6 +49,7 @@ parentPort.on("message", (event) => {
         if (
           runs.busy &&
           command.type !== "state" &&
+          command.type !== "browse-session" &&
           command.type !== "cancel-login"
         )
           throw new Error("busy");

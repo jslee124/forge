@@ -6,6 +6,24 @@ export type Locale = "en" | "zh-CN";
 export const resources = {
   en: {
     translation: {
+      browsing: {
+        draftWhileRunning:
+          "Draft kept here. Finish or stop the running task before continuing this one.",
+        draftReady: "Draft kept here. Choose Continue this task to send.",
+        unfinishedRecord: "Unfinished record",
+        activeTask: "Running task",
+        executionTask: "Execution session",
+        runningBadge: "Running",
+        return: "Return to task",
+        resume: "Continue this task",
+        viewing: "Viewing: {{title}}",
+        approvalCount: "Pending approvals: {{count}} — return to review",
+        snapshot:
+          "Saved conversation. Return to the running task for live progress.",
+        truncated:
+          "Older or long messages were omitted; this view is incomplete.",
+        noSend: "Messages cannot be sent while browsing saved history.",
+      },
       delivery: {
         emptyOutput: "(empty)",
         commandAttention: "{{count}} command results need inspection",
@@ -511,6 +529,21 @@ export const resources = {
   },
   "zh-CN": {
     translation: {
+      browsing: {
+        draftWhileRunning: "草稿会保留，当前运行结束后可继续此任务并发送。",
+        draftReady: "草稿已保留，点击“继续此任务”后可发送。",
+        unfinishedRecord: "记录未结束",
+        activeTask: "正在运行",
+        executionTask: "执行会话",
+        runningBadge: "运行中",
+        return: "返回运行任务",
+        resume: "继续此任务",
+        viewing: "正在查看：{{title}}",
+        approvalCount: "{{count}} 项审批待处理，请返回确认",
+        snapshot: "这是已保存的对话，实时进度请返回运行任务查看。",
+        truncated: "较早或较长的消息已省略，此视图不完整。",
+        noSend: "浏览模式下不会发送消息，请先返回或继续此任务。",
+      },
       delivery: {
         emptyOutput: "（无输出）",
         commandAttention: "{{count}} 项命令结果需检查",

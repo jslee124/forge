@@ -2163,3 +2163,44 @@
   font-size: 12px;
   font-weight: 500;
 }
+
+.run-navigation {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 24px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  font-size: 12px;
+}
+.run-navigation > div {
+  flex: 1 1 180px;
+  min-width: 0;
+}
+.run-navigation strong,
+.run-navigation span {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.run-navigation span {
+  color: var(--muted);
+  margin-top: 3px;
+}
+.browsing-note,
+.browsing-draft-note {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.browsing-draft-note {
+  padding: 8px 0;
+}
+.live-sessions .session-running {
+  flex-shrink: 0;
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--muted);
+}

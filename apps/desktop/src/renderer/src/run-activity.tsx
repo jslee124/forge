@@ -40,7 +40,7 @@ export function RunActivity({ state }: { state: ActivityState }) {
             : t(`runUi.kinds.${item.kind}`);
           return (
             <li key={item.id}>
-              <details>
+              <details data-view-disclosure={`activity-${item.id}`}>
                 <summary>
                   <Icon size={16} aria-hidden="true" />
                   <span>{title}</span>
@@ -67,7 +67,7 @@ export function RunActivity({ state }: { state: ActivityState }) {
         })}
       </ol>
       {diagnostics.length > 0 && (
-        <details className="run-diagnostics">
+        <details className="run-diagnostics" data-view-disclosure="diagnostics">
           <summary>{t("runUi.diagnostics")}</summary>
           {diagnostics.length > 20 && (
             <p>{t("runUi.omitted", { count: diagnostics.length - 20 })}</p>

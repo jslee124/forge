@@ -62,7 +62,10 @@ export function ApprovalCard({
             .join(" · ")}
         </p>
       )}
-      <details className="run-approval-details">
+      <details
+        className="run-approval-details"
+        data-view-disclosure={`approval-${approval.approvalId}`}
+      >
         <summary>{t("runUi.fullAction")}</summary>
         <RunOutput label={t("runUi.fullAction")}>
           {descriptor?.preview ?? approval.description}

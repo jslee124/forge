@@ -34,6 +34,7 @@ import { SettingsView } from "./settings-view.js";
 import { SlashCommandMenu } from "./slash-command-menu.js";
 import { commands, routeCommand, suggestions } from "./slash-commands.js";
 import { UpdateView } from "./update-view.js";
+import { useConversationBrowser } from "./use-conversation-browser.js";
 import { WorkspaceHeader } from "./workspace-header.js";
 
 export function LiveWorkbench(): React.JSX.Element {
@@ -113,6 +114,33 @@ export function LiveWorkbench(): React.JSX.Element {
   const [settings, setSettings] = React.useState(false);
   const [settingsSection, setSettingsSection] = React.useState("appearance");
   const [panel, setPanel] = React.useState(false);
+  const {
+    viewed,
+    viewedRef,
+    viewLoading,
+    shellRef,
+    key,
+    savePosition,
+    invalidateRead,
+    clearBrowsing,
+    returnToExecution,
+    browseSession,
+    readSession,
+    prepareExecutionView,
+  } = useConversationBrowser({
+    state,
+    panel,
+    tab: panelTab,
+    setPanel,
+    setTab: setPanelTab,
+    onError: (cause) => setError(operationError(cause)),
+    onNavigate: () => {
+      setSettings(false);
+      setNotice("");
+      setError("");
+    },
+  });
+
   const panelReserve =
     panel && viewportWidth > 900
       ? Math.min(panelWidth, viewportWidth * 0.48)
@@ -127,25 +155,39 @@ export function LiveWorkbench(): React.JSX.Element {
   const [review, setReview] = React.useState<ChangeReview>();
   const [recoveryReview, setRecoveryReview] = React.useState<RecoveryPlan>();
   const [retryPlan, setRetryPlan] = React.useState<RecoveryPlan>();
-  const scope = `${state?.sessionId ?? ""}:${state?.cwd ?? ""}`;
+  const executionScope = `${state?.sessionId ?? ""}:${state?.cwd ?? ""}`;
+  const scope = viewed ? `${viewed.sessionId}:${viewed.cwd}` : executionScope;
+  const displayState =
+    viewed && state
+      ? {
+          ...state,
+          sessionId: viewed.sessionId,
+          cwd: viewed.cwd,
+          messages: viewed.messages,
+          runHistory: viewed.runHistory,
+        }
+      : state;
+
   const scopeRef = React.useRef(scope);
   scopeRef.current = scope;
-  const previousSelectionScope = React.useRef(scope);
+  const previousSelectionScope = React.useRef(executionScope);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: A viewed workspace identity change invalidates file previews and recovery review.
   React.useEffect(() => {
     setFilePath("");
     setRetryPlan(undefined);
     setRecoveryReview(undefined);
     setFilePreview(undefined);
     setReview(undefined);
+  }, [scope]);
+  React.useEffect(() => {
     const previous = previousSelectionScope.current;
-    previousSelectionScope.current = scope;
-    if (!(previous.startsWith(":") && !scope.startsWith(":"))) {
+    previousSelectionScope.current = executionScope;
+    if (!(previous.startsWith(":") && !executionScope.startsWith(":"))) {
       setSelection(undefined);
       setModel("");
       setPermission("safe");
     }
-  }, [scope]);
-  const key = state?.sessionId || `new:${state?.cwd ?? ""}`;
+  }, [executionScope]);
   const draft = drafts[key] ?? "";
   const [commandIndex, setCommandIndex] = React.useState(0);
   const [commandClosed, setCommandClosed] = React.useState(false);
@@ -153,10 +195,23 @@ export function LiveWorkbench(): React.JSX.Element {
   const startSubmitting = React.useRef(false);
   const [literalOffer, setLiteralOffer] = React.useState(false);
   const [notice, setNotice] = React.useState("");
-  const candidates = commandClosed ? [] : suggestions(draft);
+  const candidates = viewed || commandClosed ? [] : suggestions(draft);
   const zh = i18n.language.startsWith("zh");
   const busy = Boolean(active) || pending;
   const api = window.forgeDesktop;
+  const sessions = state?.sessions ?? [];
+  const navigationSessions =
+    active && !sessions.some((session) => session.id === active.sessionId)
+      ? [
+          {
+            id: active.sessionId,
+            title: submittedRef.current?.prompt.slice(0, 80) || "Forge",
+            cwd: state?.cwd ?? "",
+          },
+          ...sessions,
+        ]
+      : sessions;
+
   React.useEffect(() => {
     const guard = (event: BeforeUnloadEvent) => {
       if (busy || Object.values(drafts).some((value) => value.trim())) {
@@ -301,6 +356,10 @@ export function LiveWorkbench(): React.JSX.Element {
     return () => clearInterval(timer);
   }, [state?.auth]);
   const previewDeliveryFile = async (path: string) => {
+    if (viewedRef.current) {
+      setNotice(t("browsing.noSend"));
+      return;
+    }
     setPanel(true);
     setPanelTab("files");
     setFilePath(path);
@@ -343,6 +402,7 @@ export function LiveWorkbench(): React.JSX.Element {
   const newTask = async (mode: "new" | "clear" = "new") => {
     const next = await manage({ type: "reset", mode });
     if (!next) return false;
+    clearBrowsing();
     setPrompt("");
     setAnswer("");
     clearActivity();
@@ -353,7 +413,32 @@ export function LiveWorkbench(): React.JSX.Element {
     setStatus("ready");
     return true;
   };
+  const resumeSession = async (sessionId: string) => {
+    if (activeRef.current || pending) return;
+    savePosition();
+    const position = prepareExecutionView(
+      sessionId,
+      sessionId === state?.sessionId && !viewed,
+    );
+    invalidateRead();
+    const next = await manage({ type: "resume", sessionId });
+    if (!next) return;
+    clearBrowsing();
+    setPanel(position.panel);
+    setPanelTab(position.tab);
+    setSettings(false);
+    setStatus("ready");
+    setNotice("");
+    clearActivity();
+    setPrompt("");
+    setAnswer("");
+    setApprovals([]);
+  };
   const executeSlash = async (input: string) => {
+    if (viewedRef.current) {
+      setNotice(t("browsing.noSend"));
+      return;
+    }
     const result = routeCommand(input, busy || commandPending.current);
     setCommandClosed(true);
     setNotice("");
@@ -546,6 +631,10 @@ export function LiveWorkbench(): React.JSX.Element {
     if (next?.recoveryPlan) setRecoveryReview(next.recoveryPlan);
   };
   const send = async (literal = false, explicitPlan?: RecoveryPlan) => {
+    if (viewedRef.current) {
+      setNotice(t("browsing.noSend"));
+      return;
+    }
     const recovery = explicitPlan ?? retryPlan;
     const input = explicitPlan ? explicitPlan.prompt : draft;
     const preserveDraft =
@@ -716,6 +805,7 @@ export function LiveWorkbench(): React.JSX.Element {
   };
   return (
     <main
+      ref={shellRef}
       className={`app-shell live-shell ${window.forgeDesktop?.platform === "darwin" ? "platform-mac" : "platform-windows"} ${sidebarOpen ? "" : "sidebar-collapsed"}`}
       style={
         {
@@ -798,15 +888,15 @@ export function LiveWorkbench(): React.JSX.Element {
           />
           <div className="live-sessions">
             {sessionQuery &&
-              !state?.sessions.some((session) =>
+              !navigationSessions.some((session) =>
                 `${session.title} ${session.cwd ?? ""}`
                   .toLowerCase()
                   .includes(sessionQuery.toLowerCase()),
               ) && <p>{zh ? "没有匹配任务" : "No matching tasks"}</p>}
-            {!state?.sessions.length && (
+            {!navigationSessions.length && (
               <p className="studio-empty-list">{t("studio.noTasks")}</p>
             )}
-            {state?.sessions
+            {navigationSessions
               .filter((session) =>
                 `${session.title} ${session.cwd ?? ""}`
                   .toLowerCase()
@@ -818,39 +908,31 @@ export function LiveWorkbench(): React.JSX.Element {
                   key={session.id}
                   data-session-id={session.id}
                   aria-current={
-                    session.id === state?.sessionId && !settings
+                    session.id === (viewed?.sessionId ?? state?.sessionId) &&
+                    !settings
                       ? "page"
                       : undefined
                   }
                   title={`${session.title} · ${session.cwd ?? ""}`}
-                  disabled={busy}
-                  onClick={async () => {
-                    if (session.cwd && state?.cwd && session.cwd !== state.cwd)
-                      setNotice(
-                        zh
-                          ? `恢复任务的工作区：${session.cwd}`
-                          : `Resuming workspace: ${session.cwd}`,
-                      );
-                    const next = await manage({
-                      type: "resume",
-                      sessionId: session.id,
-                    });
-                    if (!next) return;
-                    setSelection(undefined);
-                    setModel("");
-                    setPermission("safe");
-                    setPanel(true);
-                    setPanelTab("files");
-                    setStatus("ready");
-                    setSettings(false);
-                    clearActivity();
-                    setPrompt("");
-                    setAnswer("");
-                    setApprovals([]);
+                  disabled={
+                    pending || (viewLoading && session.id !== state?.sessionId)
+                  }
+                  onClick={() => {
+                    if (session.id === state?.sessionId) {
+                      if (activeRef.current || viewed) returnToExecution();
+                      else void resumeSession(session.id);
+                    } else if (activeRef.current || viewed)
+                      void browseSession(session.id);
+                    else void resumeSession(session.id);
                   }}
                 >
                   <ChatCircle size={16} />
                   <span>{session.title}</span>
+                  {active?.sessionId === session.id && (
+                    <small className="session-running">
+                      {t("browsing.runningBadge")}
+                    </small>
+                  )}
                 </button>
               ))}
           </div>
@@ -943,13 +1025,13 @@ export function LiveWorkbench(): React.JSX.Element {
         </aside>
         <section className="live-main">
           <WorkspaceHeader
-            state={state}
+            state={displayState}
             sidebarOpen={sidebarOpen}
             setSidebarOpen={setSidebarOpen}
             panel={panel}
             setPanel={setPanel}
             settings={settings}
-            busy={busy}
+            busy={busy || Boolean(viewed)}
             onChooseWorkspace={onChooseWorkspace}
             onNewTask={() => void newTask()}
             onSettings={() => {
@@ -957,6 +1039,65 @@ export function LiveWorkbench(): React.JSX.Element {
               setSettings(!settings);
             }}
           />
+          {(active || viewed || viewLoading) && (
+            <div className="run-navigation" role="status" aria-live="polite">
+              <div>
+                <strong>
+                  {t(active ? "browsing.activeTask" : "browsing.executionTask")}
+                  :{" "}
+                  {state?.sessions.find(
+                    (session) =>
+                      session.id === (active?.sessionId ?? state?.sessionId),
+                  )?.title ??
+                    submittedRef.current?.prompt.slice(0, 80) ??
+                    "Forge"}
+                </strong>
+                <span>
+                  {approval
+                    ? t("browsing.approvalCount", { count: approvals.length })
+                    : active
+                      ? t(`runUi.phases.${status}`, {
+                          defaultValue: t("live.running"),
+                        })
+                      : t(
+                          `runUi.outcomes.${completion?.outcome ?? "completed"}`,
+                        )}
+                </span>
+                {viewed && (
+                  <span>{t("browsing.viewing", { title: viewed.title })}</span>
+                )}
+              </div>
+              {(viewed || settings || viewLoading) && (
+                <button
+                  type="button"
+                  data-testid="return-active"
+                  onClick={returnToExecution}
+                >
+                  {t("browsing.return")}
+                </button>
+              )}
+              {active && (
+                <button
+                  type="button"
+                  data-testid="stop-active"
+                  disabled={status === "stopping"}
+                  onClick={() => void cancel()}
+                >
+                  {t("live.stop")}
+                </button>
+              )}
+              {viewed && !active && (
+                <button
+                  type="button"
+                  data-testid="resume-viewed"
+                  disabled={pending || viewLoading}
+                  onClick={() => void resumeSession(viewed.sessionId)}
+                >
+                  {t("browsing.resume")}
+                </button>
+              )}
+            </div>
+          )}
           {error && (
             <p role="alert" className="field-error">
               {t(`live.errors.${error}`, { defaultValue: t("live.error") })}
@@ -987,7 +1128,7 @@ export function LiveWorkbench(): React.JSX.Element {
             <SettingsView
               initialSection={settingsSection}
               state={state}
-              busy={busy}
+              busy={busy || Boolean(viewed)}
               onBack={() => {
                 setSettings(false);
                 requestAnimationFrame(() => composerRef.current?.focus());
@@ -999,8 +1140,19 @@ export function LiveWorkbench(): React.JSX.Element {
             />
           ) : (
             <>
-              <div className="live-transcript" aria-busy={Boolean(active)}>
-                {!state?.messages.length && !prompt && (
+              <div
+                key={key}
+                className="live-transcript"
+                data-view-session={key}
+                aria-busy={Boolean(active) && !viewed}
+              >
+                {viewed && (
+                  <p className="browsing-note">
+                    {t("browsing.snapshot")}
+                    {viewed.truncated && ` ${t("browsing.truncated")}`}
+                  </p>
+                )}
+                {!displayState?.messages.length && (!prompt || viewed) && (
                   <div className="studio-welcome">
                     <span className="studio-welcome-icon">
                       <img src={markUrl} alt="" width={72} height={72} />
@@ -1033,11 +1185,12 @@ export function LiveWorkbench(): React.JSX.Element {
                     </div>
                   </div>
                 )}
-                {state?.messages
+                {displayState?.messages
                   .filter(
                     (message) =>
                       !(
                         message.kind === "system-outcome" &&
+                        !viewed &&
                         message.runId === completionRunId &&
                         completion
                       ),
@@ -1071,12 +1224,12 @@ export function LiveWorkbench(): React.JSX.Element {
                       </div>
                     ),
                   )}
-                {prompt && (
+                {!viewed && prompt && (
                   <div className="live-user">
                     <Markdown>{prompt}</Markdown>
                   </div>
                 )}
-                {answer && (
+                {!viewed && answer && (
                   <div className="live-answer">
                     <img
                       className="studio-answer-avatar"
@@ -1086,7 +1239,7 @@ export function LiveWorkbench(): React.JSX.Element {
                     <Markdown>{answer}</Markdown>
                   </div>
                 )}
-                {active && (
+                {!viewed && active && (
                   <div
                     className="studio-run-state"
                     role="status"
@@ -1102,14 +1255,17 @@ export function LiveWorkbench(): React.JSX.Element {
                     </span>
                   </div>
                 )}
-                {activity.items.length > 0 && (
-                  <details className="run-activity-disclosure">
+                {!viewed && activity.items.length > 0 && (
+                  <details
+                    className="run-activity-disclosure"
+                    data-view-disclosure="activity"
+                  >
                     <summary>{t("live.activity")}</summary>
                     <RunActivity state={activity} />
                   </details>
                 )}
               </div>
-              {approval && (
+              {!viewed && approval && (
                 <ApprovalCard
                   key={approval.approvalId}
                   approval={approval}
@@ -1118,7 +1274,7 @@ export function LiveWorkbench(): React.JSX.Element {
                   onDecide={decide}
                 />
               )}
-              {!active && completion && (
+              {!viewed && !active && completion && (
                 <RunResult
                   result={completion}
                   recoveryDisabled={
@@ -1141,7 +1297,7 @@ export function LiveWorkbench(): React.JSX.Element {
                   }}
                 />
               )}
-              {!active && completionRunId && currentDelivery && (
+              {!viewed && !active && completionRunId && currentDelivery && (
                 <RunDelivery
                   key={completionRunId}
                   delivery={currentDelivery}
@@ -1257,44 +1413,54 @@ export function LiveWorkbench(): React.JSX.Element {
                     }));
                   }}
                 />
-                <ComposerControls
-                  state={state}
-                  engine={engine}
-                  model={model}
-                  permission={permission}
-                  setPermission={setPermission}
-                  busy={busy}
-                  importFile={importFile}
-                  onEngineChange={(value) => {
-                    setEngine(value);
-                    setModel("");
-                    setSelection(undefined);
-                    setPermission(
-                      value === "codex" ? "workspace-write" : "safe",
-                    );
-                  }}
-                  selection={selection}
-                  onSelection={(value) => {
-                    setSelection(value);
-                    setModel(value.model);
-                  }}
-                  onRefresh={async () => {
-                    await manage({
-                      type: engine === "codex" ? "models-refresh" : "state",
-                    });
-                  }}
-                  onSave={async (value) =>
-                    Boolean(
-                      await manage({ type: "model-save", selection: value }),
-                    )
-                  }
-                  active={Boolean(active)}
-                  status={status}
-                  cancel={cancel}
-                  send={send}
-                  lockSettings={Boolean(retryPlan)}
-                  canSend={!busy && Boolean(draft.trim()) && Boolean(api)}
-                />
+                {viewed ? (
+                  <div className="browsing-draft-note">
+                    {t(
+                      active
+                        ? "browsing.draftWhileRunning"
+                        : "browsing.draftReady",
+                    )}
+                  </div>
+                ) : (
+                  <ComposerControls
+                    state={state}
+                    engine={engine}
+                    model={model}
+                    permission={permission}
+                    setPermission={setPermission}
+                    busy={busy}
+                    importFile={importFile}
+                    onEngineChange={(value) => {
+                      setEngine(value);
+                      setModel("");
+                      setSelection(undefined);
+                      setPermission(
+                        value === "codex" ? "workspace-write" : "safe",
+                      );
+                    }}
+                    selection={selection}
+                    onSelection={(value) => {
+                      setSelection(value);
+                      setModel(value.model);
+                    }}
+                    onRefresh={async () => {
+                      await manage({
+                        type: engine === "codex" ? "models-refresh" : "state",
+                      });
+                    }}
+                    onSave={async (value) =>
+                      Boolean(
+                        await manage({ type: "model-save", selection: value }),
+                      )
+                    }
+                    active={Boolean(active)}
+                    status={status}
+                    cancel={cancel}
+                    send={send}
+                    lockSettings={Boolean(retryPlan)}
+                    canSend={!busy && Boolean(draft.trim()) && Boolean(api)}
+                  />
+                )}
               </div>
             </>
           )}
@@ -1357,6 +1523,7 @@ export function LiveWorkbench(): React.JSX.Element {
                 <button
                   type="button"
                   aria-pressed={panelTab === tab}
+                  disabled={Boolean(viewed) && tab !== "context"}
                   key={tab}
                   onClick={() => setPanelTab(tab)}
                 >
@@ -1504,23 +1671,44 @@ export function LiveWorkbench(): React.JSX.Element {
             </div>
             <div className="studio-panel-body" hidden={panelTab !== "context"}>
               <RunHistory
-                history={state?.runHistory}
+                key={key}
+                history={viewed?.runHistory ?? state?.runHistory}
                 onPreview={(path) => void previewDeliveryFile(path)}
-                busy={busy}
+                busy={pending || viewLoading}
+                executionBusy={Boolean(active) || Boolean(viewed)}
                 onRecover={(kind, sourceRunId) =>
                   void prepareRecovery(kind, sourceRunId)
                 }
                 onLoad={async (command) => {
-                  await manage(command);
+                  if (viewedRef.current)
+                    await browseSession(
+                      viewedRef.current.sessionId,
+                      command.runId,
+                      command.before,
+                    );
+                  else if (activeRef.current && api && state?.sessionId) {
+                    const sourceSession = state.sessionId;
+                    const view = await readSession(
+                      sourceSession,
+                      command.runId,
+                      command.before,
+                    );
+                    if (view)
+                      setState((value) =>
+                        value?.sessionId === sourceSession
+                          ? { ...value, runHistory: view.runHistory }
+                          : value,
+                      );
+                  } else await manage(command);
                 }}
               />
-              {activity.items.length > 0 && (
+              {!viewed && activity.items.length > 0 && (
                 <>
                   <h3>{t("live.activity")}</h3>
                   <RunActivity state={activity} />
                 </>
               )}
-              <details className="run-diagnostics">
+              <details className="run-diagnostics" hidden={Boolean(viewed)}>
                 <summary>{t("live.context")}</summary>
                 <pre>{state?.context}</pre>
                 <button
@@ -1531,7 +1719,7 @@ export function LiveWorkbench(): React.JSX.Element {
                   {t("live.compact")}
                 </button>
               </details>
-              <p>{t("live.verification")}</p>
+              {!viewed && <p>{t("live.verification")}</p>}
             </div>
           </aside>
         )}

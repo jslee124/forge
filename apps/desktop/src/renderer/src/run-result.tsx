@@ -8,12 +8,14 @@ export function RunResult({
   onRecover,
   onSource,
   recoveryDisabled = false,
+  sourceDisabled,
 }: {
   result: ProductRunCompletion;
   historical?: boolean;
   onRecover?: ((kind: "summarize" | "continue" | "retry") => void) | undefined;
   onSource?: (sourceRunId: string) => void;
   recoveryDisabled?: boolean;
+  sourceDisabled?: boolean;
 }) {
   const { t } = useTranslation();
   const failed =
@@ -65,7 +67,7 @@ export function RunResult({
       {result.recovery && onSource && (
         <button
           type="button"
-          disabled={recoveryDisabled}
+          disabled={sourceDisabled ?? recoveryDisabled}
           onClick={() =>
             result.recovery && onSource(result.recovery.sourceRunId)
           }
