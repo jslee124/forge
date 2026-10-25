@@ -29,6 +29,10 @@
   "instructions": ["product/AGENTS.md", "development/AGENTS.md"],
   "decisions": [
     {
+      "path": "decisions/0005-reviewed-desktop-run-recovery.md",
+      "status": "accepted"
+    },
+    {
       "path": "decisions/0004-reserved-desktop-finalization.md",
       "status": "accepted"
     },

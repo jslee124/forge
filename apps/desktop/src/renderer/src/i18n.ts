@@ -6,6 +6,47 @@ export type Locale = "en" | "zh-CN";
 export const resources = {
   en: {
     translation: {
+      recovery: {
+        actions: {
+          summarize: "Summarize existing information",
+          continue: "Continue with a new budget",
+          retry: "Edit and retry",
+        },
+        reviewFirst:
+          "Review source, model, limits and permissions. Native Forge records only.",
+        viewSource: "View source run",
+        summaryTitle: "Existing-information summary",
+        start: "Start new run",
+        cancel: "Cancel",
+        replaceDraft: "Replace with retry draft",
+        loadDraft: "Load retry draft",
+        keepDraft: "Keep current draft",
+        summaryScope:
+          "Recorded facts only. No project plugins or tools. At most one logical model call; task completion remains unconfirmed.",
+        continueScope:
+          "Start a new run with fresh limits and approval checks. Inspect current state; do not replay unknown effects or denied operations.",
+        retryScope:
+          "Load the original prompt for editing. Nothing runs until you send it.",
+        source: "Source run",
+        model: "Model",
+        budget: "New budget",
+        budgetValue: "Up to {{steps}} model steps · {{tools}} tool calls",
+        permission: "Permissions",
+        permissions: {
+          safe: "Ask to approve actions",
+          workspace: "Workspace writes; processes require approval",
+        },
+        noTools: "Tool-free summary",
+        incomplete:
+          "Source records are incomplete or clipped; missing evidence is not proof of success.",
+        draftConflict:
+          "Your current draft will only be replaced if you confirm.",
+        draftPreserved: "Your current draft will be preserved.",
+        prompt: "New run prompt",
+        nativeOnly: "Select a Forge model to recover native records.",
+        retryDraft: "Retry draft · reviewed model and permissions are fixed",
+        unlink: "Remove retry link",
+      },
       runUi: {
         history: "Run records",
         noProgressTitle: "Investigation stopped",
@@ -198,6 +239,16 @@ export const resources = {
             "A web-tools directory already exists; your plugin was preserved. Remove or move it yourself before installing the bundled version.",
           "web-plugin-missing":
             "Install the web plugin before enabling or configuring it.",
+          "recovery-stale":
+            "Recovery source or settings changed. Prepare again.",
+          "recovery-native-only": "Recovery supports native Forge records.",
+          "recovery-source-active": "Wait for the source run to finish.",
+          "recovery-original-unavailable":
+            "The full original prompt is unavailable. Edit your draft and send normally.",
+          "recovery-prompt-too-large":
+            "Edit a shorter request before retrying.",
+          "recovery-select-source":
+            "Choose the original source run to continue or retry.",
           "workspace-unavailable":
             "The workspace directory is missing or inaccessible. Choose an existing directory.",
           "workspace-changed":
@@ -415,6 +466,43 @@ export const resources = {
   },
   "zh-CN": {
     translation: {
+      recovery: {
+        actions: {
+          summarize: "总结已有信息",
+          continue: "新预算继续",
+          retry: "编辑后重试",
+        },
+        reviewFirst: "先确认来源、模型、预算与权限，仅支持原生 Forge 记录。",
+        viewSource: "查看来源运行",
+        summaryTitle: "已有信息摘要",
+        start: "开始新运行",
+        cancel: "取消",
+        replaceDraft: "替换为重试草稿",
+        loadDraft: "载入重试草稿",
+        keepDraft: "保留当前草稿",
+        summaryScope:
+          "仅使用已有记录，不加载项目插件、不调用工具。最多一次逻辑模型调用，不代表原任务完成。",
+        continueScope:
+          "创建新运行，使用新预算并重新审批。先检查当前状态，不重放结果未知或已拒绝的操作。",
+        retryScope: "先恢复原始输入供你编辑，点击发送前不会运行。",
+        source: "来源运行",
+        model: "模型",
+        budget: "新预算",
+        budgetValue: "最多 {{steps}} 个模型步骤 · {{tools}} 次工具调用",
+        permission: "权限",
+        permissions: {
+          safe: "按需审批",
+          workspace: "允许工作区写入，进程仍需审批",
+        },
+        noTools: "无工具总结",
+        incomplete: "来源记录不完整或已裁剪，缺少证据不能证明成功。",
+        draftConflict: "只有确认后才会替换现有草稿。",
+        draftPreserved: "现有草稿会保留。",
+        prompt: "新运行输入",
+        nativeOnly: "请先选择 Forge 模型，恢复仅支持原生记录。",
+        retryDraft: "重试草稿 · 模型与权限固定为已确认设置",
+        unlink: "解除重试关联",
+      },
       runUi: {
         history: "运行记录",
         noProgressTitle: "调查已停止",
@@ -586,6 +674,13 @@ export const resources = {
           "web-plugin-exists":
             "web-tools 目录已存在，已保留原插件。安装内置版本前请自行移走或删除原目录。",
           "web-plugin-missing": "请先安装搜索插件，再启用或配置。",
+          "recovery-stale": "来源或设置已变化，请重新准备恢复操作。",
+          "recovery-native-only": "恢复功能目前仅支持原生 Forge 记录。",
+          "recovery-source-active": "请等待来源运行结束。",
+          "recovery-original-unavailable":
+            "未保存完整原始输入，请编辑草稿后正常发送。",
+          "recovery-prompt-too-large": "恢复输入过长，请编辑为更短的请求。",
+          "recovery-select-source": "请从原始来源运行继续或重试。",
           "workspace-unavailable": "工作目录缺失或无法访问，请选择现有目录。",
           "workspace-changed": "工作空间边界已变化，请恢复原目录后再续聊。",
           "auto-workspace-boundary":

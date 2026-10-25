@@ -13,6 +13,7 @@ import type {
   DesktopState,
   ManagementCommand,
   ModelSelection,
+  RecoveryPlan,
 } from "../../shared/application-protocol.js";
 import type { ChangeReview, FilePreview } from "../../shared/file-protocol.js";
 import type { RunEvent, RunPayload } from "../../shared/run-protocol.js";
@@ -22,6 +23,7 @@ import markUrl from "./assets/forge-mark.svg";
 import { ComposerControls } from "./composer-controls.js";
 import { ContentPreview, DiffViewer } from "./file-preview.js";
 import { Markdown } from "./markdown.js";
+import { RecoveryReview } from "./recovery-review.js";
 import { RunActivity } from "./run-activity.js";
 import { RunHistory } from "./run-history.js";
 import { RunResult } from "./run-result.js";
@@ -88,7 +90,7 @@ export function LiveWorkbench(): React.JSX.Element {
   const [completion, setCompletion] = React.useState<ProductRunCompletion>();
   const [completionRunId, setCompletionRunId] = React.useState<string>();
   const submittedRef = React.useRef<
-    { sessionId: string; prompt: string } | undefined
+    { sessionId: string; prompt: string; preserveDraft?: boolean } | undefined
   >(undefined);
   const [approvals, setApprovals] = React.useState<
     Extract<RunPayload, { type: "approval" }>[]
@@ -118,13 +120,16 @@ export function LiveWorkbench(): React.JSX.Element {
   const [filePath, setFilePath] = React.useState("");
   const [filePreview, setFilePreview] = React.useState<FilePreview>();
   const [review, setReview] = React.useState<ChangeReview>();
+  const [recoveryReview, setRecoveryReview] = React.useState<RecoveryPlan>();
+  const [retryPlan, setRetryPlan] = React.useState<RecoveryPlan>();
   const scope = `${state?.sessionId ?? ""}:${state?.cwd ?? ""}`;
   const scopeRef = React.useRef(scope);
   scopeRef.current = scope;
   const previousSelectionScope = React.useRef(scope);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: Changing tasks must invalidate the previous task's artifact state.
   React.useEffect(() => {
     setFilePath("");
+    setRetryPlan(undefined);
+    setRecoveryReview(undefined);
     setFilePreview(undefined);
     setReview(undefined);
     const previous = previousSelectionScope.current;
@@ -140,6 +145,7 @@ export function LiveWorkbench(): React.JSX.Element {
   const [commandIndex, setCommandIndex] = React.useState(0);
   const [commandClosed, setCommandClosed] = React.useState(false);
   const commandPending = React.useRef(false);
+  const startSubmitting = React.useRef(false);
   const [literalOffer, setLiteralOffer] = React.useState(false);
   const [notice, setNotice] = React.useState("");
   const candidates = commandClosed ? [] : suggestions(draft);
@@ -239,7 +245,10 @@ export function LiveWorkbench(): React.JSX.Element {
         setStatus(payload.outcome);
         if (payload.outcome !== "completed") {
           const submitted = submittedRef.current;
-          if (submitted?.sessionId === current.sessionId)
+          if (
+            submitted?.sessionId === current.sessionId &&
+            !submitted.preserveDraft
+          )
             setDrafts((values) =>
               values[current.sessionId]?.trim()
                 ? values
@@ -478,13 +487,53 @@ export function LiveWorkbench(): React.JSX.Element {
           ?.click(),
       );
   };
-  const send = async (literal = false) => {
-    if (!draft.trim() || !api) return;
-    if (!literal && draft.trim().startsWith("/")) {
+  const prepareRecovery = async (
+    kind: RecoveryPlan["kind"],
+    sourceRunId: string,
+  ) => {
+    if (busy || !state?.sessionId) return;
+    if (engine !== "native") {
+      setNotice(t("recovery.nativeOnly"));
+      return;
+    }
+    const base = selection ?? state.defaultSelection;
+    if (base?.engine !== "native") {
+      setNotice(t("recovery.nativeOnly"));
+      return;
+    }
+    const entry = state.modelCatalog?.find(
+      (value) =>
+        value.engine === "native" &&
+        value.provider === base.provider &&
+        value.id === (model || base.model),
+    );
+    const chosen: ModelSelection = {
+      ...base,
+      model: model || base.model,
+      effort: (base.effort && entry?.efforts.includes(base.effort)
+        ? base.effort
+        : (entry?.defaultEffort ?? base.effort)) as ModelSelection["effort"],
+    };
+    const next = await manage({
+      type: "prepare-recovery",
+      sourceRunId,
+      kind,
+      selection: chosen,
+      permissionProfile: permission,
+    });
+    if (next?.recoveryPlan) setRecoveryReview(next.recoveryPlan);
+  };
+  const send = async (literal = false, explicitPlan?: RecoveryPlan) => {
+    const recovery = explicitPlan ?? retryPlan;
+    const input = explicitPlan ? explicitPlan.prompt : draft;
+    const preserveDraft =
+      recovery?.kind === "summarize" || recovery?.kind === "continue";
+    if (!input.trim() || !api) return;
+    if (!recovery && !literal && draft.trim().startsWith("/")) {
       await executeSlash(draft);
       return;
     }
-    if (busy || commandPending.current) return;
+    if (busy || commandPending.current || startSubmitting.current) return;
     if (
       engine === "native" &&
       !selection &&
@@ -498,12 +547,13 @@ export function LiveWorkbench(): React.JSX.Element {
       return;
     }
     setLiteralOffer(false);
+    startSubmitting.current = true;
     setPending(true);
     setError("");
     try {
       const current = state?.sessionId
         ? state
-        : await api.manage({ type: "create", prompt: draft });
+        : await api.manage({ type: "create", prompt: input });
       setState(current);
       const identity = {
         sessionId: current.sessionId,
@@ -511,27 +561,46 @@ export function LiveWorkbench(): React.JSX.Element {
         requestId: crypto.randomUUID(),
       };
       activeRef.current = identity;
-      submittedRef.current = { sessionId: current.sessionId, prompt: draft };
+      submittedRef.current = {
+        sessionId: current.sessionId,
+        prompt: input,
+        preserveDraft,
+      };
       setActive(identity);
       setStatus("running");
-      setPrompt(draft);
+      setPrompt(input);
       setAnswer("");
       clearActivity();
-      setDrafts((values) => ({
-        ...values,
-        [key]: values[key] === draft ? "" : (values[key] ?? ""),
-        [current.sessionId]:
-          values[current.sessionId] === draft
-            ? ""
-            : (values[current.sessionId] ?? ""),
-      }));
+      if (!preserveDraft)
+        setDrafts((values) => ({
+          ...values,
+          [key]: values[key] === draft ? "" : (values[key] ?? ""),
+          [current.sessionId]:
+            values[current.sessionId] === draft
+              ? ""
+              : (values[current.sessionId] ?? ""),
+        }));
       const accepted = await api.runCommand({
         type: "start",
         ...identity,
-        prompt: draft,
-        engine,
-        permissionProfile: permission,
-        ...(selection
+        prompt: input,
+        engine: recovery ? recovery.selection.engine : engine,
+        permissionProfile: recovery ? recovery.permissionProfile : permission,
+        ...(recovery
+          ? {
+              recovery: {
+                token: recovery.token,
+                sourceRunId: recovery.sourceRunId,
+                kind: recovery.kind,
+              },
+              model: recovery.selection.model,
+              provider: recovery.selection.provider,
+              ...(recovery.selection.effort
+                ? { reasoningEffort: recovery.selection.effort }
+                : {}),
+            }
+          : {}),
+        ...(!recovery && selection
           ? {
               model: selection.model,
               provider: selection.provider,
@@ -539,20 +608,22 @@ export function LiveWorkbench(): React.JSX.Element {
                 ? { reasoningEffort: selection.effort }
                 : {}),
             }
-          : model
+          : !recovery && model
             ? { model }
             : {}),
       });
+      if (accepted) setRetryPlan(undefined);
       if (!accepted && activeRef.current === identity) {
         activeRef.current = undefined;
         setActive(undefined);
         setStatus("failed");
         setCompletion({ outcome: "failed", reason: "execution_error" });
-        setDrafts((values) =>
-          values[current.sessionId]?.trim()
-            ? values
-            : { ...values, [current.sessionId]: draft },
-        );
+        if (!preserveDraft)
+          setDrafts((values) =>
+            values[current.sessionId]?.trim()
+              ? values
+              : { ...values, [current.sessionId]: input },
+          );
         setError("management-failed");
       }
     } catch {
@@ -560,7 +631,7 @@ export function LiveWorkbench(): React.JSX.Element {
       setStatus("failed");
       setCompletion({ outcome: "failed", reason: "execution_error" });
       const submitted = submittedRef.current;
-      if (submitted)
+      if (submitted && !submitted.preserveDraft)
         setDrafts((values) =>
           values[submitted.sessionId]?.trim()
             ? values
@@ -569,6 +640,7 @@ export function LiveWorkbench(): React.JSX.Element {
       activeRef.current = undefined;
       setActive(undefined);
     } finally {
+      startSubmitting.current = false;
       setPending(false);
     }
   };
@@ -630,6 +702,33 @@ export function LiveWorkbench(): React.JSX.Element {
         } as React.CSSProperties
       }
     >
+      {recoveryReview && (
+        <RecoveryReview
+          plan={recoveryReview}
+          hasDraft={Boolean(draft.trim())}
+          busy={busy}
+          onCancel={() => {
+            setRecoveryReview(undefined);
+            void manage({ type: "dismiss-recovery" });
+          }}
+          onConfirm={() => {
+            const plan = recoveryReview;
+            setRecoveryReview(undefined);
+            if (plan.kind === "retry") {
+              setDrafts((values) => ({ ...values, [key]: plan.prompt }));
+              setSelection(plan.selection);
+              setEngine(plan.selection.engine);
+              setPermission(plan.permissionProfile);
+              setModel(plan.selection.model);
+              setRetryPlan(plan);
+              requestAnimationFrame(() => composerRef.current?.focus());
+            } else {
+              void send(true, plan);
+            }
+          }}
+        />
+      )}
+
       <div className="app-frame">
         <aside className="sidebar">
           <div className="studio-brand">
@@ -997,7 +1096,44 @@ export function LiveWorkbench(): React.JSX.Element {
                   onDecide={decide}
                 />
               )}
-              {!active && completion && <RunResult result={completion} />}
+              {!active && completion && (
+                <RunResult
+                  result={completion}
+                  recoveryDisabled={
+                    busy ||
+                    !state?.runHistory?.runs.some(
+                      (run) =>
+                        run.runId === completionRunId &&
+                        run.engine === "native",
+                    )
+                  }
+                  onRecover={
+                    completionRunId
+                      ? (kind) => void prepareRecovery(kind, completionRunId)
+                      : undefined
+                  }
+                  onSource={(sourceRunId) => {
+                    setPanel(true);
+                    setPanelTab("context");
+                    void manage({ type: "run-history", runId: sourceRunId });
+                  }}
+                />
+              )}
+              {retryPlan && (
+                <div className="run-retry-draft" role="status">
+                  <span>{t("recovery.retryDraft")}</span>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => {
+                      setRetryPlan(undefined);
+                      void manage({ type: "dismiss-recovery" });
+                    }}
+                  >
+                    {t("recovery.unlink")}
+                  </button>
+                </div>
+              )}
               <div className="live-composer">
                 {candidates.length > 0 && (
                   <SlashCommandMenu
@@ -1126,6 +1262,7 @@ export function LiveWorkbench(): React.JSX.Element {
                   status={status}
                   cancel={cancel}
                   send={send}
+                  lockSettings={Boolean(retryPlan)}
                   canSend={!busy && Boolean(draft.trim()) && Boolean(api)}
                 />
               </div>
@@ -1339,6 +1476,9 @@ export function LiveWorkbench(): React.JSX.Element {
               <RunHistory
                 history={state?.runHistory}
                 busy={busy}
+                onRecover={(kind, sourceRunId) =>
+                  void prepareRecovery(kind, sourceRunId)
+                }
                 onLoad={async (command) => {
                   await manage(command);
                 }}
@@ -1373,6 +1513,12 @@ function operationError(error: unknown): string {
   const message = error instanceof Error ? error.message : "";
   return (
     [
+      "recovery-stale",
+      "recovery-native-only",
+      "recovery-source-active",
+      "recovery-original-unavailable",
+      "recovery-prompt-too-large",
+      "recovery-select-source",
       "workspace-unavailable",
       "workspace-changed",
       "auto-workspace-boundary",

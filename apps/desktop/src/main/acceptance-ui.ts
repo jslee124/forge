@@ -706,6 +706,99 @@ export async function runUiAcceptance(
       partial: true,
       externalProvider: false,
     });
+    const recoveryCallsBefore = provider.calls;
+    const recoveryToolFreeBefore = provider.toolFreeRequests;
+    await enterDraft("Keep this next task draft");
+    await click("[data-run-result=current] [data-recovery=summarize]");
+    await until(
+      "document.querySelector('dialog[open] .recovery-plan-metadata')",
+    );
+    if (provider.calls !== recoveryCallsBefore)
+      throw new Error("Recovery started before review confirmation");
+    await capture("product-recovery-review");
+    window.setContentSize(840, 600);
+    await until(
+      "(() => {const r=document.querySelector('dialog .studio-confirmation-actions').getBoundingClientRect(); return r.top>=0 && r.bottom<=innerHeight && r.left>=0 && r.right<=innerWidth;})()",
+    );
+    await capture("product-recovery-review-narrow");
+    window.setContentSize(1100, 728);
+    await click("dialog .studio-confirmation-actions button:last-child");
+    await until(
+      "document.querySelector('[data-run-result=current]')?.textContent.includes('Existing-information summary') && !document.querySelector('[data-recovery=summarize]').disabled",
+    );
+    const summaryRecovery = await js(
+      "window.forgeDesktop.manage({type:'state'}).then(state=>state.runHistory?.selected?.summary)",
+    );
+    if (
+      provider.calls - recoveryCallsBefore !== 1 ||
+      provider.toolFreeRequests - recoveryToolFreeBefore !== 1 ||
+      summaryRecovery?.recovery?.kind !== "summarize" ||
+      summaryRecovery?.completion?.toolCalls !== 0 ||
+      (await js("document.querySelector('.live-composer textarea').value")) !==
+        "Keep this next task draft"
+    ) {
+      console.error(
+        "Recovery diagnostic",
+        JSON.stringify({
+          calls: provider.calls - recoveryCallsBefore,
+          toolFree: provider.toolFreeRequests - recoveryToolFreeBefore,
+          summaryRecovery,
+          draft: await js(
+            "document.querySelector('.live-composer textarea').value",
+          ),
+        }),
+      );
+      await capture("product-recovery-failure");
+      throw new Error(
+        "Summary recovery lost its bounded scope, source link or draft",
+      );
+    }
+    await capture("product-recovery-summary");
+    await click("[data-run-result=current] > button");
+    await until(
+      "document.querySelector('.run-history-selected [data-recovery=retry]:not(:disabled)')",
+    );
+    await click(".run-history-selected [data-recovery=retry]");
+    await until("document.querySelector('dialog[open]')");
+    await click("dialog .studio-confirmation-actions button:first-child");
+    if (
+      (await js("document.querySelector('.live-composer textarea').value")) !==
+      "Keep this next task draft"
+    )
+      throw new Error("Cancelled recovery replaced the next draft");
+    await click(".run-history-selected [data-recovery=retry]");
+    await until("document.querySelector('dialog[open]')");
+    await click("dialog .studio-confirmation-actions button:last-child");
+    await until("document.querySelector('.run-retry-draft')");
+    if (
+      (await js("document.querySelector('.live-composer textarea').value")) !==
+      "P4 bounded finalization fixture"
+    )
+      throw new Error("Retry did not load the original source prompt");
+    await enterDraft("P4 edited retry fixture");
+    await click(".studio-composer-footer > button:last-child");
+    await until(
+      "document.querySelector('[data-run-result=current]') && !document.querySelector('[data-testid=composer-engine]').disabled",
+    );
+    const retried = await js(
+      "window.forgeDesktop.manage({type:'state'}).then(state=>state.runHistory?.selected?.summary)",
+    );
+    if (
+      retried?.recovery?.kind !== "retry" ||
+      retried?.recovery?.sourceRunId !==
+        summaryRecovery?.recovery?.sourceRunId ||
+      retried?.prompt !== "P4 edited retry fixture"
+    )
+      throw new Error("Edited retry lost its source link");
+    await capture("product-recovery-retry");
+    results.push({
+      name: "reviewed-recovery",
+      summaryCalls: 1,
+      summaryTools: 0,
+      linkedRetry: true,
+      draftPreserved: true,
+      externalProvider: false,
+    });
     if (provider.calls < 4) throw new Error("offline transport not exercised");
     results.push({
       name: "p4-loopback-workflow",

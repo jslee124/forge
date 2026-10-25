@@ -14,6 +14,7 @@ export function ComposerControls({
   permission,
   setPermission,
   busy,
+  lockSettings = false,
   importFile,
   onEngineChange,
   selection,
@@ -32,6 +33,7 @@ export function ComposerControls({
   permission: "safe" | "workspace-write";
   setPermission: (value: "safe" | "workspace-write") => void;
   busy: boolean;
+  lockSettings?: boolean;
   importFile: () => Promise<void>;
   onEngineChange: (engine: "native" | "codex") => void;
   selection: ModelSelection | undefined;
@@ -52,14 +54,14 @@ export function ComposerControls({
         engine={engine}
         permission={permission}
         onPermission={setPermission}
-        busy={busy}
+        busy={busy || lockSettings}
         onImport={importFile}
       />
       <ModelSelector
         state={state}
         engine={engine}
         model={model}
-        busy={busy}
+        busy={busy || lockSettings}
         onEngineChange={onEngineChange}
         selection={selection}
         onSelection={onSelection}

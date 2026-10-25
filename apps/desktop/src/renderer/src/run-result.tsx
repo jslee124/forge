@@ -5,9 +5,15 @@ import { RunOutput } from "./run-output.js";
 export function RunResult({
   result,
   historical = false,
+  onRecover,
+  onSource,
+  recoveryDisabled = false,
 }: {
   result: ProductRunCompletion;
   historical?: boolean;
+  onRecover?: ((kind: "summarize" | "continue" | "retry") => void) | undefined;
+  onSource?: (sourceRunId: string) => void;
+  recoveryDisabled?: boolean;
 }) {
   const { t } = useTranslation();
   const failed =
@@ -20,13 +26,18 @@ export function RunResult({
     >
       <strong>
         {t(
-          result.reason === "no_progress"
-            ? "runUi.noProgressTitle"
-            : `runUi.outcomes.${result.outcome}`,
+          result.recovery?.kind === "summarize" &&
+            result.outcome === "limit_reached"
+            ? "recovery.summaryTitle"
+            : result.reason === "no_progress"
+              ? "runUi.noProgressTitle"
+              : `runUi.outcomes.${result.outcome}`,
         )}
       </strong>
       {result.partial && <p>{t("runUi.partialResult")}</p>}
-      {result.reason && <p>{t(`runUi.reasons.${result.reason}`)}</p>}
+      {result.reason && result.recovery?.kind !== "summarize" && (
+        <p>{t(`runUi.reasons.${result.reason}`)}</p>
+      )}
       <div className="run-result-metrics">
         {result.durationMs !== undefined && (
           <span>
@@ -50,6 +61,36 @@ export function RunResult({
               : "runUi.draftRetained",
           )}
         </p>
+      )}
+      {result.recovery && onSource && (
+        <button
+          type="button"
+          disabled={recoveryDisabled}
+          onClick={() =>
+            result.recovery && onSource(result.recovery.sourceRunId)
+          }
+        >
+          {t("recovery.viewSource")}
+        </button>
+      )}
+      {onRecover && (
+        <div className="run-recovery-actions">
+          {(["summarize", "continue", "retry"] as const).map((kind) => (
+            <button
+              key={kind}
+              type="button"
+              data-recovery={kind}
+              disabled={
+                recoveryDisabled ||
+                (result.recovery?.kind === "summarize" && kind !== "summarize")
+              }
+              title={t("recovery.reviewFirst")}
+              onClick={() => onRecover(kind)}
+            >
+              {t(`recovery.actions.${kind}`)}
+            </button>
+          ))}
+        </div>
       )}
       {result.message && (
         <details>

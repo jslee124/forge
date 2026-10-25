@@ -285,3 +285,21 @@ describe("run transport", () => {
     expect(allowed).toBe(false);
   });
 });
+
+describe("recovery command boundary", () => {
+  it("accepts only a source link and opaque preparation token", () => {
+    const recovery = {
+      token: "review-token",
+      sourceRunId: "source-run",
+      kind: "retry",
+    };
+    expect(parseRunCommand({ ...start, recovery })).toMatchObject({ recovery });
+    for (const invalid of [
+      { ...recovery, kind: "replay" },
+      { ...recovery, token: "../unsafe" },
+      { ...recovery, permissionProfile: "workspace-write" },
+      { ...recovery, grants: ["allow"] },
+    ])
+      expect(parseRunCommand({ ...start, recovery: invalid })).toBeUndefined();
+  });
+});

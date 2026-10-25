@@ -292,3 +292,129 @@ describe("live composer keyboard and failure feedback", () => {
     expect(composer().value).toBe("hello");
   });
 });
+
+describe("reviewed recovery", () => {
+  beforeEach(() => {
+    HTMLDialogElement.prototype.showModal = function () {
+      this.setAttribute("open", "");
+    };
+    HTMLDialogElement.prototype.close = function () {
+      this.removeAttribute("open");
+    };
+    vi.mocked(window.forgeDesktop.manage).mockImplementation(
+      async (command) => {
+        const source = runCommand.mock.calls[0]?.[0];
+        const current: DesktopState = {
+          ...state,
+          defaultSelection: {
+            engine: "native",
+            provider: "deepseek",
+            model: "test-model",
+            effort: "high",
+          },
+          runHistory: {
+            runs:
+              source?.type === "start"
+                ? [
+                    {
+                      schemaVersion: 1,
+                      sessionId: source.sessionId,
+                      runId: source.runId,
+                      engine: "native",
+                      prompt: "original request",
+                      state: "finished",
+                      startedAt: new Date().toISOString(),
+                      updatedAt: new Date().toISOString(),
+                      sequence: 1,
+                      omittedCharacters: 0,
+                      omittedEvents: 0,
+                    },
+                  ]
+                : [],
+          },
+        };
+        if (command.type === "prepare-recovery")
+          current.recoveryPlan = {
+            token: "review-token",
+            sessionId: state.sessionId as string,
+            sourceRunId: command.sourceRunId,
+            kind: command.kind,
+            prompt:
+              command.kind === "retry"
+                ? "original request"
+                : "Summarize recorded facts",
+            selection: {
+              engine: "native",
+              provider: "deepseek",
+              model: "test-model",
+              effort: "high",
+            },
+            permissionProfile: "safe",
+            maxModelSteps: 1,
+            maxToolCalls: 0,
+            incomplete: true,
+          };
+        return current;
+      },
+    );
+  });
+
+  async function finishedSource() {
+    await draft("original request");
+    await key();
+    await deliver({
+      type: "complete",
+      outcome: "limit_reached",
+      reason: "model_step_limit",
+    });
+    await draft("next draft");
+  }
+  async function click(selector: string) {
+    const button = container.querySelector<HTMLButtonElement>(selector);
+    if (!button || button.disabled)
+      throw new Error(`Unavailable control: ${selector}`);
+    await act(async () => button.click());
+  }
+  it("reviews summary before starting and preserves the next draft", async () => {
+    await finishedSource();
+    await click("[data-run-result=current] [data-recovery=summarize]");
+    expect(runCommand).toHaveBeenCalledTimes(1);
+    expect(container.querySelector("dialog")?.textContent).toContain(
+      "test-model",
+    );
+    expect(document.activeElement).toBe(
+      container.querySelector("dialog button"),
+    );
+    await click("dialog .studio-confirmation-actions button:last-child");
+    expect(runCommand).toHaveBeenCalledTimes(2);
+    expect(runCommand.mock.calls[1]?.[0]).toMatchObject({
+      type: "start",
+      prompt: "Summarize recorded facts",
+      permissionProfile: "safe",
+      recovery: { kind: "summarize", token: "review-token" },
+    });
+    expect(composer().value).toBe("next draft");
+  });
+  it("keeps the draft on cancel and loads retry only after explicit replacement", async () => {
+    await finishedSource();
+    await click("[data-run-result=current] [data-recovery=retry]");
+    await click("dialog .studio-confirmation-actions button:first-child");
+    expect(composer().value).toBe("next draft");
+    expect(runCommand).toHaveBeenCalledTimes(1);
+    await click("[data-run-result=current] [data-recovery=retry]");
+    await click("dialog .studio-confirmation-actions button:last-child");
+    expect(composer().value).toBe("original request");
+    expect(runCommand).toHaveBeenCalledTimes(1);
+    expect(
+      container.querySelector<HTMLButtonElement>(
+        "[data-testid=composer-engine]",
+      )?.disabled,
+    ).toBe(true);
+    await draft("edited original request");
+    await key();
+    expect(runCommand.mock.calls[1]?.[0]).toMatchObject({
+      prompt: "edited original request",
+      recovery: { kind: "retry", token: "review-token" },
+    });
+  });
+});

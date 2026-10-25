@@ -2,6 +2,11 @@ import { z } from "zod";
 
 export const productIdSchema = z.string().regex(/^[a-zA-Z0-9_-]{1,128}$/);
 export const productTimestampSchema = z.iso.datetime();
+export const recoveryKindSchema = z.enum(["summarize", "continue", "retry"]);
+export const productRecoveryLinkSchema = z
+  .object({ sourceRunId: productIdSchema, kind: recoveryKindSchema })
+  .strict();
+export type ProductRecoveryLink = z.infer<typeof productRecoveryLinkSchema>;
 export const productCompletionSchema = z
   .object({
     outcome: z.enum([
@@ -13,6 +18,7 @@ export const productCompletionSchema = z
       "interrupted",
     ]),
     partial: z.boolean().optional(),
+    recovery: productRecoveryLinkSchema.optional(),
     reason: z
       .enum([
         "model_step_limit",
@@ -107,6 +113,7 @@ export const productRunSummarySchema = z
     sessionId: productIdSchema,
     runId: productIdSchema,
     engine: z.enum(["native", "codex"]),
+    recovery: productRecoveryLinkSchema.optional(),
     prompt: z.string().max(2048),
     startedAt: productTimestampSchema,
     updatedAt: productTimestampSchema,

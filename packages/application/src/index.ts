@@ -23,5 +23,6 @@ export {
   projectRecordedActivity,
 } from "./product-run-history.js";
 export * from "./run.js";
+export * from "./run-recovery.js";
 export * from "./session-view.js";
 export * from "./startup-resources.js";

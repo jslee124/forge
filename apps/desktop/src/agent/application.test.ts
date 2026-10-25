@@ -17,7 +17,7 @@ import { acquireWorkspaceLease, FileProductRunStore } from "@forge/persistence";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { RunChannel } from "../main/run-channel.js";
 import { desktopStateSchema } from "../shared/application-protocol.js";
-import type { RunEvent } from "../shared/run-protocol.js";
+import type { RunCommand, RunEvent } from "../shared/run-protocol.js";
 import { DesktopApplication } from "./application.js";
 import { RunService } from "./run-service.js";
 
@@ -90,6 +90,8 @@ async function run(
   sessionId: string,
   decision: "allow" | "deny" | "cancel" = "allow",
   options: {
+    prompt?: string;
+    recovery?: Extract<RunCommand, { type: "start" }>["recovery"];
     permissionProfile?: "safe" | "workspace-write";
     model?: string;
     provider?: string;
@@ -945,6 +947,205 @@ describe("durable desktop history", () => {
     ).toBe(false);
     await expect(readFile(join(f.cwd, "unexpected.txt"))).rejects.toThrow();
     expect(await readFile(target, "utf8")).toBe("untouched");
+    f.application.close();
+  });
+});
+
+describe("reviewed run recovery", () => {
+  const selection = {
+    engine: "native",
+    provider: "deepseek",
+    model: "deepseek-flash",
+    effort: "high",
+  } as const;
+  async function prepare(
+    f: Awaited<ReturnType<typeof fixture>>,
+    sourceRunId: string,
+    kind: "summarize" | "continue" | "retry",
+  ) {
+    const state = await f.application.manage({
+      type: "prepare-recovery",
+      sourceRunId,
+      kind,
+      selection,
+      permissionProfile: "safe",
+    });
+    const plan = state.recoveryPlan;
+    if (!plan) throw new Error("No recovery plan");
+    return plan;
+  }
+  it("persists a linked summary, makes no tools, and rejects reused preparation tokens", async () => {
+    const f = await fixture([]);
+    const source = await run(f.application, f.sessionId);
+    const plan = await prepare(f, source.final.runId, "summarize");
+    expect(plan).toMatchObject({
+      maxModelSteps: 1,
+      maxToolCalls: 0,
+      permissionProfile: "safe",
+    });
+    const options = {
+      prompt: plan.prompt,
+      model: plan.selection.model,
+      provider: plan.selection.provider,
+      reasoningEffort: plan.selection.effort ?? "high",
+      recovery: {
+        token: plan.token,
+        kind: plan.kind,
+        sourceRunId: plan.sourceRunId,
+      },
+    };
+    const summary = await run(f.application, f.sessionId, "allow", options);
+    expect(summary.final.payload).toMatchObject({
+      outcome: "limit_reached",
+      partial: true,
+      modelSteps: 1,
+      toolCalls: 0,
+      recovery: { sourceRunId: source.final.runId, kind: "summarize" },
+    });
+    expect(
+      summary.events.some(
+        (event) =>
+          event.payload.type === "approval" || event.payload.type === "action",
+      ),
+    ).toBe(false);
+    expect(f.requests).toHaveLength(2);
+    expect(f.requests[1]).toMatchObject({ tools: [], toolChoice: "none" });
+    const recorded = await new FileProductRunStore(f.env.FORGE_HOME).read(
+      f.sessionId,
+      summary.final.runId,
+    );
+    expect(recorded.summary.recovery).toEqual({
+      sourceRunId: source.final.runId,
+      kind: "summarize",
+    });
+    expect(
+      desktopStateSchema.safeParse(await f.application.state()).success,
+    ).toBe(true);
+    const replay = await run(f.application, f.sessionId, "allow", options);
+    expect(replay.accepted).toBe(false);
+    expect(f.requests).toHaveLength(2);
+    f.application.close();
+  });
+  it("rejects changed configuration before model admission", async () => {
+    const f = await fixture([]);
+    const source = await run(f.application, f.sessionId);
+    const plan = await prepare(f, source.final.runId, "continue");
+    await writeFile(
+      join(f.env.FORGE_HOME, "config.json"),
+      JSON.stringify({ schemaVersion: 1, limits: { maxSteps: 3 } }),
+    );
+    const result = await run(f.application, f.sessionId, "allow", {
+      prompt: plan.prompt,
+      model: selection.model,
+      provider: selection.provider,
+      reasoningEffort: selection.effort,
+      recovery: {
+        token: plan.token,
+        kind: plan.kind,
+        sourceRunId: plan.sourceRunId,
+      },
+    });
+    expect(result.accepted).toBe(false);
+    expect(result.final.payload).toMatchObject({ message: "recovery-stale" });
+    expect(f.requests).toHaveLength(1);
+    f.application.close();
+  });
+  it("rejects changed permissions and dismissed preparations without new provider calls", async () => {
+    const f = await fixture([]);
+    const source = await run(f.application, f.sessionId);
+    const plan = await prepare(f, source.final.runId, "continue");
+    const options = {
+      prompt: plan.prompt,
+      model: selection.model,
+      provider: selection.provider,
+      reasoningEffort: selection.effort,
+      recovery: {
+        token: plan.token,
+        kind: plan.kind,
+        sourceRunId: plan.sourceRunId,
+      },
+    };
+    const changed = await run(f.application, f.sessionId, "allow", {
+      ...options,
+      permissionProfile: "workspace-write",
+    });
+    expect(changed.accepted).toBe(false);
+    expect(changed.final.payload).toMatchObject({ message: "recovery-stale" });
+    await f.application.manage({ type: "dismiss-recovery" });
+    const dismissed = await run(f.application, f.sessionId, "allow", options);
+    expect(dismissed.accepted).toBe(false);
+    expect(f.requests).toHaveLength(1);
+    f.application.close();
+  });
+  it("continues with fresh approvals rather than replaying source permissions", async () => {
+    const command = () => [
+      call("run_command", { program: "pwd", args: [] }),
+      finish("tool-calls"),
+    ];
+    const f = await fixture([
+      command(),
+      [{ type: "text.delta", text: "first answer" }, finish("stop")],
+      command(),
+      [
+        { type: "text.delta", text: "denied operation, no new effect" },
+        finish("stop"),
+      ],
+    ]);
+    const source = await run(f.application, f.sessionId, "allow");
+    const plan = await prepare(f, source.final.runId, "continue");
+    const continued = await run(f.application, f.sessionId, "deny", {
+      prompt: plan.prompt,
+      model: selection.model,
+      provider: selection.provider,
+      reasoningEffort: selection.effort,
+      recovery: {
+        token: plan.token,
+        sourceRunId: plan.sourceRunId,
+        kind: plan.kind,
+      },
+    });
+    expect(
+      continued.events.filter((event) => event.payload.type === "approval"),
+    ).toHaveLength(1);
+    expect(
+      continued.events.some(
+        (event) =>
+          event.payload.type === "action" &&
+          event.payload.action.status === "succeeded",
+      ),
+    ).toBe(false);
+    expect(continued.final.runId).not.toBe(source.final.runId);
+    expect(f.requests[2]?.continuation).toBeUndefined();
+    f.application.close();
+  });
+  it("uses edited retry input in a new linked run without restoring continuation", async () => {
+    const f = await fixture([]);
+    const source = await run(f.application, f.sessionId);
+    const plan = await prepare(f, source.final.runId, "retry");
+    expect(plan.prompt).toBe("test");
+    expect(f.requests).toHaveLength(1);
+    const retry = await run(f.application, f.sessionId, "allow", {
+      prompt: "edited retry input",
+      model: selection.model,
+      provider: selection.provider,
+      reasoningEffort: selection.effort,
+      recovery: {
+        token: plan.token,
+        sourceRunId: plan.sourceRunId,
+        kind: plan.kind,
+      },
+    });
+    expect(retry.accepted).toBe(true);
+    expect(f.requests[1]?.prompt).toBe("edited retry input");
+    expect(f.requests[1]?.continuation).toBeUndefined();
+    expect(
+      (
+        await new FileProductRunStore(f.env.FORGE_HOME).read(
+          f.sessionId,
+          retry.final.runId,
+        )
+      ).summary.recovery?.kind,
+    ).toBe("retry");
     f.application.close();
   });
 });

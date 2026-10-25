@@ -154,7 +154,10 @@ export class FileProductRunStore {
     }
   }
   async create(
-    input: Pick<ProductRunSummary, "sessionId" | "runId" | "engine" | "prompt">,
+    input: Pick<
+      ProductRunSummary,
+      "sessionId" | "runId" | "engine" | "prompt" | "recovery"
+    >,
   ): Promise<ProductRunWriter> {
     try {
       const session = await this.#directory([input.sessionId], true);

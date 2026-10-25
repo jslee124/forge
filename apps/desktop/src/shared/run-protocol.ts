@@ -2,6 +2,7 @@ import type {
   ProductActionUpdate,
   ProductRunCompletion,
 } from "@forge/application";
+import { productRecoveryLinkSchema } from "@forge/persistence/product-run-schema";
 import { z } from "zod";
 
 export const RUN_PROTOCOL_VERSION = 2;
@@ -23,6 +24,11 @@ export interface RunIdentity {
 export type RunCommand = RunIdentity & { readonly requestId: string } & (
     | {
         readonly type: "start";
+        readonly recovery?: {
+          readonly token: string;
+          readonly sourceRunId: string;
+          readonly kind: "summarize" | "continue" | "retry";
+        };
         readonly prompt: string;
         readonly engine: "native" | "codex";
         readonly model?: string;
@@ -99,7 +105,9 @@ type WireRecord = Record<string, unknown> &
       | "reasoningEffort"
       | "actionId"
       | "model"
-      | "permissionProfile",
+      | "permissionProfile"
+      | "recovery"
+      | "token",
       unknown
     >
   >;
@@ -130,11 +138,18 @@ export function parseRunCommand(value: unknown): RunCommand | undefined {
       ...keys,
       "prompt",
       "engine",
+      ...(value.recovery === undefined ? [] : ["recovery"]),
       ...(value.model === undefined ? [] : ["model"]),
       ...(value.provider === undefined ? [] : ["provider"]),
       ...(value.reasoningEffort === undefined ? [] : ["reasoningEffort"]),
       ...(value.permissionProfile === undefined ? [] : ["permissionProfile"]),
     ]) &&
+    (value.recovery === undefined ||
+      (record(value.recovery) &&
+        id(value.recovery.token) &&
+        productRecoveryLinkSchema
+          .extend({ token: z.string().regex(/^[a-zA-Z0-9_-]{1,128}$/) })
+          .safeParse(value.recovery).success)) &&
     (value.model === undefined ||
       (typeof value.model === "string" &&
         value.model.length > 0 &&
@@ -333,6 +348,7 @@ export const runPayloadSchema = z.discriminatedUnion("type", [
       toolCalls: z.number().int().nonnegative().optional(),
       durationMs: z.number().nonnegative().optional(),
       partial: z.boolean().optional(),
+      recovery: productRecoveryLinkSchema.optional(),
     })
     .strict(),
 ]);

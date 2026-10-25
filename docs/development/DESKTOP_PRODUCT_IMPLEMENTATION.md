@@ -167,6 +167,41 @@ M2/T07, two live-model baseline rounds, user trials, installed Desktop acceptanc
 or release gates. Transport-owned retry limits remain distinct from logical
 runtime model-step accounting.
 
+## Reviewed-recovery follow-up (2026-10-25)
+
+[ADR-0005](../decisions/0005-reviewed-desktop-run-recovery.md) records the recovery
+boundary. Native finished runs expose summarize, continue with a new budget, and
+edit/retry. Each action reviews source, prompt, model/effort, budget and permissions.
+A process-local single-use preparation is bound to the source fingerprint, session
+revision and configuration. Submission rechecks these under leases and executes
+with the checked configuration snapshot. Changes require a new review; no old
+approval or provider continuation is restored.
+
+Summaries use bounded redacted facts, one logical model step and zero tools,
+bypassing project instructions, Skills and plugins. When unavailable they return
+recorded factual fallback; partial output never establishes task success. The
+source link and recovery kind persist into history. A summary links back to the
+original task for continue/retry. Continue uses fresh normal policy checks and
+requires inspecting current state. Retry loads an editable original prompt only
+after explicit draft replacement; sending is separate. Summary/continue preserve
+the next draft; retry pins reviewed model/permissions until unlinked.
+
+Native-only scope and missing original canonical prompts are explicit limits.
+A first-run crash can leave a preview sufficient for summary but insufficient for
+retry. No automatic resumption, durable grant, new Codex recovery, richer delivery
+artifact model, or concurrent-session browsing is included. T07 is partial.
+
+Validation: 223 Desktop/application/finalization/persistence regression tests and
+128 deterministic contracts passed; six opt-in live tests were skipped. The real
+Electron fixture confirmed one schema-free summary HTTP request, zero summary
+tools, preserved drafts, explicit replacement/cancel, source navigation, linked
+edited retry, and visible confirmation controls at 840×600. With no tools the SDK
+omits the optional `tool_choice` HTTP field; core still requests none and refuses
+any returned tool calls. Local UI artifacts are `/tmp/forge-recovery-ui/`.
+`pnpm check`, `pnpm check:docs`, `pnpm desktop:build` and `pnpm package:verify`
+passed. These are local scripted checks, not external-provider, installed-app or
+release acceptance.
+
 ## 1. Goal and invariants
 
 Complete the native-engine investigation → approval → execution → verification →
@@ -448,7 +483,7 @@ permissions.
 | Action | Inputs and execution |
 | --- | --- |
 | Summarize existing information | Recorded redacted facts from the source run, no tools, one explicit model request; deterministic facts when unavailable |
-| Continue | New budget, policy checks, continuation; inspect current state instead of replaying unfinished calls or grants |
+| Continue | New budget and policy checks, fresh provider state; inspect current state instead of replaying unfinished calls or grants |
 | Edit and retry | Restore a separate draft first; explicit submission starts a normal run rather than silently repeating effects |
 
 sourceRunId selects context, never trust. Old cancelled events cannot alter a new
@@ -520,7 +555,7 @@ tests. A partial vertical increment does not complete a milestone.
 | T04 | [~] | IPC v2, handshake, sequence/identity checks, typed approvals, disconnect cancellation | T03; R02/R04/R14 |
 | T05 | [~] | Line ranges, partial-hash rules, search context/filtering, bounded regex | T01; R06 |
 | T06 | [~] | Core finalization/budgets/no-progress, adapter none and continuation tests | T05; R07/R14 |
-| T07 | [ ] | Summarize/continue/retry services, capabilities, linked runs, factual delivery model | T03/T06; R09/R11 |
+| T07 | [~] | Summarize/continue/retry services, capabilities, linked runs, factual delivery model | T03/T06; R09/R11 |
 | T08 | [~] | Renderer reducer, merging/paging, separate viewed/active state, old-message projection | T04; R02/R05/R13 |
 | T09 | [~] | ApprovalCard, ordered requests, keyboard, decision records, stable buttons | T08; R03/R04/R15 |
 | T10 | [~] | Summary/activity/failure/delivery views, control handling, separate diagnostics | T07/T09; R05/R08/R11 |

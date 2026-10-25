@@ -58,6 +58,7 @@ help.
 | [ADR-0001](decisions/0001-gateway-single-owner-workspace.md) | The chat gateway serves one owner and one workspace |
 | [ADR-0002](decisions/0002-desktop-run-presentation-contract.md) | Desktop run presentation preserves semantics without restoring execution authority |
 | [ADR-0003](decisions/0003-desktop-durable-run-records.md) | Durable Desktop activity remains read-only and cannot replay effects or restore approvals |
+| [ADR-0005](decisions/0005-reviewed-desktop-run-recovery.md) | Review native Desktop recovery and start a linked run with fresh authority |
 | [ADR-0004](decisions/0004-reserved-desktop-finalization.md) | Native Desktop reserves tool-free finalization inside the existing total budget |
 
 ## Extend Forge

@@ -5,6 +5,7 @@ export async function acceptanceProvider() {
   let mode: "approval" | "wait" | "error" | "finalize" = "approval";
   let calls = 0;
   let noneRequests = 0;
+  let toolFreeRequests = 0;
   const server = createServer(async (request, response) => {
     calls++;
     const chunks: Buffer[] = [];
@@ -12,8 +13,10 @@ export async function acceptanceProvider() {
     const input = JSON.parse(Buffer.concat(chunks).toString()) as {
       messages?: { role: string }[];
       tool_choice?: string;
+      tools?: unknown[];
     };
     if (input.tool_choice === "none") noneRequests++;
+    if (!input.tools?.length) toolFreeRequests++;
     if (mode === "error") {
       response.writeHead(400, { "content-type": "application/json" });
       response.end(
@@ -39,7 +42,10 @@ export async function acceptanceProvider() {
       send({ content: "P4 offline fixture — waiting for cancellation." });
       return;
     }
-    if (mode === "finalize" && input.tool_choice === "none") {
+    if (
+      mode === "finalize" &&
+      (input.tool_choice === "none" || !input.tools?.length)
+    ) {
       send({ content: "Partial fixture summary based on observed tools." });
       send({}, "stop");
     } else if (mode === "finalize") {
@@ -92,6 +98,9 @@ export async function acceptanceProvider() {
     },
     get calls() {
       return calls;
+    },
+    get toolFreeRequests() {
+      return toolFreeRequests;
     },
     get noneRequests() {
       return noneRequests;

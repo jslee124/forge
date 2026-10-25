@@ -10,8 +10,13 @@ export function RunHistory({
   history,
   busy,
   onLoad,
+  onRecover,
 }: {
   history: DesktopState["runHistory"];
+  onRecover?: (
+    kind: "summarize" | "continue" | "retry",
+    sourceRunId: string,
+  ) => void;
   busy: boolean;
   onLoad: (
     command: Extract<ManagementCommand, { type: "run-history" }>,
@@ -70,7 +75,24 @@ export function RunHistory({
           <h4>{selected.summary.prompt}</h4>
           <p>{t("runUi.historyReadOnly")}</p>
           {selected.summary.completion && (
-            <RunResult historical result={selected.summary.completion} />
+            <RunResult
+              historical
+              result={{
+                ...selected.summary.completion,
+                ...(selected.summary.recovery
+                  ? { recovery: selected.summary.recovery }
+                  : {}),
+              }}
+              recoveryDisabled={busy || selected.summary.engine !== "native"}
+              onRecover={
+                onRecover
+                  ? (kind) => onRecover(kind, selected.summary.runId)
+                  : undefined
+              }
+              onSource={(sourceRunId) =>
+                void onLoad({ type: "run-history", runId: sourceRunId })
+              }
+            />
           )}
           {(selected.incomplete || selected.summary.omittedCharacters > 0) && (
             <p role="status">{t("runUi.historyIncomplete")}</p>

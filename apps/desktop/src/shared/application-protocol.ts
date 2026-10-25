@@ -32,7 +32,32 @@ export const selectionSchema = z
   .strict();
 export type ModelSelection = z.infer<typeof selectionSchema>;
 
+export const recoveryPlanSchema = z
+  .object({
+    token: id,
+    sessionId: id,
+    sourceRunId: id,
+    kind: z.enum(["summarize", "continue", "retry"]),
+    prompt: text,
+    selection: selectionSchema,
+    permissionProfile: z.enum(["safe", "workspace-write"]),
+    maxModelSteps: z.number().int().positive(),
+    maxToolCalls: z.number().int().nonnegative(),
+    incomplete: z.boolean(),
+  })
+  .strict();
+export type RecoveryPlan = z.infer<typeof recoveryPlanSchema>;
 export const managementCommandSchema = z.discriminatedUnion("type", [
+  z
+    .object({
+      type: z.literal("prepare-recovery"),
+      sourceRunId: id,
+      kind: z.enum(["summarize", "continue", "retry"]),
+      selection: selectionSchema,
+      permissionProfile: z.enum(["safe", "workspace-write"]),
+    })
+    .strict(),
+  z.object({ type: z.literal("dismiss-recovery") }).strict(),
   z
     .object({
       type: z.literal("run-history"),
@@ -110,6 +135,7 @@ export type ManagementCommand = z.infer<typeof managementCommandSchema>;
 export const desktopStateSchema = z
   .object({
     runHistory: productRunHistorySchema.optional(),
+    recoveryPlan: recoveryPlanSchema.optional(),
     management: z
       .object({
         providers: z.array(

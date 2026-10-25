@@ -62,6 +62,8 @@ import {
 import type { AskOptions, WritableOutput } from "./options.js";
 import { parseThinkingMode } from "./options.js";
 export interface RunDependencies {
+  /** Host-only snapshot pinned after a reviewed recovery plan; never accepted from model context. */
+  readonly configurationSnapshot?: Awaited<ReturnType<typeof loadForgeConfig>>;
   readonly completionPolicy?: "direct" | "reserve-final-step";
   readonly workspaceLease?: ExecutionLease;
   readonly perActionApproval?: boolean;
@@ -119,11 +121,13 @@ export async function runTask(
 ): Promise<number> {
   let ownedLease: ExecutionLease | undefined;
   try {
-    const loaded = await loadForgeConfig({
-      cwd: dependencies.cwd,
-      env: dependencies.env,
-      cli: options,
-    });
+    const loaded =
+      dependencies.configurationSnapshot ??
+      (await loadForgeConfig({
+        cwd: dependencies.cwd,
+        env: dependencies.env,
+        cli: options,
+      }));
     if (dependencies.workspaceLease)
       await dependencies.workspaceLease.assertWorkspace(loaded.workspaceRoot);
     else ownedLease = await acquireWorkspaceLease(loaded.workspaceRoot);

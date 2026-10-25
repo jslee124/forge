@@ -17,6 +17,12 @@ export type ProductRunReason =
 /** Presentation facts only. None of these fields authorize execution. */
 export interface ProductRunCompletion {
   readonly outcome: ProductRunOutcome;
+  readonly recovery?:
+    | {
+        readonly sourceRunId: string;
+        readonly kind: "summarize" | "continue" | "retry";
+      }
+    | undefined;
   readonly partial?: boolean | undefined;
   readonly reason?: ProductRunReason | undefined;
   readonly message?: string | undefined;

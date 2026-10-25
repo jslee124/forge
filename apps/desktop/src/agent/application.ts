@@ -13,8 +13,10 @@ import {
   type ModelCatalogEntry,
   nativeModelCatalog,
   type PersistentInteractiveSession,
+  type PreparedRunRecovery,
   type ProductRunCompletion,
   ProductRunRecorder,
+  prepareRunRecovery,
   projectActionEvent,
   projectRecordedActivity,
   projectRunCompletion,
@@ -26,6 +28,7 @@ import {
   runTask,
   saveUserModelSelection,
   setUserPluginEnabled,
+  summarizeRecordedRun,
 } from "@forge/application";
 import { CodexAppServerClient } from "@forge/codex-app-server";
 import type { RunEvent, RunResult } from "@forge/core";
@@ -42,10 +45,19 @@ import type {
   DesktopState,
   ManagementCommand,
   ModelSelection,
+  RecoveryPlan,
 } from "../shared/application-protocol.js";
 import type { RunCommand } from "../shared/run-protocol.js";
 import type { ExecutionContext, RunExecutor } from "./run-service.js";
 import { WebPluginSettings } from "./web-plugin-settings.js";
+
+interface RecoveryPreparation {
+  view: RecoveryPlan;
+  prepared: PreparedRunRecovery;
+  revision: string;
+  configuration: string;
+  executionConfiguration: string;
+}
 
 /** Electron-free orchestration. All credentials, configuration and persistence stay here. */
 export class DesktopApplication {
@@ -75,6 +87,7 @@ export class DesktopApplication {
   #revision = "";
   #runHistory: DesktopState["runHistory"];
   #historyPageBefore: number | undefined;
+  #recovery: RecoveryPreparation | undefined;
   constructor(
     env: NodeJS.ProcessEnv,
     cwd: string,
@@ -113,6 +126,7 @@ export class DesktopApplication {
       },
       operationResult: this.#operationResult,
       ...(this.#runHistory ? { runHistory: this.#runHistory } : {}),
+      ...(this.#recovery ? { recoveryPlan: this.#recovery.view } : {}),
       permissionGrants: [],
       contextUpdatedAt: new Date().toISOString(),
       forgeHome: this.#home,
@@ -204,6 +218,78 @@ export class DesktopApplication {
   }
   async #manage(command: ManagementCommand): Promise<DesktopState> {
     if (command.type === "state") return this.state();
+    if (command.type === "dismiss-recovery") {
+      this.#recovery = undefined;
+      return this.state();
+    }
+    if (command.type === "prepare-recovery") {
+      const session = this.#session;
+      if (!session?.sessionId) throw new Error("session-required");
+      if (command.selection.engine !== "native")
+        throw new Error("recovery-native-only");
+      await this.state();
+      const lease = await desktopSessionLease(this.#home, session.sessionId);
+      try {
+        const revision = await snapshotHash(
+          join(this.#home, "sessions", `${session.sessionId}.json`),
+        );
+        if (revision !== this.#revision) throw new Error("session-conflict");
+        const loaded = await loadForgeConfig({
+          cwd: this.#cwd,
+          env: this.#env,
+        });
+        const entry = await this.#validateSelection(command.selection);
+        const selection = {
+          ...command.selection,
+          effort:
+            command.selection.effort ??
+            (entry.defaultEffort as import("../shared/application-protocol.js").ModelSelection["effort"]),
+        };
+        const store = new FileProductRunStore(this.#home, {
+          secrets: configuredSecrets(this.#env),
+        });
+        await store.reconcile(session.sessionId, session.recordedRunIds);
+        const prepared = prepareRunRecovery(
+          await store.read(session.sessionId, command.sourceRunId),
+          session.history,
+          command.kind,
+        );
+        const view: RecoveryPlan = {
+          token: randomUUID(),
+          sessionId: session.sessionId,
+          sourceRunId: command.sourceRunId,
+          kind: command.kind,
+          prompt: String(
+            redactValue(prepared.prompt, configuredSecrets(this.#env)),
+          ),
+          selection,
+          permissionProfile:
+            command.kind === "summarize" ? "safe" : command.permissionProfile,
+          maxModelSteps:
+            command.kind === "summarize" ? 1 : loaded.config.limits.maxSteps,
+          maxToolCalls:
+            command.kind === "summarize"
+              ? 0
+              : loaded.config.limits.maxToolCalls,
+          incomplete: prepared.incomplete,
+        };
+        const execution = await loadForgeConfig({
+          cwd: this.#cwd,
+          env: this.#env,
+          cli: recoveryOptions(view),
+        });
+        this.#recovery = {
+          view,
+          prepared,
+          revision,
+          configuration: recoveryConfiguration(loaded.config),
+          executionConfiguration: recoveryConfiguration(execution.config),
+        };
+      } finally {
+        await lease.release();
+      }
+      return this.state();
+    }
     if (command.type === "run-history") {
       if (this.#busy) throw new Error("busy");
       const session = this.#session;
@@ -362,10 +448,12 @@ export class DesktopApplication {
         this.#cwd || this.#initialCwd,
       ).manage(command);
     } else if (command.type === "reset") {
+      this.#recovery = undefined;
       this.#runHistory = undefined;
       this.#session?.clear();
       this.#revision = "";
     } else if (command.type === "workspace") {
+      this.#recovery = undefined;
       this.#runHistory = undefined;
       this.#management = undefined;
       const cwd = await directoryPath(command.cwd);
@@ -381,6 +469,7 @@ export class DesktopApplication {
       this.#session = session;
       this.#revision = "";
     } else if (command.type === "create") {
+      this.#recovery = undefined;
       this.#runHistory = undefined;
       if (!command.prompt.trim()) throw new Error("prompt-required");
       const automatic = !this.#cwd || this.#automaticWorkspace;
@@ -405,6 +494,7 @@ export class DesktopApplication {
       this.#session = session;
       this.#revision = "";
     } else if (command.type === "resume") {
+      this.#recovery = undefined;
       await this.state();
       const file = join(this.#home, "sessions", `${command.sessionId}.json`);
       const lease = await desktopSessionLease(this.#home, command.sessionId);
@@ -632,6 +722,9 @@ export class DesktopApplication {
       let lease: ExecutionLease | undefined;
       let workspaceLease: ExecutionLease | undefined;
       let recorder: ProductRunRecorder | undefined;
+      let recoveryLink:
+        | import("@forge/persistence").ProductRecoveryLink
+        | undefined;
       const storageAbort = new AbortController();
       const signal = AbortSignal.any([context.signal, storageAbort.signal]);
       let finalCompletion: ProductRunCompletion | undefined;
@@ -687,6 +780,64 @@ export class DesktopApplication {
             ...(effort ? { effort: effort as ModelSelection["effort"] } : {}),
           });
         workspaceLease = await acquireWorkspaceLease(this.#root);
+        let recovery: RecoveryPreparation | undefined;
+        let recoveryConfigurationSnapshot:
+          | Awaited<ReturnType<typeof loadForgeConfig>>
+          | undefined;
+        if (request.recovery) {
+          recovery = this.#recovery;
+          if (
+            !recovery ||
+            recovery.view.token !== request.recovery.token ||
+            recovery.view.sessionId !== request.sessionId ||
+            recovery.view.kind !== request.recovery.kind ||
+            recovery.view.sourceRunId !== request.recovery.sourceRunId ||
+            recovery.revision !== before ||
+            recovery.configuration !== recoveryConfiguration(loaded.config)
+          )
+            throw new Error("recovery-stale");
+          const actualSelection = {
+            engine: request.engine,
+            provider,
+            model: model ?? loaded.config.model.id,
+            effort: effort ?? loaded.config.model.reasoningEffort,
+          };
+          if (
+            actualSelection.engine !== recovery.view.selection.engine ||
+            actualSelection.provider !== recovery.view.selection.provider ||
+            actualSelection.model !== recovery.view.selection.model ||
+            actualSelection.effort !== recovery.view.selection.effort ||
+            (request.permissionProfile ?? "safe") !==
+              recovery.view.permissionProfile ||
+            (recovery.view.kind !== "retry" &&
+              request.prompt !== recovery.view.prompt)
+          )
+            throw new Error("recovery-stale");
+          const record = await new FileProductRunStore(this.#home, {
+            secrets: configuredSecrets(this.#env),
+          }).read(request.sessionId, request.recovery.sourceRunId);
+          const current = prepareRunRecovery(
+            record,
+            session.history,
+            request.recovery.kind,
+          );
+          if (current.sourceFingerprint !== recovery.prepared.sourceFingerprint)
+            throw new Error("recovery-stale");
+          recoveryConfigurationSnapshot = await loadForgeConfig({
+            cwd: this.#cwd,
+            env: this.#env,
+            cli: recoveryOptions(recovery.view),
+          });
+          if (
+            recoveryConfiguration(recoveryConfigurationSnapshot.config) !==
+            recovery.executionConfiguration
+          )
+            throw new Error("recovery-stale");
+          recoveryLink = recovery.prepared.link;
+          this.#recovery = undefined;
+        } else {
+          this.#recovery = undefined;
+        }
         await session.prepareRun(request.prompt);
         await session.persistPreparedSession();
         before = await snapshotHash(snapshotPath);
@@ -701,6 +852,7 @@ export class DesktopApplication {
             runId: request.runId,
             engine: request.engine,
             prompt: request.prompt,
+            ...(recovery ? { recovery: recovery.prepared.link } : {}),
           }),
         );
         recorder.controller.signal.addEventListener(
@@ -737,6 +889,9 @@ export class DesktopApplication {
           cwd: this.#cwd,
           signal,
           workspaceLease,
+          ...(recoveryConfigurationSnapshot
+            ? { configurationSnapshot: recoveryConfigurationSnapshot }
+            : {}),
           stderr: {
             write: (text: string) => {
               observe({
@@ -748,116 +903,143 @@ export class DesktopApplication {
             },
           },
         };
+        const onRunEvent = async (event: RunEvent) => {
+          const action = projectActionEvent(
+            redactValue(event, configuredSecrets(this.#env)) as RunEvent,
+          );
+          if (action) {
+            await record.record({ type: "action", action });
+            context.action(action);
+          }
+          if (event.type === "run.finalizing") {
+            finalizing = true;
+            await record.record({
+              type: "detail",
+              kind: "system",
+              text: `Finalizing within the total budget: ${event.reason}`,
+            });
+            context.phase("finalizing");
+          }
+          if (event.type === "model.started" && !finalizing)
+            context.phase("responding");
+          if (event.type === "model.warning") {
+            await record.record({
+              type: "detail",
+              kind: "system",
+              text: redact(event.message).slice(0, 65_536),
+            });
+            detail("system", event.message);
+          }
+          if (event.type === "tool.started") context.phase("executing");
+          if (event.type === "model.text") {
+            await record.record({
+              type: "text",
+              text: redact(event.text),
+            });
+            context.text(redact(event.text));
+          } else if (event.type === "model.reasoning") {
+            await record.record({
+              type: "detail",
+              kind: "reasoning",
+              text: redact(event.text),
+              step: event.step,
+            });
+            context.detail("reasoning", redact(event.text), event.step);
+          } else if (event.type.startsWith("context.")) {
+            const text = redact(JSON.stringify(event)).slice(0, 65_536);
+            await record.record({
+              type: "detail",
+              kind: "context",
+              text,
+            });
+            detail("context", text);
+          }
+        };
         if (request.engine === "native") {
           session.selectModel(provider, model ?? loaded.config.model.id);
-          const code = await runTask(
-            request.prompt,
-            {
-              ...(model ? { model } : {}),
-              ...(request.engine === "native" ? { provider } : {}),
-              ...(effort
-                ? {
-                    reasoningEffort: effort,
-                    thinking: effort === "none" ? "disabled" : "enabled",
-                  }
-                : {}),
-              permissionProfile: request.permissionProfile ?? "safe",
-            },
-            {
-              ...shared,
-              completionPolicy: "reserve-final-step",
-              ...(builtinResourceRoot ? { builtinResourceRoot } : {}),
-              sessionId: request.sessionId,
+          let code: number;
+          if (recovery?.view.kind === "summarize") {
+            context.phase("finalizing");
+            finalizing = true;
+            result = await summarizeRecordedRun(recovery.prepared, {
+              env: this.#env,
+              cwd: this.#cwd,
               runId: request.runId,
-              conversation: session.conversationForEngine("native"),
-              ...(session.contextCheckpoint
-                ? { contextCheckpoint: session.contextCheckpoint }
+              sessionId: request.sessionId,
+              signal,
+              ...(recoveryConfigurationSnapshot
+                ? { configurationSnapshot: recoveryConfigurationSnapshot }
                 : {}),
+              selection: {
+                provider,
+                model: model ?? loaded.config.model.id,
+                ...(effort ? { effort } : {}),
+              },
+              onEvent: onRunEvent,
               ...(this.#overrides.createAdapter
                 ? { createAdapter: this.#overrides.createAdapter }
                 : {}),
-              approvalChannel: {
-                request: (action) =>
-                  approve(
-                    redact(
-                      `${action.tool.name}\n${JSON.stringify(action.input, null, 2)}`,
+            });
+            code = result.exitCode;
+          } else {
+            code = await runTask(
+              request.prompt,
+              {
+                ...(model ? { model } : {}),
+                ...(request.engine === "native" ? { provider } : {}),
+                ...(effort
+                  ? {
+                      reasoningEffort: effort,
+                      thinking: effort === "none" ? "disabled" : "enabled",
+                    }
+                  : {}),
+                permissionProfile: request.permissionProfile ?? "safe",
+              },
+              {
+                ...shared,
+                completionPolicy: "reserve-final-step",
+                ...(builtinResourceRoot ? { builtinResourceRoot } : {}),
+                sessionId: request.sessionId,
+                runId: request.runId,
+                conversation: session.conversationForEngine("native"),
+                ...(session.contextCheckpoint
+                  ? { contextCheckpoint: session.contextCheckpoint }
+                  : {}),
+                ...(this.#overrides.createAdapter
+                  ? { createAdapter: this.#overrides.createAdapter }
+                  : {}),
+                approvalChannel: {
+                  request: (action) =>
+                    approve(
+                      redact(
+                        `${action.tool.name}\n${JSON.stringify(action.input, null, 2)}`,
+                      ),
                     ),
-                  ),
-                requestStructured: async (
-                  action,
-                  _signal,
-                  _toolContext,
-                  descriptor,
-                ) => ({
-                  kind: (await approve(redact(descriptor.preview), {
-                    actionId: descriptor.actionId,
-                    effect: descriptor.effect,
-                    resource: redact(descriptor.resource),
-                    preview: redact(descriptor.preview),
-                    input: redact(JSON.stringify(action.input, null, 2)),
-                    riskFlags: descriptor.riskFlags,
-                  }))
-                    ? "allow-once"
-                    : "deny",
-                }),
+                  requestStructured: async (
+                    action,
+                    _signal,
+                    _toolContext,
+                    descriptor,
+                  ) => ({
+                    kind: (await approve(redact(descriptor.preview), {
+                      actionId: descriptor.actionId,
+                      effect: descriptor.effect,
+                      resource: redact(descriptor.resource),
+                      preview: redact(descriptor.preview),
+                      input: redact(JSON.stringify(action.input, null, 2)),
+                      riskFlags: descriptor.riskFlags,
+                    }))
+                      ? "allow-once"
+                      : "deny",
+                  }),
+                },
+                onEvent: onRunEvent,
+                onResult: (value) => {
+                  result = value;
+                },
               },
-              onEvent: async (event) => {
-                const action = projectActionEvent(
-                  redactValue(event, configuredSecrets(this.#env)) as RunEvent,
-                );
-                if (action) {
-                  await record.record({ type: "action", action });
-                  context.action(action);
-                }
-                if (event.type === "run.finalizing") {
-                  finalizing = true;
-                  await record.record({
-                    type: "detail",
-                    kind: "system",
-                    text: `Finalizing within the total budget: ${event.reason}`,
-                  });
-                  context.phase("finalizing");
-                }
-                if (event.type === "model.started" && !finalizing)
-                  context.phase("responding");
-                if (event.type === "model.warning") {
-                  await record.record({
-                    type: "detail",
-                    kind: "system",
-                    text: redact(event.message).slice(0, 65_536),
-                  });
-                  detail("system", event.message);
-                }
-                if (event.type === "tool.started") context.phase("executing");
-                if (event.type === "model.text") {
-                  await record.record({
-                    type: "text",
-                    text: redact(event.text),
-                  });
-                  context.text(redact(event.text));
-                } else if (event.type === "model.reasoning") {
-                  await record.record({
-                    type: "detail",
-                    kind: "reasoning",
-                    text: redact(event.text),
-                    step: event.step,
-                  });
-                  context.detail("reasoning", redact(event.text), event.step);
-                } else if (event.type.startsWith("context.")) {
-                  const text = redact(JSON.stringify(event)).slice(0, 65_536);
-                  await record.record({
-                    type: "detail",
-                    kind: "context",
-                    text,
-                  });
-                  detail("context", text);
-                }
-              },
-              onResult: (value) => {
-                result = value;
-              },
-            },
-          );
+            );
+          }
           if (record.failed) throw new Error("product-run-storage-failed");
           if (!result)
             throw new Error(
@@ -937,6 +1119,7 @@ export class DesktopApplication {
         } = projected;
         finalCompletion = await record.result({
           ...(request.engine === "native" ? projected : opaqueCompletion),
+          ...(recovery ? { recovery: recovery.prepared.link } : {}),
           ...(result.message ? { message: redact(result.message) } : {}),
           durationMs: Math.max(0, performance.now() - startedAt),
         });
@@ -976,12 +1159,14 @@ export class DesktopApplication {
                   ? "workspace_conflict"
                   : "execution_error",
           message: code,
+          ...(recoveryLink ? { recovery: recoveryLink } : {}),
           durationMs: Math.max(0, performance.now() - startedAt),
         };
         if (recorder && !recorder.failed) {
           try {
             await recorder.result(failure);
             await recorder.finish(failure);
+            await this.#loadRunHistory(undefined, request.runId);
           } catch {
             return {
               ...failure,
@@ -1116,4 +1301,27 @@ async function desktopSessionLease(
   } catch {
     throw new Error("session-busy");
   }
+}
+
+function recoveryConfiguration(configuration: unknown): string {
+  return createHash("sha256")
+    .update(JSON.stringify(configuration))
+    .digest("hex");
+}
+
+function recoveryOptions(view: RecoveryPlan) {
+  return {
+    engine: "forge",
+    provider: view.selection.provider,
+    model: view.selection.model,
+    ...(view.selection.effort
+      ? {
+          reasoningEffort: view.selection.effort,
+          thinking: view.selection.effort === "none" ? "disabled" : "enabled",
+        }
+      : {}),
+    permissionProfile: view.permissionProfile,
+    maxSteps: view.maxModelSteps,
+    maxToolCalls: view.kind === "summarize" ? 1 : view.maxToolCalls,
+  };
 }
