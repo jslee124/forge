@@ -13,6 +13,7 @@ import {
 } from "../shared/run-protocol.js";
 
 export interface ExecutionContext {
+  ready?(): void;
   readonly signal: AbortSignal;
   text(text: string): void;
   detail(
@@ -24,12 +25,14 @@ export interface ExecutionContext {
   phase(phase: "responding" | "executing"): void;
   approve(description: string, descriptor?: ApprovalView): Promise<boolean>;
 }
-export type RunExecutor = (
+export type RunExecutor = ((
   request: Extract<RunCommand, { type: "start" }>,
   context: ExecutionContext,
 ) =>
   | Promise<void>
-  | Promise<"completed" | "cancelled" | ProductRunCompletion | undefined>;
+  | Promise<"completed" | "cancelled" | ProductRunCompletion | undefined>) & {
+  readonly deferStartReply?: boolean;
+};
 
 /** One execution at a time. No retries, persisted authority, or effect replay. */
 export class RunService {
@@ -138,11 +141,23 @@ export class RunService {
           : payload;
         timer ??= setTimeout(flush, 32);
       };
-      reply(true);
+      let admitted = !this.#execute.deferStartReply;
+      if (admitted) reply(true);
+      const ready = () => {
+        if (!admitted) {
+          admitted = true;
+          reply(true);
+        }
+      };
+      const complete = (payload: Extract<RunPayload, { type: "complete" }>) => {
+        emit(payload);
+        if (!admitted) reply(false);
+      };
       this.#execution = Promise.resolve()
         .then(async () => {
           if (active.controller.signal.aborted) return;
           return await this.#execute?.(request, {
+            ready,
             signal: active.controller.signal,
             detail: (kind, text, step) => {
               const payload = {
@@ -198,7 +213,7 @@ export class RunService {
         })
         .then(
           (outcome) =>
-            emit({
+            complete({
               type: "complete",
               ...(typeof outcome === "object"
                 ? outcome
@@ -211,7 +226,7 @@ export class RunService {
                   }),
             }),
           () =>
-            emit({
+            complete({
               type: "complete",
               outcome: active.controller.signal.aborted
                 ? "cancelled"

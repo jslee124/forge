@@ -5,6 +5,7 @@ import {
   readFile,
   realpath,
   rm,
+  symlink,
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -12,9 +13,10 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createPersistentInteractiveSession } from "@forge/application";
 import type { ModelAdapter, ModelRequest, ModelStreamEvent } from "@forge/core";
-import { acquireWorkspaceLease } from "@forge/persistence";
+import { acquireWorkspaceLease, FileProductRunStore } from "@forge/persistence";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { RunChannel } from "../main/run-channel.js";
+import { desktopStateSchema } from "../shared/application-protocol.js";
 import type { RunEvent } from "../shared/run-protocol.js";
 import { DesktopApplication } from "./application.js";
 import { RunService } from "./run-service.js";
@@ -113,19 +115,17 @@ async function run(
       if (event.payload.type === "complete") resolve(event);
     }),
   );
-  expect(
-    await channel.request({
-      ...identity,
-      type: "start",
-      prompt: "test",
-      engine: "native",
-      ...options,
-    }),
-  ).toBe(true);
+  const accepted = await channel.request({
+    ...identity,
+    type: "start",
+    prompt: "test",
+    engine: "native",
+    ...options,
+  });
   const final = await completed;
   service.close();
   channel.disconnect();
-  return { events, final };
+  return { events, final, accepted };
 }
 describe("desktop native execution", () => {
   it("preserves a real step-limit outcome and classifies its internal history separately", async () => {
@@ -191,7 +191,7 @@ describe("desktop native execution", () => {
         type: "complete",
         outcome: "failed",
       });
-      expect(JSON.stringify(blocked.events)).toContain("Workspace busy");
+      expect(JSON.stringify(blocked.events)).toContain("workspace-busy");
       expect(f.requests).toHaveLength(0);
     } finally {
       await lease.release();
@@ -795,4 +795,146 @@ it("reports an environment credential that remains after stored logout", async (
   } finally {
     app.close();
   }
+});
+
+describe("durable desktop history", () => {
+  it("admits only after the run and first session are discoverable, then restores read-only facts", async () => {
+    let checkAdmission: (() => Promise<void>) | undefined;
+    const f = await fixture(
+      [[call("read_file", { path: "note.txt" }), finish("tool-calls")]],
+      async () => {
+        await checkAdmission?.();
+      },
+    );
+    await writeFile(join(f.cwd, "note.txt"), "evidence");
+    const store = new FileProductRunStore(f.env.FORGE_HOME);
+    checkAdmission = async () => {
+      expect((await store.list(f.sessionId)).runs).toHaveLength(1);
+      expect(
+        JSON.parse(
+          await readFile(
+            join(f.env.FORGE_HOME, "sessions", `${f.sessionId}.json`),
+            "utf8",
+          ),
+        ).id,
+      ).toBe(f.sessionId);
+    };
+    const result = await run(f.application, f.sessionId);
+    expect(result.accepted).toBe(true);
+    expect(result.final.payload).toMatchObject({ outcome: "completed" });
+    f.application.close();
+    const reopened = new DesktopApplication(f.env, f.cwd);
+    const state = await reopened.manage({
+      type: "resume",
+      sessionId: f.sessionId,
+    });
+    const runId = state.runHistory?.runs[0]?.runId;
+    expect(runId).toBeTruthy();
+    const history = await reopened.manage({
+      type: "run-history",
+      runId: runId!,
+    });
+    expect(
+      history.runHistory?.selected?.activity.items.some(
+        (x) => x.action?.status === "succeeded",
+      ),
+    ).toBe(true);
+    expect(desktopStateSchema.safeParse(history).success).toBe(true);
+    expect(history.permissionGrants).toEqual([]);
+    expect(f.requests).toHaveLength(2);
+    reopened.close();
+  });
+  it("marks crashed tool effects unknown and pending decisions unresolved without executing them", async () => {
+    const f = await fixture([]);
+    await run(f.application, f.sessionId);
+    const store = new FileProductRunStore(f.env.FORGE_HOME);
+    const writer = await store.create({
+      sessionId: f.sessionId,
+      runId: "crashed",
+      engine: "native",
+      prompt: "crashed task",
+    });
+    await writer.record({
+      type: "action",
+      action: {
+        actionId: "tool",
+        tool: "run_command",
+        step: 1,
+        status: "running",
+        input: "{}",
+      },
+    });
+    await writer.record({
+      type: "approval",
+      approvalId: "pending",
+      description: "never resume this decision",
+    });
+    const state = await f.application.manage({
+      type: "run-history",
+      runId: "crashed",
+    });
+    expect(state.runHistory?.selected?.summary.completion?.outcome).toBe(
+      "interrupted",
+    );
+    expect(
+      state.runHistory?.selected?.activity.items.map(
+        (x) => x.action?.status ?? x.decision,
+      ),
+    ).toEqual(["unknown", "unresolved"]);
+    expect(f.requests).toHaveLength(1);
+    f.application.close();
+  });
+  it("stops before approval or tool effects when the journal becomes unwritable", async () => {
+    let sabotage: (() => Promise<void>) | undefined;
+    const f = await fixture(
+      [
+        [
+          call("run_command", {
+            program: process.execPath,
+            args: [
+              "-e",
+              "require('fs').writeFileSync('unexpected.txt','effect')",
+            ],
+          }),
+          finish("tool-calls"),
+        ],
+      ],
+      async () => {
+        await sabotage?.();
+      },
+    );
+    const target = join(f.cwd, "untouched.txt");
+    await writeFile(target, "untouched");
+    sabotage = async () => {
+      const runId = (
+        await new FileProductRunStore(f.env.FORGE_HOME).list(f.sessionId)
+      ).runs[0]!.runId;
+      const journal = join(
+        f.env.FORGE_HOME,
+        "run-records",
+        f.sessionId,
+        runId,
+        "events.jsonl",
+      );
+      await rm(journal, { force: true });
+      await symlink(target, journal);
+    };
+    const result = await run(f.application, f.sessionId);
+    expect(result.final.payload).toMatchObject({
+      outcome: "failed",
+      reason: "storage_error",
+    });
+    expect(result.events.some((x) => x.payload.type === "approval")).toBe(
+      false,
+    );
+    expect(
+      result.events.some(
+        (x) =>
+          x.payload.type === "action" && x.payload.action.status === "running",
+      ),
+    ).toBe(false);
+    await expect(readFile(join(f.cwd, "unexpected.txt"))).rejects.toThrow();
+    expect(await readFile(target, "utf8")).toBe("untouched");
+    f.application.close();
+  });
 });

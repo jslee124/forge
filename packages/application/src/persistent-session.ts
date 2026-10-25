@@ -254,6 +254,12 @@ export class PersistentInteractiveSession
     return this.#snapshot.id;
   }
 
+  /** Keeps a newly admitted Desktop task discoverable if its first run crashes. */
+  async persistPreparedSession(): Promise<void> {
+    if (!this.#snapshot) throw new Error("session-required");
+    await this.#store.save(this.#snapshot);
+  }
+
   async recordRun(
     prompt: string,
     result: RunResult,

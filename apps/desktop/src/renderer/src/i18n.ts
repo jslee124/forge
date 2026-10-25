@@ -7,6 +7,17 @@ export const resources = {
   en: {
     translation: {
       runUi: {
+        history: "Run records",
+        refreshHistory: "Latest records",
+        noHistory:
+          "No product run records. Older sessions may have no activity history.",
+        historyError:
+          "Run records could not be read. Your conversation remains available.",
+        historyReadOnly:
+          "Historical facts only. Decisions grant no current permission; operations are never replayed.",
+        historyIncomplete:
+          "This record is incomplete or truncated. Missing output is not evidence of success.",
+
         tools: {
           read_file: "Read file",
           list_files: "List files",
@@ -57,6 +68,9 @@ export const resources = {
           tool: "Engine tool information",
         },
         states: {
+          unknown: "Result unknown",
+          cancelled: "Cancelled",
+          unresolved: "No completed decision",
           proposed: "Proposed",
           awaiting_approval: "Needs approval",
           running: "Running",
@@ -396,6 +410,14 @@ export const resources = {
   "zh-CN": {
     translation: {
       runUi: {
+        history: "运行记录",
+        refreshHistory: "最新记录",
+        noHistory: "暂无产品运行记录。旧会话可能没有活动历史。",
+        historyError: "无法读取运行记录，对话内容仍可查看。",
+        historyReadOnly:
+          "这里只展示历史事实，旧决定不授予当前权限，也不会重放操作。",
+        historyIncomplete: "该记录不完整或已截断，缺失输出不能作为成功证据。",
+
         tools: {
           read_file: "读取文件",
           list_files: "查看目录",
@@ -440,6 +462,9 @@ export const resources = {
           tool: "引擎操作信息",
         },
         states: {
+          unknown: "结果未知",
+          cancelled: "已取消",
+          unresolved: "决定未完成",
           proposed: "准备操作",
           awaiting_approval: "需要授权",
           running: "执行中",

@@ -2,7 +2,7 @@
 
 [English](../../development/DESKTOP_PRODUCT_IMPLEMENTATION.md) · [PRD](DESKTOP_PRODUCT_PRD.md) · [路线图](ROADMAP.md) · [文档目录](../README.md)
 
-日期：2026-10-25。状态：首批展示链路已实现，其余任务待实施。本文是分层实现合同与任务清单，不是已发布行为。
+日期：2026-10-25。状态：首批展示链路与持久历史增量已实现，其余 gate 待验收。本文是分层实现合同与任务清单，不是已发布行为。
 新增文件名、类型、字段和配置均为拟实现设计；已有源码入口在第 2 节单独列出。
 本文与 PRD 冲突时先修订两份合同再实施，不通过猜测扩展范围。
 
@@ -16,7 +16,7 @@ Desktop v2 事件与版本检查、结构化审批／动作绑定、细分结束
 这是 T01/T04/T08—T11 的部分实现，不是完整 M1。v2 当前保留 text/detail/action/phase/
 approval/approval-resolved/complete payload 名称，先迁移语义，不宣称第 4 节全量协议已落地。
 Codex 缺失的调用计数不展示为 0；其工具活动仍为描述型信息。
-产品运行记录、崩溃后活动恢复、预算预留、工具扩展与 summarize/continue/retry 尚未实施。
+下文持久历史增量已补充产品运行记录与中断后活动恢复；预算预留、工具扩展与 summarize/continue/retry 尚未实施。
 固定 24 任务的模型基线和 5 用户试用尚未执行；新增确定性复现不是这些结果的替代。
 
 任务表 `[ ]` 表示待实现，`[~]` 表示部分实现／尚未通过完整 gate。
@@ -29,8 +29,8 @@ Codex 缺失的调用计数不展示为 0；其工具活动仍为描述型信息
 - 在 `apps/desktop` 运行 `CI=true FORGE_UI_OUTPUT=/tmp/forge-productization-ui node scripts/acceptance-ui.mjs`：隔离配置、本地脚本 provider、真实 Electron/main/preload/Agent IPC；审批 → 允许一次 → 回答、取消、失败恢复通过。截图检查了展开审批详情的 840×800 窗口和活动列表，审批底部按钮可见，无页面横向溢出。原有中英／明暗布局矩阵同时运行。
 - 回归覆盖 10,000 reasoning 片段聚合、actionId 决策匹配、协议版本／非法事件、步骤上限、canonical history 不变、完成后新草稿保留、审批与取消请求失败时保留决策入口。
 
-这些结果不包含真实 provider 质量、24 任务基线、用户试用、崩溃恢复、安装包或发布验收。
-当前活动只在内存保留，500 项上限与输出截断均显式提示；不是可持久回看的产品运行记录。
+首批结果不包含真实 provider 质量、24 任务基线、用户试用、崩溃恢复、安装包或发布验收。
+首批活动仅在内存保留；下文增量新增持久记录。
 
 同日布局跟进：正文、输入框、审批和结果使用共同宽度与边距；会话容器不足 740px 时，
 权限、引擎、模型、发送／停止切换为单行图标模式，悬停显示当前选项，点击仍打开完整
@@ -39,6 +39,48 @@ Codex 缺失的调用计数不展示为 0；其工具活动仍为描述型信息
 顶部工具栏、侧栏开关与窗口按钮增加留白。Electron 验收新增 720/840/980/1100 宽度 ×
 工作台开关的几何检查，检查控件越界、重叠、图标压缩、顶部安全边距与正文／输入框
 对齐、紧凑模式隐藏长文字且保持单行；同时运行既有截图矩阵。13 项 renderer 回归、类型检查和桌面构建通过。
+
+## 持久历史增量（2026-10-25）
+
+[ADR-0003](../../decisions/0003-desktop-durable-run-records.md) 记录本轮边界。
+[Run store](../../../packages/persistence/src/product-run-store.ts) 与
+[纯 schema](../../../packages/persistence/src/product-run-schema.ts) 实现私有版本化摘要、
+顺序 JSONL、脱敏、每轮 16 MiB 日志（预留 1 MiB 控制事件）、显式省略和索引分页。
+[Application 记录与投影](../../../packages/application/src/product-run-history.ts)
+串行写入，并将历史事实投影为只读信息。
+
+桌面先保存可发现的会话和运行，再确认发送。原生工具生命周期和审批决定在进一步执行前
+等待记录落盘。结束顺序为：终态意图 → canonical 会话保存 → 产品摘要完成；写入失败
+不能显示为本轮成功。在会话租约内重新打开后，未结束运行标为中断，启动后没有结果的
+工具标为“结果未知”，旧审批标为“决定未完成”。只有 canonical 中的 runId 能确认
+未完成摘要的终态意图；不重放工具、不恢复授权或 continuation。工作台“活动”页可分页
+选择历史运行并查看详情。
+
+这是 T02/T03 的部分实现，尚未通过完整 M1。Codex 内部工具仍不透明，不宣称与原生工具
+相同的执行前记录保证。单轮配额不是生命周期保留策略；恢复仍需逐页扫描摘要。旧版无
+owner 信息的锁文件按占用处理。进程中断 fixture 不证明断电或安装包恢复行为。
+
+固定 [24 任务清单](../../../evals/fixtures/desktop-product/manifest.json)、
+[工作目录种子](../../../evals/fixtures/desktop-product/seed/) 与
+[轮次准备器](../../../evals/src/desktop-product-evaluation.ts) 是 T00 的部分实现：
+
+```bash
+CI=true pnpm eval:desktop:prepare --output /tmp/forge-product-round-1 --round 1
+CI=true pnpm eval:desktop:prepare --output /tmp/forge-product-round-2 --round 2
+```
+
+两轮使用同一模型配置和 fixture SHA-256，每项评分初始均为 `not_run`。准备器不调用模型、
+不自行评分；故障条目是待注入的要求，不表示相应故障已自动执行。主模型实际可用性／能力、
+两轮真实评分、独立断言与 5 用户试用仍需单独证据。
+
+本地验证：140 项聚焦测试通过（6 项真实模型 opt-in 跳过），82 项确定性测试通过，
+`pnpm check` 与 `pnpm desktop:build` 通过。覆盖单次大文本、10,000 片段、配额、分页、
+符号链接拒绝、残缺日志、索引引用缺失摘要、canonical 保存确认、只读重开和工具执行前记录失败。
+另外 50 项 Codex／网关回归通过，`pnpm package:verify` 通过。真实 Electron 验收覆盖
+renderer 重载、可见历史选择与已记录工具成功、历史没有可执行审批，以及查看历史未新增
+脚本 provider 请求；原有审批／停止／失败流程与 720/840/980/1100 布局矩阵同时通过。
+活动页将运行记录置顶，上下文诊断默认折叠。本地界面产物位于 `/tmp/forge-durable-ui/`，
+属于脚本回环测试证据，不是真实模型质量验收。
 
 ## 1. 实现目标与不变量
 
@@ -318,10 +360,10 @@ core／adapter 的可选字段有旧缺省路径；CLI／gateway 不必升级到
 
 | 任务 | 状态 | 具体改动与交付 | 依赖／PRD |
 | --- | --- | --- | --- |
-| T00 | [ ] | 固定 24 任务、评分、两轮基线；记录本次失败为可重放 fixture，明确主验收模型配置 | M0；R01—R15 |
+| T00 | [~] | 固定 24 任务、评分、两轮基线；记录本次失败为可重放 fixture，明确主验收模型配置 | M0；R01—R15 |
 | T01 | [~] | 新 ADR、产品状态／事件 schema、reason 映射、native/Codex 能力表 | T00；R02/R08/R14 |
-| T02 | [ ] | persistence run store、redaction、配额、crash reconciliation、历史投影 | T01；R05/R08/R13 |
-| T03 | [ ] | application run coordinator；接入现有 session／lease／revision；完成与存储顺序 | T02；R01/R08/R13 |
+| T02 | [~] | persistence run store、redaction、配额、crash reconciliation、历史投影 | T01；R05/R08/R13 |
+| T03 | [~] | application run coordinator；接入现有 session／lease／revision；完成与存储顺序 | T02；R01/R08/R13 |
 | T04 | [~] | IPC v2、版本握手、顺序与身份检查、typed approval、断连取消 | T03；R02/R04/R14 |
 | T05 | [ ] | read_file 行范围、partial hash 规则、搜索上下文／过滤及受限 regex | T01；R06 |
 | T06 | [ ] | core finalizing／budget／no-progress；adapter toolChoice none 及 continuation 测试 | T05；R07/R14 |

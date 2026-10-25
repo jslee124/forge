@@ -25,7 +25,8 @@ compaction remains an explicit user opt-in. See the
 - Desktop productization: [PRD](DESKTOP_PRODUCT_PRD.md) and
   [implementation plan](DESKTOP_PRODUCT_IMPLEMENTATION.md) define the proposed
   M0–M4 work for bounded local development tasks, structured run/approval events,
-  convergence, recovery, and product acceptance. All new tasks are pending;
+  convergence, recovery, and product acceptance. Presentation, durable history, and
+  acceptance-corpus increments are partially implemented; remaining gates are pending;
   this does not change previous completion records or claim shipped behavior.
 
 - 0.4.0 includes the experimental Telegram private-chat gateway. See

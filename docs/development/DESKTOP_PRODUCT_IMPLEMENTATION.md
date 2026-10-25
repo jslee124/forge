@@ -2,7 +2,7 @@
 
 [简体中文](../zh-CN/development/DESKTOP_PRODUCT_IMPLEMENTATION.md) · [PRD](DESKTOP_PRODUCT_PRD.md) · [Roadmap](ROADMAP.md) · [Documentation index](../README.md)
 
-Date: 2026-10-25. Status: initial presentation increment implemented; remaining tasks pending. This is a layered development
+Date: 2026-10-25. Status: presentation and initial durable-history increments implemented; remaining gates pending. This is a layered development
 contract and task list, not shipped behavior. New filenames, types, fields, and
 configuration below are proposed; section 2 separately identifies existing code.
 Resolve PRD/implementation disagreements in both documents before implementing.
@@ -19,7 +19,7 @@ This partially implements T01/T04/T08–T11, not all of M1. Wire v2 currently re
 text/detail/action/phase/approval/approval-resolved/complete payload names as an
 incremental migration rather than claiming the entire section 4 protocol.
 Unavailable Codex counters are omitted; its tool activity remains descriptive.
-Durable records, crash activity restoration, budget reservation, tool improvements,
+The durable-record follow-up below adds crash activity restoration. Budget reservation, tool improvements,
 and summarize/continue/retry remain pending. The 24-task live baseline and five-user
 trial have not run; deterministic reproductions do not substitute for them.
 
@@ -34,9 +34,8 @@ Validation on 2026-10-25 (local development build):
 - Regressions cover 10,000 reasoning deltas, actionId-bound decisions, protocol version/malformed events, step limits, unchanged canonical history, newer drafts surviving completion, and retained approval controls after rejected decision/cancel requests.
 
 This does not establish live-provider quality, the 24-task baseline, user trials,
-crash recovery, installed-package behavior, or release acceptance. Activity is
-currently memory-only, with explicit 500-item and output truncation notices;
-it is not a durable product run record.
+crash recovery in that first increment, installed-package behavior, or release acceptance. Activity
+was memory-only in that first increment; the follow-up below adds durable records.
 
 Layout follow-up on the same date: transcript, composer, approval, and result
 surfaces share width/gutters. At conversation widths below 740px, permission,
@@ -50,6 +49,60 @@ Electron acceptance adds 720/840/980/1100 widths × workbench open/closed geomet
 checks for overflow, overlap, squeezed icons, top inset, and transcript/composer
 alignment, plus hidden long labels and single-row compact controls, alongside the existing screenshot matrix. The 13 renderer regressions,
 type checks, and desktop build passed.
+
+## Durable-history follow-up (2026-10-25)
+
+[ADR-0003](../decisions/0003-desktop-durable-run-records.md) records the durability
+boundary. [Run store](../../packages/persistence/src/product-run-store.ts) and
+[browser-safe schemas](../../packages/persistence/src/product-run-schema.ts)
+implement private versioned summaries, ordered JSONL, redaction, 16 MiB per-run
+journals with a 1 MiB control reserve, explicit omission, and bounded index pages.
+[Application recording/projection](../../packages/application/src/product-run-history.ts)
+serializes writes and projects historical facts without restoring authority.
+
+Desktop saves a discoverable session/run before acknowledging admission. Native
+control events and approval decisions await recording before further tool effects.
+Terminal intent → canonical session commit → final product summary is the order;
+storage failure cannot produce a successful live result. Under a session lease,
+reopening reconciles unfinished work to interrupted, started tools without results
+to unknown, and old pending decisions to unresolved. A terminal intent is accepted
+only with canonical run membership; no tools, approvals or continuations replay.
+The workbench Activity tab provides paginated run selection and read-only details.
+
+This is partial T02/T03, not a completed M1 gate. Codex tools remain opaque and
+cannot get a native before-effect guarantee. Per-run quotas are not lifetime
+retention; reconciliation still scans summary pages. Legacy ownerless lock files
+fail closed. Process-interruption fixtures do not prove power-loss or installed
+package recovery.
+
+The fixed [24-task manifest](../../evals/fixtures/desktop-product/manifest.json),
+[seed](../../evals/fixtures/desktop-product/seed/), and
+[round preparer](../../evals/src/desktop-product-evaluation.ts) partially implement
+T00. Prepare two new, separate directories using:
+
+```bash
+CI=true pnpm eval:desktop:prepare --output /tmp/forge-product-round-1 --round 1
+CI=true pnpm eval:desktop:prepare --output /tmp/forge-product-round-2 --round 2
+```
+
+Both pin the same model configuration and fixture SHA-256 values; every assessment
+starts `not_run`. Preparation makes no provider calls and does not grade answers.
+Fault entries specify required injection, not completed automated fault execution.
+The real model's availability/capabilities, two scored rounds, independent task
+assertions, and five-user trial still require separate evidence.
+
+Local validation: 140 focused tests passed (six live opt-in tests skipped), 82
+deterministic tests passed, and `pnpm check`/`pnpm desktop:build` passed. Coverage
+includes large single chunks, 10,000 fragments, quota pressure, pagination,
+symlink rejection, partial journals, missing indexed summaries, canonical commit
+proof, read-only reopening, and recording failure before a tool can execute.
+An additional 50 Codex/gateway regressions passed. `pnpm package:verify` passed.
+The real Electron acceptance harness exercised a renderer reload, visible historical
+selection with recorded tool success, no restored approval controls, and no extra
+scripted-provider calls while reading history. It also passed the existing
+approval/stop/failure workflow and 720/840/980/1100 layout matrix. The Activity tab
+places records first and collapses context diagnostics. UI output is local at
+`/tmp/forge-durable-ui/`; this is scripted loopback evidence, not a live model run.
 
 ## 1. Goal and invariants
 
@@ -397,10 +450,10 @@ tests. A partial vertical increment does not complete a milestone.
 
 | Task | Status | Changes and deliverable | Dependencies / PRD |
 | --- | --- | --- | --- |
-| T00 | [ ] | Freeze 24 tasks/rubric, two baseline rounds; reproduce observed failure as fixture; pin primary model configuration | M0; R01–R15 |
+| T00 | [~] | Freeze 24 tasks/rubric, two baseline rounds; reproduce observed failure as fixture; pin primary model configuration | M0; R01–R15 |
 | T01 | [~] | New ADR, states/events/reasons schema, native/Codex capabilities | T00; R02/R08/R14 |
-| T02 | [ ] | Run store, redaction, quotas, crash reconciliation, history projection | T01; R05/R08/R13 |
-| T03 | [ ] | Run coordinator with existing session/lease/revision and finish/write ordering | T02; R01/R08/R13 |
+| T02 | [~] | Run store, redaction, quotas, crash reconciliation, history projection | T01; R05/R08/R13 |
+| T03 | [~] | Run coordinator with existing session/lease/revision and finish/write ordering | T02; R01/R08/R13 |
 | T04 | [~] | IPC v2, handshake, sequence/identity checks, typed approvals, disconnect cancellation | T03; R02/R04/R14 |
 | T05 | [ ] | Line ranges, partial-hash rules, search context/filtering, bounded regex | T01; R06 |
 | T06 | [ ] | Core finalization/budgets/no-progress, adapter none and continuation tests | T05; R07/R14 |

@@ -23,6 +23,7 @@ import { ComposerControls } from "./composer-controls.js";
 import { ContentPreview, DiffViewer } from "./file-preview.js";
 import { Markdown } from "./markdown.js";
 import { RunActivity } from "./run-activity.js";
+import { RunHistory } from "./run-history.js";
 import { RunResult } from "./run-result.js";
 import { activityReducer, initialActivity } from "./run-state.js";
 import { SettingsView } from "./settings-view.js";
@@ -542,7 +543,7 @@ export function LiveWorkbench(): React.JSX.Element {
             ? { model }
             : {}),
       });
-      if (!accepted) {
+      if (!accepted && activeRef.current === identity) {
         activeRef.current = undefined;
         setActive(undefined);
         setStatus("failed");
@@ -1335,17 +1336,30 @@ export function LiveWorkbench(): React.JSX.Element {
               )}
             </div>
             <div className="studio-panel-body" hidden={panelTab !== "context"}>
-              <h3>{t("live.context")}</h3>
-              <pre>{state?.context}</pre>
-              <button
-                type="button"
-                disabled={busy || !state?.sessionId}
-                onClick={() => void manage({ type: "compact" })}
-              >
-                {t("live.compact")}
-              </button>
-              <h3>{t("live.activity")}</h3>
-              <RunActivity state={activity} />
+              <RunHistory
+                history={state?.runHistory}
+                busy={busy}
+                onLoad={async (command) => {
+                  await manage(command);
+                }}
+              />
+              {activity.items.length > 0 && (
+                <>
+                  <h3>{t("live.activity")}</h3>
+                  <RunActivity state={activity} />
+                </>
+              )}
+              <details className="run-diagnostics">
+                <summary>{t("live.context")}</summary>
+                <pre>{state?.context}</pre>
+                <button
+                  type="button"
+                  disabled={busy || !state?.sessionId}
+                  onClick={() => void manage({ type: "compact" })}
+                >
+                  {t("live.compact")}
+                </button>
+              </details>
               <p>{t("live.verification")}</p>
             </div>
           </aside>

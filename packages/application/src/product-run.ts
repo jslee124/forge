@@ -16,11 +16,11 @@ export type ProductRunReason =
 /** Presentation facts only. None of these fields authorize execution. */
 export interface ProductRunCompletion {
   readonly outcome: ProductRunOutcome;
-  readonly reason?: ProductRunReason;
-  readonly message?: string;
-  readonly modelSteps?: number;
-  readonly toolCalls?: number;
-  readonly durationMs?: number;
+  readonly reason?: ProductRunReason | undefined;
+  readonly message?: string | undefined;
+  readonly modelSteps?: number | undefined;
+  readonly toolCalls?: number | undefined;
+  readonly durationMs?: number | undefined;
 }
 
 export interface ProductActionUpdate {

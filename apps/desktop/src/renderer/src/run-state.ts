@@ -1,22 +1,7 @@
-import type { ProductActionUpdate } from "@forge/application";
+import type { ProductActivityItem } from "@forge/application";
 import type { RunEvent } from "../../shared/run-protocol.js";
 
-export interface ActivityItem {
-  readonly id: string;
-  readonly kind:
-    | "action"
-    | "reasoning"
-    | "approval"
-    | "error"
-    | "context"
-    | "system"
-    | "tool";
-  readonly text: string;
-  readonly step?: number;
-  readonly action?: ProductActionUpdate;
-  readonly decision?: "pending" | "allowed" | "denied";
-  readonly truncated: boolean;
-}
+export type ActivityItem = ProductActivityItem;
 export interface ActivityState {
   readonly items: readonly ActivityItem[];
   readonly omitted: number;

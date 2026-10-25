@@ -1,3 +1,4 @@
+import { productRunHistorySchema } from "@forge/persistence/product-run-schema";
 import { z } from "zod";
 
 const id = z.string().regex(/^[a-zA-Z0-9_-]{1,128}$/);
@@ -32,6 +33,13 @@ export const selectionSchema = z
 export type ModelSelection = z.infer<typeof selectionSchema>;
 
 export const managementCommandSchema = z.discriminatedUnion("type", [
+  z
+    .object({
+      type: z.literal("run-history"),
+      runId: id.optional(),
+      before: z.number().int().nonnegative().optional(),
+    })
+    .strict(),
   z.object({ type: z.literal("state") }).strict(),
   z.object({ type: z.literal("management-status") }).strict(),
   z
@@ -101,6 +109,7 @@ export const managementCommandSchema = z.discriminatedUnion("type", [
 export type ManagementCommand = z.infer<typeof managementCommandSchema>;
 export const desktopStateSchema = z
   .object({
+    runHistory: productRunHistorySchema.optional(),
     management: z
       .object({
         providers: z.array(

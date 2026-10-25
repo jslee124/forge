@@ -29,6 +29,10 @@
   "instructions": ["product/AGENTS.md", "development/AGENTS.md"],
   "decisions": [
     {
+      "path": "decisions/0003-desktop-durable-run-records.md",
+      "status": "accepted"
+    },
+    {
       "path": "decisions/0002-desktop-run-presentation-contract.md",
       "status": "accepted"
     },

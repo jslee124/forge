@@ -1,12 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import {
-  mkdir,
-  open,
-  readFile,
-  realpath,
-  stat,
-  unlink,
-} from "node:fs/promises";
+import { lstat, mkdir, readFile, realpath, stat } from "node:fs/promises";
 import { join } from "node:path";
 import {
   AuthenticationManager,
@@ -20,7 +13,10 @@ import {
   type ModelCatalogEntry,
   nativeModelCatalog,
   type PersistentInteractiveSession,
+  type ProductRunCompletion,
+  ProductRunRecorder,
   projectActionEvent,
+  projectRecordedActivity,
   projectRunCompletion,
   projectSessionMessages,
   type RunDependencies,
@@ -34,8 +30,12 @@ import {
 import { CodexAppServerClient } from "@forge/codex-app-server";
 import type { RunEvent, RunResult } from "@forge/core";
 import {
+  acquireWorkspaceLease,
   configuredSecrets,
+  ExecutionLease,
+  FileProductRunStore,
   FileSessionStore,
+  type ProductRecordPayload,
   redactValue,
 } from "@forge/persistence";
 import type {
@@ -43,7 +43,8 @@ import type {
   ManagementCommand,
   ModelSelection,
 } from "../shared/application-protocol.js";
-import type { RunExecutor } from "./run-service.js";
+import type { RunCommand } from "../shared/run-protocol.js";
+import type { ExecutionContext, RunExecutor } from "./run-service.js";
 import { WebPluginSettings } from "./web-plugin-settings.js";
 
 /** Electron-free orchestration. All credentials, configuration and persistence stay here. */
@@ -72,6 +73,8 @@ export class DesktopApplication {
   #busy = false;
   #managementBusy = false;
   #revision = "";
+  #runHistory: DesktopState["runHistory"];
+  #historyPageBefore: number | undefined;
   constructor(
     env: NodeJS.ProcessEnv,
     cwd: string,
@@ -109,6 +112,7 @@ export class DesktopApplication {
         effort: loaded.config.model.reasoningEffort,
       },
       operationResult: this.#operationResult,
+      ...(this.#runHistory ? { runHistory: this.#runHistory } : {}),
       permissionGrants: [],
       contextUpdatedAt: new Date().toISOString(),
       forgeHome: this.#home,
@@ -200,6 +204,27 @@ export class DesktopApplication {
   }
   async #manage(command: ManagementCommand): Promise<DesktopState> {
     if (command.type === "state") return this.state();
+    if (command.type === "run-history") {
+      if (this.#busy) throw new Error("busy");
+      const session = this.#session;
+      if (!session?.sessionId) throw new Error("session-required");
+      const lease = await desktopSessionLease(this.#home, session.sessionId);
+      try {
+        await new FileProductRunStore(this.#home).reconcile(
+          session.sessionId,
+          session.recordedRunIds,
+        );
+        await this.#loadRunHistory(
+          command.runId
+            ? (command.before ?? this.#historyPageBefore)
+            : command.before,
+          command.runId,
+        );
+      } finally {
+        await lease.release();
+      }
+      return this.state();
+    }
     if (command.type === "cancel-login") {
       this.#login?.abort();
       return this.state();
@@ -337,9 +362,11 @@ export class DesktopApplication {
         this.#cwd || this.#initialCwd,
       ).manage(command);
     } else if (command.type === "reset") {
+      this.#runHistory = undefined;
       this.#session?.clear();
       this.#revision = "";
     } else if (command.type === "workspace") {
+      this.#runHistory = undefined;
       this.#management = undefined;
       const cwd = await directoryPath(command.cwd);
       const session = await createPersistentInteractiveSession({
@@ -354,6 +381,7 @@ export class DesktopApplication {
       this.#session = session;
       this.#revision = "";
     } else if (command.type === "create") {
+      this.#runHistory = undefined;
       if (!command.prompt.trim()) throw new Error("prompt-required");
       const automatic = !this.#cwd || this.#automaticWorkspace;
       let cwd = this.#cwd;
@@ -379,14 +407,7 @@ export class DesktopApplication {
     } else if (command.type === "resume") {
       await this.state();
       const file = join(this.#home, "sessions", `${command.sessionId}.json`);
-      const lockPath = join(
-        this.#home,
-        "sessions",
-        `${command.sessionId}.desktop-lock`,
-      );
-      const handle = await open(lockPath, "wx", 0o600).catch(() => {
-        throw new Error("session-busy");
-      });
+      const lease = await desktopSessionLease(this.#home, command.sessionId);
       try {
         const saved = await new FileSessionStore(this.#home).load(
           command.sessionId,
@@ -410,28 +431,29 @@ export class DesktopApplication {
           loaded.workspaceRoot === cwd;
         this.#session = session;
         this.#revision = await snapshotHash(file);
+        try {
+          await new FileProductRunStore(this.#home, {
+            secrets: configuredSecrets(this.#env),
+          }).reconcile(command.sessionId, session.recordedRunIds);
+          await this.#loadRunHistory();
+        } catch {
+          this.#runHistory = { runs: [], error: "product-run-storage-failed" };
+        }
       } finally {
-        await handle.close();
-        await unlink(lockPath);
+        await lease.release();
       }
     } else if (command.type === "compact") {
       const session = this.#session;
       if (!session?.sessionId) throw new Error("session-required");
       const file = join(this.#home, "sessions", `${session.sessionId}.json`);
-      const lock = join(
-        this.#home,
-        "sessions",
-        `${session.sessionId}.desktop-lock`,
-      );
-      const handle = await open(lock, "wx", 0o600);
+      const lease = await desktopSessionLease(this.#home, session.sessionId);
       try {
         if ((await snapshotHash(file)) !== this.#revision)
           throw new Error("session-conflict");
         this.#operationResult = await session.compact(command.dryRun ?? false);
         this.#revision = await snapshotHash(file);
       } finally {
-        await handle.close();
-        await unlink(lock);
+        await lease.release();
       }
     } else if (command.type === "auth-status") {
       if (this.#login) return this.state();
@@ -592,259 +614,409 @@ export class DesktopApplication {
     for (const client of this.#clients) client.close();
     this.#clients.clear();
   }
-  readonly execute: RunExecutor = async (request, context) => {
-    if (
-      this.#busy ||
-      this.#managementBusy ||
-      !this.#session ||
-      this.#session.sessionId !== request.sessionId
-    )
-      throw new Error("session-mismatch");
-    this.#busy = true;
-    const startedAt = performance.now();
-    const session = this.#session;
-    let release: (() => Promise<void>) | undefined;
-    try {
-      if ((await directoryPath(this.#cwd)) !== this.#cwd)
-        throw new Error("workspace-changed");
-      await this.state();
-      const directory = join(this.#home, "sessions");
-      await mkdir(directory, { recursive: true, mode: 0o700 });
-      const lock = join(directory, `${request.sessionId}.desktop-lock`);
-      const handle = await open(lock, "wx", 0o600).catch(() => {
-        throw new Error("session-busy");
-      });
-      release = async () => {
-        await handle.close();
-        await unlink(lock);
-      };
-      const snapshotPath = join(directory, `${request.sessionId}.json`);
-      let before = await snapshotHash(snapshotPath);
-      if (before !== this.#revision) throw new Error("session-conflict");
-      const loaded = await loadForgeConfig({ env: this.#env, cwd: this.#cwd });
-      if (loaded.workspaceRoot !== this.#root)
-        throw new Error("workspace-changed");
-      const redact = (text: string) =>
-        String(redactValue(text, configuredSecrets(this.#env)));
-      const detail = (
-        kind: "tool" | "context" | "error" | "system" | "reasoning",
-        text: string,
-      ) => context.detail(kind, redact(text));
-      const matchingDefault =
-        (loaded.config.model.engine === "codex" ? "codex" : "native") ===
-        request.engine;
-      if (request.engine === "native" && !matchingDefault && !request.model)
-        throw new Error("model-required");
-      const model =
-        request.model ??
-        (request.engine === "codex" && matchingDefault
-          ? loaded.config.model.id
-          : undefined);
-      const effort =
-        request.reasoningEffort ??
-        (request.engine === "codex" &&
-        matchingDefault &&
-        (!request.model || request.model === loaded.config.model.id)
-          ? loaded.config.model.reasoningEffort
-          : undefined);
-      const provider =
-        request.provider ??
-        (request.engine === "codex" ? "openai" : loaded.config.model.provider);
-      if (model || request.provider || effort)
-        await this.#validateSelection({
-          engine: request.engine,
-          provider,
-          model: model ?? loaded.config.model.id,
-          ...(effort ? { effort: effort as ModelSelection["effort"] } : {}),
+  readonly execute: RunExecutor = Object.assign(
+    async (
+      request: Extract<RunCommand, { type: "start" }>,
+      context: ExecutionContext,
+    ): Promise<ProductRunCompletion> => {
+      if (
+        this.#busy ||
+        this.#managementBusy ||
+        !this.#session ||
+        this.#session.sessionId !== request.sessionId
+      )
+        throw new Error("session-mismatch");
+      this.#busy = true;
+      const startedAt = performance.now();
+      const session = this.#session;
+      let lease: ExecutionLease | undefined;
+      let workspaceLease: ExecutionLease | undefined;
+      let recorder: ProductRunRecorder | undefined;
+      const storageAbort = new AbortController();
+      const signal = AbortSignal.any([context.signal, storageAbort.signal]);
+      let finalCompletion: ProductRunCompletion | undefined;
+      try {
+        if ((await directoryPath(this.#cwd)) !== this.#cwd)
+          throw new Error("workspace-changed");
+        await this.state();
+        const directory = join(this.#home, "sessions");
+        await mkdir(directory, { recursive: true, mode: 0o700 });
+        lease = await desktopSessionLease(this.#home, request.sessionId);
+        const snapshotPath = join(directory, `${request.sessionId}.json`);
+        let before = await snapshotHash(snapshotPath);
+        if (before !== this.#revision) throw new Error("session-conflict");
+        const loaded = await loadForgeConfig({
+          env: this.#env,
+          cwd: this.#cwd,
         });
-      await session.prepareRun(request.prompt);
-      before = await snapshotHash(snapshotPath);
-      this.#revision = before;
-      if (context.signal.aborted) return;
-      let result: RunResult | undefined;
-      const { FORGE_DESKTOP_RESOURCE_ROOT: builtinResourceRoot } = this.#env;
-      const shared = {
-        env: this.#env,
-        cwd: this.#cwd,
-        signal: context.signal,
-        stderr: { write: (text: string) => detail("error", text) },
-      };
-      if (request.engine === "native") {
-        session.selectModel(provider, model ?? loaded.config.model.id);
-        const code = await runTask(
-          request.prompt,
-          {
-            ...(model ? { model } : {}),
-            ...(request.engine === "native" ? { provider } : {}),
-            ...(effort
-              ? {
-                  reasoningEffort: effort,
-                  thinking: effort === "none" ? "disabled" : "enabled",
-                }
-              : {}),
-            permissionProfile: request.permissionProfile ?? "safe",
-          },
-          {
-            ...shared,
-            ...(builtinResourceRoot ? { builtinResourceRoot } : {}),
+        if (loaded.workspaceRoot !== this.#root)
+          throw new Error("workspace-changed");
+        const redact = (text: string) =>
+          String(redactValue(text, configuredSecrets(this.#env)));
+        const detail = (
+          kind: "tool" | "context" | "error" | "system" | "reasoning",
+          text: string,
+        ) => context.detail(kind, redact(text));
+        const matchingDefault =
+          (loaded.config.model.engine === "codex" ? "codex" : "native") ===
+          request.engine;
+        if (request.engine === "native" && !matchingDefault && !request.model)
+          throw new Error("model-required");
+        const model =
+          request.model ??
+          (request.engine === "codex" && matchingDefault
+            ? loaded.config.model.id
+            : undefined);
+        const effort =
+          request.reasoningEffort ??
+          (request.engine === "codex" &&
+          matchingDefault &&
+          (!request.model || request.model === loaded.config.model.id)
+            ? loaded.config.model.reasoningEffort
+            : undefined);
+        const provider =
+          request.provider ??
+          (request.engine === "codex"
+            ? "openai"
+            : loaded.config.model.provider);
+        if (model || request.provider || effort)
+          await this.#validateSelection({
+            engine: request.engine,
+            provider,
+            model: model ?? loaded.config.model.id,
+            ...(effort ? { effort: effort as ModelSelection["effort"] } : {}),
+          });
+        workspaceLease = await acquireWorkspaceLease(this.#root);
+        await session.prepareRun(request.prompt);
+        await session.persistPreparedSession();
+        before = await snapshotHash(snapshotPath);
+        this.#revision = before;
+        if (signal.aborted)
+          return { outcome: "cancelled", reason: "cancelled" };
+        recorder = new ProductRunRecorder(
+          await new FileProductRunStore(this.#home, {
+            secrets: configuredSecrets(this.#env),
+          }).create({
             sessionId: request.sessionId,
             runId: request.runId,
-            conversation: session.conversationForEngine("native"),
-            ...(session.contextCheckpoint
-              ? { contextCheckpoint: session.contextCheckpoint }
-              : {}),
-            ...(this.#overrides.createAdapter
-              ? { createAdapter: this.#overrides.createAdapter }
-              : {}),
-            approvalChannel: {
-              request: (action) =>
-                context.approve(
-                  redact(
-                    `${action.tool.name}\n${JSON.stringify(action.input, null, 2)}`,
-                  ),
-                ),
-              requestStructured: async (
-                action,
-                _signal,
-                _toolContext,
-                descriptor,
-              ) => ({
-                kind: (await context.approve(redact(descriptor.preview), {
-                  actionId: descriptor.actionId,
-                  effect: descriptor.effect,
-                  resource: redact(descriptor.resource),
-                  preview: redact(descriptor.preview),
-                  input: redact(JSON.stringify(action.input, null, 2)),
-                  riskFlags: descriptor.riskFlags,
-                }))
-                  ? "allow-once"
-                  : "deny",
-              }),
-            },
-            onEvent: (event) => {
-              const action = projectActionEvent(
-                redactValue(event, configuredSecrets(this.#env)) as RunEvent,
-              );
-              if (action) context.action(action);
-              if (event.type === "model.started") context.phase("responding");
-              if (event.type === "tool.started") context.phase("executing");
-              if (event.type === "model.text") context.text(redact(event.text));
-              else if (event.type === "model.reasoning")
-                context.detail("reasoning", redact(event.text), event.step);
-              else if (event.type.startsWith("context."))
-                detail("context", JSON.stringify(event));
-            },
-            onResult: (value) => {
-              result = value;
-            },
-          },
+            engine: request.engine,
+            prompt: request.prompt,
+          }),
         );
-        if (!result)
-          throw new Error(
-            code === 130
-              ? "cancelled"
-              : code === 2
-                ? "configuration-invalid"
-                : "native-start-failed",
-          );
-      } else {
-        let answer = "";
-        const events: RunEvent[] = [];
-        const code = await runCodexTask(
-          request.prompt,
-          {
-            ...(model ? { model } : {}),
-            ...(effort
-              ? {
-                  reasoningEffort: effort,
-                  thinking: effort === "none" ? "disabled" : "enabled",
-                }
-              : {}),
-            permissionProfile: request.permissionProfile ?? "workspace-write",
-          },
-          {
-            ...this.#codexDependencies(context.signal),
-            ...shared,
-            conversation: session.messages,
-            onOutput: (event) => {
-              if (event.type === "answer") {
-                answer += event.text;
-                context.text(redact(event.text));
-              } else if (event.type === "reasoning") {
-                events.push({
-                  type: "model.reasoning",
-                  step: 1,
-                  text: event.text,
-                });
-                detail("reasoning", event.text);
-              } else
-                detail(event.type === "tool" ? "tool" : "system", event.text);
-            },
-            approve: (description) => context.approve(redact(description)),
-          },
+        recorder.controller.signal.addEventListener(
+          "abort",
+          () => storageAbort.abort(),
+          { once: true },
         );
-        result = {
-          status:
-            code === 0 ? "completed" : code === 130 ? "cancelled" : "failed",
-          exitCode: code,
-          finalText: answer,
-          modelSteps: 1,
-          toolCalls: 0,
-          events,
+        context.ready?.();
+        const record = recorder;
+        const observe = (payload: ProductRecordPayload) =>
+          record.observe(payload);
+        const approve = async (
+          description: string,
+          descriptor?: import("../shared/run-protocol.js").ApprovalView,
+        ) => {
+          const approvalId = `request-${++approvalSequence}`;
+          await record.record({
+            type: "approval",
+            approvalId,
+            description: description.slice(0, 16_384),
+            ...(descriptor ? { actionId: descriptor.actionId } : {}),
+          });
+          if (signal.aborted) return false;
+          const allow = await context.approve(description, descriptor);
+          await record.record({ type: "decision", approvalId, allow });
+          return !signal.aborted && allow;
         };
-      }
-      if (before !== (await snapshotHash(snapshotPath)))
-        throw new Error("session-conflict");
-      await session.recordRun(request.prompt, result, {
-        runId: request.runId,
-        engine: request.engine,
-        sessionId: request.sessionId,
-        tracePersisted:
-          request.engine === "native" && loaded.config.trace.enabled,
-      });
-      this.#revision = await snapshotHash(snapshotPath);
-      detail("context", session.contextStatus());
-      if (result.message) detail("error", result.message);
-      const projected = projectRunCompletion(result);
-      const {
-        modelSteps: _modelSteps,
-        toolCalls: _toolCalls,
-        ...opaqueCompletion
-      } = projected;
-      return {
-        ...(request.engine === "native" ? projected : opaqueCompletion),
-        ...(result.message ? { message: redact(result.message) } : {}),
-        durationMs: Math.max(0, performance.now() - startedAt),
-      };
-    } catch (error) {
-      const code = desktopError(error);
-      context.detail("error", code);
-      return {
-        outcome: context.signal.aborted ? "cancelled" : "failed",
-        reason: context.signal.aborted
-          ? "cancelled"
-          : code === "configuration-invalid"
-            ? "configuration_error"
-            : code === "session-storage-failed"
-              ? "storage_error"
-              : [
-                    "session-conflict",
-                    "session-busy",
-                    "workspace-changed",
-                  ].includes(code)
-                ? "workspace_conflict"
-                : "execution_error",
-        message: code,
-        durationMs: Math.max(0, performance.now() - startedAt),
-      };
-    } finally {
-      try {
-        await release?.();
+        let approvalSequence = 0;
+        let result: RunResult | undefined;
+        const { FORGE_DESKTOP_RESOURCE_ROOT: builtinResourceRoot } = this.#env;
+        const shared = {
+          env: this.#env,
+          cwd: this.#cwd,
+          signal,
+          workspaceLease,
+          stderr: {
+            write: (text: string) => {
+              observe({
+                type: "detail",
+                kind: "error",
+                text: redact(text).slice(0, 65_536),
+              });
+              detail("error", text);
+            },
+          },
+        };
+        if (request.engine === "native") {
+          session.selectModel(provider, model ?? loaded.config.model.id);
+          const code = await runTask(
+            request.prompt,
+            {
+              ...(model ? { model } : {}),
+              ...(request.engine === "native" ? { provider } : {}),
+              ...(effort
+                ? {
+                    reasoningEffort: effort,
+                    thinking: effort === "none" ? "disabled" : "enabled",
+                  }
+                : {}),
+              permissionProfile: request.permissionProfile ?? "safe",
+            },
+            {
+              ...shared,
+              ...(builtinResourceRoot ? { builtinResourceRoot } : {}),
+              sessionId: request.sessionId,
+              runId: request.runId,
+              conversation: session.conversationForEngine("native"),
+              ...(session.contextCheckpoint
+                ? { contextCheckpoint: session.contextCheckpoint }
+                : {}),
+              ...(this.#overrides.createAdapter
+                ? { createAdapter: this.#overrides.createAdapter }
+                : {}),
+              approvalChannel: {
+                request: (action) =>
+                  approve(
+                    redact(
+                      `${action.tool.name}\n${JSON.stringify(action.input, null, 2)}`,
+                    ),
+                  ),
+                requestStructured: async (
+                  action,
+                  _signal,
+                  _toolContext,
+                  descriptor,
+                ) => ({
+                  kind: (await approve(redact(descriptor.preview), {
+                    actionId: descriptor.actionId,
+                    effect: descriptor.effect,
+                    resource: redact(descriptor.resource),
+                    preview: redact(descriptor.preview),
+                    input: redact(JSON.stringify(action.input, null, 2)),
+                    riskFlags: descriptor.riskFlags,
+                  }))
+                    ? "allow-once"
+                    : "deny",
+                }),
+              },
+              onEvent: async (event) => {
+                const action = projectActionEvent(
+                  redactValue(event, configuredSecrets(this.#env)) as RunEvent,
+                );
+                if (action) {
+                  await record.record({ type: "action", action });
+                  context.action(action);
+                }
+                if (event.type === "model.started") context.phase("responding");
+                if (event.type === "tool.started") context.phase("executing");
+                if (event.type === "model.text") {
+                  await record.record({
+                    type: "text",
+                    text: redact(event.text),
+                  });
+                  context.text(redact(event.text));
+                } else if (event.type === "model.reasoning") {
+                  await record.record({
+                    type: "detail",
+                    kind: "reasoning",
+                    text: redact(event.text),
+                    step: event.step,
+                  });
+                  context.detail("reasoning", redact(event.text), event.step);
+                } else if (event.type.startsWith("context.")) {
+                  const text = redact(JSON.stringify(event)).slice(0, 65_536);
+                  await record.record({
+                    type: "detail",
+                    kind: "context",
+                    text,
+                  });
+                  detail("context", text);
+                }
+              },
+              onResult: (value) => {
+                result = value;
+              },
+            },
+          );
+          if (record.failed) throw new Error("product-run-storage-failed");
+          if (!result)
+            throw new Error(
+              code === 130
+                ? "cancelled"
+                : code === 2
+                  ? "configuration-invalid"
+                  : "native-start-failed",
+            );
+        } else {
+          let answer = "";
+          const events: RunEvent[] = [];
+          const code = await runCodexTask(
+            request.prompt,
+            {
+              ...(model ? { model } : {}),
+              ...(effort
+                ? {
+                    reasoningEffort: effort,
+                    thinking: effort === "none" ? "disabled" : "enabled",
+                  }
+                : {}),
+              permissionProfile: request.permissionProfile ?? "workspace-write",
+            },
+            {
+              ...this.#codexDependencies(context.signal),
+              ...shared,
+              conversation: session.messages,
+              onOutput: (event) => {
+                if (event.type === "answer") {
+                  answer += event.text;
+                  observe({ type: "text", text: redact(event.text) });
+                  context.text(redact(event.text));
+                } else if (event.type === "reasoning") {
+                  events.push({
+                    type: "model.reasoning",
+                    step: 1,
+                    text: event.text,
+                  });
+                  observe({
+                    type: "detail",
+                    kind: "reasoning",
+                    text: redact(event.text),
+                    step: 1,
+                  });
+                  detail("reasoning", event.text);
+                } else {
+                  observe({
+                    type: "detail",
+                    kind: event.type === "tool" ? "tool" : "system",
+                    text: redact(event.text).slice(0, 65_536),
+                  });
+                  detail(event.type === "tool" ? "tool" : "system", event.text);
+                }
+              },
+              approve: (description) => approve(redact(description)),
+            },
+          );
+          result = {
+            status:
+              code === 0 ? "completed" : code === 130 ? "cancelled" : "failed",
+            exitCode: code,
+            finalText: answer,
+            modelSteps: 1,
+            toolCalls: 0,
+            events,
+          };
+        }
+        if (before !== (await snapshotHash(snapshotPath)))
+          throw new Error("session-conflict");
+        if (record.failed) throw new Error("product-run-storage-failed");
+        const projected = projectRunCompletion(result);
+        const {
+          modelSteps: _modelSteps,
+          toolCalls: _toolCalls,
+          ...opaqueCompletion
+        } = projected;
+        finalCompletion = await record.result({
+          ...(request.engine === "native" ? projected : opaqueCompletion),
+          ...(result.message ? { message: redact(result.message) } : {}),
+          durationMs: Math.max(0, performance.now() - startedAt),
+        });
+        await session.recordRun(request.prompt, result, {
+          runId: request.runId,
+          engine: request.engine,
+          sessionId: request.sessionId,
+          tracePersisted:
+            request.engine === "native" && loaded.config.trace.enabled,
+        });
+        this.#revision = await snapshotHash(snapshotPath);
+        detail("context", session.contextStatus());
+        if (result.message) detail("error", result.message);
+        await record.finish(finalCompletion);
+        await this.#loadRunHistory(undefined, request.runId);
+        return finalCompletion;
+      } catch (error) {
+        const code = recorder?.failed
+          ? "product-run-storage-failed"
+          : desktopError(error);
+        context.detail("error", code);
+        const failure: ProductRunCompletion = {
+          outcome: context.signal.aborted ? "cancelled" : "failed",
+          reason: context.signal.aborted
+            ? "cancelled"
+            : code === "configuration-invalid"
+              ? "configuration_error"
+              : code === "session-storage-failed" ||
+                  code === "product-run-storage-failed"
+                ? "storage_error"
+                : [
+                      "session-conflict",
+                      "session-busy",
+                      "workspace-busy",
+                      "workspace-changed",
+                    ].includes(code)
+                  ? "workspace_conflict"
+                  : "execution_error",
+          message: code,
+          durationMs: Math.max(0, performance.now() - startedAt),
+        };
+        if (recorder && !recorder.failed) {
+          try {
+            await recorder.result(failure);
+            await recorder.finish(failure);
+          } catch {
+            return {
+              ...failure,
+              outcome: "failed",
+              reason: "storage_error",
+              message: "product-run-storage-failed",
+            };
+          }
+        }
+        return failure;
       } finally {
-        this.#busy = false;
+        try {
+          await workspaceLease?.release();
+        } finally {
+          try {
+            await lease?.release();
+          } finally {
+            this.#busy = false;
+          }
+        }
       }
+    },
+    { deferStartReply: true },
+  );
+  async #loadRunHistory(before?: number, runId?: string): Promise<void> {
+    const sessionId = this.#session?.sessionId;
+    if (!sessionId) {
+      this.#runHistory = undefined;
+      return;
     }
-  };
+    try {
+      const store = new FileProductRunStore(this.#home, {
+        secrets: configuredSecrets(this.#env),
+      });
+      const page = await store.list(sessionId, before);
+      this.#historyPageBefore = before;
+      const record = runId ? await store.read(sessionId, runId) : undefined;
+      this.#runHistory = {
+        ...page,
+        ...(record
+          ? {
+              selected: {
+                summary: record.summary,
+                activity: projectRecordedActivity(record),
+                incomplete:
+                  record.incomplete ||
+                  Boolean(record.summary.journalIncomplete),
+              },
+            }
+          : {}),
+      };
+    } catch {
+      this.#runHistory = { runs: [], error: "product-run-storage-failed" };
+    }
+  }
   #codexDependencies(signal: AbortSignal) {
     return {
       env: this.#env,
@@ -903,4 +1075,25 @@ export function desktopError(error: unknown): string {
     if (error.name === "PersistenceError") return "session-storage-failed";
   }
   return "management-failed";
+}
+
+async function desktopSessionLease(
+  home: string,
+  sessionId: string,
+): Promise<ExecutionLease> {
+  try {
+    const legacy = await lstat(
+      join(home, "sessions", `${sessionId}.desktop-lock`),
+    ).catch((error: unknown) => {
+      if (error instanceof Error && "code" in error && error.code === "ENOENT")
+        return undefined;
+      throw error;
+    });
+    if (legacy) throw new Error("session-busy");
+    return await ExecutionLease.acquire(
+      `desktop-session:${await realpath(home)}:${sessionId}`,
+    );
+  } catch {
+    throw new Error("session-busy");
+  }
 }

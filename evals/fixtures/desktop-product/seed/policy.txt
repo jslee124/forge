@@ -1,0 +1,1 @@
+Reads: allowed inside workspace. Writes: workspace policy and path checks. Processes: require explicit approval in safe mode. These application controls are not an OS sandbox.

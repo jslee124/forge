@@ -50,7 +50,9 @@ export default defineConfig({
     },
   },
   preload: {
-    plugins: [externalizeDepsPlugin({ exclude: ["zod"] })],
+    plugins: [
+      externalizeDepsPlugin({ exclude: ["@forge/persistence", "zod"] }),
+    ],
     build: {
       rollupOptions: {
         output: {

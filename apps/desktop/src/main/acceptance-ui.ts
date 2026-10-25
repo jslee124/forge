@@ -483,6 +483,79 @@ export async function runUiAcceptance(
     );
     await js("document.querySelector('.run-activity li details').open = true");
     await capture("product-activity-expanded");
+    // Persisted history survives a renderer reload; viewing it cannot call the provider.
+    const historySession = await js(
+      "window.forgeDesktop.manage({type:'state'}).then(state => state.sessionId)",
+    );
+    const callsBeforeHistory = provider.calls;
+    // Earlier fixture drafts intentionally remain unsent. Bypass only the test
+    // window's native unload prompt while checking persistence, then restore it.
+    const unloadGuards = window.webContents.listeners("will-prevent-unload");
+    window.webContents.removeAllListeners("will-prevent-unload");
+    window.webContents.once("will-prevent-unload", (event) =>
+      event.preventDefault(),
+    );
+    const reloaded = new Promise<void>((resolve) =>
+      window.webContents.once("did-finish-load", () => resolve()),
+    );
+    window.webContents.reload();
+    await reloaded;
+    for (const guard of unloadGuards)
+      window.webContents.on("will-prevent-unload", (event) => guard(event));
+    await click(`[data-session-id="${historySession}"]`);
+    await until(
+      "document.querySelector('.live-panel') && !document.querySelector('[data-testid=composer-engine]').disabled",
+    );
+    await click(".studio-tabs button:last-child");
+    await until(
+      "document.querySelector('.studio-tabs button:last-child').getAttribute('aria-pressed') === 'true'",
+    );
+    await until(
+      "document.querySelector('.run-history li button') && !document.querySelector('.run-history li button').disabled",
+    );
+    await click(".run-history li button");
+    try {
+      await until(
+        "document.querySelector('.studio-panel-body:not([hidden]) .run-history-selected .run-activity li') && !document.querySelector('.run-history li button').disabled",
+      );
+    } catch (error) {
+      console.error(
+        "History diagnostic",
+        await js(
+          "(async()=>JSON.stringify({panel:document.querySelector('.live-panel')?.textContent,state:await window.forgeDesktop.manage({type:'state'})}))()",
+        ),
+      );
+      await capture("product-history-failure");
+      throw error;
+    }
+    if (
+      await js(
+        "Boolean(document.querySelector('.run-history-selected .run-approval'))",
+      )
+    )
+      throw new Error("Historical approval became executable");
+    if (provider.calls !== callsBeforeHistory)
+      throw new Error("History viewing called provider");
+    const restoredHistory = await js(
+      "window.forgeDesktop.manage({type:'state'}).then(state => state.runHistory)",
+    );
+    if (
+      !restoredHistory?.selected?.activity.items.some(
+        (item: { action?: { status: string } }) =>
+          item.action?.status === "succeeded",
+      )
+    )
+      throw new Error("Historical action result missing");
+    await capture("product-durable-history-after-reload");
+    await click(".studio-panel-toggle");
+    // Language initializes from the app default after reload; set this fixture explicitly.
+    await click('[data-testid="settings"]');
+    await click(".settings-nav button:first-child");
+    await js(
+      "(() => {const e=document.querySelector('[data-testid=language]');Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(e,'en');e.dispatchEvent(new Event('change',{bubbles:true}));})()",
+    );
+    await until("document.documentElement.lang === 'en'");
+    await click(".studio-back");
     // The conversation container, rather than the window alone, owns responsive controls.
     for (const width of [1100, 980, 840, 720]) {
       window.setContentSize(width, 800);

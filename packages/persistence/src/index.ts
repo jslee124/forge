@@ -7,6 +7,12 @@ export {
   gatewayStateSchema,
   writePrivateJson,
 } from "./gateway-store.js";
+export * from "./product-run-schema.js";
+export {
+  FileProductRunStore,
+  ProductRunStorageError,
+  ProductRunWriter,
+} from "./product-run-store.js";
 export { configuredSecrets, redactValue } from "./redaction.js";
 export {
   type ContextCheckpoint,

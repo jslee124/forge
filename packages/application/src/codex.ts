@@ -66,6 +66,7 @@ export type CodexOutputEvent =
     };
 
 export interface CodexCommandDependencies {
+  readonly workspaceLease?: ExecutionLease;
   readonly env: NodeJS.ProcessEnv;
   readonly cwd: string;
   readonly stdout: WritableOutput;
@@ -292,7 +293,9 @@ export async function runCodexTask(
   let lease: ExecutionLease | undefined;
   try {
     const loaded = await resolveForgeWorkspace(dependencies.cwd);
-    lease = await acquireWorkspaceLease(loaded.workspaceRoot);
+    if (dependencies.workspaceLease)
+      await dependencies.workspaceLease.assertWorkspace(loaded.workspaceRoot);
+    else lease = await acquireWorkspaceLease(loaded.workspaceRoot);
     return await runCodexTaskWithLease(prompt, options, dependencies);
   } catch {
     dependencies.stderr.write(

@@ -745,6 +745,45 @@
   align-items: center;
   gap: 8px;
 }
+.run-history {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+.studio-panel-body > .run-history:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+.run-history ul {
+  list-style: none;
+  padding: 0;
+}
+.live-shell .run-history li > button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  margin-top: 8px;
+  text-align: left;
+}
+.run-history li span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.run-history small,
+.run-history-selected > p {
+  color: var(--muted);
+  font-size: 12px;
+}
+.run-history-selected h4 {
+  overflow-wrap: anywhere;
+}
+.run-history-selected .studio-run-result {
+  margin-inline: 0;
+}
 .live-shell .field-error {
   color: var(--danger);
   padding: 10px 20px;
