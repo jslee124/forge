@@ -64,7 +64,11 @@ export function WorkspaceHeader({
         title={state?.cwd || t("live.folder")}
       >
         <FolderOpen size={17} />
-        <span>{state?.cwd?.split("/").pop() || t("live.folder")}</span>
+        <span>
+          {state?.automaticWorkspace
+            ? t("setup.automaticWorkspace")
+            : state?.cwd?.split(/[\\/]/).pop() || t("live.folder")}
+        </span>
       </button>
       {collapsedMac && (
         <button
@@ -81,8 +85,12 @@ export function WorkspaceHeader({
       <span className="studio-task-title">
         {settings
           ? t("common.settings")
-          : state?.sessions.find((session) => session.id === state.sessionId)
-              ?.title}
+          : (() => {
+              const title = state?.sessions.find(
+                (session) => session.id === state.sessionId,
+              )?.title;
+              return title === "Empty session" ? t("setup.emptyTask") : title;
+            })()}
       </span>
       <button
         type="button"

@@ -365,6 +365,49 @@ VoiceOver speech and native IME candidate confirmation remain unverified: input
 source/keystroke and Cmd+F5 attempts did not provide observable candidate/speech
 proof. T12 remains partial. The report records the small manual checks still needed.
 
+## First-send setup and actionable failures (2026-10-26)
+
+This follow-up addresses the missing-configuration/native-language findings above.
+Before session creation, Desktop requests a fresh local readiness check for the
+actual selected engine/model. Native checks use current configuration,
+endpoint-scoped credential status and the same adapter constructor as execution;
+no model request is made. Explicit `auth: none` routes are supported. Codex checks
+its own account access and does not reuse Forge API-key authentication. Runtime
+validation still runs; readiness is neither a permission grant nor a guarantee of
+remote availability. Existing previews or old servers without readiness fail closed.
+
+A blocked send retains the draft, creates no session/run and shows a specific
+configuration action. Returning from Models & access retains the request for an
+explicit resend. Configuration failures during execution also link to settings
+and suppress budget-recovery actions. Current automatic workspaces use a readable
+label, and empty-session display names are localized without rewriting history.
+
+Core `RunResult` now carries optional bounded transport facts (HTTP status and
+retryability only) from `ModelProviderError`. The application projects known
+401/403, missing-response retryable errors, 429 and 5xx into stable failure codes;
+Desktop presents access, connection, quota and service guidance. Unknown errors
+remain generic. The existing durable reason enum and history schema are retained;
+old readers can show the code as diagnostics. No credentials, response bodies,
+error causes or authority are copied into these facts. Canonical history and
+CLI/gateway execution defaults remain unchanged. Transport facts lacking a status
+support connection guidance, not a claim about the underlying network cause.
+
+A sender-validated locale IPC synchronizes the application's EN/ZH setting with
+native quit/update dialogs; the OS locale remains the fallback until synchronization.
+Configuration/access errors offer configuration; known transient provider failures
+offer explicit edit/retry, rather than unrelated new-budget controls.
+
+Validation on the final local development build: 190 Desktop/core/application
+tests passed, six live-model opt-in tests skipped; 134 deterministic evaluations,
+root check and Desktop build passed. The isolated Electron acceptance covers
+blocked first send → settings → retained draft, both native-dialog languages,
+scripted HTTP 401/429/503 and socket interruption through the real adapter/Agent/IPC,
+plus the existing approval, recovery, delivery, browsing and T12 matrix. Local
+screenshots/manifest are under `/tmp/forge-onboarding-acceptance/`; these are
+development evidence, not a release or live-provider quality claim. The previous
+installed 0.4.0 local build has not been replaced by this source increment.
+VoiceOver, native IME candidates and T13 user trials retain their prior limits.
+
 ## 1. Goal and invariants
 
 Complete the native-engine investigation → approval → execution → verification →

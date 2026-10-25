@@ -120,6 +120,12 @@ export function LiveWorkbench(): React.JSX.Element {
   };
   const [error, setError] = React.useState("");
   const [pending, setPending] = React.useState(false);
+  const [setupIssue, setSetupIssue] = React.useState<
+    | "missing_credentials"
+    | "invalid_configuration"
+    | "codex_sign_in"
+    | "codex_unavailable"
+  >();
   const [settings, setSettings] = React.useState(false);
   const [settingsSection, setSettingsSection] = React.useState("appearance");
   const [panel, setPanel] = React.useState(false);
@@ -209,6 +215,9 @@ export function LiveWorkbench(): React.JSX.Element {
   const zh = i18n.language.startsWith("zh");
   const busy = Boolean(active) || pending;
   const api = window.forgeDesktop;
+  React.useEffect(() => {
+    void api?.setLocale?.(zh ? "zh-CN" : "en").catch(() => {});
+  }, [zh]);
   const sessions = state?.sessions ?? [];
   const navigationSessions =
     active && !sessions.some((session) => session.id === active.sessionId)
@@ -437,6 +446,7 @@ export function LiveWorkbench(): React.JSX.Element {
     const next = await manage({ type: "reset", mode });
     if (!next) return false;
     clearBrowsing();
+    setSetupIssue(undefined);
     setPrompt("");
     resetAnswer();
     clearActivity();
@@ -696,6 +706,38 @@ export function LiveWorkbench(): React.JSX.Element {
     setPending(true);
     setError("");
     try {
+      const chosen =
+        recovery?.selection ??
+        selection ??
+        (model && state
+          ? {
+              engine,
+              provider: engine === "codex" ? "openai" : state.provider,
+              model,
+            }
+          : undefined);
+      let checked: DesktopState;
+      try {
+        checked = await api.manage({
+          type: "check-readiness",
+          engine: chosen?.engine ?? engine,
+          ...(chosen ? { selection: chosen } : {}),
+        });
+      } catch (cause) {
+        const code = operationError(cause);
+        if (code === "configuration-invalid")
+          setSetupIssue("invalid_configuration");
+        else {
+          setSetupIssue(undefined);
+          setError(code);
+        }
+        return;
+      }
+      if (!checked.readiness?.ready) {
+        setSetupIssue(checked.readiness?.issue ?? "invalid_configuration");
+        return;
+      }
+      setSetupIssue(undefined);
       const current = state?.sessionId
         ? state
         : await api.manage({ type: "create", prompt: input });
@@ -962,7 +1004,11 @@ export function LiveWorkbench(): React.JSX.Element {
                   }}
                 >
                   <ChatCircle size={16} />
-                  <span>{session.title}</span>
+                  <span>
+                    {session.title === "Empty session"
+                      ? t("setup.emptyTask")
+                      : session.title}
+                  </span>
                   {active?.sessionId === session.id && (
                     <small className="session-running">
                       {t("browsing.runningBadge")}
@@ -1138,6 +1184,30 @@ export function LiveWorkbench(): React.JSX.Element {
               )}
             </div>
           )}
+          {setupIssue && !settings && (
+            <section
+              role="alert"
+              className="studio-notice setup-notice"
+              data-testid="setup-required"
+            >
+              <div>
+                <strong>{t("setup.title")}</strong>
+                <p>{t(`setup.${setupIssue}`)}</p>
+                <p>{t("setup.draftKept")}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSettingsSection(
+                    setupIssue.startsWith("codex_") ? "login" : "credentials",
+                  );
+                  setSettings(true);
+                }}
+              >
+                {t("setup.configure")}
+              </button>
+            </section>
+          )}
           {error && (
             <p role="alert" className="field-error">
               {t(`live.errors.${error}`, { defaultValue: t("live.error") })}
@@ -1310,6 +1380,12 @@ export function LiveWorkbench(): React.JSX.Element {
                         ? (kind) => void prepareRecovery(kind, completionRunId)
                         : undefined
                     }
+                    onConfigure={() => {
+                      setSettingsSection(
+                        engine === "codex" ? "login" : "credentials",
+                      );
+                      setSettings(true);
+                    }}
                     onSource={(sourceRunId) => {
                       setPanel(true);
                       setPanelTab("context");

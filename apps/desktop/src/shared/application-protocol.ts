@@ -47,7 +47,27 @@ export const recoveryPlanSchema = z
   })
   .strict();
 export type RecoveryPlan = z.infer<typeof recoveryPlanSchema>;
+export const readinessSchema = z
+  .object({
+    ready: z.boolean(),
+    issue: z
+      .enum([
+        "missing_credentials",
+        "invalid_configuration",
+        "codex_sign_in",
+        "codex_unavailable",
+      ])
+      .optional(),
+  })
+  .strict();
 export const managementCommandSchema = z.discriminatedUnion("type", [
+  z
+    .object({
+      type: z.literal("check-readiness"),
+      engine: z.enum(["native", "codex"]),
+      selection: selectionSchema.optional(),
+    })
+    .strict(),
   z
     .object({
       type: z.literal("browse-session"),
@@ -167,6 +187,8 @@ export const browsedSessionSchema = z
 export type BrowsedSession = z.infer<typeof browsedSessionSchema>;
 export const desktopStateSchema = z
   .object({
+    readiness: readinessSchema.optional(),
+    automaticWorkspace: z.boolean().optional(),
     runHistory: productRunHistorySchema.optional(),
     browsedSession: browsedSessionSchema.optional(),
     recoveryPlan: recoveryPlanSchema.optional(),

@@ -511,3 +511,38 @@ it("does not report successful logout when App Server rejects it", async () => {
     await rm(cwd, { recursive: true, force: true });
   }
 });
+
+it("checks Codex subscription access without starting a thread or using Forge API credentials", async () => {
+  const root = await mkdtemp(join(tmpdir(), "forge-codex-readiness-"));
+  const client = new Client();
+  try {
+    const application = new DesktopApplication(
+      { FORGE_HOME: join(root, "home") },
+      root,
+      { connect: async () => client },
+    );
+    const ready = await application.manage({
+      type: "check-readiness",
+      engine: "codex",
+    });
+    expect(ready.readiness).toEqual({ ready: true });
+    expect(ready.sessions).toEqual([]);
+    expect(client.calls).toContain("account/read");
+    expect(client.calls).not.toContain("thread/start");
+    expect(client.calls).not.toContain("turn/start");
+    client.request = async <T>(method: string): Promise<T> =>
+      method === "account/read"
+        ? ({ account: null } as T)
+        : ({ data: [] } as T);
+    const signedOut = await application.manage({
+      type: "check-readiness",
+      engine: "codex",
+    });
+    expect(signedOut.readiness).toEqual({
+      ready: false,
+      issue: "codex_sign_in",
+    });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

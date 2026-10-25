@@ -7,6 +7,7 @@ export function RunResult({
   historical = false,
   onRecover,
   onSource,
+  onConfigure,
   recoveryDisabled = false,
   sourceDisabled,
 }: {
@@ -14,10 +15,19 @@ export function RunResult({
   historical?: boolean;
   onRecover?: ((kind: "summarize" | "continue" | "retry") => void) | undefined;
   onSource?: (sourceRunId: string) => void;
+  onConfigure?: (() => void) | undefined;
   recoveryDisabled?: boolean;
   sourceDisabled?: boolean;
 }) {
   const { t } = useTranslation();
+  const providerIssue = [
+    "provider-authentication-failed",
+    "provider-connection-failed",
+    "provider-unavailable",
+    "provider-rate-limited",
+  ].includes(result.message ?? "")
+    ? result.message
+    : undefined;
   const failed =
     result.outcome !== "completed" && result.outcome !== "cancelled";
   return (
@@ -38,7 +48,11 @@ export function RunResult({
       </strong>
       {result.partial && <p>{t("runUi.partialResult")}</p>}
       {result.reason && result.recovery?.kind !== "summarize" && (
-        <p>{t(`runUi.reasons.${result.reason}`)}</p>
+        <p>
+          {providerIssue
+            ? t(`runUi.providerFailures.${providerIssue}`)
+            : t(`runUi.reasons.${result.reason}`)}
+        </p>
       )}
       <div className="run-result-metrics">
         {result.durationMs !== undefined && (
@@ -75,9 +89,19 @@ export function RunResult({
           {t("recovery.viewSource")}
         </button>
       )}
-      {onRecover && (
+      {!historical &&
+        result.reason === "configuration_error" &&
+        onConfigure && (
+          <button type="button" onClick={onConfigure}>
+            {t("setup.configure")}
+          </button>
+        )}
+      {onRecover && result.reason !== "configuration_error" && (
         <div className="run-recovery-actions">
-          {(["summarize", "continue", "retry"] as const).map((kind) => (
+          {(providerIssue
+            ? (["retry"] as const)
+            : (["summarize", "continue", "retry"] as const)
+          ).map((kind) => (
             <button
               key={kind}
               type="button"

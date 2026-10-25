@@ -296,3 +296,24 @@ acceptance); numbered walkthrough: `/tmp/forge-t12-ui-final/audit.md`.
 151 Desktop/application tests passed, six live opt-in tests skipped; 133
 deterministic evaluations, root check, docs check and Desktop build passed.
 No external provider quality, performance benchmark, packaging or release claim.
+
+
+## First-send setup and failure guidance — 2026-10-26
+
+[Implementation and limits](../../docs/development/DESKTOP_PRODUCT_IMPLEMENTATION.md#first-send-setup-and-actionable-failures-2026-10-26).
+This source increment addresses the configuration/native-language findings from
+the previous packaged probe; it does not update that installed build.
+
+1. Local readiness blocks missing credentials before creating a session/run;
+   the configuration action reaches Models & access and retains the draft on return.
+2. Typed HTTP 401/403, missing-response retryable transport failures, 429 and 5xx
+   produce specific guidance. Unknown errors remain generic; no prose matching.
+   Access errors offer configuration; other known provider failures offer edit/retry.
+3. Native draft-guard prompts follow EN/ZH through sender-validated locale IPC.
+   The fixture invokes actual close/quit paths while supplying the cancel response;
+   this does not replace VoiceOver or native IME listening/candidate checks.
+
+Reproduce the existing full fixture after building with `FORGE_T12_MODE=verify`.
+Local output: `/tmp/forge-onboarding-acceptance/` including `ui.json` and onboarding
+screenshots. Validation: 190 related tests, six live tests skipped, 134 deterministic
+evaluations, root check and Desktop build. No external-provider or release claim.

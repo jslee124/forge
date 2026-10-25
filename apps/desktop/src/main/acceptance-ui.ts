@@ -78,6 +78,41 @@ export async function runUiAcceptance(
   await until(
     `document.querySelector('[data-session-id="${fixtures[0]?.id}"]')`,
   );
+  await until(
+    "!document.querySelector('[data-testid=composer-engine]').disabled",
+  );
+  const setupBefore = await js(
+    "window.forgeDesktop.manage({type:'state'}).then(s=>({id:s.sessionId,count:s.sessions.length}))",
+  );
+  await js(
+    "(()=>{const e=document.querySelector('.live-composer textarea');Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(e,'First request without credentials');e.dispatchEvent(new Event('input',{bubbles:true}));})()",
+  );
+  await click(".studio-composer-footer > button:last-child");
+  await until(
+    "document.querySelector('[data-testid=setup-required]') && !document.querySelector('[data-testid=composer-engine]').disabled",
+  );
+  const setupAfter = await js(
+    "window.forgeDesktop.manage({type:'state'}).then(s=>({id:s.sessionId,count:s.sessions.length}))",
+  );
+  if (JSON.stringify(setupBefore) !== JSON.stringify(setupAfter))
+    throw new Error("Blocked setup created a session");
+  if (await js("Boolean(document.querySelector('[data-run-result=current]'))"))
+    throw new Error("Blocked setup created a failed run");
+  await capture("onboarding-missing-credentials");
+  await click("[data-testid=setup-required] button");
+  await until("document.querySelector('#settings-credentials')");
+  await capture("onboarding-configure-model");
+  await click(".studio-back");
+  await until(
+    "document.querySelector('.live-composer textarea').value === 'First request without credentials'",
+  );
+  results.push({
+    name: "onboarding-local-preflight",
+    draftPreserved: true,
+    noSessionCreated: true,
+    noRunCreated: true,
+    modelCalls: 0,
+  });
   for (const appearance of ["light", "dark"]) {
     await click('[data-testid="settings"]');
     await until("document.querySelector('.theme-options button')");
@@ -348,7 +383,15 @@ export async function runUiAcceptance(
   const originalDialog = dialog.showMessageBoxSync;
   let closePrompts = 0;
   try {
-    dialog.showMessageBoxSync = () => {
+    let expectedPrompt = "Keep working";
+    dialog.showMessageBoxSync = (
+      windowOrOptions: Electron.BaseWindow | Electron.MessageBoxSyncOptions,
+      options?: Electron.MessageBoxSyncOptions,
+    ) => {
+      const prompt =
+        options ?? (windowOrOptions as Electron.MessageBoxSyncOptions);
+      if (prompt.buttons?.[0] !== expectedPrompt)
+        throw new Error("Native dialog language differs from application");
       closePrompts++;
       return 0;
     };
@@ -360,6 +403,19 @@ export async function runUiAcceptance(
     await new Promise((resolve) => setTimeout(resolve, 150));
     if (window.isDestroyed() || Number(closePrompts) !== 2)
       throw new Error("application quit bypassed draft guard");
+    await js("window.forgeDesktop.setLocale('zh-CN')");
+    expectedPrompt = "继续工作";
+    window.close();
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    if (window.isDestroyed() || Number(closePrompts) !== 3)
+      throw new Error("Chinese native draft guard failed");
+    await js("window.forgeDesktop.setLocale('en')");
+    results.push({
+      name: "native-dialog-locale",
+      english: true,
+      chinese: true,
+      cancelPreservesDraft: true,
+    });
   } finally {
     dialog.showMessageBoxSync = originalDialog;
   }
@@ -698,6 +754,37 @@ export async function runUiAcceptance(
       "(() => {const r=document.querySelector('[data-run-result=current]').getBoundingClientRect();return r.top>=0 && r.bottom<=innerHeight;})()",
     );
     await capture("p4-error");
+    for (const [mode, expected] of [
+      ["error-auth", "rejected access"],
+      ["error-network", "connection was interrupted"],
+      ["error-rate", "rate or quota limit"],
+      ["error-server", "temporarily unavailable"],
+    ] as const) {
+      provider.setMode(mode);
+      await click(".sidebar > button:first-of-type");
+      await until(
+        "document.querySelector('.studio-welcome') && !document.querySelector('[data-testid=composer-engine]').disabled",
+      );
+      await enterDraft(`Typed provider failure ${mode}`);
+      await click(".studio-composer-footer > button:last-child");
+      await until(
+        `document.querySelector('[data-run-result=current]')?.textContent.includes(${JSON.stringify(expected)}) && !document.querySelector('[data-testid=composer-engine]').disabled`,
+      );
+      if (
+        mode === "error-auth" &&
+        (await js(
+          "Boolean(document.querySelector('[data-recovery=continue]'))",
+        ))
+      )
+        throw new Error("Provider failure offers an unrelated run budget");
+      await capture(`onboarding-${mode}`);
+      results.push({
+        name: `typed-provider-${mode}`,
+        fixture: true,
+        externalProvider: false,
+      });
+    }
+
     const finalizationCallsBefore = provider.calls;
     const finalizationConfig = JSON.parse(
       await readFile(join(home, "config.json"), "utf8"),

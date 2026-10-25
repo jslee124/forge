@@ -128,11 +128,28 @@ export function projectRunCompletion(result: RunResult): ProductRunCompletion {
   } else if (result.status === "cancelled") reason = "cancelled";
   else if (result.status === "denied") reason = "permission_denied";
   else if (result.status === "failed") reason = "execution_error";
+  const failure =
+    result.status === "failed" ? result.providerFailure : undefined;
+  const providerMessage =
+    failure?.statusCode === 401 || failure?.statusCode === 403
+      ? "provider-authentication-failed"
+      : failure?.statusCode === 429
+        ? "provider-rate-limited"
+        : failure?.statusCode !== undefined && failure.statusCode >= 500
+          ? "provider-unavailable"
+          : failure?.statusCode === undefined && failure?.retryable
+            ? "provider-connection-failed"
+            : undefined;
+  if (providerMessage === "provider-authentication-failed")
+    reason = "configuration_error";
+  if (providerMessage === "provider-connection-failed") reason = "disconnected";
   return {
     outcome: result.status,
     ...(result.partial !== undefined ? { partial: result.partial } : {}),
     ...(reason ? { reason } : {}),
-    ...(result.message ? { message: result.message } : {}),
+    ...(providerMessage || result.message
+      ? { message: providerMessage ?? result.message }
+      : {}),
     modelSteps: result.modelSteps,
     toolCalls: result.toolCalls,
   };

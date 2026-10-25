@@ -31,6 +31,7 @@ import {
   AGENT_PING_CHANNEL,
   RUN_COMMAND_CHANNEL,
   RUN_EVENT_CHANNEL,
+  UI_LOCALE_CHANNEL,
 } from "../shared/desktop-api.js";
 import {
   CHANGE_REVIEW_CHANNEL,
@@ -49,6 +50,7 @@ import { runInstallAcceptance } from "./install-acceptance.js";
 
 let agent: AgentProcess | undefined;
 let mainWindow: BrowserWindow | undefined;
+let uiLocale: "en" | "zh-CN" | undefined;
 let quitting = false;
 const files = new FileService();
 
@@ -122,7 +124,7 @@ async function createWindow(show = true): Promise<BrowserWindow> {
   window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
   window.webContents.on("will-navigate", (event) => event.preventDefault());
   window.webContents.on("will-prevent-unload", (event) => {
-    const zh = app.getLocale().startsWith("zh");
+    const zh = (uiLocale ?? app.getLocale()).startsWith("zh");
     const choice = dialog.showMessageBoxSync(window, {
       type: "question",
       buttons: zh ? ["继续工作", "退出"] : ["Keep working", "Exit"],
@@ -150,6 +152,7 @@ async function shutdown(): Promise<void> {
   ipcMain.removeHandler(RUN_COMMAND_CHANNEL);
   for (const channel of [
     MANAGEMENT_CHANNEL,
+    UI_LOCALE_CHANNEL,
     CHOOSE_WORKSPACE_CHANNEL,
     OPEN_LOGIN_CHANNEL,
     OPEN_SOURCE_CHANNEL,
@@ -208,7 +211,7 @@ async function run(): Promise<void> {
         return updates?.status;
       explainingInstaller = true;
       try {
-        const zh = app.getLocale().startsWith("zh");
+        const zh = (uiLocale ?? app.getLocale()).startsWith("zh");
         const windows = process.platform === "win32";
         const choice = await dialog.showMessageBox(requireMainWindow(), {
           type: "info",
@@ -254,6 +257,11 @@ async function run(): Promise<void> {
     )
       return false;
     return agent?.runs.request(value) ?? false;
+  });
+  ipcMain.handle(UI_LOCALE_CHANNEL, (event, value: unknown) => {
+    assertMainSender(event);
+    if (value !== "en" && value !== "zh-CN") throw new Error("Invalid locale");
+    uiLocale = value;
   });
   ipcMain.handle(MANAGEMENT_CHANNEL, (event, value: unknown) => {
     if (

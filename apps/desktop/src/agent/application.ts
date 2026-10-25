@@ -5,6 +5,7 @@ import {
   AuthenticationManager,
   type CodexClient,
   changeProjectPluginTrust,
+  createForgeModelAdapter,
   createPersistentInteractiveSession,
   detectStartupResources,
   discoverCodexModels,
@@ -132,6 +133,7 @@ export class DesktopApplication {
       contextUpdatedAt: new Date().toISOString(),
       forgeHome: this.#home,
       cwd: this.#cwd,
+      automaticWorkspace: this.#automaticWorkspace,
       sessionId: this.#session?.sessionId ?? "",
       model: loaded.config.model.id,
       provider: loaded.config.model.provider,
@@ -318,6 +320,87 @@ export class DesktopApplication {
       return this.state();
     }
     if (this.#busy) throw new Error("busy");
+    if (command.type === "check-readiness") {
+      // Local validation only: no session creation, model request or authority grant.
+      const selection = command.selection;
+      if (selection && selection.engine !== command.engine)
+        throw new Error("configuration-invalid");
+      if (command.engine === "codex") {
+        const current = await this.#manage({ type: "auth-status" });
+        return {
+          ...current,
+          readiness:
+            current.auth === "authenticated"
+              ? { ready: true }
+              : {
+                  ready: false,
+                  issue:
+                    current.auth === "unavailable"
+                      ? "codex_unavailable"
+                      : "codex_sign_in",
+                },
+        };
+      }
+      const loaded = await loadForgeConfig({
+        env: this.#env,
+        cwd: this.#cwd || this.#initialCwd,
+        cli: {
+          engine: "forge",
+          ...(selection
+            ? {
+                provider: selection.provider,
+                model: selection.model,
+                ...(selection.effort
+                  ? { reasoningEffort: selection.effort }
+                  : {}),
+              }
+            : {}),
+        },
+      }).catch(() => undefined);
+      if (!loaded)
+        return {
+          ...(await this.state()),
+          readiness: { ready: false, issue: "invalid_configuration" },
+        };
+      const provider = loaded.config.model.provider;
+      const profile = loaded.config.providers[provider];
+      let issue: "missing_credentials" | "invalid_configuration" | undefined;
+      if (!this.#overrides.createAdapter) {
+        if (!["deepseek", "openai"].includes(provider) && !profile)
+          issue = "invalid_configuration";
+        else if (
+          profile?.auth.type !== "none" &&
+          !new AuthenticationManager(this.#env).status(provider, {
+            ...(profile ? { endpoint: profile.baseUrl } : {}),
+            ...(profile?.auth.type === "bearer" && profile.auth.apiKeyEnv
+              ? { environmentVariable: profile.auth.apiKeyEnv }
+              : {}),
+          }).authenticated
+        )
+          issue = "missing_credentials";
+        if (!issue) {
+          try {
+            createForgeModelAdapter({
+              env: this.#env,
+              provider,
+              model: loaded.config.model.id,
+              thinking:
+                loaded.config.model.thinking === "disabled"
+                  ? "disabled"
+                  : "enabled",
+              reasoningEffort: loaded.config.model.reasoningEffort,
+              providers: loaded.config.providers,
+            });
+          } catch {
+            issue = "invalid_configuration";
+          }
+        }
+      }
+      return {
+        ...(await this.state()),
+        readiness: issue ? { ready: false, issue } : { ready: true },
+      };
+    }
     this.#operationResult = "";
     if (
       [
@@ -1122,7 +1205,7 @@ export class DesktopApplication {
         finalCompletion = await record.result({
           ...(request.engine === "native" ? projected : opaqueCompletion),
           ...(recovery ? { recovery: recovery.prepared.link } : {}),
-          ...(result.message ? { message: redact(result.message) } : {}),
+          ...(projected.message ? { message: redact(projected.message) } : {}),
           durationMs: Math.max(0, performance.now() - startedAt),
         });
         await session.recordRun(request.prompt, result, {

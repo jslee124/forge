@@ -19,6 +19,7 @@ import {
   contextPressureSnapshot,
   DEFAULT_CONTEXT_CONFIGURATION,
 } from "./context.js";
+import { ModelProviderError } from "./errors.js";
 import type {
   CanonicalConversationMessage,
   ModelAdapter,
@@ -309,6 +310,11 @@ export interface RunAgentOptions {
 }
 
 export interface RunResult {
+  /** Structured transport facts, without credential, endpoint, response body or cause. */
+  readonly providerFailure?: {
+    readonly statusCode?: number;
+    readonly retryable: boolean;
+  };
   readonly partial?: boolean;
   readonly limitReason?: FinalizationReason;
   readonly status: RunStatus;
@@ -795,7 +801,18 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
       }
       const message = safeErrorMessage(overflowError);
       if (finalizing) return fallback(message);
-      return finish("failed", message);
+      return finish(
+        "failed",
+        message,
+        overflowError instanceof ModelProviderError
+          ? {
+              ...(overflowError.statusCode !== undefined
+                ? { statusCode: overflowError.statusCode }
+                : {}),
+              retryable: overflowError.retryable,
+            }
+          : undefined,
+      );
     }
 
     await emit({
@@ -1331,6 +1348,7 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
   async function finish(
     status: RunStatus,
     message?: string,
+    providerFailure?: RunResult["providerFailure"],
   ): Promise<RunResult> {
     const type = `run.${status}` as RunEvent["type"];
     await emit({ type, ...(message ? { message } : {}) } as RunEvent);
@@ -1356,6 +1374,7 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
     validateCanonicalConversation(committed);
     return {
       status,
+      ...(providerFailure ? { providerFailure } : {}),
       ...(finalizing ? { partial: true, limitReason: finalizing } : {}),
       exitCode: exitCodeForRunStatus(status),
       finalText,

@@ -6,6 +6,22 @@ export type Locale = "en" | "zh-CN";
 export const resources = {
   en: {
     translation: {
+      setup: {
+        title: "Set up your model before sending",
+        missing_credentials:
+          "The selected provider has no API key for this endpoint. Add a key in Models & access, or choose another configured model.",
+        invalid_configuration:
+          "The selected model or provider configuration is invalid. Review the model and credentials in Models & access; custom endpoints must be corrected in your user configuration.",
+        codex_sign_in:
+          "Sign in to Codex with your ChatGPT account before sending. Forge API keys do not sign you in to Codex.",
+        codex_unavailable:
+          "Could not connect to the local Codex service. Check Codex installation and sign-in.",
+        configure: "Configure model",
+        draftKept:
+          "Your draft is kept. Return and send again after configuring. This local check does not verify the remote service.",
+        automaticWorkspace: "Task workspace",
+        emptyTask: "New task",
+      },
       messages: {
         transcript: "Conversation",
         jumpLatest: "Jump to latest",
@@ -215,6 +231,16 @@ export const resources = {
           interrupted: "Run interrupted",
           limit_reached: "Run budget reached",
           denied: "Run could not proceed with the current permissions",
+        },
+        providerFailures: {
+          "provider-authentication-failed":
+            "The provider rejected access (HTTP 401/403). Check the credential and account permissions in Models & access.",
+          "provider-connection-failed":
+            "The model connection was interrupted. Check your network, proxy and endpoint before retrying.",
+          "provider-unavailable":
+            "The model service is temporarily unavailable. Wait and retry; adding a Forge run budget will not repair the service.",
+          "provider-rate-limited":
+            "The provider reported a rate or quota limit. Check its quota or wait before retrying.",
         },
         reasons: {
           no_progress:
@@ -543,6 +569,22 @@ export const resources = {
   },
   "zh-CN": {
     translation: {
+      setup: {
+        title: "请先完成模型配置",
+        missing_credentials:
+          "所选供应商尚无此端点可用的 API 密钥。请在“模型与访问”中添加凭据，或选择已配置的模型。",
+        invalid_configuration:
+          "所选模型或供应商配置无效。请检查所选模型和凭据；自定义端点需在用户配置中修正。",
+        codex_sign_in:
+          "请先使用 ChatGPT 账号登录 Codex。Forge 的 API 密钥不能用于 Codex 登录。",
+        codex_unavailable:
+          "无法连接本机 Codex 服务，请检查 Codex 安装和登录状态。",
+        configure: "配置模型",
+        draftKept:
+          "草稿已保留，配置后返回重新发送。本地检查不代表远端服务一定可用。",
+        automaticWorkspace: "任务工作空间",
+        emptyTask: "新任务",
+      },
       messages: {
         transcript: "对话",
         jumpLatest: "跳到最新",
@@ -730,6 +772,16 @@ export const resources = {
           interrupted: "运行已中断",
           limit_reached: "本轮运行预算已用尽",
           denied: "当前权限下无法继续",
+        },
+        providerFailures: {
+          "provider-authentication-failed":
+            "供应商拒绝访问（HTTP 401/403）。请在“模型与访问”中检查凭据及账号权限。",
+          "provider-connection-failed":
+            "模型连接中断，请检查网络、代理和端点后重试。",
+          "provider-unavailable":
+            "模型服务暂不可用，请稍后重试；增加 Forge 运行预算不能修复远端服务。",
+          "provider-rate-limited":
+            "供应商报告速率或额度限制，请检查其额度或稍后重试。",
         },
         reasons: {
           no_progress: "连续重复读取未获得新证据，已停止调查并总结。",

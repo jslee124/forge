@@ -22,13 +22,21 @@ vi.mock("./file-preview.js", () => ({
   ContentPreview: () => null,
   DiffViewer: () => null,
 }));
-vi.mock("./settings-view.js", () => ({ SettingsView: () => null }));
+vi.mock("./settings-view.js", () => ({
+  SettingsView: ({ onBack }: { onBack: () => void }) =>
+    createElement(
+      "button",
+      { type: "button", onClick: onBack, "data-testid": "settings-back" },
+      "back",
+    ),
+}));
 
 let root: Root;
 let container: HTMLDivElement;
 let onEvent: (event: RunEvent) => void;
 const runCommand = vi.fn(async (_command: RunCommand) => true);
 const state: DesktopState = {
+  readiness: { ready: true },
   forgeHome: "/tmp/forge-test",
   cwd: "/tmp/workspace",
   sessionId: "test-session",
@@ -651,3 +659,73 @@ describe("separate execution and conversation browsing", () => {
     ).toHaveLength(1);
   });
 });
+
+it("blocks missing credentials before creating or running, retaining the draft and offering configuration", async () => {
+  const manage = vi.mocked(window.forgeDesktop.manage);
+  manage.mockResolvedValueOnce({
+    ...state,
+    readiness: { ready: false, issue: "missing_credentials" },
+  });
+  await draft("keep my request");
+  await key();
+  expect(runCommand).not.toHaveBeenCalled();
+  expect(manage.mock.calls.some(([command]) => command.type === "create")).toBe(
+    false,
+  );
+  expect(composer().value).toBe("keep my request");
+  expect(
+    container.querySelector('[data-testid="setup-required"]')?.textContent,
+  ).toContain("API 密钥");
+  const configure = container.querySelector<HTMLButtonElement>(
+    '[data-testid="setup-required"] button',
+  );
+  expect(configure?.textContent).toBe("配置模型");
+  await act(async () => configure?.click());
+  await act(async () =>
+    container
+      .querySelector<HTMLButtonElement>("[data-testid=settings-back]")
+      ?.click(),
+  );
+  expect(composer().value).toBe("keep my request");
+});
+
+it("hides budget recovery for a configuration error and links to model settings", async () => {
+  await draft("request");
+  await key();
+  await deliver({
+    type: "complete",
+    outcome: "failed",
+    reason: "configuration_error",
+    message: "configuration-invalid",
+  });
+  expect(container.querySelector("[data-recovery=continue]")).toBeNull();
+  expect(container.querySelector("[data-recovery=summarize]")).toBeNull();
+  expect(
+    container.querySelector("[data-run-result=current]")?.textContent,
+  ).toContain("配置模型");
+});
+
+it.each([
+  ["configuration_error", "provider-authentication-failed", "供应商拒绝访问"],
+  ["disconnected", "provider-connection-failed", "模型连接中断"],
+  ["execution_error", "provider-unavailable", "模型服务暂不可用"],
+  ["execution_error", "provider-rate-limited", "供应商报告速率或额度限制"],
+] as const)(
+  "shows a specific provider failure and avoids unrelated budget actions",
+  async (reason, message, label) => {
+    await draft("request");
+    await key();
+    await deliver({ type: "complete", outcome: "failed", reason, message });
+    expect(
+      container.querySelector("[data-run-result=current]")?.textContent,
+    ).toContain(label);
+    expect(container.querySelector("[data-recovery=continue]")).toBeNull();
+    if (reason === "configuration_error") {
+      expect(container.querySelector("[data-recovery=retry]")).toBeNull();
+      expect(
+        container.querySelector("[data-run-result=current]")?.textContent,
+      ).toContain("配置模型");
+    } else
+      expect(container.querySelector("[data-recovery=retry]")).not.toBeNull();
+  },
+);

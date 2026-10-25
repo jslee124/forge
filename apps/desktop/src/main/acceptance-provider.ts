@@ -2,8 +2,17 @@ import { createServer } from "node:http";
 
 /** Loopback-only scripted transport for development acceptance, never provider evidence. */
 export async function acceptanceProvider() {
-  let mode: "approval" | "wait" | "error" | "finalize" | "delivery" | "stream" =
-    "approval";
+  let mode:
+    | "approval"
+    | "wait"
+    | "error"
+    | "finalize"
+    | "delivery"
+    | "stream"
+    | "error-auth"
+    | "error-network"
+    | "error-rate"
+    | "error-server" = "approval";
   let textStream:
     | { append: (text: string) => void; finish: () => void }
     | undefined;
@@ -21,8 +30,21 @@ export async function acceptanceProvider() {
     };
     if (input.tool_choice === "none") noneRequests++;
     if (!input.tools?.length) toolFreeRequests++;
-    if (mode === "error") {
-      response.writeHead(400, { "content-type": "application/json" });
+    if (mode === "error-network") {
+      response.destroy();
+      return;
+    }
+    if (["error", "error-auth", "error-rate", "error-server"].includes(mode)) {
+      response.writeHead(
+        mode === "error-auth"
+          ? 401
+          : mode === "error-rate"
+            ? 429
+            : mode === "error-server"
+              ? 503
+              : 400,
+        { "content-type": "application/json" },
+      );
       response.end(
         JSON.stringify({
           error: {

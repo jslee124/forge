@@ -116,3 +116,46 @@ describe("product presentation contracts", () => {
     ).toEqual([]);
   });
 });
+
+it.each([
+  [
+    { statusCode: 401, retryable: false },
+    "configuration_error",
+    "provider-authentication-failed",
+  ],
+  [
+    { statusCode: 403, retryable: false },
+    "configuration_error",
+    "provider-authentication-failed",
+  ],
+  [{ retryable: true }, "disconnected", "provider-connection-failed"],
+  [
+    { statusCode: 503, retryable: true },
+    "execution_error",
+    "provider-unavailable",
+  ],
+  [
+    { statusCode: 429, retryable: true },
+    "execution_error",
+    "provider-rate-limited",
+  ],
+] as const)(
+  "projects typed transport facts instead of guessing from prose",
+  (providerFailure, reason, message) => {
+    const result: RunResult = {
+      status: "failed",
+      exitCode: 1,
+      finalText: "",
+      modelSteps: 1,
+      toolCalls: 0,
+      events: [],
+      message: "untrusted arbitrary diagnostic",
+      providerFailure,
+    };
+    expect(projectRunCompletion(result)).toMatchObject({ reason, message });
+    const { providerFailure: _facts, ...unknown } = result;
+    expect(
+      projectRunCompletion({ ...unknown, message: "HTTP 401" }).reason,
+    ).toBe("execution_error");
+  },
+);
