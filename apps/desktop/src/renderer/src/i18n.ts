@@ -6,6 +6,51 @@ export type Locale = "en" | "zh-CN";
 export const resources = {
   en: {
     translation: {
+      delivery: {
+        emptyOutput: "(empty)",
+        commandAttention: "{{count}} command results need inspection",
+        title: "Execution and delivery records",
+        counts: "{{files}} writes · {{commands}} command results",
+        scope:
+          "Recorded observations from this run. Workspace files may have changed since; these records do not establish completion of the whole task.",
+        incomplete:
+          "Records are incomplete, clipped, or lack structured engine coverage. Missing evidence remains unknown.",
+        unstructured:
+          "{{count}} completed operations lack structured delivery facts (including older records). Inspect activity; no facts are inferred from the answer.",
+        files: "Recorded file writes",
+        noFiles:
+          "No structured file-write results were recorded. This does not prove that the workspace is unchanged.",
+        recordedPatch:
+          "Change observed at this operation, not a diff of the current workspace.",
+        previewCurrent: "Preview current file",
+        more: "Show 10 more",
+        commands: "Recorded command results",
+        cwd: "Working directory: {{path}}",
+        verificationScope:
+          "An exit code describes the process. Whether it verifies the requested behavior must be assessed from the command and its output in activity.",
+        noCommands:
+          "No completed command results were recorded; command verification is unconfirmed.",
+        commandOutcomes: {
+          zero: "Exited with code 0",
+          nonzero: "Exited with code {{code}}",
+          timeout: "Command timed out",
+          unknown: "Process result unknown or signalled",
+        },
+        unresolved: "Unresolved operations",
+        noUnresolved:
+          "No unresolved operations in the available records; this does not prove all requested work was completed.",
+        operations: {
+          create: "Created",
+          replace: "Replaced text",
+          rewrite: "Rewritten",
+        },
+        states: {
+          failed: "Tool failed; effects may need inspection",
+          denied: "Denied",
+          unknown: "Effect unknown; inspect before retry",
+          not_executed: "No completed execution recorded",
+        },
+      },
       recovery: {
         actions: {
           summarize: "Summarize existing information",
@@ -466,6 +511,47 @@ export const resources = {
   },
   "zh-CN": {
     translation: {
+      delivery: {
+        emptyOutput: "（无输出）",
+        commandAttention: "{{count}} 项命令结果需检查",
+        title: "执行与交付记录",
+        counts: "{{files}} 次文件写入 · {{commands}} 项命令结果",
+        scope:
+          "仅展示本轮已记录的执行事实。工作区文件之后可能发生变化，这些记录不证明整个任务已完成。",
+        incomplete:
+          "记录不完整、已截断，或引擎缺少结构化记录。缺失证据保持未知。",
+        unstructured:
+          "{{count}} 项已结束操作缺少结构化交付事实（包括旧记录），请查看活动详情；不会从回答推断执行事实。",
+        files: "已记录的文件写入",
+        noFiles: "未记录结构化文件写入结果，不能据此判断工作区没有变化。",
+        recordedPatch: "这是该次操作时记录的改动，不是当前工作区差异。",
+        previewCurrent: "预览当前文件",
+        more: "再显示 10 项",
+        commands: "已记录的命令结果",
+        cwd: "工作目录：{{path}}",
+        verificationScope:
+          "退出码只说明进程结果。是否验证了所需行为，还需结合命令及活动中的输出判断。",
+        noCommands: "未记录已完成的命令结果，命令验证情况未确认。",
+        commandOutcomes: {
+          zero: "退出码 0",
+          nonzero: "退出码 {{code}}",
+          timeout: "命令超时",
+          unknown: "进程结果未知或被信号终止",
+        },
+        unresolved: "未解决的操作",
+        noUnresolved: "可用记录中没有未解决操作，不代表所有请求事项均已完成。",
+        operations: {
+          create: "已创建",
+          replace: "已替换文本",
+          rewrite: "已重写",
+        },
+        states: {
+          failed: "工具失败，可能需检查实际影响",
+          denied: "已拒绝",
+          unknown: "影响未知，重试前需检查",
+          not_executed: "未记录已完成执行",
+        },
+      },
       recovery: {
         actions: {
           summarize: "总结已有信息",

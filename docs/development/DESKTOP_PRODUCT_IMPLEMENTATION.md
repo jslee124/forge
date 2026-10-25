@@ -202,6 +202,48 @@ any returned tool calls. Local UI artifacts are `/tmp/forge-recovery-ui/`.
 passed. These are local scripted checks, not external-provider, installed-app or
 release acceptance.
 
+## Factual-delivery follow-up (2026-10-25)
+
+T07/T10 now include a bounded read-only delivery view. Native `edit_file` and
+`run_command` results gain optional structured observation fields before raw JSON
+output is clipped. Recorded file writes include operation, path, byte count and
+bounded patch; command observations include displayed command, working directory,
+exit code, timeout, signal, and bounded stdout/stderr excerpts. `ok: true` from a command tool does not imply a zero
+process exit or successful verification. Answers are never parsed for these facts.
+
+The application projects delivery from the on-disk run journal, upserting action
+IDs and disclosing row/character omissions. Each category is limited to 100 rows
+and all three share a 262,144-character projection budget. Activity strips the
+extra observation fields and retains its independent output budget. Desktop
+shows a collapsible view with 10-row increments, recorded patches and explicit
+preview of the current file through the existing workspace-bound file service.
+Opening history or previewing a file does not execute a command. A recorded patch
+is not a baseline diff of the current workspace and does not attribute later edits.
+
+Legacy successful operations without the new fields remain unstructured; their
+JSON and model prose are not promoted into delivery facts. Codex records disclose
+unknown structured coverage. Failed, denied, unresolved and proposed operations
+remain distinct; empty lists are not proof that the whole task is complete. The
+view does not infer which command is a test or whether it covers the requested
+behavior. Existing workspace diff inspection retains its attribution limitations.
+
+This increment does not complete live-model/user/installed-app release gates,
+all renderer decomposition work, separate viewed/active sessions, or a semantic
+verification plan. T07/T10 remain partial until their full acceptance criteria.
+
+Validation: 230 Desktop/application/finalization/persistence regressions and 133
+deterministic contracts passed; six opt-in live tests were skipped. The
+[delivery contracts](../../packages/application/src/run-delivery.test.ts) cover
+nonzero exit/timeout/unknown, legacy prose, bounded facts, redaction and omission.
+The real Electron loopback fixture made exactly three model HTTP requests for a
+write, an approved command exiting 1, and an answer. It displayed the real error
+output despite a success claim, preserved the recorded patch after an unrelated
+file edit, previewed current content separately, and read history after reload
+without another execution. English current and Chinese 840px historical views
+were captured at `/tmp/forge-delivery-ui/`; the dark diff was visually checked.
+`pnpm check`, `pnpm check:docs`, `pnpm desktop:build` and `pnpm package:verify`
+passed locally. External providers and installed Desktop were not exercised.
+
 ## 1. Goal and invariants
 
 Complete the native-engine investigation → approval → execution → verification →

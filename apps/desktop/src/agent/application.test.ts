@@ -1149,3 +1149,42 @@ describe("reviewed run recovery", () => {
     f.application.close();
   });
 });
+
+it("retains recorded writes and nonzero command results independently of current files", async () => {
+  const f = await fixture([
+    [
+      call("edit_file", {
+        operation: "create",
+        path: "delivery.txt",
+        content: "written by this run\n",
+      }),
+      finish("tool-calls"),
+    ],
+    [
+      call("run_command", { program: "node", args: ["-e", "process.exit(1)"] }),
+      finish("tool-calls"),
+    ],
+    [{ type: "text.delta", text: "All tests passed." }, finish("stop")],
+  ]);
+  const result = await run(f.application, f.sessionId);
+  expect(await readFile(join(f.cwd, "delivery.txt"), "utf8")).toContain(
+    "written by this run",
+  );
+  await writeFile(join(f.cwd, "delivery.txt"), "later unrelated edit");
+  const history = await f.application.manage({
+    type: "run-history",
+    runId: result.final.runId,
+  });
+  expect(history.runHistory?.selected?.delivery?.files[0]?.facts).toMatchObject(
+    { path: "delivery.txt", operation: "create" },
+  );
+  expect(
+    history.runHistory?.selected?.delivery?.files[0]?.facts.patch,
+  ).toContain("written by this run");
+  expect(
+    history.runHistory?.selected?.delivery?.commands[0]?.facts.exitCode,
+  ).toBe(1);
+  expect(f.requests).toHaveLength(3);
+  expect(desktopStateSchema.safeParse(history).success).toBe(true);
+  f.application.close();
+});

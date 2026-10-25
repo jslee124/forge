@@ -2,7 +2,10 @@ import type {
   ProductActionUpdate,
   ProductRunCompletion,
 } from "@forge/application";
-import { productRecoveryLinkSchema } from "@forge/persistence/product-run-schema";
+import {
+  productActionFactsSchema,
+  productRecoveryLinkSchema,
+} from "@forge/persistence/product-run-schema";
 import { z } from "zod";
 
 export const RUN_PROTOCOL_VERSION = 2;
@@ -297,6 +300,7 @@ export const runPayloadSchema = z.discriminatedUnion("type", [
           ]),
           input: z.string().max(16_384),
           output: z.string().max(16_384).optional(),
+          facts: productActionFactsSchema.optional(),
           truncated: z.boolean().optional(),
         })
         .strict(),

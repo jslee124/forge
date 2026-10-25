@@ -86,11 +86,13 @@ export function projectRecordedActivity(
     if (payload.type === "text" || payload.type === "result") continue;
     if (payload.type === "action") {
       const key = `action-${payload.action.actionId}`;
+      // Delivery facts have their own bounded projection, outside activity output.
+      const { facts: _facts, ...activityAction } = payload.action;
       const item: ProductActivityItem = {
         id: key,
         kind: "action",
         text: "",
-        action: payload.action,
+        action: activityAction,
         truncated: Boolean(payload.action.truncated),
       };
       const index = items.findIndex((entry) => entry.id === key);

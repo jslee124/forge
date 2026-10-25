@@ -20,6 +20,7 @@ import {
   projectActionEvent,
   projectRecordedActivity,
   projectRunCompletion,
+  projectRunDelivery,
   projectSessionMessages,
   type RunDependencies,
   removeUserProviderModel,
@@ -1211,6 +1212,7 @@ export class DesktopApplication {
               selected: {
                 summary: record.summary,
                 activity: projectRecordedActivity(record),
+                delivery: projectRunDelivery(record),
                 incomplete:
                   record.incomplete ||
                   Boolean(record.summary.journalIncomplete),

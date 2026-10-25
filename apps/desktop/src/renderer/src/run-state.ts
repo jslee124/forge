@@ -48,11 +48,12 @@ export function activityReducer(
     }
   } else if (payload.type === "action") {
     const id = `action-${payload.action.actionId}`;
+    const { facts: _facts, ...activityAction } = payload.action;
     const item: ActivityItem = {
       id,
       kind: "action",
       text: "",
-      action: payload.action,
+      action: activityAction,
       truncated: Boolean(payload.action.truncated),
     };
     items = items.some((entry) => entry.id === id)

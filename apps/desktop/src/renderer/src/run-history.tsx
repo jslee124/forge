@@ -4,6 +4,7 @@ import type {
   ManagementCommand,
 } from "../../shared/application-protocol.js";
 import { RunActivity } from "./run-activity.js";
+import { RunDelivery } from "./run-delivery.js";
 import { RunResult } from "./run-result.js";
 
 export function RunHistory({
@@ -11,8 +12,10 @@ export function RunHistory({
   busy,
   onLoad,
   onRecover,
+  onPreview,
 }: {
   history: DesktopState["runHistory"];
+  onPreview: (path: string) => void;
   onRecover?: (
     kind: "summarize" | "continue" | "retry",
     sourceRunId: string,
@@ -96,6 +99,14 @@ export function RunHistory({
           )}
           {(selected.incomplete || selected.summary.omittedCharacters > 0) && (
             <p role="status">{t("runUi.historyIncomplete")}</p>
+          )}
+          {selected.delivery && (
+            <RunDelivery
+              key={selected.summary.runId}
+              delivery={selected.delivery}
+              busy={busy}
+              onPreview={onPreview}
+            />
           )}
           <RunActivity state={selected.activity} />
         </div>

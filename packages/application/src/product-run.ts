@@ -1,4 +1,8 @@
 import type { RunEvent, RunResult, RunStatus } from "@forge/core";
+import {
+  type ProductActionFacts,
+  productActionFactsSchema,
+} from "@forge/persistence";
 
 export type ProductRunOutcome = RunStatus | "interrupted";
 export type ProductRunReason =
@@ -44,6 +48,7 @@ export interface ProductActionUpdate {
     | "denied";
   readonly input: string;
   readonly output?: string;
+  readonly facts?: ProductActionFacts;
   readonly truncated?: boolean;
 }
 
@@ -92,6 +97,13 @@ export function projectActionEvent(
             ? "denied"
             : "failed",
         output: output.slice(0, MAX_ACTIVITY_TEXT),
+        ...(event.result.ok
+          ? projectActionFacts(
+              event.call.name,
+              event.result.output,
+              event.result.truncated,
+            )
+          : {}),
         truncated:
           base.truncated ||
           output.length > MAX_ACTIVITY_TEXT ||
@@ -124,4 +136,83 @@ export function projectRunCompletion(result: RunResult): ProductRunCompletion {
     modelSteps: result.modelSteps,
     toolCalls: result.toolCalls,
   };
+}
+
+/** Extract from the execution result before raw JSON output is clipped. No prose parsing. */
+function projectActionFacts(
+  tool: string,
+  value: unknown,
+  truncated: boolean,
+): { facts?: ProductActionFacts } {
+  if (!value || typeof value !== "object") return {};
+  const output = value as {
+    diff?: unknown;
+    path?: unknown;
+    operation?: unknown;
+    bytes?: unknown;
+    program?: unknown;
+    args?: unknown;
+    cwd?: unknown;
+    exitCode?: unknown;
+    signal?: unknown;
+    timedOut?: unknown;
+    stdout?: unknown;
+    stderr?: unknown;
+  };
+  let candidate: unknown;
+  if (
+    tool === "edit_file" &&
+    typeof output.diff === "string" &&
+    typeof output.path === "string"
+  ) {
+    // A recorded path remains untrusted; file services recheck workspace boundaries.
+    const path = output.path;
+    if (
+      path.startsWith("/") ||
+      path.includes("\\") ||
+      path.split("/").includes("..") ||
+      /^[A-Za-z]:/.test(path) ||
+      /[\0\r\n]/.test(path)
+    )
+      return {};
+    candidate = {
+      kind: "file",
+      path,
+      operation: output.operation,
+      bytes: output.bytes,
+      patch: output.diff.slice(0, 8192),
+      truncated: truncated || output.diff.length > 8192,
+    };
+  } else if (
+    tool === "run_command" &&
+    typeof output.program === "string" &&
+    Array.isArray(output.args) &&
+    output.args.every((arg) => typeof arg === "string")
+  ) {
+    const command = [
+      output.program,
+      ...output.args.map((arg: string) => JSON.stringify(arg)),
+    ].join(" ");
+    candidate = {
+      kind: "command",
+      command: command.slice(0, 2048),
+      cwd: output.cwd,
+      exitCode: output.exitCode,
+      signal: output.signal,
+      timedOut: output.timedOut,
+      ...(typeof output.stdout === "string"
+        ? { stdout: output.stdout.slice(0, 2048) }
+        : {}),
+      ...(typeof output.stderr === "string"
+        ? { stderr: output.stderr.slice(0, 2048) }
+        : {}),
+      truncated:
+        truncated ||
+        command.length > 2048 ||
+        (typeof output.stdout === "string" && output.stdout.length > 2048) ||
+        (typeof output.stderr === "string" && output.stderr.length > 2048),
+    };
+  }
+  const parsed = productActionFactsSchema.safeParse(candidate);
+  return parsed.success ? { facts: parsed.data } : {};
 }

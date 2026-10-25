@@ -799,6 +799,123 @@ export async function runUiAcceptance(
       draftPreserved: true,
       externalProvider: false,
     });
+    const deliveryConfig = JSON.parse(
+      await readFile(join(home, "config.json"), "utf8"),
+    );
+    await writeFile(
+      join(home, "config.json"),
+      JSON.stringify({
+        ...deliveryConfig,
+        limits: { ...deliveryConfig.limits, maxSteps: 5 },
+      }),
+    );
+    provider.setMode("delivery");
+    await click(".sidebar > button:first-of-type");
+    await until(
+      "document.querySelector('.studio-welcome') && !document.querySelector('[data-testid=composer-engine]').disabled",
+    );
+    await enterDraft("Recorded delivery fixture");
+    const beforeDeliveryCalls = provider.calls;
+    await click(".studio-composer-footer > button:last-child");
+    await until("document.querySelector('.run-approval')");
+    await click(".run-approval button:last-child");
+    await until(
+      "document.querySelector('.run-approval')?.textContent.includes('node')",
+    );
+    await click(".run-approval button:last-child");
+    await until(
+      "document.querySelector('[data-run-result=current]') && !document.querySelector('[data-testid=composer-engine]').disabled && document.querySelector('.run-delivery')",
+    );
+    const deliveryState = await js(
+      "window.forgeDesktop.manage({type:'state'}).then(state=>state.runHistory.selected)",
+    );
+    if (
+      provider.calls - beforeDeliveryCalls !== 3 ||
+      deliveryState?.delivery?.commands[0]?.facts.exitCode !== 1 ||
+      deliveryState?.delivery?.files[0]?.facts.path !== "delivery.txt"
+    )
+      throw new Error(
+        "Delivery lost the recorded write or actual nonzero exit",
+      );
+    await js(
+      "document.querySelector('.run-delivery').open=true; document.querySelector('.run-delivery-files details').open=true",
+    );
+    await capture("product-delivery-current");
+    await js(
+      "document.querySelector('.run-delivery-command-output').open=true; document.querySelector('.run-delivery-commands').scrollIntoView({block:'nearest'})",
+    );
+    await until(
+      "document.querySelector('.run-delivery-command-output')?.textContent.includes('Fixture verification failed')",
+    );
+    await capture("product-delivery-command-result");
+    const deliveryWorkspace = await js(
+      "window.forgeDesktop.manage({type:'state'}).then(state=>state.cwd)",
+    );
+    await writeFile(
+      join(deliveryWorkspace, "delivery.txt"),
+      "Later unrelated edit\n",
+    );
+    await click(".run-delivery-files button");
+    await until(
+      "document.querySelector('.studio-panel-body:not([hidden])')?.textContent.includes('Later unrelated edit')",
+    );
+    await capture("product-delivery-current-preview");
+    const deliveryUnloadGuards = window.webContents.listeners(
+      "will-prevent-unload",
+    );
+    window.webContents.removeAllListeners("will-prevent-unload");
+    window.webContents.once("will-prevent-unload", (event) =>
+      event.preventDefault(),
+    );
+    const deliveryReloaded = new Promise<void>((resolve) =>
+      window.webContents.once("did-finish-load", () => resolve()),
+    );
+    window.webContents.reload();
+    await deliveryReloaded;
+    for (const guard of deliveryUnloadGuards)
+      window.webContents.on("will-prevent-unload", (event) => guard(event));
+    await click(`[data-session-id="${deliveryState.summary.sessionId}"]`);
+    await until(
+      "document.querySelector('.live-panel') && !document.querySelector('[data-testid=composer-engine]').disabled",
+    );
+    await click(".studio-tabs button:last-child");
+    await click(".run-history li:first-child button");
+    await until(
+      "document.querySelector('.run-history-selected .run-delivery')",
+    );
+    await js(
+      "document.querySelector('.run-history-selected .run-delivery').open=true; document.querySelector('.run-history-selected .run-delivery-files details').open=true",
+    );
+    await until(
+      "document.querySelector('.run-history-selected [data-command-outcome=nonzero] strong')?.textContent.includes('1')",
+    );
+    if (
+      !(await js(
+        "document.querySelector('.run-history-selected .run-delivery-patch')?.textContent.includes('Recorded delivery fixture')",
+      ))
+    )
+      throw new Error(
+        "Historical patch was replaced by current workspace content",
+      );
+    window.setContentSize(840, 800);
+    await js(
+      "document.querySelector('.run-history-selected .run-delivery > summary').scrollIntoView({block:'center'})",
+    );
+    await until(
+      "(() => {const r=document.querySelector('.run-history-selected .run-delivery > summary').getBoundingClientRect(); return r.top>=0 && r.bottom<=innerHeight;})()",
+    );
+    await capture("product-delivery-history-narrow");
+    if (provider.calls - beforeDeliveryCalls !== 3)
+      throw new Error("Viewing delivery replayed execution");
+    results.push({
+      name: "recorded-delivery",
+      calls: 3,
+      exitCode: 1,
+      recordedPatchPreserved: true,
+      previewCurrentFile: true,
+      historyAfterReload: true,
+      externalProvider: false,
+    });
     if (provider.calls < 4) throw new Error("offline transport not exercised");
     results.push({
       name: "p4-loopback-workflow",

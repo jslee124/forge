@@ -40,6 +40,71 @@ export const productCompletionSchema = z
     durationMs: z.number().nonnegative().optional(),
   })
   .strict();
+/** Execution observations only; never instructions or file-open authorization. */
+export const productFileFactsSchema = z
+  .object({
+    kind: z.literal("file"),
+    path: z.string().min(1).max(4096),
+    operation: z.enum(["create", "replace", "rewrite"]),
+    bytes: z.number().int().nonnegative(),
+    patch: z.string().max(8192),
+    truncated: z.boolean(),
+  })
+  .strict();
+export const productCommandFactsSchema = z
+  .object({
+    kind: z.literal("command"),
+    command: z.string().min(1).max(2048),
+    stdout: z.string().max(2048).optional(),
+    stderr: z.string().max(2048).optional(),
+    cwd: z.string().min(1).max(4096),
+    exitCode: z.number().int().nullable(),
+    signal: z.string().max(64).nullable(),
+    timedOut: z.boolean(),
+    truncated: z.boolean(),
+  })
+  .strict();
+export const productActionFactsSchema = z.discriminatedUnion("kind", [
+  productFileFactsSchema,
+  productCommandFactsSchema,
+]);
+export type ProductActionFacts = z.infer<typeof productActionFactsSchema>;
+export const productDeliverySchema = z
+  .object({
+    files: z
+      .array(
+        z
+          .object({ actionId: productIdSchema, facts: productFileFactsSchema })
+          .strict(),
+      )
+      .max(100),
+    commands: z
+      .array(
+        z
+          .object({
+            actionId: productIdSchema,
+            facts: productCommandFactsSchema,
+          })
+          .strict(),
+      )
+      .max(100),
+    unresolved: z
+      .array(
+        z
+          .object({
+            actionId: productIdSchema,
+            tool: z.string().max(256),
+            status: z.enum(["failed", "denied", "unknown", "not_executed"]),
+          })
+          .strict(),
+      )
+      .max(100),
+    incomplete: z.boolean(),
+    omitted: z.number().int().nonnegative(),
+    unstructured: z.number().int().nonnegative(),
+  })
+  .strict();
+export type ProductRunDelivery = z.infer<typeof productDeliverySchema>;
 export const productActionSchema = z
   .object({
     actionId: productIdSchema,
@@ -57,6 +122,7 @@ export const productActionSchema = z
     ]),
     input: z.string().max(16_384),
     output: z.string().max(16_384).optional(),
+    facts: productActionFactsSchema.optional(),
     truncated: z.boolean().optional(),
   })
   .strict();
@@ -167,6 +233,7 @@ export const productRunHistorySchema = z
       .object({
         summary: productRunSummarySchema,
         activity: productActivitySchema,
+        delivery: productDeliverySchema.optional(),
         incomplete: z.boolean(),
       })
       .strict()

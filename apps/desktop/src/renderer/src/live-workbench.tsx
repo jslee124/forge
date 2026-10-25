@@ -1,4 +1,5 @@
 import type { ProductRunCompletion } from "@forge/application";
+import type { ProductRunDelivery } from "@forge/persistence";
 import { ChatCircle } from "@phosphor-icons/react/ChatCircle";
 import { Code } from "@phosphor-icons/react/Code";
 import { FileText } from "@phosphor-icons/react/FileText";
@@ -25,6 +26,7 @@ import { ContentPreview, DiffViewer } from "./file-preview.js";
 import { Markdown } from "./markdown.js";
 import { RecoveryReview } from "./recovery-review.js";
 import { RunActivity } from "./run-activity.js";
+import { RunDelivery } from "./run-delivery.js";
 import { RunHistory } from "./run-history.js";
 import { RunResult } from "./run-result.js";
 import { activityReducer, initialActivity } from "./run-state.js";
@@ -89,6 +91,8 @@ export function LiveWorkbench(): React.JSX.Element {
   );
   const [completion, setCompletion] = React.useState<ProductRunCompletion>();
   const [completionRunId, setCompletionRunId] = React.useState<string>();
+  const [currentDelivery, setCurrentDelivery] =
+    React.useState<ProductRunDelivery>();
   const submittedRef = React.useRef<
     { sessionId: string; prompt: string; preserveDraft?: boolean } | undefined
   >(undefined);
@@ -102,6 +106,7 @@ export function LiveWorkbench(): React.JSX.Element {
     dispatchActivity({ type: "reset" });
     setCompletion(undefined);
     setCompletionRunId(undefined);
+    setCurrentDelivery(undefined);
   };
   const [error, setError] = React.useState("");
   const [pending, setPending] = React.useState(false);
@@ -262,6 +267,11 @@ export function LiveWorkbench(): React.JSX.Element {
             .then((next) => {
               if (!disposed) {
                 setState(next);
+                setCurrentDelivery(
+                  next.runHistory?.selected?.summary.runId === current.runId
+                    ? next.runHistory.selected.delivery
+                    : undefined,
+                );
                 setPrompt("");
                 setAnswer("");
               }
@@ -290,6 +300,18 @@ export function LiveWorkbench(): React.JSX.Element {
     }, 1000);
     return () => clearInterval(timer);
   }, [state?.auth]);
+  const previewDeliveryFile = async (path: string) => {
+    setPanel(true);
+    setPanelTab("files");
+    setFilePath(path);
+    setFilePreview(undefined);
+    try {
+      const value = await api?.previewFile({ path });
+      if (scopeRef.current === scope) setFilePreview(value);
+    } catch (cause) {
+      if (scopeRef.current === scope) setError(operationError(cause));
+    }
+  };
   const importFile = async () => {
     try {
       const imported = await api?.importFile();
@@ -1119,6 +1141,14 @@ export function LiveWorkbench(): React.JSX.Element {
                   }}
                 />
               )}
+              {!active && completionRunId && currentDelivery && (
+                <RunDelivery
+                  key={completionRunId}
+                  delivery={currentDelivery}
+                  busy={busy}
+                  onPreview={(path) => void previewDeliveryFile(path)}
+                />
+              )}
               {retryPlan && (
                 <div className="run-retry-draft" role="status">
                   <span>{t("recovery.retryDraft")}</span>
@@ -1475,6 +1505,7 @@ export function LiveWorkbench(): React.JSX.Element {
             <div className="studio-panel-body" hidden={panelTab !== "context"}>
               <RunHistory
                 history={state?.runHistory}
+                onPreview={(path) => void previewDeliveryFile(path)}
                 busy={busy}
                 onRecover={(kind, sourceRunId) =>
                   void prepareRecovery(kind, sourceRunId)

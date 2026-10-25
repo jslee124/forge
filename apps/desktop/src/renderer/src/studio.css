@@ -518,7 +518,8 @@
 .change-review {
   overflow: auto;
 }
-.live-panel .diff {
+.live-panel .diff,
+.run-delivery .diff {
   --diff-background-color: var(--surface);
   --diff-text-color: var(--text);
   --diff-gutter-insert-background-color: #c9e8d1;
@@ -526,7 +527,8 @@
   --diff-gutter-delete-background-color: #f1cdca;
   --diff-code-delete-background-color: #fbe8e5;
 }
-[data-theme="dark"] .live-panel .diff {
+[data-theme="dark"] .live-panel .diff,
+[data-theme="dark"] .run-delivery .diff {
   --diff-gutter-insert-background-color: #2e523e;
   --diff-code-insert-background-color: #243e30;
   --diff-gutter-delete-background-color: #633a39;
@@ -2087,4 +2089,77 @@
 }
 .studio-confirmation:has(.recovery-plan-metadata) .studio-confirmation-actions {
   flex-shrink: 0;
+}
+
+.run-delivery {
+  flex-shrink: 0;
+  max-height: min(40dvh, 360px);
+  overflow: auto;
+  margin: 8px 24px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  min-width: 0;
+  font-size: 13px;
+}
+.run-delivery > summary {
+  cursor: pointer;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.run-delivery summary small {
+  color: var(--muted);
+  font-weight: 400;
+  margin-left: 8px;
+}
+.run-delivery p {
+  color: var(--muted);
+  line-height: 1.6;
+}
+.run-delivery h4 {
+  margin: 18px 0 8px;
+}
+.run-delivery ul,
+.run-delivery ol {
+  padding-left: 20px;
+}
+.run-delivery li {
+  margin: 8px 0;
+  overflow-wrap: anywhere;
+}
+.run-delivery-files > li > details {
+  min-width: 0;
+}
+.run-delivery-files summary {
+  cursor: pointer;
+}
+.run-delivery-patch {
+  max-height: 320px;
+  overflow: auto;
+  font-size: 12px;
+}
+.run-delivery-patch pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.run-delivery-commands > li {
+  padding-bottom: 10px;
+}
+.run-delivery [data-command-outcome="nonzero"] > strong,
+.run-delivery [data-command-outcome="timeout"] > strong {
+  color: var(--text);
+}
+
+.run-history-selected .run-delivery {
+  margin-inline: 0;
+  padding: 14px 16px;
+  max-height: none;
+  overflow: visible;
+}
+
+.run-delivery-attention {
+  display: inline-block;
+  margin-left: 8px;
+  font-size: 12px;
+  font-weight: 500;
 }
