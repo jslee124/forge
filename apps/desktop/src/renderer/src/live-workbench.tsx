@@ -22,8 +22,8 @@ import { ApprovalCard } from "./approval-card.js";
 import logoUrl from "./assets/forge-logo.svg";
 import markUrl from "./assets/forge-mark.svg";
 import { ComposerControls } from "./composer-controls.js";
+import { ConversationMessage } from "./conversation-message.js";
 import { ContentPreview, DiffViewer } from "./file-preview.js";
-import { Markdown } from "./markdown.js";
 import { RecoveryReview } from "./recovery-review.js";
 import { RunActivity } from "./run-activity.js";
 import { RunDelivery } from "./run-delivery.js";
@@ -33,8 +33,10 @@ import { activityReducer, initialActivity } from "./run-state.js";
 import { SettingsView } from "./settings-view.js";
 import { SlashCommandMenu } from "./slash-command-menu.js";
 import { commands, routeCommand, suggestions } from "./slash-commands.js";
+import { Transcript } from "./transcript.js";
 import { UpdateView } from "./update-view.js";
 import { useConversationBrowser } from "./use-conversation-browser.js";
+import { useStreamedAnswer } from "./use-streamed-answer.js";
 import { WorkspaceHeader } from "./workspace-header.js";
 
 export function LiveWorkbench(): React.JSX.Element {
@@ -84,7 +86,14 @@ export function LiveWorkbench(): React.JSX.Element {
   }>();
   const activeRef = React.useRef(active);
   const [status, setStatus] = React.useState("ready");
-  const [answer, setAnswer] = React.useState("");
+  const {
+    answer,
+    omittedCharacters,
+    append: appendAnswer,
+    flush: flushAnswer,
+    reset: resetAnswer,
+  } = useStreamedAnswer();
+  const [followRequest, setFollowRequest] = React.useState(0);
   const [prompt, setPrompt] = React.useState("");
   const [activity, dispatchActivity] = React.useReducer(
     activityReducer,
@@ -120,6 +129,7 @@ export function LiveWorkbench(): React.JSX.Element {
     viewLoading,
     shellRef,
     key,
+    hasSavedPosition,
     savePosition,
     invalidateRead,
     clearBrowsing,
@@ -250,6 +260,28 @@ export function LiveWorkbench(): React.JSX.Element {
       setPending(false);
     }
   };
+  const restoreRunFocus = React.useCallback(() => {
+    const focused = document.activeElement;
+    if (
+      !(focused instanceof HTMLElement) ||
+      !focused.closest(".run-approval,[data-testid=stop-active]")
+    )
+      return;
+    requestAnimationFrame(() => {
+      if (
+        document.activeElement !== document.body &&
+        document.activeElement !== focused
+      )
+        return;
+      const target =
+        document.querySelector<HTMLButtonElement>(
+          viewedRef.current
+            ? "[data-testid=return-active]"
+            : "[data-testid=stop-active]",
+        ) ?? composerRef.current;
+      target?.focus({ preventScroll: true });
+    });
+  }, [viewedRef]);
   React.useEffect(() => {
     if (!api) {
       setError("management-failed");
@@ -285,18 +317,20 @@ export function LiveWorkbench(): React.JSX.Element {
         return;
       const payload = event.payload;
       dispatchActivity({ type: "event", event });
-      if (payload.type === "text")
-        setAnswer((value) => (value + payload.text).slice(-1_000_000));
+      if (payload.type === "text") appendAnswer(payload.text);
       else if (payload.type === "phase") setStatus(payload.phase);
       else if (payload.type === "approval") {
         setApprovals((values) => [...values, payload]);
         setStatus("approval");
       } else if (payload.type === "approval-resolved") {
+        restoreRunFocus();
         setApprovals((values) =>
           values.filter((value) => value.approvalId !== payload.approvalId),
         );
         setStatus("running");
       } else if (payload.type === "complete") {
+        restoreRunFocus();
+        flushAnswer();
         activeRef.current = undefined;
         setActive(undefined);
         setApprovals([]);
@@ -328,7 +362,7 @@ export function LiveWorkbench(): React.JSX.Element {
                     : undefined,
                 );
                 setPrompt("");
-                setAnswer("");
+                resetAnswer();
               }
             })
             .catch(() => {
@@ -344,7 +378,7 @@ export function LiveWorkbench(): React.JSX.Element {
       disposed = true;
       unsubscribe();
     };
-  }, []);
+  }, [appendAnswer, flushAnswer, resetAnswer, restoreRunFocus]);
   React.useEffect(() => {
     if (state?.auth !== "signing-in" || !api) return;
     const timer = setInterval(() => {
@@ -390,7 +424,7 @@ export function LiveWorkbench(): React.JSX.Element {
       if (next) {
         setState(next);
         setPrompt("");
-        setAnswer("");
+        resetAnswer();
         clearActivity();
       }
     } catch (cause) {
@@ -404,7 +438,7 @@ export function LiveWorkbench(): React.JSX.Element {
     if (!next) return false;
     clearBrowsing();
     setPrompt("");
-    setAnswer("");
+    resetAnswer();
     clearActivity();
     setNotice("");
     setLiteralOffer(false);
@@ -431,7 +465,7 @@ export function LiveWorkbench(): React.JSX.Element {
     setNotice("");
     clearActivity();
     setPrompt("");
-    setAnswer("");
+    resetAnswer();
     setApprovals([]);
   };
   const executeSlash = async (input: string) => {
@@ -678,9 +712,10 @@ export function LiveWorkbench(): React.JSX.Element {
         preserveDraft,
       };
       setActive(identity);
+      setFollowRequest((value) => value + 1);
       setStatus("running");
       setPrompt(input);
-      setAnswer("");
+      resetAnswer();
       clearActivity();
       if (!preserveDraft)
         setDrafts((values) => ({
@@ -1040,7 +1075,12 @@ export function LiveWorkbench(): React.JSX.Element {
             }}
           />
           {(active || viewed || viewLoading) && (
-            <div className="run-navigation" role="status" aria-live="polite">
+            <div
+              className="run-navigation"
+              data-browsing={Boolean(viewed)}
+              role="status"
+              aria-live="polite"
+            >
               <div>
                 <strong>
                   {t(active ? "browsing.activeTask" : "browsing.executionTask")}
@@ -1140,11 +1180,12 @@ export function LiveWorkbench(): React.JSX.Element {
             />
           ) : (
             <>
-              <div
+              <Transcript
                 key={key}
-                className="live-transcript"
-                data-view-session={key}
-                aria-busy={Boolean(active) && !viewed}
+                viewKey={key}
+                live={Boolean(active) && !viewed}
+                preservePosition={hasSavedPosition}
+                followRequest={followRequest}
               >
                 {viewed && (
                   <p className="browsing-note">
@@ -1206,38 +1247,27 @@ export function LiveWorkbench(): React.JSX.Element {
                         }}
                       />
                     ) : (
-                      <div
+                      <ConversationMessage
                         key={message.id}
-                        className={
-                          message.role === "user" ? "live-user" : "live-answer"
-                        }
-                      >
-                        {message.role === "assistant" && (
-                          <img
-                            className="studio-answer-avatar"
-                            src={markUrl}
-                            alt=""
-                            aria-hidden="true"
-                          />
-                        )}
-                        <Markdown>{message.content}</Markdown>
-                      </div>
+                        author={message.role}
+                        content={message.content}
+                      />
                     ),
                   )}
                 {!viewed && prompt && (
-                  <div className="live-user">
-                    <Markdown>{prompt}</Markdown>
-                  </div>
+                  <ConversationMessage author="user" content={prompt} />
                 )}
                 {!viewed && answer && (
-                  <div className="live-answer">
-                    <img
-                      className="studio-answer-avatar"
-                      src={markUrl}
-                      alt="Forge"
-                    />
-                    <Markdown>{answer}</Markdown>
-                  </div>
+                  <ConversationMessage
+                    author="assistant"
+                    content={answer}
+                    streaming={Boolean(active)}
+                  />
+                )}
+                {!viewed && omittedCharacters > 0 && (
+                  <p role="status">
+                    {t("messages.omitted", { count: omittedCharacters })}
+                  </p>
                 )}
                 {!viewed && active && (
                   <div
@@ -1264,7 +1294,38 @@ export function LiveWorkbench(): React.JSX.Element {
                     <RunActivity state={activity} />
                   </details>
                 )}
-              </div>
+                {!viewed && !active && completion && (
+                  <RunResult
+                    result={completion}
+                    recoveryDisabled={
+                      busy ||
+                      !state?.runHistory?.runs.some(
+                        (run) =>
+                          run.runId === completionRunId &&
+                          run.engine === "native",
+                      )
+                    }
+                    onRecover={
+                      completionRunId
+                        ? (kind) => void prepareRecovery(kind, completionRunId)
+                        : undefined
+                    }
+                    onSource={(sourceRunId) => {
+                      setPanel(true);
+                      setPanelTab("context");
+                      void manage({ type: "run-history", runId: sourceRunId });
+                    }}
+                  />
+                )}
+                {!viewed && !active && completionRunId && currentDelivery && (
+                  <RunDelivery
+                    key={completionRunId}
+                    delivery={currentDelivery}
+                    busy={busy}
+                    onPreview={(path) => void previewDeliveryFile(path)}
+                  />
+                )}
+              </Transcript>
               {!viewed && approval && (
                 <ApprovalCard
                   key={approval.approvalId}
@@ -1272,37 +1333,6 @@ export function LiveWorkbench(): React.JSX.Element {
                   count={approvals.length}
                   pending={approvalPending || status === "stopping"}
                   onDecide={decide}
-                />
-              )}
-              {!viewed && !active && completion && (
-                <RunResult
-                  result={completion}
-                  recoveryDisabled={
-                    busy ||
-                    !state?.runHistory?.runs.some(
-                      (run) =>
-                        run.runId === completionRunId &&
-                        run.engine === "native",
-                    )
-                  }
-                  onRecover={
-                    completionRunId
-                      ? (kind) => void prepareRecovery(kind, completionRunId)
-                      : undefined
-                  }
-                  onSource={(sourceRunId) => {
-                    setPanel(true);
-                    setPanelTab("context");
-                    void manage({ type: "run-history", runId: sourceRunId });
-                  }}
-                />
-              )}
-              {!viewed && !active && completionRunId && currentDelivery && (
-                <RunDelivery
-                  key={completionRunId}
-                  delivery={currentDelivery}
-                  busy={busy}
-                  onPreview={(path) => void previewDeliveryFile(path)}
                 />
               )}
               {retryPlan && (

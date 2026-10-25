@@ -168,6 +168,7 @@ export function useConversationBrowser({
     viewLoading,
     shellRef,
     key,
+    hasSavedPosition: positions.current.has(key),
     savePosition,
     invalidateRead,
     clearBrowsing,

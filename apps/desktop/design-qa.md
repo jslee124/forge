@@ -263,3 +263,36 @@ W18–W20 local acceptance is complete. All **49 actual Electron captures** are 
 The manifest's “no model calls” means no real external model was contacted: **four HTTP requests went to a deterministic local fixture**, through real provider adapter, Agent and IPC paths. Actual approval/tool execution was local. This proves local integration, not provider quality, authentication validity or remote cancellation. No P4 packaging/public-install claim is made.
 
 The P3 command matrix remains applicable. For `/exit`, P4 adds close/quit event-path proof with a simulated native response; manual native-dialog interaction and real-provider timeout/cancellation remain pending. `/login` and `/plugins` remain partial for the documented reasons. Live Codex expired-account recovery, VoiceOver/manual accessibility and installed signed/release acceptance are unverified. No commit, installed-app replacement or publication.
+
+
+## T12 reading and zoom audit — 2026-10-25
+
+Current source and repeatable acceptance: [implementation progress](../../docs/development/DESKTOP_PRODUCT_IMPLEMENTATION.md#reading-zoom-and-accessibility-follow-up-2026-10-25).
+This increment supersedes earlier notes about transcript live regions and pinned
+terminal cards. It is local development evidence, not release acceptance.
+
+1. **Streaming / 流式阅读 — corrected in the local fixture.** Before: 3735 CSS
+   pixels above the tail. After: within 2 pixels; user scroll-up preserves position,
+   and Jump to latest resumes following. 100 ordered deltas survive completion
+   without loss or duplication in copied answer text.
+2. **Answer actions / 回答操作 — locally usable.** Answer/code copying preserves
+   exact text; rejected clipboard access displays failure. Tests intercept clipboard
+   writes without changing the user's actual clipboard. Code/table containers are
+   keyboard-scrollable; decorative avatars are excluded from accessibility names.
+3. **Approval and reflow / 审批与缩放 — locally usable, constrained height.** At
+   200% zoom the approval body scrolls and decision buttons remain visible;
+   Enter activation resolves the approval and focus returns to the composer.
+   Terminal cards scroll inside the conversation to retain composer reachability.
+   The 16 EN/ZH × light/dark × 1100/840 × 100%/200% geometry checks passed.
+4. **Accessibility / 可访问性 — partial evidence.** Native Enter/Shift+Enter input,
+   a synthetic composition guard, reduced-motion emulation and a named Chromium
+   conversation region were verified. VoiceOver speech, native IME candidate
+   selection and installed-platform behavior remain manual acceptance work.
+
+Reproduce from `apps/desktop` after building:
+`FORGE_T12_MODE=verify FORGE_UI_OUTPUT=/tmp/forge-t12-ui-final node scripts/acceptance-ui.mjs`.
+Final local manifest: `/tmp/forge-t12-ui-final/ui.json` (97 images, including existing
+acceptance); numbered walkthrough: `/tmp/forge-t12-ui-final/audit.md`.
+151 Desktop/application tests passed, six live opt-in tests skipped; 133
+deterministic evaluations, root check, docs check and Desktop build passed.
+No external provider quality, performance benchmark, packaging or release claim.

@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { FileSessionStore, recordRunInSession } from "@forge/persistence";
 import { app, type BrowserWindow, dialog } from "electron";
 import { acceptanceProvider } from "./acceptance-provider.js";
+import { runExperienceAcceptance } from "./experience-acceptance.js";
 
 /** Explicit development acceptance fixture; never invokes a model or fabricates provider evidence. */
 export async function runUiAcceptance(
@@ -11,6 +12,7 @@ export async function runUiAcceptance(
   home: string,
   output: string,
 ): Promise<void> {
+  window.webContents.setZoomFactor(1);
   await mkdir(output, { recursive: true });
   const store = new FileSessionStore(home);
   const fixtures: { id: string; cwd: string; kind: string; file: string }[] =
@@ -965,6 +967,14 @@ export async function runUiAcceptance(
       historyAfterReload: true,
       externalProvider: false,
     });
+    if (process.env["FORGE_T12_MODE"])
+      await runExperienceAcceptance(
+        window,
+        output,
+        provider,
+        process.env["FORGE_T12_MODE"],
+        results,
+      );
     if (provider.calls < 4) throw new Error("offline transport not exercised");
     results.push({
       name: "independent-browsing",

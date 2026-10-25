@@ -2,8 +2,11 @@ import { createServer } from "node:http";
 
 /** Loopback-only scripted transport for development acceptance, never provider evidence. */
 export async function acceptanceProvider() {
-  let mode: "approval" | "wait" | "error" | "finalize" | "delivery" =
+  let mode: "approval" | "wait" | "error" | "finalize" | "delivery" | "stream" =
     "approval";
+  let textStream:
+    | { append: (text: string) => void; finish: () => void }
+    | undefined;
   let calls = 0;
   let noneRequests = 0;
   let toolFreeRequests = 0;
@@ -84,6 +87,21 @@ export async function acceptanceProvider() {
       response.end("data: [DONE]\n\n");
       return;
     }
+    if (mode === "stream") {
+      textStream = {
+        append: (text) => send({ content: text }),
+        finish: () => {
+          send({}, "stop");
+          response.end("data: [DONE]\n\n");
+          textStream = undefined;
+        },
+      };
+      response.once("close", () => {
+        textStream = undefined;
+      });
+      send({ content: "T12 stream fixture start.\n\n" });
+      return;
+    }
     if (mode === "wait") {
       send({ content: "P4 offline fixture — waiting for cancellation." });
       return;
@@ -141,6 +159,14 @@ export async function acceptanceProvider() {
     url: `http://127.0.0.1:${address.port}/v1`,
     setMode(value: typeof mode) {
       mode = value;
+    },
+    appendText(text: string) {
+      if (!textStream) throw new Error("fixture-stream-not-active");
+      textStream.append(text);
+    },
+    finishText() {
+      if (!textStream) throw new Error("fixture-stream-not-active");
+      textStream.finish();
     },
     get calls() {
       return calls;

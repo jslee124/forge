@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { ThemedToken } from "shiki/core";
@@ -7,6 +8,7 @@ import tsx from "shiki/dist/langs/tsx.mjs";
 import githubDark from "shiki/dist/themes/github-dark.mjs";
 import githubLight from "shiki/dist/themes/github-light.mjs";
 import { createJavaScriptRegexEngine } from "shiki/engine/javascript";
+import { CopyButton } from "./copy-button.js";
 import { useTheme } from "./theme.js";
 
 const highlighter = createHighlighterCore({
@@ -119,22 +121,62 @@ function HighlightedCode({
   );
 }
 
-export function Markdown({
+export const Markdown = React.memo(function Markdown({
   children,
 }: {
   children: string;
 }): React.JSX.Element {
+  const { t } = useTranslation();
   return (
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
       components={{
-        code({ className, children: codeChildren }) {
-          const match = /language-(\w+)/.exec(className ?? "");
-          const value = String(codeChildren).replace(/\n$/, "");
-          return match ? (
-            <HighlightedCode language={match[1] ?? "text"} value={value} />
-          ) : (
-            <code>{value}</code>
+        pre({ children: blockChildren }) {
+          const child = React.Children.toArray(blockChildren)[0];
+          if (
+            !React.isValidElement<{
+              className?: string;
+              children?: React.ReactNode;
+            }>(child)
+          )
+            return <pre>{blockChildren}</pre>;
+          const language =
+            /language-([\w-]+)/.exec(child.props.className ?? "")?.[1] ??
+            "text";
+          const value = String(child.props.children ?? "").replace(/\n$/, "");
+          return (
+            <section
+              className="code-block"
+              aria-label={t("messages.codeBlock", { language })}
+            >
+              <div className="code-block-header">
+                <span>{language}</span>
+                <CopyButton text={value} label={t("messages.copyCode")} />
+              </div>
+              <section
+                className="code-block-scroll"
+                aria-label={t("messages.codeBlock", { language })}
+                // biome-ignore lint/a11y/noNoninteractiveTabindex: Code and table output regions need keyboard scrolling.
+                tabIndex={0}
+              >
+                <HighlightedCode language={language} value={value} />
+              </section>
+            </section>
+          );
+        },
+        code({ children: codeChildren }) {
+          return <code>{codeChildren}</code>;
+        },
+        table({ children: tableChildren }) {
+          return (
+            <section
+              className="markdown-table"
+              aria-label={t("messages.table")}
+              // biome-ignore lint/a11y/noNoninteractiveTabindex: Wide table output needs keyboard scrolling.
+              tabIndex={0}
+            >
+              <table>{tableChildren}</table>
+            </section>
           );
         },
         a({ href, children: linkChildren }) {
@@ -159,4 +201,4 @@ export function Markdown({
       {children}
     </ReactMarkdown>
   );
-}
+});

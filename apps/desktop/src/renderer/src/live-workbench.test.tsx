@@ -46,6 +46,14 @@ const state: DesktopState = {
 beforeEach(async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   HTMLElement.prototype.scrollIntoView = vi.fn();
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    },
+  );
   vi.stubGlobal("forgeDesktop", {
     ...window.forgeDesktop,
     platform: "darwin",
@@ -115,6 +123,11 @@ async function deliver(payload: RunPayload, sequence = 1) {
       sequence,
       payload,
     });
+  });
+  await act(async () => {
+    await new Promise<void>((resolve) =>
+      requestAnimationFrame(() => resolve()),
+    );
   });
 }
 

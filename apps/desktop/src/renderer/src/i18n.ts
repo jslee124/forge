@@ -6,6 +6,20 @@ export type Locale = "en" | "zh-CN";
 export const resources = {
   en: {
     translation: {
+      messages: {
+        transcript: "Conversation",
+        jumpLatest: "Jump to latest",
+        copyAnswer: "Copy answer",
+        copyCode: "Copy code",
+        copied: "Copied",
+        copyFailed: "Could not copy. Try again.",
+        user: "Your message",
+        assistant: "Forge answer",
+        codeBlock: "{{language}} code",
+        table: "Scrollable table",
+        omitted:
+          "{{count}} earlier answer characters are not shown in the live preview.",
+      },
       browsing: {
         draftWhileRunning:
           "Draft kept here. Finish or stop the running task before continuing this one.",
@@ -529,6 +543,19 @@ export const resources = {
   },
   "zh-CN": {
     translation: {
+      messages: {
+        transcript: "对话",
+        jumpLatest: "跳到最新",
+        copyAnswer: "复制回答",
+        copyCode: "复制代码",
+        copied: "已复制",
+        copyFailed: "复制失败，请重试。",
+        user: "你的消息",
+        assistant: "Forge 回答",
+        codeBlock: "{{language}} 代码",
+        table: "可滚动表格",
+        omitted: "实时预览已省略较早的 {{count}} 个回答字符。",
+      },
       browsing: {
         draftWhileRunning: "草稿会保留，当前运行结束后可继续此任务并发送。",
         draftReady: "草稿已保留，点击“继续此任务”后可发送。",

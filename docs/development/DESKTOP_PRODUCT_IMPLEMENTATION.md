@@ -293,6 +293,78 @@ controls. Local screenshots are `/tmp/forge-browsing-ui/`. `pnpm check`,
 `pnpm check:docs` and `pnpm desktop:build` passed. This is scripted-loopback
 acceptance, not live-provider quality, installed-app or release evidence.
 
+## Reading, zoom and accessibility follow-up (2026-10-25)
+
+T11/T12 gain a reproducible local acceptance path in
+`apps/desktop/src/main/experience-acceptance.ts`. Before changes, the isolated
+Electron stream stayed 3735 CSS pixels above the tail, and at 200% zoom the
+composer control was outside the viewport despite no horizontal page overflow.
+
+- `Transcript` follows new output until the user scrolls upward, then preserves
+  reading position and exposes Jump to latest. Returning to a cached conversation
+  retains its position; an explicit new submission requests following.
+- Text chunks are coalesced per animation frame, with immediate terminal flush,
+  stale-frame cancellation and explicit omission at the existing preview limit.
+  Completed message Markdown is memoized. This is bounded rendering behavior,
+  not a measured frame-rate or provider-latency claim.
+- Answers and fenced code have copy controls with truthful failure feedback.
+  Code and tables have named keyboard-scrollable containers; nested code `pre`
+  markup is removed. Only the streaming article is busy; the entire transcript
+  is no longer a live region. Decorative avatars do not repeat their identity.
+- Completion/delivery surfaces scroll with the transcript. Short viewports reduce
+  toolbar/composer heights and keep approval review/decision controls reachable;
+  during approval at low height the composer is hidden while its draft is retained.
+  Focus returns from a disappearing approval/stop control without interrupting a
+  different conversation's draft.
+
+Run from `apps/desktop` after `CI=true pnpm desktop:build`:
+`FORGE_T12_MODE=verify FORGE_UI_OUTPUT=/tmp/forge-t12-ui-final node scripts/acceptance-ui.mjs`.
+The fixture exercises 60 paragraphs, pause/resume, 100 ordered deltas, answer/code
+copying, EN/ZH × light/dark × 1100/840 widths × 100%/200% zoom, native keyboard
+input and approval, reduced-motion emulation and a Chromium accessibility-tree
+snapshot. Clipboard writes are intercepted only inside the isolated fixture;
+the user's system clipboard is not modified. Existing approval, recovery,
+delivery and independent-browsing acceptance still runs first.
+
+Validation: 151 Desktop/application tests passed, six live-model tests skipped;
+133 deterministic evaluations, root check, docs check and Desktop build passed.
+The final Electron fixture succeeded; `/tmp/forge-t12-ui-final/ui.json` records
+97 captures including the 16 new locale/theme/width/zoom combinations. Native
+Enter submission, Shift+Enter newline, approval at 200% zoom and focus restoration
+passed. The composition event only proves the synthetic guard. The local
+walkthrough is `/tmp/forge-t12-ui-final/audit.md`. Both configuration and Chromium
+profiles are isolated; captures wait for fonts and finite animations to settle.
+
+T12 remains partial: an accessibility tree and synthetic composition guard do
+not establish VoiceOver speech, actual native IME candidate interaction, WCAG
+conformance or installed macOS/Windows behavior. Manual accessibility and native
+IME checks precede the T13 live-task rounds/user trial. Temporary screenshot and
+JSON outputs are local development evidence, not versioned release evidence.
+
+## Packaged macOS/native-input probe (2026-10-25)
+
+A fresh arm64 0.4.0 `.app` from the current workspace was copied to an isolated
+Applications directory and launched through LaunchServices with a clean PATH,
+empty proxy settings and isolated Forge home. Packaged resources, Chinese
+workspace paths, plugin install/enable, session resume, PDF text/canvas and Agent
+shutdown passed (`modelCalls: 0`). A separate isolated visible window confirmed
+Chinese paste, native Shift+Enter newline, Enter submission, Tab from composer to
+attachment, and actual macOS quit/Keep working preserving the draft, followed by
+Exit. This is unsigned local `.app` evidence, not DMG/Gatekeeper, notarization,
+Windows or live-provider evidence.
+
+The first-run probe exposed missing configuration guidance: an unconfigured model
+can be submitted and only yields generic failure plus `configuration-invalid` in
+expanded diagnostics. It also creates an Empty session/UUID workspace and offers
+unhelpful continuation actions. The native quit confirmation remains English in
+a Chinese UI. These are open product findings, not fixed in this probe.
+
+Local report and screenshots: `/tmp/forge-native-input/evidence/report.md`;
+raw packaged result: `/tmp/forge-native-input/evidence/installed.json`.
+VoiceOver speech and native IME candidate confirmation remain unverified: input
+source/keystroke and Cmd+F5 attempts did not provide observable candidate/speech
+proof. T12 remains partial. The report records the small manual checks still needed.
+
 ## 1. Goal and invariants
 
 Complete the native-engine investigation → approval → execution → verification →
@@ -651,7 +723,7 @@ tests. A partial vertical increment does not complete a milestone.
 | T09 | [~] | ApprovalCard, ordered requests, keyboard, decision records, stable buttons | T08; R03/R04/R15 |
 | T10 | [~] | Summary/activity/failure/delivery views, control handling, separate diagnostics | T07/T09; R05/R08/R11 |
 | T11 | [~] | Drafts, message actions, scrolling, recovery interactions | T10; R09/R10/R12 |
-| T12 | [ ] | Bilingual/themes, 200% zoom, narrow windows, screen reader/reduced motion, streaming stress | T11; R15 |
+| T12 | [~] | Bilingual/themes, 200% zoom, narrow windows, screen reader/reduced motion, streaming stress | T11; R15 |
 | T13 | [ ] | Two 24-task rounds, five-user trial, CLI/gateway/Codex regression, platform installation evidence | T12; all R |
 | T14 | [ ] | Update bilingual product help, packaged resources, versioned evidence index; propose release after gates | T13; all R |
 
