@@ -19,6 +19,15 @@ const rawSummary = readFileSync(
   "utf8",
 ).trimEnd();
 
+// Second observed envelope: no space after DSML, with tool_calls as root.
+const rawToolCalls = readFileSync(
+  new URL(
+    "../../packages/model-deepseek/src/fixtures/raw-dsml-tool-calls.txt",
+    import.meta.url,
+  ),
+  "utf8",
+).trimEnd();
+
 function fixture(answer: string, chunkSize = 7) {
   const requests: Record<string, unknown>[] = [];
   let effects = 0;
@@ -117,10 +126,14 @@ function fixture(answer: string, chunkSize = 7) {
 }
 
 describe("DeepSeek tool-free output validity", () => {
-  it.each([1, 7, 4096])(
-    "falls back on the recorded raw DSML answer, chunk size %i",
-    async (chunkSize) => {
-      const f = fixture(`\n  ${rawSummary}`, chunkSize);
+  it.each(
+    [rawSummary, rawToolCalls].flatMap((raw, form) =>
+      [1, 7, 4096].map((chunkSize) => ({ form, raw, chunkSize })),
+    ),
+  )(
+    "falls back on recorded DSML form $form, chunk size $chunkSize",
+    async ({ raw, chunkSize }) => {
+      const f = fixture(`\n  ${raw}`, chunkSize);
       const result = await f.run();
       expect(result).toMatchObject({
         status: "limit_reached",
@@ -157,6 +170,8 @@ describe("DeepSeek tool-free output validity", () => {
     "Read package.json. Its name is fixture; no tests were run.",
     `Protocol example:\n${rawSummary}`,
     `\`\`\`xml\n${rawSummary}\n\`\`\``,
+    `Protocol example:\n${rawToolCalls}`,
+    `\`\`\`xml\n${rawToolCalls}\n\`\`\``,
   ])(
     "preserves normal prose and explicitly quoted protocol examples",
     async (answer) => {

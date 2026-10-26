@@ -1056,6 +1056,47 @@ in the focused run), 185 deterministic checks, root checks (existing 8 warnings 
 responses include raw protocol, unexpected tools and truncated output to verify
 that those outcomes cannot masquerade as valid answers. No paid result is implied.
 
+## Fixed-input comparison findings and compact protocol guard (2026-10-26)
+
+Eight predeclared diagnostic requests ran at c301a8c (not Desktop acceptance).
+All actual request bodies matched pinned fixture requests; within a framing only
+requested model ID differs. Provider labels matched Flash/V4 Pro, but labels do
+not prove distinct backend weights. Both models had unsupported local-absence
+claims in some samples. The two V4 Pro evidence-packet answers were more qualified;
+Flash packet samples still had an absence claim/source generalization, while
+V4 Pro tool history produced one absence claim and one raw protocol answer.
+Two samples per cell are insufficient to change defaults or claim model reliability.
+
+All eight HTTP responses were 200/stop, but stop is not semantic/protocol success.
+Assistant review conservatively separates unsupported claims from observation-
+qualified answers, not independent user grading. Reported input/output/total:
+6,872 / 3,827 / 10,699 tokens; 2,130 reasoning tokens are included in output.
+Summed request duration 55,522 ms. No price/invoice or general success rate claimed.
+Evidence: `/tmp/forge-negative-compare-c301a8c/README.md`. Synthetic histories omit
+full application catalog/autonomous traces; this is not an exact replay or a
+complete isolation of prior Desktop failure causes. No further paid retry occurred.
+
+Case 7 revealed a concrete guard miss: compact `<｜｜DSML｜｜tool_calls>` escaped
+the prior spaced calls/invoke check under none and was accepted as plain text.
+No tool executed. The adapter now recognizes compact tool_calls and invoke as
+well as the observed spaced root. The exact synthetic-path response is a fixture:
+its three chunk-size cases failed before the fix and pass after it (1/7/4096).
+Quoted prose/code examples remain intact; fallback keeps total limits and effects.
+The eight original result files remain unchanged with separate reviews marking
+the missed protocol. Guard verification is offline replay, not a new live result.
+
+No installation, product model default, canonical record or approval authority
+changed. T05/T13 remain partial. The next candidate is a bounded evidence-answer
+projection tested across real coding/recovery tasks, preserving original records
+and effect evidence; this small matrix does not authorize replacing production
+history with an unverified summary.
+
+Guard-fix validation: 51 focused adapter/transport/core/output tests and all 190
+deterministic checks passed. Root checks (existing 8 warnings / 48 infos), docs,
+packed-install verification and Desktop build passed. The malformed output
+regression proves no extra tool effect/model retry and no raw protocol in the
+final answer or canonical delta; ordinary protocol examples remain readable.
+
 ## 1. Goal and invariants
 
 Complete the native-engine investigation → approval → execution → verification →

@@ -115,7 +115,11 @@ export class DeepSeekModelAdapter implements ModelAdapter {
     for await (const event of stream) {
       if (toolChoice === "none" && event.type === "text.delta") {
         textPrefix = `${textPrefix}${event.text}`.trimStart().slice(0, 128);
-        if (/^<｜｜DSML｜｜\s+(?:calls|invoke)(?:\s|>)/u.test(textPrefix)) {
+        if (
+          /^<｜｜DSML｜｜\s*(?:calls|tool_calls|invoke)(?=\s|>)/u.test(
+            textPrefix,
+          )
+        ) {
           throw new ModelProviderError(
             "DeepSeek returned raw DSML tool-call syntax in a tool-free response.",
             { provider: "deepseek", retryable: false },
