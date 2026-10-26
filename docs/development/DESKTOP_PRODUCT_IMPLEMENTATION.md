@@ -1001,6 +1001,30 @@ checks, root checks (existing 8 warnings / 48 infos), documentation checks, pack
 installation verification and Desktop build passed. These do not establish live
 semantic compliance or installed-app acceptance.
 
+## Negative-evidence Q06 real Desktop retest (2026-10-26)
+
+At fbf6fe1, two unchanged Q06 samples used the same frozen model/seed and 6-step/
+8-tool caps. Both completed (3 steps/4 tools and 2/2), with a summed recorded
+13,080 ms. Both actual search outputs carried noMatch and scannedFiles=9 with
+no limits. Both refused a DAU number/zero and acknowledged the online evidence
+boundary, yet both fail the existing strict rubric: the first inferred no local
+instrumentation/reporting code from negative terms; the second inferred no
+analytics integration from names/listing and a negative analytics query. A later
+scope caveat does not support the earlier semantic claim. The fixture may lack
+instrumentation in fact; the failure concerns the evidence supporting the claim.
+
+No workspace edits, approval grants, DSML warning or system fallback. Neither
+sample reached reserved finalization, so they do not measure the changed final
+stage wording. Coding-assistant review is not independent human acceptance; no
+causal reliability improvement, billing total or general success rate claimed.
+Raw runs and separate reviews:
+`/tmp/forge-t13-negative-evidence-results/report.md`. Outbound inventory matches
+the prior inspected toy fixture; no user business source/history copied into it.
+No retry, push, installation replacement or new UI acceptance. T05/T13 remain
+partial: tool evidence presentation is implemented, model semantic compliance is
+not solved. A fixed-input comparison of evidence framing/model behavior should
+precede further instruction accumulation or unchanged-question retries.
+
 ## 1. Goal and invariants
 
 Complete the native-engine investigation → approval → execution → verification →
