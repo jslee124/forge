@@ -1272,6 +1272,37 @@ No new paid model sampling or UI acceptance was performed in this step. The next
 bounded live check should evaluate source-status attribution and explicit conflict
 handling; T05/T13 remain partial.
 
+### Real-model source-scope follow-up (2026-10-27)
+
+A bounded paid diagnostic at `/tmp/forge-recovery-scope-ecb52a1/README.md` sampled
+four captured toy counterexamples in en/zh-CN against `ecb52a1`, default continuation,
+DeepSeek Flash/high. Eight summaries consumed eight logical model steps, zero tools,
+and left their empty workspaces unchanged. Every response used its requested language
+and retained partial completion. Input source metadata is explicitly synthetic
+interrupted/disconnected for an incomplete selected observation subset, not the
+original complete run. Plans, hashes, prepared inputs, raw events/responses and
+separate qualitative reviews are retained. An initial credential-store permission
+failure happened before any provider call; it was resolved by authorized escalation.
+
+All responses recognized that the true original outcome was unknown; the previous
+source/current-summary budget conflation did not recur in this bounded sample.
+Directory count and command identity were explicitly corrected in both languages.
+Only `claim-1-en` explicitly corrected the negative-string exception classification;
+the other three exception responses did not resolve that target. That same English
+response dropped `!` while transcribing `!Number.isInteger(port)` in prose.
+`claim-3-zh-CN` still asserted no reads/tests/builds executed despite incomplete
+coverage; `claim-3-en` opened with an unqualified no-content-read claim before later
+record-scoped caveats. Semantic summary acceptance therefore remains incomplete.
+No general accuracy or causal improvement is claimed, and no paid whole-task retry
+was used to chase a desired answer.
+
+Next implementation should make deterministic source status, action identity and
+observed verification the primary recovery surface, with generated explanation
+visibly separate. Status must come from recorded fields, not a prose classifier.
+Build and eight runtime accounting/workspace checks passed; all full answers were
+manually reviewed and documentation checks passed. This step adds no UI acceptance
+or source behavior change; T05/T13 remain partial.
+
 ## 1. Goal and invariants
 
 Complete the native-engine investigation → approval → execution → verification →
