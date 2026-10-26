@@ -2,7 +2,7 @@
 
 [简体中文](../zh-CN/development/DESKTOP_PRODUCT_IMPLEMENTATION.md) · [PRD](DESKTOP_PRODUCT_PRD.md) · [Roadmap](ROADMAP.md) · [Documentation index](../README.md)
 
-Date: 2026-10-25. Status: presentation, durable-history, investigation, and bounded-finalization increments implemented; remaining gates pending. This is a layered development
+Updated: 2026-10-26. Status: core product flows implemented incrementally; full product acceptance remains pending. This is a layered development
 contract and task list, not shipped behavior. New filenames, types, fields, and
 configuration below are proposed; section 2 separately identifies existing code.
 Resolve PRD/implementation disagreements in both documents before implementing.
@@ -20,8 +20,10 @@ text/detail/action/phase/approval/approval-resolved/complete payload names as an
 incremental migration rather than claiming the entire section 4 protocol.
 Unavailable Codex counters are omitted; its tool activity remains descriptive.
 The follow-ups below add durable activity restoration, investigation tools, and native Desktop finalization.
-Explicit summarize/continue/retry remain pending. The 24-task live baseline and five-user
-trial have not run; deterministic reproductions do not substitute for them.
+Native summarize/continue/retry, delivery, browsing and setup follow-ups are recorded below.
+The first six real-provider pilot runs are recorded separately; the complete two-round
+24-task evaluation and five-user trial remain pending. Deterministic reproductions
+do not substitute for those gates.
 
 Task status `[ ]` means pending and `[~]` means partial/not through the complete gate.
 
@@ -408,6 +410,151 @@ development evidence, not a release or live-provider quality claim. The previous
 installed 0.4.0 local build has not been replaced by this source increment.
 VoiceOver, native IME candidates and T13 user trials retain their prior limits.
 
+## T13 bounded live pilot preparation (2026-10-26)
+
+The setup/failure increment is committed as `684d5ce`. Two independent 24-task
+rounds have been prepared with the same frozen model and fixture hashes. A new
+[opt-in pilot launcher](../../apps/desktop/scripts/product-live.mjs) and
+[Desktop execution path](../../apps/desktop/src/main/product-live-acceptance.ts)
+prepare Q02/E01/F03 in each round (six runs), not a completed 48-task baseline.
+The T12 manual gates and five-user trial are still pending.
+
+Run from `apps/desktop` after building:
+
+```bash
+node scripts/product-live.mjs --check --round /tmp/forge-t13-round-1 --round /tmp/forge-t13-round-2
+# Requires explicit authorization to send the named fixture data to DeepSeek:
+node scripts/product-live.mjs --live --round /tmp/forge-t13-round-1 --round /tmp/forge-t13-round-2
+```
+
+`--check` makes no provider calls and reads no credential. Both modes verify the
+fixed task prompts, exact file inventory and original seed hashes, refusing extra
+files and changed inputs. Live mode uses an isolated home/Chromium profile and
+passes only the selected DeepSeek key for authentication; reports redact it.
+Q02/E01 allow at most six model steps each, F03 two; per-run tool caps are 8/16/8.
+A 150-second cancel request and 175-second wall-clock bound apply, followed by a
+200-second parent-process cutoff. No existing attempt is overwritten or retried.
+The narrow [approval policy](../../apps/desktop/src/main/product-live-policy.ts)
+only allows E01's `workflow.mjs` edits and exact `node --test fixture.test.mjs`;
+other effects are denied. These application controls are not an OS sandbox.
+
+Evidence includes real Desktop screenshots, protocol events, durable runtime
+records, before/after file hashes, approval decisions and independent port-boundary
+assertions. Run outcomes and assertion results remain separate from rubric review;
+a fault that does not trigger cannot be claimed as covered. Usability/user trials
+are not inferred from an automatically operated renderer. The initial preparation did not establish source/runtime coverage by a live run;
+the limited executed pilot is recorded below.
+
+Local preparation validation: 39 main/evaluation tests, root check and Desktop
+build passed; both `--check` rounds passed. Live execution was rejected by automatic
+approval review before the launcher ran because specific fixture-data transmission
+to DeepSeek had not yet been explicitly confirmed. At that preparation point,
+external calls were zero and all assessments were pending. The user subsequently
+authorized the named data/destination; see the executed pilot below. Original
+review plan: `/tmp/forge-t13-plan/report.md`. Preparation is not a scored baseline
+or release evidence.
+
+## T13 first live pilot observations (2026-10-26)
+
+After explicit authorization, six real DeepSeek trials (two rounds of Q02/E01/F03)
+ran through the Desktop renderer, adapter, Agent and recording path. Requested
+configuration was `deepseek-flash`/high. Completion accounting totals 25 model steps
+and 32 tool calls (including denied/invalid calls); exact HTTP retries, tokens and
+billing were not measured. This is a three-case pilot, not a 48-task baseline,
+independent five-user trial or provider success-rate estimate.
+
+- Q02: both answers identify the fixture's main call path, preserve read-only scope,
+  and terminate on tool budget. Both broaden investigation to product resources;
+  the second makes an incorrect unrelated claim about the seed's busy flag.
+  The prompt also leaves fixture/product scope ambiguous, so do not attribute
+  all overhead to the model/runtime alone.
+- E01: both patches change only `workflow.mjs`; independent post-run 22-case port
+  checks pass. However, the pilot allowlist mistakenly rejected the intended
+  command because the tool supplied default `cwd: "."`. Therefore the Agent's
+  verification loop is **not validly assessed**. Both answers truthfully state
+  their tests did not run. The seed leaves leading-zero behavior unspecified;
+  the two implementations differ on it.
+- F03: both runs obey two model steps and have no new action execution after
+  finalizing. The first answer displays DSML tool-call protocol text instead of
+  a summary; the second is readable but miscounts the listed files. Mechanical
+  budget checks passing does not establish summary correctness or usability.
+  Provider/adapter/finalization root cause remains unresolved.
+
+All six outcomes are `limit_reached`, with explicit partial status. F03 intentionally
+exhausts its budget; the lower pilot caps and E01 harness defect preclude treating
+this as six ordinary-task failures or as six passes. No source/product logic was
+changed between the six sampled trials. A pre-admission UI timeout created no
+session/run record; its original evidence was retained separately, and the runner
+wait was corrected to await the selected workspace state before the live batch.
+
+After sampling, the pilot cwd allowlist was corrected and regression-tested,
+without additional external calls. Live validation of that correction remains
+pending. The original screenshots, model outputs/events and code patches are
+retained. A post-run assistant review is distinct from independent human grading.
+Local evidence: `/tmp/forge-t13-results/report.md`, `/tmp/forge-t13-results/summary.json`,
+`/tmp/forge-t13-round-{1,2}/`, and build hashes in
+`/tmp/forge-t13-plan/live-build-sha256.json`. The build includes an uncommitted pilot
+executor on baseline `684d5ce`; that commit alone does not identify every executed
+file. 39 main/evaluation tests, root check, docs check and Desktop build passed.
+
+Next: reject or clearly report invalid summary output without executing protocol
+text; tighten evidence-to-answer convergence; then sample a new batch with the
+corrected pilot policy. Each round's other 21 cases, fault injections, five-user
+trial and T12 manual accessibility/IME gates remain pending.
+
+## Tool-free output validation follow-up (2026-10-26)
+
+The first T13 F03 answer exposed a provider-specific gap: raw DSML invocation
+syntax arrived as text, so the runtime's existing structural-call, stop-reason
+and nonempty-answer checks accepted it. This establishes an acceptance gap, not
+why the remote provider generated that response.
+
+DeepSeek's adapter now rejects a tool-free response beginning with a raw DSML
+`calls` or `invoke` envelope, including markers split across text deltas. Detection
+is limited to a bounded opening prefix; prose and fenced protocol examples remain
+unchanged. The adapter reports a non-retryable provider error, and core's existing
+reserved-finalization path replaces buffered text with an evidence-based partial
+result. It neither parses textual calls nor executes them nor adds a model retry.
+This is a narrow protocol-shape guard, not a general factual-quality grader;
+miscounts and over-investigation remain separate work.
+
+The checked-in synthetic raw-answer fixture is copied from the authorized F03
+trial. An offline HTTP/SSE replay exercises the actual SDK, adapter and core path,
+asserting one observed read, two total requests, retained partial/budget metadata,
+a diagnostic warning, no raw protocol in delivered text/canonical history, and
+preserved normal/quoted answers. The replay joins `eval:deterministic`.
+Validation: 41 focused adapter/transport/finalization tests, 140 deterministic
+checks, root check, documentation check and Desktop build passed. Existing root
+lint warnings remain. No additional live provider calls or installed-app
+verification were performed.
+
+## Investigation convergence follow-up (2026-10-26)
+
+Opt-in reserved-final-step runs now receive their actual total model/tool allowance
+and guidance to finish when requested evidence is sufficient without claiming
+unexecuted verification or skipping necessary checks. Application instructions
+separate current-workspace implementation questions from host product help and
+limit additional Skill use to the requested workflow. Explicit Skill selection
+and existing permissions remain intact. Direct CLI/gateway defaults are unchanged.
+
+The run-local read-progress tracker retains the three-identical-read threshold
+and also stops after three successive already-observed read batches, catching
+alternating unchanged reads. It observes only successful `read_file` batches with
+known resource versions and identical bounded results/inputs. A changed result
+for the same scope, failed/unknown-version read, search, process, write or mixed
+batch clears cycle evidence. Tracking is bounded to 64 batch signatures and 256
+read scopes; capacity exhaustion forgets evidence rather than inferring a loop.
+The next admitted step remains a tool-free partial summary inside the total
+budget. This does not detect semantically irrelevant new reads or prove answer
+correctness, and it never caches tool results or grants execution authority.
+
+Validation: 337 affected core/application/DeepSeek/Desktop/pilot tests passed;
+six opt-in live tests skipped. 151 deterministic checks and root check passed.
+Regressions cover alternating loops, changed/reverted versions, new scopes,
+intervening effects, unknown/failing observations, bounded tracking, early answers
+and unchanged direct-policy instructions. No additional paid provider trials ran;
+real-model convergence improvement remains unmeasured. T06/T13 remain partial.
+
 ## 1. Goal and invariants
 
 Complete the native-engine investigation → approval → execution → verification →
@@ -767,7 +914,7 @@ tests. A partial vertical increment does not complete a milestone.
 | T10 | [~] | Summary/activity/failure/delivery views, control handling, separate diagnostics | T07/T09; R05/R08/R11 |
 | T11 | [~] | Drafts, message actions, scrolling, recovery interactions | T10; R09/R10/R12 |
 | T12 | [~] | Bilingual/themes, 200% zoom, narrow windows, screen reader/reduced motion, streaming stress | T11; R15 |
-| T13 | [ ] | Two 24-task rounds, five-user trial, CLI/gateway/Codex regression, platform installation evidence | T12; all R |
+| T13 | [~] | Two 24-task rounds, five-user trial, CLI/gateway/Codex regression, platform installation evidence | T12; all R |
 | T14 | [ ] | Update bilingual product help, packaged resources, versioned evidence index; propose release after gates | T13; all R |
 
 M1 gate: T01–T04/T08 deliver a controlled runnable flow; old history is readable

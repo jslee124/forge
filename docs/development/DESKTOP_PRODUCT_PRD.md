@@ -2,7 +2,7 @@
 
 [简体中文](../zh-CN/development/DESKTOP_PRODUCT_PRD.md) · [Implementation](DESKTOP_PRODUCT_IMPLEMENTATION.md) · [Roadmap](ROADMAP.md) · [Documentation index](../README.md)
 
-Date: 2026-10-25. Status: development contract, implementation pending. “v1” means
+Updated: 2026-10-26. Status: development contract, incremental implementation in progress. “v1” means
 this productization scope, not a release version or an implemented capability.
 Current behavior remains defined by source, tests, and recorded acceptance.
 
@@ -215,7 +215,8 @@ own install/start evidence; a macOS development window does not prove Windows.
 
 Detailed tasks and dependencies are in the
 [implementation plan](DESKTOP_PRODUCT_IMPLEMENTATION.md#10-tasks-and-dependencies).
-Every stage is pending. No calendar estimate or unselected release tag is promised.
+Full stage acceptance remains pending; incremental implementation and pilot results
+are tracked in the implementation plan. No calendar estimate or unselected release tag is promised.
 
 ## 9. Risks and tradeoffs
 

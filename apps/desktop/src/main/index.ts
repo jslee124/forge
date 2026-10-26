@@ -169,8 +169,21 @@ async function shutdown(): Promise<void> {
 }
 
 async function run(): Promise<void> {
-  if (process.argv.includes("--desktop-acceptance")) {
-    const isolated = process.env["FORGE_D12_UI_HOME"];
+  if (
+    process.argv.includes("--desktop-acceptance") ||
+    process.argv.includes("--desktop-product-live")
+  ) {
+    const live = process.argv.includes("--desktop-product-live");
+    if (
+      live &&
+      (app.isPackaged || process.env["FORGE_PRODUCT_LIVE_OPT_IN"] !== "1")
+    )
+      throw new Error(
+        "Live pilot requires development build and explicit opt-in",
+      );
+    const isolated = live
+      ? process.env["FORGE_PRODUCT_LIVE_HOME"]
+      : process.env["FORGE_D12_UI_HOME"];
     if (!isolated || isolated !== process.env["FORGE_HOME"])
       throw new Error("Acceptance requires an isolated Chromium profile");
     app.setPath("userData", join(isolated, "chromium"));
@@ -434,6 +447,17 @@ async function run(): Promise<void> {
       updates,
       join(app.getPath("temp"), "forge-update-ui"),
     );
+    window.destroy();
+    await shutdown();
+    app.exit(0);
+    return;
+  }
+  if (process.argv.includes("--desktop-product-live")) {
+    const window = await createWindow(false);
+    const { runProductLivePilot } = await import(
+      "./product-live-acceptance.js"
+    );
+    await runProductLivePilot(window, agent, files);
     window.destroy();
     await shutdown();
     app.exit(0);

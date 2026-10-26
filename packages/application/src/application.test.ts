@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import type {
   ModelAdapter,
+  ModelRequest,
   ModelStreamEvent,
   RunEvent,
   RunResult,
@@ -11,6 +12,65 @@ import type {
 import { expect, it } from "vitest";
 import { createPersistentInteractiveSession } from "./persistent-session.js";
 import { runTask } from "./run.js";
+
+it.each(["direct", "reserve-final-step"] as const)(
+  "scopes workspace investigation only for %s completion policy",
+  async (completionPolicy) => {
+    const cwd = await mkdtemp(path.join(tmpdir(), "forge-scope-"));
+    try {
+      const requests: ModelRequest[] = [];
+      const code = await runTask(
+        "Explain the request-to-tool path",
+        {},
+        {
+          cwd,
+          env: { FORGE_HOME: path.join(cwd, "home") },
+          completionPolicy,
+          signal: new AbortController().signal,
+          stderr: { write() {} },
+          createAdapter: () => ({
+            supportsToolChoiceNone: true,
+            async *stream(request) {
+              requests.push(request);
+              yield { type: "text.delta", text: "Fixture answer" };
+              yield {
+                type: "finish",
+                finishReason: "stop",
+                usage: {
+                  inputTokens: 1,
+                  outputTokens: 1,
+                  reasoningTokens: 0,
+                  cachedInputTokens: 0,
+                  cacheWriteTokens: 0,
+                  totalTokens: 2,
+                },
+              };
+            },
+          }),
+        },
+      );
+      expect(code).toBe(0);
+      expect(requests).toHaveLength(1);
+      const instructions = requests[0]?.instructions ?? "";
+      if (completionPolicy === "reserve-final-step") {
+        expect(instructions).toContain(
+          "Forge product documentation describes the host product",
+        );
+        expect(instructions).toContain(
+          "explicit user-selected Skills still apply",
+        );
+        expect(instructions).toContain(
+          "Static inspection is not an executed test",
+        );
+      } else
+        expect(instructions).not.toContain(
+          "Forge product documentation describes the host product",
+        );
+    } finally {
+      await rm(cwd, { recursive: true, force: true });
+    }
+  },
+);
 
 it("runs and resumes a session through shared services without a terminal", async () => {
   const cwd = await mkdtemp(path.join(tmpdir(), "forge-application-"));

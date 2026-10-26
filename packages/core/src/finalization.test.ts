@@ -129,6 +129,77 @@ describe("reserved final model step", () => {
     expect(f.effects()).toBe(1);
     expect(f.requests).toHaveLength(1);
     expect(f.requests[0]?.toolChoice).toBeUndefined();
+    expect(f.requests[0]?.instructions).toBeUndefined();
+  });
+  it("gives bounded runs their actual total allowance and permits an early answer", async () => {
+    const f = fixture(() => [
+      { type: "text.delta", text: "Enough evidence; here is the answer." },
+      finish(),
+    ]);
+    const result = await runAgent({
+      ...f.options,
+      instructions: "Original instructions",
+      limits: { maxModelSteps: 6, maxToolCalls: 8 },
+    });
+    expect(result.status).toBe("completed");
+    expect(f.requests).toHaveLength(1);
+    expect(f.effects()).toBe(0);
+    expect(f.requests[0]?.instructions).toContain("Original instructions");
+    expect(f.requests[0]?.instructions).toContain(
+      "6 model steps and 8 tool calls",
+    );
+    expect(f.requests[0]?.instructions).toContain(
+      "do not claim unexecuted verification",
+    );
+  });
+  it("finalizes an alternating read cycle without exhausting the total budget", async () => {
+    const f = fixture((request, step) =>
+      request.toolChoice === "none"
+        ? [
+            { type: "text.delta", text: "Partial answer; no new evidence." },
+            finish(),
+          ]
+        : [
+            {
+              type: "tool.call",
+              call: {
+                id: `read-${step}`,
+                name: "read_file",
+                input: { path: step % 2 ? "a" : "b" },
+              },
+            },
+            finish(true),
+          ],
+    );
+    const reader = f.options.tools[0];
+    if (!reader) throw new Error("missing reader");
+    const result = await runAgent({
+      ...f.options,
+      limits: { maxModelSteps: 12 },
+      tools: [
+        {
+          ...reader,
+          execute: async (input, context) => {
+            await reader.execute(input, context);
+            return {
+              ok: true,
+              output: { content: "same", resourceVersion: "v1" },
+              truncated: false,
+            };
+          },
+        },
+      ],
+    });
+    expect(result).toMatchObject({
+      status: "limit_reached",
+      limitReason: "no_progress",
+      partial: true,
+      modelSteps: 6,
+      toolCalls: 5,
+    });
+    expect(f.effects()).toBe(5);
+    expect(f.requests.at(-1)?.toolChoice).toBe("none");
+    validateCanonicalConversation(result.canonicalDelta ?? []);
   });
   it("finalizes after using the tool allowance and preserves its actual results", async () => {
     const f = fixture();

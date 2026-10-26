@@ -38,7 +38,7 @@ import type {
   ApprovalPolicy,
   ProposedAction,
 } from "./policy.js";
-import { unchangedReadFingerprint } from "./read-progress.js";
+import { ReadProgressTracker } from "./read-progress.js";
 import type {
   ForgeTool,
   ModelToolDefinition,
@@ -436,8 +436,7 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
   const tools = toModelToolDefinitions(options.tools);
   const reserveFinalStep = options.completionPolicy === "reserve-final-step";
   let finalizing: FinalizationReason | undefined;
-  let previousReadFingerprint: string | undefined;
-  let unchangedReadSteps = 0;
+  const readProgress = new ReadProgressTracker();
   let modelSteps = 0;
   let toolCalls = 0;
   const deniedCalls = new Set<string>();
@@ -485,6 +484,15 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
     ...(options.context ? { context: options.context } : {}),
   });
 
+  const investigationInstructions = reserveFinalStep
+    ? [
+        options.instructions,
+        `Total allowance: ${limits.maxModelSteps} model steps and ${limits.maxToolCalls} tool calls, including one reserved tool-free final step. Plan investigation within that allowance; finish early when the requested evidence is sufficient. State relevant unknowns; do not claim unexecuted verification or skip necessary verification of changes to finish sooner.`,
+      ]
+        .filter(Boolean)
+        .join("\n\n")
+    : options.instructions;
+
   while (true) {
     if (options.signal.aborted) {
       return finish("cancelled", "The run was cancelled.");
@@ -515,7 +523,9 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
     let request: import("./model.js").ModelRequest = {
       prompt: options.prompt,
       ...(options.images?.length ? { images: options.images } : {}),
-      ...(options.instructions ? { instructions: options.instructions } : {}),
+      ...(investigationInstructions
+        ? { instructions: investigationInstructions }
+        : {}),
       ...(options.conversation ? { conversation: options.conversation } : {}),
       tools,
       ...(continuation ? { continuation } : {}),
@@ -535,19 +545,20 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
     if (activePromptPrefix) {
       const observation = observePromptPrefix({
         request,
-        inputs: finalizing
-          ? {
-              ...activePromptPrefix,
-              instructions: [
-                ...activePromptPrefix.instructions,
-                request.instructions ?? "",
-              ],
-              providerOptions: {
-                ...activePromptPrefix.providerOptions,
-                toolChoice: "none",
-              },
-            }
-          : activePromptPrefix,
+        inputs:
+          finalizing || reserveFinalStep
+            ? {
+                ...activePromptPrefix,
+                instructions: [
+                  ...activePromptPrefix.instructions,
+                  request.instructions ?? "",
+                ],
+                providerOptions: {
+                  ...activePromptPrefix.providerOptions,
+                  ...(finalizing ? { toolChoice: "none" } : {}),
+                },
+              }
+            : activePromptPrefix,
         capabilities: options.model.promptCache ?? { mode: "unsupported" },
         ...(previousPrefix ? { previous: previousPrefix } : {}),
         ...(options.sessionId ? { sessionId: options.sessionId } : {}),
@@ -1261,14 +1272,7 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
     toolResults = nextResults;
     pendingExchange = canonicalExchange(runId, modelSteps, step, nextResults);
     if (reserveFinalStep) {
-      const fingerprint = unchangedReadFingerprint(step.calls, nextResults);
-      unchangedReadSteps = fingerprint
-        ? fingerprint === previousReadFingerprint
-          ? unchangedReadSteps + 1
-          : 1
-        : 0;
-      previousReadFingerprint = fingerprint;
-      if (unchangedReadSteps >= 3) {
+      if (readProgress.observe(step.calls, nextResults)) {
         finalizing = "no_progress";
         await emit({
           type: "run.finalizing",
@@ -1281,7 +1285,7 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
 
   function finalizationMessage(): string {
     if (finalizing === "no_progress")
-      return "Investigation stopped after three unchanged read-only steps.";
+      return "Investigation stopped after repeated unchanged read-only evidence.";
     return finalizing === "tool_call_limit"
       ? "The tool-call limit was reached."
       : "The model-step limit was reached.";

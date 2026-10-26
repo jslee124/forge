@@ -3,6 +3,7 @@ import {
   type ModelAdapter,
   ModelConfigurationError,
   type ModelContextCapabilities,
+  ModelProviderError,
   type ModelRequest,
   type ModelStreamEvent,
   sha256,
@@ -78,7 +79,7 @@ export class DeepSeekModelAdapter implements ModelAdapter {
         `DeepSeek model "${this.#model}" does not accept image input. Select deepseek-flash.`,
       );
     }
-    return this.#transport.stream(
+    const stream = this.#transport.stream(
       {
         apiKey: this.#apiKey,
         model: this.#model,
@@ -96,6 +97,30 @@ export class DeepSeekModelAdapter implements ModelAdapter {
       },
       signal,
     );
+    return this.#validateToolFreeStream(stream, request.toolChoice);
+  }
+
+  async *#validateToolFreeStream(
+    stream: AsyncIterable<ModelStreamEvent>,
+    toolChoice: ModelRequest["toolChoice"],
+  ): AsyncIterable<ModelStreamEvent> {
+    // A tool-free response must not begin with DeepSeek's raw invocation
+    // envelope. Keep provider syntax here, rather than teaching core to parse
+    // it or turning text into executable calls. Core buffers finalization text
+    // and converts this error to its evidence-based partial-result fallback.
+    let textPrefix = "";
+    for await (const event of stream) {
+      if (toolChoice === "none" && event.type === "text.delta") {
+        textPrefix = `${textPrefix}${event.text}`.trimStart().slice(0, 128);
+        if (/^<｜｜DSML｜｜\s+(?:calls|invoke)(?:\s|>)/u.test(textPrefix)) {
+          throw new ModelProviderError(
+            "DeepSeek returned raw DSML tool-call syntax in a tool-free response.",
+            { provider: "deepseek", retryable: false },
+          );
+        }
+      }
+      yield event;
+    }
   }
 }
 

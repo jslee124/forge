@@ -1,0 +1,60 @@
+import { execFile } from "node:child_process";
+import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
+import { expect, it } from "vitest";
+import { prepareDesktopProductRound } from "./desktop-product-evaluation.js";
+
+it("checks the frozen pilot without credentials or live calls, and refuses extra workspace data", async () => {
+  const root = await mkdtemp(join(tmpdir(), "forge-product-pilot-check-"));
+  const round = join(root, "round");
+  const script = fileURLToPath(
+    new URL("../../apps/desktop/scripts/product-live.mjs", import.meta.url),
+  );
+  const cwd = fileURLToPath(new URL("../../", import.meta.url));
+  const run = () =>
+    promisify(execFile)(
+      process.execPath,
+      [script, "--check", "--round", round],
+      {
+        cwd,
+        env: {
+          PATH: process.env["PATH"] ?? "",
+          HOME: root,
+          FORGE_HOME: join(root, "no-credentials"),
+        },
+      },
+    );
+  try {
+    await prepareDesktopProductRound(round, 1);
+    expect((await run()).stdout).toContain(
+      "no credential access or provider calls",
+    );
+    const plan = JSON.parse(
+      await readFile(join(round, "pilot-plan.json"), "utf8"),
+    );
+    expect(plan).toMatchObject({
+      externalCallsMade: 0,
+      fullBaselineComplete: false,
+    });
+    expect(plan.tasks.map((task: { task: string }) => task.task)).toEqual([
+      "Q02",
+      "E01",
+      "F03",
+    ]);
+    await expect(
+      stat(join(round, "E01", "runtime-home")),
+    ).rejects.toMatchObject({ code: "ENOENT" });
+    await writeFile(
+      join(round, "Q02", "workspace", "unrelated-private.txt"),
+      "must not be sent",
+    );
+    await expect(run()).rejects.toMatchObject({
+      stderr: expect.stringContaining("Workspace has extra or missing files"),
+    });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

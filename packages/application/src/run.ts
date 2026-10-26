@@ -218,6 +218,11 @@ export async function runTask(
       selectedSkillPrompt,
       pluginPrompt.prompt,
       activeContext.memory,
+      ...(dependencies.completionPolicy === "reserve-final-step"
+        ? [
+            "Keep investigation scoped to the user's requested outcome and the current workspace. Use dedicated file reads/searches with bounded ranges; follow only dependencies needed to resolve the question or verify the requested change. Forge product documentation describes the host product, not arbitrary workspace implementation. Load additional Skills only when their described workflow applies to the requested work; explicit user-selected Skills still apply. Do not expand into unrelated architecture, defects, or tutorials. Once sufficient evidence is available, answer with locatable references and relevant unknowns instead of using every remaining tool call. Static inspection is not an executed test. Do not skip necessary verification of changes in order to finish sooner.",
+          ]
+        : []),
     ]
       .filter((value) => value !== "")
       .join("\n\n");
