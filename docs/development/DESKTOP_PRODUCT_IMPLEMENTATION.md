@@ -691,6 +691,40 @@ No additional live retries were made. Raw results/screenshots are under
 executed build hashes are `/tmp/forge-t13-scope-q02-results/`. Reviews remain
 assistant assessments, not independent user trials; T06/T13 remain partial.
 
+## Model-input chain audit and continuation-budget correction (2026-10-26)
+
+A local SSE replay now exercises both direct core and application entry points,
+real workspace reads, the DeepSeek adapter and installed SDK serialization with
+intercepted fetch. It verifies exact fixture content, full/ranged line metadata,
+the updated 3-call allowance on continuation, replacement with the finalization
+instruction, and one current system message per request. Partial reads retain
+null full-file hashes and cannot authorize whole-file rewrites. No external API,
+real credentials or model-generated answer is involved.
+
+The audit reproduced a separate context-budget defect: current system instructions
+are sent alongside continuation, but both the breakdown and conservative total
+estimate excluded them when continuation existed. They now count current
+instructions on every request, while still avoiding duplicate prompt/history that
+continuation owns. A regression rejects mandatory overflow from long current
+instructions even with tiny continuation. The same core replay changed instruction
+estimates from 131/0/0 to 131/246/135; these are conservative estimates, not provider
+usage or measured cost. Existing policy, tools, history and provider protocol are
+unchanged; corrected admission may reject or project an oversized context earlier.
+
+Two executable fixture counterexamples confirm that busy assignments do not block
+a second submit, and untyped requestId accepts an object through dispatch. The
+previous Q02 claims therefore cannot be defended from the source. This replay
+found no content/line loss on the tested chain, but cannot reconstruct historical
+remote HTTP bodies that were not captured. Nor does it establish why the remote
+model made its mistakes or that better budgeting fixes semantic correctness.
+
+Validation: 202 affected core/application/DeepSeek/OpenAI/compatibility tests,
+158 deterministic checks, root check and Desktop build passed. The new replay and
+counterexamples join `eval:deterministic`. Local report and captured synthetic
+request bodies are `/tmp/forge-request-evidence/README.md` and its before/after/
+verified directories. No paid calls or installation updates occurred. Prior live
+failures, frozen corpus and product acceptance gates remain unchanged.
+
 ## 1. Goal and invariants
 
 Complete the native-engine investigation → approval → execution → verification →

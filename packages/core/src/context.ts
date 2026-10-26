@@ -190,9 +190,9 @@ export async function budgetModelRequest(options: {
   const total = await capabilities.estimateRequestTokens(options.request);
   const usesContinuation = options.request.continuation !== undefined;
   const estimates: ContextTokenBreakdown = {
-    instructions: usesContinuation
-      ? 0
-      : conservativeTextTokens(options.request.instructions ?? ""),
+    // Current host instructions are sent independently of provider continuation.
+    // They can change between investigation and finalization requests.
+    instructions: conservativeTextTokens(options.request.instructions ?? ""),
     currentRequest: usesContinuation
       ? 0
       : conservativeTextTokens(options.request.prompt) +
@@ -284,9 +284,7 @@ export function conservativeRequestEstimate(
 ): TokenEstimate {
   const usesContinuation = request.continuation !== undefined;
   const tokens =
-    (usesContinuation
-      ? 0
-      : conservativeTextTokens(request.instructions ?? "")) +
+    conservativeTextTokens(request.instructions ?? "") +
     (usesContinuation
       ? 0
       : conservativeTextTokens(request.prompt) +

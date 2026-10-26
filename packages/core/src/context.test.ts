@@ -4,6 +4,7 @@ import type { ModelAdapter, ModelRequest, ModelStreamEvent } from "./index.js";
 import {
   budgetModelRequest,
   conservativeRequestEstimate,
+  conservativeTextTokens,
   conservativeValueTokens,
   contextPressureSnapshot,
   selectRecentConversation,
@@ -73,7 +74,7 @@ describe("context budgeting", () => {
     expect(view.omittedMessageCount).toBe(3);
   });
 
-  it("does not double-count initial fields already owned by continuation", () => {
+  it("counts current instructions while avoiding duplicate prompt/history already owned by continuation", () => {
     const continuation = conservativeRequestEstimate({
       prompt: "x".repeat(10_000),
       instructions: "y".repeat(10_000),
@@ -86,7 +87,35 @@ describe("context budgeting", () => {
       conversation: [{ role: "user", content: "z".repeat(10_000) }],
     });
 
-    expect(continuation.tokens).toBeLessThan(initial.tokens / 100);
+    const withoutInstructions = conservativeRequestEstimate({
+      prompt: "ignored duplicate",
+      continuation: { provider: "fake", data: { state: "small" } },
+    });
+    expect(continuation.tokens - withoutInstructions.tokens).toBe(
+      conservativeTextTokens("y".repeat(10_000)),
+    );
+    expect(continuation.tokens).toBeLessThan(initial.tokens / 2);
+  });
+
+  it("rejects mandatory overflow caused by current instructions even with a small continuation", async () => {
+    const report = await budgetModelRequest({
+      model: new ContextModel(),
+      request: {
+        prompt: "ignored duplicate",
+        instructions: "host instruction ".repeat(500),
+        continuation: { provider: "fake", data: { state: "small" } },
+      },
+      configuration: {
+        mode: "manual",
+        reservedOutputTokens: 100,
+        bufferTokens: 100,
+        recentTailTokens: 100,
+        summaryTargetTokens: 50,
+      },
+    });
+    expect(report.estimates.instructions).toBeGreaterThan(900);
+    expect(report.mandatoryFits).toBe(false);
+    expect(report.fits).toBe(false);
   });
 
   it("budgets visual tokens without treating base64 transport bytes as text", () => {
