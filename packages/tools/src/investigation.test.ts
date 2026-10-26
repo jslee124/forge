@@ -9,6 +9,7 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import type { ToolContext } from "@forge/core";
 import { afterEach, describe, expect, it } from "vitest";
 import {
@@ -728,5 +729,111 @@ describe("literal search with bounded context", () => {
     expect(result.output.matches.map((match) => match.path).sort()).toEqual(
       ["文.ts", "😀.ts"].sort(),
     );
+  });
+});
+
+describe("negative literal evidence", () => {
+  it("does not confuse a missing keyword with missing implemented metrics", async () => {
+    const { root, context } = await fixture();
+    const modulePath = join(root, "counts.mjs");
+    await writeFile(
+      modulePath,
+      `export function dailyUsers(events, day) {
+  return new Set(events.filter(e => e.day === day).map(e => e.actor)).size;
+}
+`,
+    );
+    const result = await search(
+      { query: "analytics", scope: "source" },
+      context,
+    );
+    expect(result).toMatchObject({
+      ok: true,
+      truncated: false,
+      output: {
+        matches: [],
+        scannedFiles: 1,
+        limits: [],
+        noMatch: expect.stringContaining("absence remain unproven"),
+      },
+    });
+    const module = (await import(pathToFileURL(modulePath).href)) as {
+      dailyUsers(events: { day: string; actor: string }[], day: string): number;
+    };
+    expect(
+      module.dailyUsers(
+        [
+          { day: "day-one", actor: "a" },
+          { day: "day-one", actor: "a" },
+          { day: "day-one", actor: "b" },
+          { day: "day-two", actor: "c" },
+        ],
+        "day-one",
+      ),
+    ).toBe(2);
+  });
+  it("keeps zero-result meaning scoped when directories or filters exclude matching code", async () => {
+    const { root, context } = await fixture();
+    await mkdir(join(root, "dist"));
+    await writeFile(join(root, "dist", "counter.js"), "analytics();\n");
+    await writeFile(join(root, "note.txt"), "nothing to match\n");
+    const source = await search(
+      { query: "analytics", scope: "source" },
+      context,
+    );
+    expect(source).toMatchObject({
+      ok: true,
+      truncated: false,
+      output: {
+        matches: [],
+        skippedDirectories: 1,
+        noMatch: expect.stringContaining("scanned scope"),
+      },
+    });
+    const filtered = await search(
+      { query: "analytics", include: ["*.txt"] },
+      context,
+    );
+    expect(filtered).toMatchObject({
+      ok: true,
+      output: {
+        matches: [],
+        scannedFiles: 1,
+        noMatch: expect.any(String),
+      },
+    });
+    const all = await search({ query: "analytics" }, context);
+    expect(all).toMatchObject({
+      ok: true,
+      output: { matches: [{ path: "dist/counter.js" }] },
+    });
+    if (all.ok) expect(all.output).not.toHaveProperty("noMatch");
+  });
+  it("counts zero-result explanation in the actual output limit, including omitted hits", async () => {
+    const { root, context } = await fixture();
+    await writeFile(join(root, "code"), "needle\n");
+    const result = await search(
+      { query: "needle", contextBefore: 20, contextAfter: 20 },
+      { ...context, limits: { ...context.limits, maxOutputBytes: 350 } },
+    );
+    expect(result).toMatchObject({
+      ok: true,
+      truncated: true,
+      output: {
+        matches: [],
+        limits: ["output"],
+        noMatch: expect.stringContaining("returned"),
+      },
+    });
+    if (result.ok)
+      expect(
+        Buffer.byteLength(JSON.stringify(result.output)),
+      ).toBeLessThanOrEqual(350);
+    expect(
+      await search(
+        { query: "missing" },
+        { ...context, limits: { ...context.limits, maxOutputBytes: 32 } },
+      ),
+    ).toMatchObject({ ok: false, error: { code: "output_limit" } });
   });
 });

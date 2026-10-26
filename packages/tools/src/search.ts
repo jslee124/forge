@@ -104,6 +104,8 @@ export interface SearchOutput {
   readonly skippedDirectories?: number;
   readonly mode: "literal";
   readonly matches: readonly Match[];
+  /** Zero returned matches is bounded textual evidence, never a semantic absence claim. */
+  readonly noMatch?: "No literal matches returned in the scanned scope; capability and runtime-state absence remain unproven.";
   readonly ranges?: readonly ContextRange[];
   readonly scannedFiles: number;
   readonly scanBudgetBytes: number;
@@ -117,7 +119,7 @@ export interface SearchOutput {
 export const searchTool: ForgeTool = {
   name: "search",
   description:
-    "Locate related source entrypoints and call sites in one bounded pass: query plus up to three additionalQueries, all literal. Use scope=source to avoid nested dependency/cache/build directories, small contextBefore/contextAfter (0–20), and relative include/exclude globs; overlapping context merges. A name match is evidence to inspect, not proof of a call or wiring. Regex is unsupported. Files over 1 MiB are skipped; all terms share scan, entry, match and output limits.",
+    "Locate related source entrypoints and call sites in one bounded pass: query plus up to three additionalQueries, all literal. Use scope=source to avoid nested dependency/cache/build directories, small contextBefore/contextAfter (0–20), and relative include/exclude globs; overlapping context merges. A name match is evidence to inspect, not proof of a call or wiring. Zero returned literal matches do not prove a feature, telemetry, deployment or users absent. Regex is unsupported. Files over 1 MiB are skipped; all terms share scan, entry, match and output limits.",
   inputSchema: searchInputSchema,
   risk: "read",
   execute: (input, context) => {
@@ -202,6 +204,12 @@ export async function search(
         : {}),
       mode: "literal",
       matches: candidateMatches,
+      ...(candidateMatches.length === 0
+        ? {
+            noMatch:
+              "No literal matches returned in the scanned scope; capability and runtime-state absence remain unproven." as const,
+          }
+        : {}),
       ...(options.contextBefore || options.contextAfter
         ? { ranges: candidateRanges }
         : {}),

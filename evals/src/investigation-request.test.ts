@@ -2,7 +2,7 @@ import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ReadOnlyPolicy, type RunResult, runAgent } from "@forge/core";
-import { readFileTool, resolveWorkspace } from "@forge/tools";
+import { readFileTool, resolveWorkspace, searchTool } from "@forge/tools";
 import { expect, it } from "vitest";
 import { runTask } from "../../packages/application/src/run.js";
 import { DeepSeekModelAdapter } from "../../packages/model-deepseek/src/adapter.js";
@@ -21,6 +21,7 @@ it.each(["core", "application"])(
   "transmits exact content, line metadata and current allowance through %s and the SDK",
   async (layer) => {
     const root = await mkdtemp(join(tmpdir(), "forge-investigation-request-"));
+    const home = await mkdtemp(join(tmpdir(), "forge-request-home-"));
     const requests: RequestBody[] = [];
     const paths = [
       "main.mjs",
@@ -41,7 +42,10 @@ it.each(["core", "application"])(
         if (index === 1 || index === 2) {
           const calls =
             index === 1
-              ? paths.map((path) => ({ path }))
+              ? [
+                  ...paths.map((path) => ({ path })),
+                  { path: ".", query: "analytics", scope: "source" },
+                ]
               : [
                   {
                     path: "workflow.mjs",
@@ -57,7 +61,7 @@ it.each(["core", "application"])(
                 id: `read-${index}-${i}`,
                 type: "function",
                 function: {
-                  name: "read_file",
+                  name: "query" in input ? "search" : "read_file",
                   arguments: JSON.stringify(input),
                 },
               })),
@@ -88,7 +92,7 @@ it.each(["core", "application"])(
             "Inspect workspace source; distinguish evidence from assumptions.",
           completionPolicy: "reserve-final-step",
           limits: { maxModelSteps: 3, maxToolCalls: 8 },
-          tools: [readFileTool],
+          tools: [readFileTool, searchTool],
           policy: new ReadOnlyPolicy(),
           signal: new AbortController().signal,
           toolContext: {
@@ -98,8 +102,6 @@ it.each(["core", "application"])(
           },
         });
       else {
-        const home = join(root, "isolated-home");
-        await mkdir(home);
         await writeFile(
           join(home, "config.json"),
           JSON.stringify({
@@ -122,7 +124,7 @@ it.each(["core", "application"])(
             completionPolicy: "reserve-final-step",
             signal: new AbortController().signal,
             stderr: { write() {} },
-            tools: [readFileTool],
+            tools: [readFileTool, searchTool],
             createAdapter: () => model,
             onResult: (value) => {
               result = value;
@@ -155,15 +157,26 @@ it.each(["core", "application"])(
           },
         });
       }
+      const negativeSearch = second.messages.find(
+        (m) => m.role === "tool" && m.tool_call_id === `read-1-${paths.length}`,
+      );
+      expect(JSON.parse(negativeSearch?.content ?? "null")).toMatchObject({
+        ok: true,
+        truncated: false,
+        output: {
+          matches: [],
+          noMatch: expect.stringContaining("absence remain unproven"),
+        },
+      });
       const system = second.messages.filter((m) => m.role === "system");
       expect(system).toHaveLength(1);
-      expect(system[0]?.content).toContain("3 tool calls remain");
+      expect(system[0]?.content).toContain("2 tool calls remain");
       const finalSystem = third.messages.filter((m) => m.role === "system");
       expect(finalSystem).toHaveLength(1);
       expect(finalSystem[0]?.content).toContain(
         "Finalization required: model_step_limit",
       );
-      expect(finalSystem[0]?.content).not.toContain("3 tool calls remain");
+      expect(finalSystem[0]?.content).not.toContain("2 tool calls remain");
       expect(third.tool_choice).toBe("none");
       expect(third.messages.at(-1)).toMatchObject({
         role: "user",
@@ -202,7 +215,7 @@ it.each(["core", "application"])(
       });
       expect(result).toMatchObject({
         modelSteps: 3,
-        toolCalls: 6,
+        toolCalls: 7,
         partial: true,
       });
       const budgets = result.events.filter(
@@ -233,6 +246,7 @@ it.each(["core", "application"])(
           expect(event.budget.estimates.instructions).toBeGreaterThan(0);
     } finally {
       await rm(root, { recursive: true, force: true });
+      await rm(home, { recursive: true, force: true });
     }
   },
 );

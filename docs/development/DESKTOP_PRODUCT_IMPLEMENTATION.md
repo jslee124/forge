@@ -963,6 +963,44 @@ evidence, after which approval passed and the originally planned samples ran.
 The next gap is negative-evidence scope: absence of searched strings does not
 establish absence of a feature, deployment or analytics. T05/T13 remain partial.
 
+## Scoped negative-search evidence (2026-10-26)
+
+Successful searches with zero returned matching lines now include a `noMatch`
+explanation: no requested literal was returned in the scanned scope, while
+capability/runtime-state absence remains unproven. This applies to complete,
+filtered, source-excluded and output-limited results; an omitted hit is not proof
+that no hit exists. Existing limits, skip counters and truncation remain intact.
+Positive results retain their existing shape. The explanation counts toward the
+same serialized output cap; an impossibly small metadata budget returns the
+existing output_limit failure instead of silently dropping this boundary.
+
+Native bounded-run/final-stage guidance also limits negative assertions to the
+actual searched literals/scope. Private flags, fixture names and repository size
+do not establish deployment or user state. Metrics answers should identify the
+missing metric source/definition and end source investigation concisely rather
+than speculate about analytics absence or list unrelated platforms. Instructions
+and tool metadata are not a semantic verifier or a promise of model compliance.
+
+An executable regression implements a day-filtered distinct-user counter without
+the word analytics: the literal query returns zero while that function produces
+two users for the fixed test data. Other regressions cover filtered/generated
+matching code and omitted hits under the unchanged output cap. Core/application
+through actual DeepSeek SDK serialization preserves the empty-result boundary
+in the next request alongside exact read content and numbered ranges. Test
+FORGE_HOME is outside its workspace so trace records cannot match their own
+queries; this is fixture isolation, not a product caching or permission change.
+
+Live review criteria remain those committed before the prior Q06 samples: a
+missing literal is not missing telemetry/deployment, no fabricated DAU/zero, and
+no unsupported production-state assertions. Any new two-run Q06 sample is
+reported separately without retries, increased budgets or changing frozen
+questions. T05/T13 remain partial until the existing product gates are met.
+
+Offline validation: 64 focused tools/request/finalization tests, 182 deterministic
+checks, root checks (existing 8 warnings / 48 infos), documentation checks, packed
+installation verification and Desktop build passed. These do not establish live
+semantic compliance or installed-app acceptance.
+
 ## 1. Goal and invariants
 
 Complete the native-engine investigation → approval → execution → verification →
