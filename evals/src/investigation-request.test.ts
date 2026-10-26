@@ -262,20 +262,31 @@ it("demonstrates that the seed busy assignment does not prevent a second submit"
   }
 });
 
-it("demonstrates that the untyped seed requestId can carry an object through dispatch", async () => {
-  const fixture = (await import(
-    new URL("../fixtures/desktop-product/seed/workflow.mjs", import.meta.url)
-      .href
-  )) as {
-    handle(
-      requestId: unknown,
-      tool: (input: { requestId: unknown }) => unknown,
-    ): Promise<unknown>;
-  };
-  const request = { businessValue: "fixture" };
-  let received: unknown;
-  await fixture.handle(request, (input) => {
-    received = input;
-  });
-  expect(received).toEqual({ requestId: request });
-});
+it.each([
+  { label: "draft text", value: "用户的草稿" },
+  {
+    label: "object containing draft",
+    value: { draft: "用户的草稿", nested: { requestId: 42 } },
+  },
+  { label: "null", value: null },
+])(
+  "demonstrates that the seed forwards $label without inferring its type from requestId",
+  async ({ value }) => {
+    const fixture = (await import(
+      new URL("../fixtures/desktop-product/seed/workflow.mjs", import.meta.url)
+        .href
+    )) as {
+      handle(
+        requestId: unknown,
+        tool: (input: { requestId: unknown }) => unknown,
+      ): Promise<unknown>;
+    };
+    let received: { requestId: unknown } | undefined;
+    const result = await fixture.handle(value, (input) => {
+      received = input;
+      return input.requestId;
+    });
+    expect(received?.requestId).toBe(value);
+    expect(result).toBe(value);
+  },
+);

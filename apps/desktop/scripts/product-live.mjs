@@ -22,14 +22,16 @@ if (
   !values.round?.length
 )
   throw new Error(
-    "Usage: --check|--live --round <prepared-round-directory> [--round <directory>] [--task Q02|E01|F03]",
+    "Usage: --check|--live --round <prepared-round-directory> [--round <directory>] [--task Q02|Q05|Q06|E01|F03]",
   );
 const tasks = values.task ?? ["Q02", "E01", "F03"];
 if (
   new Set(tasks).size !== tasks.length ||
-  tasks.some((task) => !["Q02", "E01", "F03"].includes(task))
+  tasks.some((task) => !["Q02", "Q05", "Q06", "E01", "F03"].includes(task))
 )
-  throw new Error("Pilot tasks must be unique members of Q02, E01, F03");
+  throw new Error(
+    "Pilot tasks must be unique members of Q02, Q05, Q06, E01, F03",
+  );
 const require = createRequire(import.meta.url);
 const key = values.live
   ? new AuthenticationManager().requireApiKey("deepseek").apiKey

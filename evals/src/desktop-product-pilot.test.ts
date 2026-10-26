@@ -51,6 +51,36 @@ it("checks the frozen pilot without credentials or live calls, and refuses extra
     expect(selected.tasks.map((task: { task: string }) => task.task)).toEqual([
       "Q02",
     ]);
+    await run(["--task", "Q05", "--task", "Q06", "--task", "F03"]);
+    const expanded = JSON.parse(
+      await readFile(join(round, "pilot-plan.json"), "utf8"),
+    );
+    expect(expanded.tasks).toEqual([
+      expect.objectContaining({
+        task: "Q05",
+        modelSteps: 6,
+        toolCalls: 8,
+        status: "not_run",
+      }),
+      expect.objectContaining({
+        task: "Q06",
+        modelSteps: 6,
+        toolCalls: 8,
+        status: "not_run",
+      }),
+      expect.objectContaining({
+        task: "F03",
+        modelSteps: 2,
+        toolCalls: 8,
+        status: "not_run",
+      }),
+    ]);
+    expect(expanded.externalCallsMade).toBe(0);
+    expect(expanded.fullBaselineComplete).toBe(false);
+    for (const task of ["Q05", "Q06"])
+      await expect(
+        stat(join(round, task, "runtime-home")),
+      ).rejects.toMatchObject({ code: "ENOENT" });
     await expect(run(["--task", "Q02", "--task", "Q02"])).rejects.toMatchObject(
       { stderr: expect.stringContaining("must be unique") },
     );

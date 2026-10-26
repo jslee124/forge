@@ -894,6 +894,46 @@ at `/tmp/forge-finalization-diagnostic-42ce526/README.md`. No task retry, instal
 replacement, general reliability claim or release acceptance. T05/T13 remain
 partial; next work is argument/data inference and broader fixed-corpus coverage.
 
+## Evidence-boundary guidance and broader pilot selection (2026-10-26)
+
+Native bounded-run guidance and its final response directive now distinguish
+observed value transformations from inference: names alone do not establish
+runtime types or prove data loss; missing call sites and upstream mappings remain
+unknown. Missing operational metrics in source do not mean zero users or traffic.
+These are model instructions, not a semantic validator or a guarantee of accuracy.
+A frozen-seed executable counterexample now checks draft text, an object carrying
+draft and null through handle/dispatch; identity and the callback return survive.
+It supplies reviewer evidence against unsupported claims, not input to live tasks.
+
+The opt-in real Desktop runner accepts Q05 (dispatch call/context) and Q06 (daily
+active users), while its default Q02/E01/F03 selection stays unchanged. The new
+questions use the original frozen prompts and seeds, 6 steps / 8 tools each,
+readonly pilot approvals, and the existing isolation, timeout, credential and
+inventory checks. Keyword reference checks still cannot establish semantic pass.
+
+Before paid sampling, the review criteria are fixed here:
+
+- Q05: locate workflow.mjs:28 calling dispatch (definition 24–26) inside handle
+  (27–29), distinguish receive forwarding from a direct dispatch call, and cite
+  evidence. Do not infer that requestId must be a string, cannot carry draft, or
+  loses business data. Static reading is not execution; do not invent wiring.
+- Q06: state that source does not establish production DAU; do not invent a count
+  or infer zero, traffic, deployment state or analytics existence from absence of
+  evidence. Explain the missing metric source/time definition and end bounded
+  investigation without proposing unauthorized access or unnecessary changes.
+- F03: summarize only what the low-budget run actually observed, preserve the
+  limit/partial outcome and unknowns, avoid invented file counts or verification,
+  and execute no tools after finalizing. A prose response is not task completion.
+
+These are coding-assistant review criteria, not independent human assessment.
+New task coverage and real answer quality must be reported separately from the
+24-task/two-round and five-user product gates; T05/T13 remain partial.
+
+Offline validation: 29 focused preflight/policy/request/finalization tests and 179
+deterministic checks passed, as did root checks (existing 8 warnings / 48 infos),
+documentation checks, packed installation verification and Desktop build. No paid
+results or installed-app acceptance are implied by these checks.
+
 ## 1. Goal and invariants
 
 Complete the native-engine investigation → approval → execution → verification →

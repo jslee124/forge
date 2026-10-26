@@ -74,3 +74,22 @@ it("grants only the pilot's one target file and exact fixture test command", () 
     }),
   ).toBe(false);
 });
+
+it.each(["Q05", "Q06"])(
+  "keeps %s read-only despite plausible approval descriptions",
+  (task) => {
+    expect(
+      allowPilotApproval(task, approval("write", { path: "workflow.mjs" })),
+    ).toBe(false);
+    expect(
+      allowPilotApproval(
+        task,
+        approval("process", {
+          program: "node",
+          args: ["--test", "fixture.test.mjs"],
+          cwd: ".",
+        }),
+      ),
+    ).toBe(false);
+  },
+);

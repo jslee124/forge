@@ -21,7 +21,7 @@ export async function runProductLivePilot(
     home !== process.env["FORGE_HOME"] ||
     !workspace ||
     !task ||
-    !["Q02", "E01", "F03"].includes(task) ||
+    !["Q02", "Q05", "Q06", "E01", "F03"].includes(task) ||
     process.env["FORGE_PRODUCT_LIVE_OPT_IN"] !== "1"
   )
     throw new Error("Live pilot requires explicit isolated inputs and opt-in");
