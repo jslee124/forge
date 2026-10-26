@@ -542,89 +542,95 @@ describe("AI SDK DeepSeek transport", () => {
     });
   });
 
-  it("preserves raw DeepSeek reasoning through the real AI SDK translation", async () => {
-    const requestBodies: unknown[] = [];
-    let invocation = 0;
-    const fetchMock: NonNullable<DeepSeekProviderSettings["fetch"]> = async (
-      _input,
-      init,
-    ) => {
-      requestBodies.push(JSON.parse(String(init?.body)));
-      invocation += 1;
-      return new Response(
-        invocation === 1 ? firstDeepSeekResponse() : secondDeepSeekResponse(),
-        { headers: { "content-type": "text/event-stream" }, status: 200 },
-      );
-    };
-    const transport = new AiSdkDeepSeekTransport({ fetch: fetchMock });
-    const baseRequest = {
-      apiKey: "test-secret",
-      model: "deepseek-v4-flash",
-      thinking: "enabled" as const,
-      prompt: "inspect",
-      tools: [
-        {
-          name: "read_file",
-          description: "Read one file",
-          inputSchema: z.object({ path: z.string() }),
-        },
-      ],
-    };
-    const firstEvents = [];
-    for await (const event of transport.stream(
-      baseRequest,
-      new AbortController().signal,
-    )) {
-      firstEvents.push(event);
-    }
-    const firstFinish = firstEvents.find(({ type }) => type === "finish");
-    if (firstFinish?.type !== "finish" || !firstFinish.continuation) {
-      throw new Error("Expected DeepSeek continuation data.");
-    }
-
-    for await (const _event of transport.stream(
-      {
-        ...baseRequest,
-        continuation: firstFinish.continuation,
-        toolResults: [
+  it.each(["deepseek-flash", "deepseek-v4-flash"])(
+    "preserves %s reasoning through the SDK answer-stage boundary",
+    async (model) => {
+      const requestBodies: unknown[] = [];
+      let invocation = 0;
+      const fetchMock: NonNullable<DeepSeekProviderSettings["fetch"]> = async (
+        _input,
+        init,
+      ) => {
+        requestBodies.push(JSON.parse(String(init?.body)));
+        invocation += 1;
+        return new Response(
+          invocation === 1 ? firstDeepSeekResponse() : secondDeepSeekResponse(),
+          { headers: { "content-type": "text/event-stream" }, status: 200 },
+        );
+      };
+      const transport = new AiSdkDeepSeekTransport({ fetch: fetchMock });
+      const baseRequest = {
+        apiKey: "test-secret",
+        model,
+        thinking: "enabled" as const,
+        prompt: "inspect",
+        tools: [
           {
-            callId: "call-1",
-            toolName: "read_file",
-            result: {
-              ok: true,
-              output: { content: "Forge" },
-              truncated: false,
-            },
+            name: "read_file",
+            description: "Read one file",
+            inputSchema: z.object({ path: z.string() }),
           },
         ],
-      },
-      new AbortController().signal,
-    )) {
-      // Consume the second provider turn.
-    }
+      };
+      const firstEvents = [];
+      for await (const event of transport.stream(
+        baseRequest,
+        new AbortController().signal,
+      )) {
+        firstEvents.push(event);
+      }
+      const firstFinish = firstEvents.find(({ type }) => type === "finish");
+      if (firstFinish?.type !== "finish" || !firstFinish.continuation) {
+        throw new Error("Expected DeepSeek continuation data.");
+      }
 
-    expect(requestBodies[1]).toMatchObject({
-      model: "deepseek-v4-flash",
-      thinking: { type: "enabled" },
-      messages: [
-        { role: "user", content: "inspect" },
+      for await (const _event of transport.stream(
         {
-          role: "assistant",
-          reasoning_content: "inspect first",
-          tool_calls: [
+          ...baseRequest,
+          toolChoice: "none",
+          responseDirective: "Answer using observed evidence.",
+          continuation: firstFinish.continuation,
+          toolResults: [
             {
-              id: "call-1",
-              function: {
-                name: "read_file",
-                arguments: '{"path":"README.md"}',
+              callId: "call-1",
+              toolName: "read_file",
+              result: {
+                ok: true,
+                output: { content: "Forge" },
+                truncated: false,
               },
             },
           ],
         },
-        { role: "tool", tool_call_id: "call-1" },
-      ],
-    });
-  });
+        new AbortController().signal,
+      )) {
+        // Consume the second provider turn.
+      }
+
+      expect(requestBodies[1]).toMatchObject({
+        model,
+        thinking: { type: "enabled" },
+        messages: [
+          { role: "user", content: "inspect" },
+          {
+            role: "assistant",
+            reasoning_content: "inspect first",
+            tool_calls: [
+              {
+                id: "call-1",
+                function: {
+                  name: "read_file",
+                  arguments: '{"path":"README.md"}',
+                },
+              },
+            ],
+          },
+          { role: "tool", tool_call_id: "call-1" },
+          { role: "user", content: "Answer using observed evidence." },
+        ],
+      });
+    },
+  );
 
   it("returns exactly one Forge-owned tool result after invalid model input", async () => {
     const requestBodies: unknown[] = [];

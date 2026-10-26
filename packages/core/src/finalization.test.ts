@@ -105,6 +105,7 @@ describe("reserved final model step", () => {
       expect(f.effects()).toBe(maxModelSteps - 1);
       expect(f.requests.at(-1)).toMatchObject({
         toolChoice: "none",
+        responseDirective: expect.stringContaining("Inspect and explain"),
         tools: [{ name: "read_file" }],
       });
       expect(result.finalText).toContain("Partial answer");
@@ -129,6 +130,7 @@ describe("reserved final model step", () => {
     expect(f.effects()).toBe(1);
     expect(f.requests).toHaveLength(1);
     expect(f.requests[0]?.toolChoice).toBeUndefined();
+    expect(f.requests[0]?.responseDirective).toBeUndefined();
     expect(f.requests[0]?.instructions).toBeUndefined();
   });
   it("reports remaining low tool allowance on the next request without splitting or executing oversized batches", async () => {

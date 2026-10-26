@@ -118,6 +118,42 @@ describe("context budgeting", () => {
     expect(report.fits).toBe(false);
   });
 
+  it.each([false, true])(
+    "counts answer-stage control even with continuation=%s",
+    async (continued) => {
+      const request: ModelRequest = {
+        prompt: "original",
+        ...(continued
+          ? { continuation: { provider: "fake", data: { state: "small" } } }
+          : {}),
+      };
+      const responseDirective = "answer using existing evidence ".repeat(300);
+      const before = conservativeRequestEstimate(request);
+      const after = conservativeRequestEstimate({
+        ...request,
+        toolChoice: "none",
+        responseDirective,
+      });
+      expect(after.tokens - before.tokens).toBe(
+        conservativeTextTokens(responseDirective),
+      );
+      const report = await budgetModelRequest({
+        model: new ContextModel(),
+        request: { ...request, toolChoice: "none", responseDirective },
+        configuration: {
+          mode: "manual",
+          reservedOutputTokens: 100,
+          bufferTokens: 100,
+          recentTailTokens: 100,
+          summaryTargetTokens: 50,
+        },
+      });
+      expect(report.estimates.currentRequest).toBeGreaterThan(900);
+      expect(report.mandatoryFits).toBe(false);
+      expect(report.fits).toBe(false);
+    },
+  );
+
   it("budgets visual tokens without treating base64 transport bytes as text", () => {
     const estimate = conservativeRequestEstimate({
       prompt: "inspect",

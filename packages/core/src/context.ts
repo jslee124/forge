@@ -193,10 +193,12 @@ export async function budgetModelRequest(options: {
     // Current host instructions are sent independently of provider continuation.
     // They can change between investigation and finalization requests.
     instructions: conservativeTextTokens(options.request.instructions ?? ""),
-    currentRequest: usesContinuation
-      ? 0
-      : conservativeTextTokens(options.request.prompt) +
-        conservativeImageTokens(options.request.images),
+    currentRequest:
+      conservativeTextTokens(options.request.responseDirective ?? "") +
+      (usesContinuation
+        ? 0
+        : conservativeTextTokens(options.request.prompt) +
+          conservativeImageTokens(options.request.images)),
     toolSchemas: conservativeValueTokens(
       options.request.tools?.map((tool) => ({
         name: tool.name,
@@ -285,6 +287,7 @@ export function conservativeRequestEstimate(
   const usesContinuation = request.continuation !== undefined;
   const tokens =
     conservativeTextTokens(request.instructions ?? "") +
+    conservativeTextTokens(request.responseDirective ?? "") +
     (usesContinuation
       ? 0
       : conservativeTextTokens(request.prompt) +

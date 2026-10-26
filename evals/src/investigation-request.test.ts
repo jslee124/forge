@@ -165,6 +165,18 @@ it.each(["core", "application"])(
       );
       expect(finalSystem[0]?.content).not.toContain("3 tool calls remain");
       expect(third.tool_choice).toBe("none");
+      expect(third.messages.at(-1)).toMatchObject({
+        role: "user",
+        content: expect.stringContaining("The investigation stage has ended."),
+      });
+      expect(third.messages.at(-1)?.content).toContain(
+        "解释从提交请求到工具执行的调用路径，引用文件位置。",
+      );
+      expect(second.messages.at(-1)?.role).toBe("tool");
+      // The stage directive is transport control, never fabricated human history.
+      expect(
+        result.canonicalDelta?.filter((m) => m.role === "user"),
+      ).toHaveLength(1);
       const ranged = third.messages.find(
         (m) => m.role === "tool" && m.tool_call_id === "read-2-0",
       );

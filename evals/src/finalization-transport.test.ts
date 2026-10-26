@@ -31,6 +31,7 @@ const cases = [
             prompt: "summarize",
             tools,
             toolChoice: "none",
+            responseDirective: "Answer now using observed evidence.",
           },
           signal,
         ),
@@ -48,6 +49,7 @@ const cases = [
             prompt: "summarize",
             tools,
             toolChoice: "none",
+            responseDirective: "Answer now using observed evidence.",
           },
           signal,
         ),
@@ -66,6 +68,7 @@ const cases = [
             prompt: "summarize",
             tools,
             toolChoice: "none",
+            responseDirective: "Answer now using observed evidence.",
           },
           signal,
         ),
@@ -76,7 +79,10 @@ describe("finalization transport projection", () => {
   it.each(cases)(
     "$name serializes none and retains tool schemas",
     async ({ run }) => {
-      let body: Record<string, unknown> = {};
+      let body: Record<string, unknown> & {
+        messages?: unknown;
+        input?: unknown;
+      } = {};
       const fetchMock: typeof fetch = async (_input, init) => {
         body = JSON.parse(String(init?.body)) as Record<string, unknown>;
         return new Response(
@@ -85,6 +91,13 @@ describe("finalization transport projection", () => {
         );
       };
       await expect(run(fetchMock)).rejects.toThrow();
+      const messages = (body.messages ?? body.input) as Array<{
+        role: string;
+      }>;
+      expect(messages.at(-1)?.role).toBe("user");
+      expect(JSON.stringify(messages.at(-1))).toContain(
+        "Answer now using observed evidence.",
+      );
       expect(body).toMatchObject({
         tool_choice: "none",
         tools: [expect.any(Object)],

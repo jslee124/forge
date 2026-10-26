@@ -201,6 +201,11 @@ function buildMessages(request: OpenAITransportRequest): ModelMessage[] {
       })),
     });
   }
+  // A fresh answer-stage message interrupts tool-planning continuation without
+  // discarding its evidence or exposing any additional executable capability.
+  if (request.toolChoice === "none" && request.responseDirective)
+    messages.push({ role: "user", content: request.responseDirective });
+
   return messages;
 }
 

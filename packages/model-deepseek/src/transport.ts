@@ -23,6 +23,7 @@ export interface DeepSeekTransportRequest {
   readonly conversation?: readonly ModelConversationMessage[];
   readonly tools?: readonly ModelToolDefinition[];
   readonly toolChoice?: "none";
+  readonly responseDirective?: string;
   readonly continuation?: ModelContinuation;
   readonly toolResults?: readonly ModelToolResult[];
 }

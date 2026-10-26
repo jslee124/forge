@@ -541,6 +541,7 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
       ...(finalizing
         ? {
             toolChoice: "none" as const,
+            responseDirective: `The investigation stage has ended. Answer the original user request now, using only the evidence already returned. Do not request tools or further investigation. If a connection is unsupported, say it is unknown. This is the original request: ${options.prompt}`,
             instructions: [
               options.instructions,
               `Finalization required: ${finalizing}. The total run budget is fixed. No further tools may execute. Answer the user's original request using only observed evidence and tool results. Distinguish completed work, failed verification, unknowns, and next options. Do not claim the task succeeded merely because you can summarize. ${limits.maxModelSteps === 1 ? "This one-step budget permits answering only; investigation is unavailable." : ""}`,

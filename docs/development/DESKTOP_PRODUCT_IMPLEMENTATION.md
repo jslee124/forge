@@ -845,6 +845,35 @@ or independent human/user acceptance. Raw evidence and separate assessments:
 prioritization, batch allowance compliance and reliable useful finalization;
 T05/T13 remain partial. Numbered output alone does not resolve that gate.
 
+## Explicit answer-stage transition (2026-10-26)
+
+A bounded headless application diagnostic at 42ce526 made four runtime requests
+and four explicit, nonexecuting comparison requests (8 HTTP calls total, each
+capped at 4096 output tokens). Exact-final-request and no-tool-schema replays
+both returned raw DSML; appending a final-answer turn and a fresh evidence-only
+request produced prose once each. The latter approaches did not establish task
+success: the appended-turn answer still speculated about a joined UI path before
+clarifying its missing bridge. Raw request hashes, redacted reasoning bodies,
+usage where available and results remain at
+`/tmp/forge-finalization-diagnostic-42ce526/`. Exact replay reconstruction was
+verified against the captured request hash before comparison. This is an
+application/adapter diagnostic, not Desktop acceptance or a controlled success rate.
+
+Core now adds an explicit, budgeted answer-stage directive inside the existing
+reserved step. All three native adapters append it after observed tool results
+only under none, keeping history and schemas. It is host control rather than
+canonical human history or restored authority. Context admission counts it even
+with continuation. A pinned SDK patch preserves reasoning for deepseek-flash at
+this new boundary without changing the model sent to the API. Native guidance
+also prioritizes the question's requested boundaries before peripheral registries.
+See [ADR-0006](../decisions/0006-explicit-answer-stage-message.md). No automatic
+retry, extra steps, partial batch execution, or installation update is introduced.
+T05/T13 remain partial pending real Desktop retests and existing product gates.
+
+Offline validation: 77 focused core/adapter/SDK transport tests, 177 deterministic
+checks, root checks (existing 8 warnings / 48 infos), documentation checks, packed
+installation verification and Desktop build passed. No new UI layout was changed.
+
 ## 1. Goal and invariants
 
 Complete the native-engine investigation → approval → execution → verification →
