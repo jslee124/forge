@@ -555,6 +555,48 @@ intervening effects, unknown/failing observations, bounded tracking, early answe
 and unchanged direct-policy instructions. No additional paid provider trials ran;
 real-model convergence improvement remains unmeasured. T06/T13 remain partial.
 
+## Second live pilot review (2026-10-26, source 37304fb)
+
+A separate six-run Q02/E01/F03 batch used the same frozen model, task prompts,
+seed inventory and per-task limits, with no mid-batch source edits or extra live
+retries. It used 24 model steps and 32 tool-call accounting entries (including
+denied/failed calls). This remains three distinct tasks sampled twice, not the
+48-task baseline or an independent user trial.
+
+| Task | Round 1 | Round 2 |
+| --- | --- | --- |
+| Q02 | Tool limit; raw DSML rejected; generic fallback, no call-path answer | Tool limit; main chain/missing connection identified, several renderer line citations wrong |
+| E01 | Completed; one scoped edit, fixture tests exit 0 (2/2), independent 22 assertions pass | Model-step limit; same edit/test checks pass, DSML summary rejected and fallback delivered |
+| F03 | Expected step limit; readable but overly long Chinese summary of directory evidence | Expected step limit; DSML rejected, minimal factual fallback |
+
+The DSML guard triggered three times; no raw protocol was delivered and no
+textual invocation was executed. This validates containment, not reliable model
+summary generation. Both exact fixture test commands were allowed with `cwd: "."`;
+extra node eval remained denied. Hidden assertions ran only after model completion.
+Leading-zero interpretation remains unspecified by the frozen prompt/rubric.
+
+Both investigation runs still exhausted the tool allowance; one searched host
+product documentation. The alternating-read detector did not trigger on these
+new/different reads, so live convergence improvement is not established. The two
+small batches are not a controlled A/B comparison: pilot policy changed as well
+as source instructions, and outputs are stochastic. Do not infer a general
+success rate or latency improvement. Six saved Electron screenshots were inspected;
+the English fallback collapses into a dense paragraph in the Chinese UI. Marking
+it partial is correct but does not make it a useful task-specific delivery.
+
+Local reviewed report: `/tmp/forge-t13-followup-37304fb-results/report.md`;
+machine summary/build hashes: `summary.json` / `build.json` in that directory;
+raw results/events/screenshots: `/tmp/forge-t13-followup-37304fb-round-{1,2}/`.
+The original batch remains at `/tmp/forge-t13-round-{1,2}/`. Reviews are by the
+assistant, not independent humans. The initial prepared `round.json`/pilot plans
+are input snapshots, not outcome manifests. Desktop build and no-call prechecks
+passed before execution; no runtime source was changed during this review.
+
+Next: present localized, explicitly system-generated fallback with actual edit
+and test evidence; improve workspace-vs-product-help tool selection and investigate
+continued final-step tool attempts. Broader fault/installation/user-trial gates
+remain pending. No product-release gate is advanced by this small sample alone.
+
 ## 1. Goal and invariants
 
 Complete the native-engine investigation → approval → execution → verification →
