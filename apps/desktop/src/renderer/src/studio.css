@@ -2372,3 +2372,37 @@
   flex-shrink: 0;
   align-self: center;
 }
+
+.system-fallback {
+  padding: 18px 20px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  overflow-wrap: anywhere;
+}
+.system-fallback h3 {
+  margin: 0 0 10px;
+  font-size: 15px;
+}
+.system-fallback h4 {
+  margin: 18px 0 8px;
+  font-size: 13px;
+}
+.system-fallback p,
+.system-fallback li {
+  font-size: 13px;
+  line-height: 1.7;
+}
+.system-fallback ul {
+  padding-left: 20px;
+}
+.system-fallback li + li {
+  margin-top: 8px;
+}
+.system-fallback details {
+  margin-top: 10px;
+}
+.system-fallback-limit {
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}

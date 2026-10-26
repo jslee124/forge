@@ -33,6 +33,7 @@ import { activityReducer, initialActivity } from "./run-state.js";
 import { SettingsView } from "./settings-view.js";
 import { SlashCommandMenu } from "./slash-command-menu.js";
 import { commands, routeCommand, suggestions } from "./slash-commands.js";
+import { SystemFallback } from "./system-fallback.js";
 import { Transcript } from "./transcript.js";
 import { UpdateView } from "./update-view.js";
 import { useConversationBrowser } from "./use-conversation-browser.js";
@@ -1316,6 +1317,19 @@ export function LiveWorkbench(): React.JSX.Element {
                           message: message.content,
                         }}
                       />
+                    ) : message.kind === "system-fallback" ? (
+                      <SystemFallback
+                        key={message.id}
+                        original={message.content}
+                        delivery={
+                          message.runId === completionRunId && currentDelivery
+                            ? currentDelivery
+                            : displayState?.runHistory?.selected?.summary
+                                  .runId === message.runId
+                              ? displayState?.runHistory?.selected?.delivery
+                              : undefined
+                        }
+                      />
                     ) : (
                       <ConversationMessage
                         key={message.id}
@@ -1327,13 +1341,21 @@ export function LiveWorkbench(): React.JSX.Element {
                 {!viewed && prompt && (
                   <ConversationMessage author="user" content={prompt} />
                 )}
-                {!viewed && answer && (
+                {!viewed &&
+                answer &&
+                completion?.answerSource === "system-fallback" &&
+                !active ? (
+                  <SystemFallback
+                    original={answer}
+                    delivery={currentDelivery}
+                  />
+                ) : !viewed && answer ? (
                   <ConversationMessage
                     author="assistant"
                     content={answer}
                     streaming={Boolean(active)}
                   />
-                )}
+                ) : null}
                 {!viewed && omittedCharacters > 0 && (
                   <p role="status">
                     {t("messages.omitted", { count: omittedCharacters })}

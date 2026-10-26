@@ -22,6 +22,17 @@ export const resources = {
         automaticWorkspace: "Task workspace",
         emptyTask: "New task",
       },
+      fallback: {
+        title: "System-generated partial result",
+        explanation:
+          "The model did not produce a usable final answer. Forge organized the execution records below; this is not the model’s conclusion.",
+        unavailable:
+          "Execution details are not loaded for this run. Open the workbench Activity tab and select the run to inspect its records.",
+        more: "This is a bounded overview. More items or incomplete details are available in the execution and delivery record.",
+        limit:
+          "Task completion and checks beyond the recorded commands remain unconfirmed. Review the current files before continuing or retrying.",
+        raw: "Original system record",
+      },
       messages: {
         transcript: "Conversation",
         jumpLatest: "Jump to latest",
@@ -584,6 +595,17 @@ export const resources = {
           "草稿已保留，配置后返回重新发送。本地检查不代表远端服务一定可用。",
         automaticWorkspace: "任务工作空间",
         emptyTask: "新任务",
+      },
+      fallback: {
+        title: "系统整理的部分结果",
+        explanation:
+          "模型未能生成可用的最终回答。以下由 Forge 根据执行记录整理，不代表模型已给出结论。",
+        unavailable:
+          "尚未载入这次运行的执行详情。可在工作台的活动页选择对应运行，查看记录。",
+        more: "这里只展示有限摘要；更多条目或不完整的信息请查看执行与交付记录。",
+        limit:
+          "尚未确认任务整体完成；记录之外的验证仍未完成。继续或重试前，请先检查当前文件。",
+        raw: "原始系统记录",
       },
       messages: {
         transcript: "对话",

@@ -1054,6 +1054,95 @@ export async function runUiAcceptance(
       historyAfterReload: true,
       externalProvider: false,
     });
+    // A truncated final answer must show a labelled factual fallback, not raw
+    // model text or a success claim. Exercise persistence and locale changes.
+    provider.setMode("delivery-fallback");
+    await writeFile(
+      join(home, "config.json"),
+      JSON.stringify({
+        ...deliveryConfig,
+        limits: { ...deliveryConfig.limits, maxSteps: 3 },
+      }),
+    );
+    await click(".sidebar > button:first-of-type");
+    await until(
+      "document.querySelector('.studio-welcome') && !document.querySelector('[data-testid=composer-engine]').disabled",
+    );
+    await enterDraft("System fallback delivery fixture");
+    const fallbackCalls = provider.calls;
+    await click(".studio-composer-footer > button:last-child");
+    await until("document.querySelector('.run-approval')");
+    await click(".run-approval button:last-child");
+    await until(
+      "document.querySelector('.run-approval')?.textContent.includes('node')",
+    );
+    await click(".run-approval button:last-child");
+    await until(
+      "document.querySelector('.system-fallback')?.textContent.includes('fallback-delivery.txt') && !document.querySelector('[data-testid=composer-engine]').disabled",
+    );
+    const fallbackState = await js(
+      "window.forgeDesktop.manage({type:'state'})",
+    );
+    if (
+      fallbackState.runHistory?.selected?.summary.completion?.answerSource !==
+        "system-fallback" ||
+      fallbackState.runHistory?.selected?.delivery?.commands[0]?.facts
+        .exitCode !== 1 ||
+      provider.calls - fallbackCalls !== 3
+    )
+      throw new Error(
+        "Fallback lost source identity, command evidence or fixed call budget",
+      );
+    for (const locale of ["zh-CN", "en"]) {
+      await click('[data-testid="settings"]');
+      await js(
+        `(() => {const e=document.querySelector('[data-testid=language]');Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(e,${JSON.stringify(locale)});e.dispatchEvent(new Event('change',{bubbles:true}));})()`,
+      );
+      await click(".studio-back");
+      await until(
+        `document.querySelector('.system-fallback h3')?.textContent === ${JSON.stringify(locale === "zh-CN" ? "系统整理的部分结果" : "System-generated partial result")}`,
+      );
+      for (const width of [1100, 840]) {
+        window.setContentSize(width, 800);
+        await js(
+          "document.querySelector('.system-fallback').scrollIntoView({block:'start'})",
+        );
+        await capture(`product-system-fallback-${locale}-${width}`);
+      }
+    }
+    await enterDraft("");
+    window.webContents.reload();
+    await click(`[data-session-id="${fallbackState.sessionId}"]`);
+    try {
+      await until(
+        "document.querySelector('.system-fallback')?.textContent.includes('fallback-delivery.txt')",
+      );
+    } catch (error) {
+      await writeFile(
+        join(output, "fallback-restore-diagnostic.json"),
+        JSON.stringify(
+          await js(
+            "window.forgeDesktop.manage({type:'state'}).then(state=>({state,text:document.body.innerText}))",
+          ),
+          null,
+          2,
+        ),
+      );
+      await capture("product-system-fallback-restore-failure");
+      throw error;
+    }
+    if (provider.calls - fallbackCalls !== 3)
+      throw new Error("Reloading fallback replayed a model request");
+    await capture("product-system-fallback-restored");
+    results.push({
+      name: "system-fallback",
+      sourcePersisted: true,
+      commandExitCode: 1,
+      calls: 3,
+      bilingual: true,
+      historyAfterReload: true,
+      externalProvider: false,
+    });
     if (process.env["FORGE_T12_MODE"])
       await runExperienceAcceptance(
         window,

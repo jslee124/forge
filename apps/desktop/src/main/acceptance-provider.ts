@@ -8,6 +8,7 @@ export async function acceptanceProvider() {
     | "error"
     | "finalize"
     | "delivery"
+    | "delivery-fallback"
     | "stream"
     | "error-auth"
     | "error-network"
@@ -64,7 +65,7 @@ export async function acceptanceProvider() {
         `data: ${JSON.stringify({ id: "p4-offline", object: "chat.completion.chunk", created: 1, model: "offline", choices: [{ index: 0, delta, finish_reason }] })}\n\n`,
       );
     send({ role: "assistant" });
-    if (mode === "delivery") {
+    if (mode === "delivery" || mode === "delivery-fallback") {
       const count =
         input.messages?.filter((message) => message.role === "tool").length ??
         0;
@@ -81,7 +82,10 @@ export async function acceptanceProvider() {
                       name: "edit_file",
                       arguments: JSON.stringify({
                         operation: "create",
-                        path: "delivery.txt",
+                        path:
+                          mode === "delivery-fallback"
+                            ? "fallback-delivery.txt"
+                            : "delivery.txt",
                         content: "Recorded delivery fixture\n",
                       }),
                     }
@@ -104,7 +108,7 @@ export async function acceptanceProvider() {
           content:
             "Fixture answer claims success; inspect recorded command outcomes.",
         });
-        send({}, "stop");
+        send({}, mode === "delivery-fallback" ? "length" : "stop");
       }
       response.end("data: [DONE]\n\n");
       return;

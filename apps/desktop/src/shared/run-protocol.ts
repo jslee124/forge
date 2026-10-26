@@ -352,6 +352,7 @@ export const runPayloadSchema = z.discriminatedUnion("type", [
       toolCalls: z.number().int().nonnegative().optional(),
       durationMs: z.number().nonnegative().optional(),
       partial: z.boolean().optional(),
+      answerSource: z.literal("system-fallback").optional(),
       recovery: productRecoveryLinkSchema.optional(),
     })
     .strict(),

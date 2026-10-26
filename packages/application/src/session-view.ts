@@ -7,7 +7,7 @@ import {
 export interface SessionViewMessage {
   readonly id: string;
   readonly role: "user" | "assistant";
-  readonly kind: "user" | "answer" | "system-outcome";
+  readonly kind: "user" | "answer" | "system-outcome" | "system-fallback";
   readonly content: string;
   readonly runId?: string;
   readonly outcome?: RunStatus;
@@ -37,6 +37,18 @@ export function projectSessionMessages(
     const id = structured ? message.id : `legacy-message-${index}`;
     const runId = structured ? message.runId : undefined;
     const base = { id, role: message.role, ...(runId ? { runId } : {}) };
+    if (
+      message.role === "assistant" &&
+      structured &&
+      knownRuns.has(message.runId) &&
+      message.step !== undefined &&
+      Number.isSafeInteger(message.step) &&
+      message.step > 0 &&
+      (message.id === `${message.runId}:fallback:${message.step}` ||
+        (message.step === 1 && message.id === `${message.runId}:fallback:0`))
+    ) {
+      return [{ ...base, kind: "system-fallback", content }];
+    }
     if (
       message.role === "assistant" &&
       structured &&

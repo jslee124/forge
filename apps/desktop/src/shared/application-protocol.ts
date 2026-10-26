@@ -165,7 +165,9 @@ const sessionMessagesSchema = z
     z.object({
       id: z.string(),
       role: z.enum(["user", "assistant"]),
-      kind: z.enum(["user", "answer", "system-outcome"]).optional(),
+      kind: z
+        .enum(["user", "answer", "system-outcome", "system-fallback"])
+        .optional(),
       runId: z.string().optional(),
       outcome: z
         .enum(["completed", "failed", "cancelled", "denied", "limit_reached"])

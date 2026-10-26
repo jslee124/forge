@@ -18,6 +18,7 @@ export const productCompletionSchema = z
       "interrupted",
     ]),
     partial: z.boolean().optional(),
+    answerSource: z.literal("system-fallback").optional(),
     recovery: productRecoveryLinkSchema.optional(),
     reason: z
       .enum([

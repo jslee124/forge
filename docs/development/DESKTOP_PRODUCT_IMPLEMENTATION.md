@@ -597,6 +597,36 @@ and test evidence; improve workspace-vs-product-help tool selection and investig
 continued final-step tool attempts. Broader fault/installation/user-trial gates
 remain pending. No product-release gate is advanced by this small sample alone.
 
+## Factual system-fallback presentation (2026-10-26)
+
+Native fallback answers are now identified by their host-generated canonical
+message identity, not by matching English prose. Application completion exposes
+an optional `answerSource: system-fallback` presentation fact; completion storage
+and wire schemas validate it. Saved messages from recorded runs project a separate
+`system-fallback` kind, including zero-admitted-step context failures. Ordinary
+answers and user-quoted fallback text retain their existing presentation. No
+canonical text, permissions or execution defaults are rewritten.
+
+Desktop renders a labelled bilingual system result instead of a model avatar and
+raw Markdown paragraph. It shows up to five recorded file writes, command results
+with exit/timeout/unknown status, expandable captured output and unresolved actions.
+Nonzero/unknown command results retain an attention notice; exit code zero is not
+promoted to task verification. Missing details, truncation and incomplete records
+remain explicit. When another run's delivery has not been loaded, the view points
+to the Activity tab rather than guessing that nothing happened. Original system
+text stays available in a collapsed diagnostic region. Recovery-summary runs show
+their own execution records, not fresh execution of the source run's effects.
+
+Validation: 251 affected application/persistence/Desktop tests passed, six live
+opt-in tests skipped; 151 deterministic checks passed. Root check and Desktop
+build passed. Local Electron acceptance adds a scripted file edit, a command with
+exit code 1 and an intentionally incomplete final model stream, followed by EN/ZH
+and 1100/840 layouts and a reload/reselect check with no extra model requests.
+Artifacts are `/tmp/forge-system-fallback-ui-verified/`. This is isolated loopback
+acceptance, not new paid-model, installed-app, Windows or release evidence.
+The prior two real-pilot batches remain unchanged; investigation scope and reliable
+provider finalization still need work. T10/T13 remain partial.
+
 ## 1. Goal and invariants
 
 Complete the native-engine investigation → approval → execution → verification →

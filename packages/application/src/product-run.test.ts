@@ -4,6 +4,52 @@ import { projectActionEvent, projectRunCompletion } from "./product-run.js";
 import { projectSessionMessages } from "./session-view.js";
 
 describe("product presentation contracts", () => {
+  it.each([0, 2])(
+    "projects system fallback from canonical identity at %i steps without rewriting history",
+    (steps) => {
+      const entry = {
+        id: `run:fallback:${steps}`,
+        runId: "run",
+        step: Math.max(1, steps),
+        role: "assistant" as const,
+        content: [
+          { type: "text" as const, text: "Original bounded system facts" },
+        ],
+      };
+      const result: RunResult = {
+        status: "limit_reached",
+        exitCode: 3,
+        modelSteps: steps,
+        toolCalls: 0,
+        finalText: entry.content[0]?.text ?? "",
+        events: [],
+        canonicalDelta: [entry],
+      };
+      expect(projectRunCompletion(result).answerSource).toBe("system-fallback");
+      expect(projectSessionMessages([entry], ["run"])[0]?.kind).toBe(
+        "system-fallback",
+      );
+      expect(projectSessionMessages([entry], [])[0]?.kind).toBe("answer");
+      expect(entry.content[0]?.text).toBe("Original bounded system facts");
+      expect(
+        projectRunCompletion({
+          ...result,
+          canonicalDelta: [{ ...entry, id: "ordinary-answer" }],
+        }).answerSource,
+      ).toBeUndefined();
+      expect(
+        projectSessionMessages(
+          [
+            {
+              role: "assistant",
+              content: "Partial run result. Observed tool success: run_command",
+            },
+          ],
+          ["run"],
+        )[0]?.kind,
+      ).toBe("answer");
+    },
+  );
   it("keeps distinct stop reasons and actual execution counters", () => {
     const result: RunResult = {
       status: "limit_reached",

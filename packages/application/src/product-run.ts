@@ -28,6 +28,7 @@ export interface ProductRunCompletion {
       }
     | undefined;
   readonly partial?: boolean | undefined;
+  readonly answerSource?: "system-fallback" | undefined;
   readonly reason?: ProductRunReason | undefined;
   readonly message?: string | undefined;
   readonly modelSteps?: number | undefined;
@@ -145,6 +146,14 @@ export function projectRunCompletion(result: RunResult): ProductRunCompletion {
   if (providerMessage === "provider-connection-failed") reason = "disconnected";
   return {
     outcome: result.status,
+    ...(result.canonicalDelta?.some(
+      (entry) =>
+        entry.role === "assistant" &&
+        entry.step === Math.max(1, result.modelSteps) &&
+        entry.id === `${entry.runId}:fallback:${result.modelSteps}`,
+    )
+      ? { answerSource: "system-fallback" as const }
+      : {}),
     ...(result.partial !== undefined ? { partial: result.partial } : {}),
     ...(reason ? { reason } : {}),
     ...(providerMessage || result.message
