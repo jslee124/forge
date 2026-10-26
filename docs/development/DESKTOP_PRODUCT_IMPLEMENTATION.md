@@ -1135,6 +1135,48 @@ checks passed afterward. Root type/lint/routing checks, docs, packed-install
 verification and Desktop build passed. This validates record/budget contracts,
 not real-model factual accuracy or installed-app acceptance.
 
+
+### Bounded real coding/recovery pilot result (2026-10-26)
+
+Revision `3cdff64` completed the precommitted two-mode × two-round E01/F03
+matrix: eight source runs and eight separately reviewed/confirmed summaries,
+39 of at most 40 logical model steps, without whole-task retries. Flash/high,
+frozen exercises and source caps were unchanged. Seven source runs admitted
+reserved finalization; continuation round 1 E01 finished normally and does not
+measure that projection. All eight summaries admitted their one-step projection;
+evidence-mode traces carry `inputMode: evidence`. Admission is not an accuracy
+or provider-compliance claim.
+
+All four E01 edits passed the independent 22-boundary grader and edit-scope check.
+This grader ran after recovery and was never evidence observed by the model.
+Actual source verification was narrower: continuation round 1 and both evidence
+rounds executed `node --test fixture.test.mjs` (two assertions); continuation round
+2 executed no tests because both process requests were denied. Refused/invalid
+boundary probes remain recorded. Edits precede final projection, so edit quality
+cannot be attributed to that mode.
+
+All eight recovery contracts passed: explicit review before start, linked source,
+at most one model step, zero tools, preserved draft and unchanged workspace.
+Qualitative answer review retained concrete failures: both continuation E01
+answers misclassified signed negative strings as `RangeError` despite their
+regex throwing `TypeError`; continuation round 2 F03 omitted the directory in its
+entry count, which its summary explicitly corrected; evidence round 1 E01 called
+the executed `node --test` command `npm test`, while its summary named the actual
+command. All summaries retained source limitations or missing verification and
+did not claim the independent grader. These findings are not a semantic success
+rate. Summary outcomes keep existing `limit_reached` / `partial` with
+`tool_call_limit` due to zero-tool precedence; they are not relabeled.
+
+Raw results, separate per-case assistant reviews, reviewed-file SHA-256 inventory
+and the full local report are at `/tmp/forge-evidence-finalization-3cdff64/README.md`.
+The evidence round 2 E01 confirmation/result screenshots were inspected: source,
+budget, confirmation buttons, draft and linked partial result are visible. This
+single Chinese dark scenario does not replace the UI matrix; English summaries
+under the existing English recovery prompt expose a language-consistency follow-up.
+Keep evidence projection opt-in and the default unchanged. T05/T13 remain partial;
+this small nondeterministic sample does not establish causal accuracy gains, full
+baseline acceptance, independent trials or installed/native/platform release gates.
+
 ## 1. Goal and invariants
 
 Complete the native-engine investigation → approval → execution → verification →
