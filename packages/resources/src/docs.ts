@@ -109,7 +109,7 @@ export async function createForgeDocsTools(options: {
   const search: ForgeTool = {
     name: "search_forge_docs",
     description:
-      "Search the version-matched, allowlisted Forge product documentation. Returns stable document and section references, never filesystem paths.",
+      "Search version-matched Forge HOST PRODUCT help for installation, configuration, usage and troubleshooting. This does not search the current workspace's source code or explain its functions/call paths; use workspace search/read tools for those. Returns stable document/section references, never filesystem paths.",
     inputSchema: z
       .object({
         query: z.string().trim().min(2).max(500),
@@ -159,7 +159,7 @@ export async function createForgeDocsTools(options: {
   const read: ForgeTool = {
     name: "read_forge_doc",
     description:
-      "Read one allowlisted Forge product-document section using a stable reference returned by search_forge_docs. Arbitrary paths are rejected.",
+      "Read one Forge HOST PRODUCT help section using a stable reference from search_forge_docs. These are packaged product behavior documents, not current workspace source code. Arbitrary paths are rejected.",
     inputSchema: z.object({ reference: z.string().min(1).max(300) }).strict(),
     risk: "read",
     execute: async (input, context): Promise<ToolResult> => {

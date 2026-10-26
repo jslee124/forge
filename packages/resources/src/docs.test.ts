@@ -19,6 +19,11 @@ const context: ToolContext = {
 describe("Forge product documentation", () => {
   it("searches the preferred Chinese mirror and reads only stable references", async () => {
     const [search, read] = await createForgeDocsTools({ locale: "zh-CN" });
+    expect(search.description).toContain("HOST PRODUCT");
+    expect(search.description).toContain(
+      "does not search the current workspace",
+    );
+    expect(read.description).toContain("not current workspace source code");
     const searched = await search.execute({ query: "插件 信任 安全" }, context);
     expect(searched).toMatchObject({
       ok: true,

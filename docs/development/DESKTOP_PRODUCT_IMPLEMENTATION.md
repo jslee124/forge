@@ -627,6 +627,34 @@ acceptance, not new paid-model, installed-app, Windows or release evidence.
 The prior two real-pilot batches remain unchanged; investigation scope and reliable
 provider finalization still need work. T10/T13 remain partial.
 
+## Host-help routing scope follow-up (2026-10-26)
+
+Shared resource selection no longer forces the built-in `forge-product-help` or
+`forge-plugin-creator` workflow from generic description-word overlap. Common
+workspace terms such as tools, commands or configuration were previously eligible
+for host selection, which then required loading the selected Skill. These two
+specialized builtins now require their Skill name in the request for deterministic
+host selection. `$skill-name` selection remains authoritative; both descriptors
+stay in the catalog and remain model-loadable for contextually relevant work.
+User/project overrides and other builtins keep their existing routing. This is a
+shared resource-layer change, not a Desktop-only intent classifier or permission
+change; it does not hide product-help tools or categorically forbid model choices.
+
+The packaged host-help tool descriptions and both builtin Skills distinguish
+product operation/help from workspace source, functions and call paths. Source
+inspection does not mandate searching packaged product docs even when the current
+workspace is Forge. A generic tools directory/function/manifest is not proof of
+Forge plugin integration and does not mandate inspecting host plugin templates.
+
+Validation: 19 resource/application tests and 151 deterministic checks passed;
+root check, Desktop build and packed-install verification passed. Regressions
+include generic EN/ZH questions, the frozen Q02/E01 prompts, named selection,
+model loading, project overrides and unrelated builtin routing. Packaged resources
+were rebuilt and verified. No paid-model trial ran; the prior live batches remain
+unchanged. This removes a deterministic false-routing mechanism and sharpens
+model-facing scope, but does not establish that the model's own irrelevant tool
+choices or investigation duration have improved. T06/T13 remain partial.
+
 ## 1. Goal and invariants
 
 Complete the native-engine investigation → approval → execution → verification →

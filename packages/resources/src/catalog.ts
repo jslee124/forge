@@ -171,6 +171,16 @@ export function selectSkills(
     .filter(
       (skill) => skill.invocation === "model" && skill.modelInvocationEnabled,
     )
+    // These host workflows contain common words such as tools, commands and
+    // configuration. Lexical overlap must not force their loading for arbitrary
+    // workspace tasks. They stay in the catalog for contextual model selection;
+    // naming the Skill still permits deterministic host selection.
+    .filter(
+      (skill) =>
+        skill.source !== "builtin" ||
+        !["forge-product-help", "forge-plugin-creator"].includes(skill.name) ||
+        prompt.toLocaleLowerCase().includes(skill.name),
+    )
     .map((skill) => ({ skill, score: matchScore(prompt, skill) }))
     .filter(({ score }) => score >= 2)
     .sort(

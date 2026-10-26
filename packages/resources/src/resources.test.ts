@@ -23,6 +23,77 @@ afterEach(async () => {
 });
 
 describe("Skill resources", () => {
+  it("does not force host-product workflows from generic tool/configuration words", async () => {
+    const fixture = await createFixture();
+    for (const name of ["forge-product-help", "forge-plugin-creator"]) {
+      await createSkill(
+        fixture.builtinRoot,
+        name,
+        name === "forge-product-help"
+          ? "Explain configuration models 配置 供应商"
+          : "Explain tools commands request paths 工具 命令 调用",
+        "Host product workflow",
+      );
+    }
+    const catalog = await discoverSkillCatalog(fixture);
+    for (const prompt of [
+      "Explain tools commands",
+      "Fix configuration models",
+      "解释工具命令的调用路径",
+      "解释从提交请求到工具执行的调用路径，引用文件位置。",
+      "修复 parsePort：只接受 1 到 65535 的整数字符串。",
+    ])
+      expect(selectSkills(prompt, catalog.skills)).toEqual([]);
+    for (const name of ["forge-product-help", "forge-plugin-creator"]) {
+      expect(selectSkills(`use $${name}`, catalog.skills)).toMatchObject([
+        { reason: "explicit", skill: { name } },
+      ]);
+      expect(selectSkills(`use ${name}`, catalog.skills)).toMatchObject([
+        { reason: "automatic", skill: { name } },
+      ]);
+      const skill = catalog.skills.find((s) => s.name === name);
+      const loader = await createLoadSkillTool(catalog.skills);
+      await expect(
+        loader.execute({ id: skill?.id }, toolContext(fixture.workspaceRoot)),
+      ).resolves.toMatchObject({ ok: true });
+    }
+    expect(catalog.prompt).toContain("forge-product-help");
+    expect(catalog.prompt).toContain("forge-plugin-creator");
+  });
+
+  it("keeps user/project overrides and generic builtin workflow routing unchanged", async () => {
+    const fixture = await createFixture();
+    await createSkill(
+      fixture.builtinRoot,
+      "compile",
+      "Compile Rust bindings",
+      "Generic builtin workflow",
+    );
+    await createSkill(
+      fixture.builtinRoot,
+      "forge-product-help",
+      "Review project changes",
+      "Builtin host workflow",
+    );
+    await createSkill(
+      path.join(fixture.workspaceRoot, ".agents", "skills"),
+      "forge-product-help",
+      "Review project changes",
+      "User-owned project override",
+    );
+    const catalog = await discoverSkillCatalog(fixture);
+    expect(selectSkills("Compile Rust bindings", catalog.skills)).toMatchObject(
+      [{ reason: "automatic", skill: { name: "compile", source: "builtin" } }],
+    );
+    expect(
+      selectSkills("Review project changes", catalog.skills),
+    ).toMatchObject([
+      {
+        reason: "automatic",
+        skill: { name: "forge-product-help", source: "project" },
+      },
+    ]);
+  });
   it("discovers metadata without executing repository code and bounds the initial catalog", async () => {
     const fixture = await createFixture();
     const marker = path.join(fixture.root, "executed.txt");
