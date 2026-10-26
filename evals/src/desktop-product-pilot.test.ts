@@ -44,6 +44,18 @@ it("checks the frozen pilot without credentials or live calls, and refuses extra
       "E01",
       "F03",
     ]);
+    await expect(run(["--locale", "unsupported"])).rejects.toThrow(
+      "Invalid pilot locale",
+    );
+    await run(["--task", "F03", "--recover-summary", "--locale", "en"]);
+    const english = JSON.parse(
+      await readFile(join(round, "pilot-plan.json"), "utf8"),
+    );
+    expect(english.tasks[0]).toMatchObject({
+      task: "F03",
+      locale: "en",
+      recoverySummary: { maxModelSteps: 1, maxToolCalls: 0 },
+    });
     await run(["--task", "Q02"]);
     const selected = JSON.parse(
       await readFile(join(round, "pilot-plan.json"), "utf8"),

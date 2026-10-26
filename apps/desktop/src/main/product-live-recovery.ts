@@ -43,6 +43,11 @@ export async function runPilotSummaryRecovery(options: {
     );
     if (events.length)
       throw new Error("Recovery began before explicit review confirmation");
+    const locale = await js("document.documentElement.lang");
+    const plan = (await agent.management.request({ type: "state" }))
+      .recoveryPlan;
+    if (plan?.responseLocale !== locale)
+      throw new Error("Recovery plan language differs from reviewed UI");
     await writeFile(
       join(directory, "recovery-review.png"),
       (await window.webContents.capturePage()).toPNG(),
@@ -78,6 +83,8 @@ export async function runPilotSummaryRecovery(options: {
     )?.payload;
     const report = {
       sourceRunId,
+      locale,
+      reviewedPlan: plan,
       summary,
       completion,
       events,

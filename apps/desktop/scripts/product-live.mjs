@@ -15,6 +15,7 @@ const { values } = parseArgs({
     task: { type: "string", multiple: true },
     "finalization-input": { type: "string" },
     "recover-summary": { type: "boolean" },
+    locale: { type: "string" },
   },
   strict: true,
 });
@@ -24,7 +25,7 @@ if (
   !values.round?.length
 )
   throw new Error(
-    "Usage: --check|--live --round <prepared-round-directory> [--round <directory>] [--task Q02|Q05|Q06|E01|F03] [--finalization-input continuation|evidence] [--recover-summary]",
+    "Usage: --check|--live --round <prepared-round-directory> [--round <directory>] [--task Q02|Q05|Q06|E01|F03] [--finalization-input continuation|evidence] [--recover-summary] [--locale en|zh-CN]",
   );
 const tasks = values.task ?? ["Q02", "E01", "F03"];
 if (
@@ -42,6 +43,8 @@ if (
   !tasks.some((task) => ["E01", "F03"].includes(task))
 )
   throw new Error("Summary recovery pilot requires E01 or F03");
+const locale = values.locale ?? "zh-CN";
+if (!["en", "zh-CN"].includes(locale)) throw new Error("Invalid pilot locale");
 const require = createRequire(import.meta.url);
 const key = values.live
   ? new AuthenticationManager().requireApiKey("deepseek").apiKey
@@ -135,6 +138,7 @@ for (const supplied of values.round) {
         wallClockMs: 175000,
         status: "not_run",
         finalizationInput,
+        locale,
         ...(values["recover-summary"] && ["E01", "F03"].includes(task)
           ? {
               recoverySummary: {
@@ -212,6 +216,7 @@ for (const supplied of values.round) {
       FORGE_PRODUCT_LIVE_TASK: task,
       FORGE_PRODUCT_LIVE_OPT_IN: "1",
       FORGE_PRODUCT_LIVE_FINALIZATION_INPUT: finalizationInput,
+      FORGE_PRODUCT_LIVE_LOCALE: locale,
       FORGE_PRODUCT_LIVE_RECOVER_SUMMARY:
         values["recover-summary"] && ["E01", "F03"].includes(task) ? "1" : "0",
     });

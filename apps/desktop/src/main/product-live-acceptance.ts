@@ -17,6 +17,7 @@ export async function runProductLivePilot(
   const {
     FORGE_PRODUCT_LIVE_FINALIZATION_INPUT: finalizationInput = "continuation",
     FORGE_PRODUCT_LIVE_RECOVER_SUMMARY: recoverSummary,
+    FORGE_PRODUCT_LIVE_LOCALE: locale = "zh-CN",
   } = process.env;
   const home = process.env["FORGE_PRODUCT_LIVE_HOME"];
   const workspace = process.env["FORGE_PRODUCT_LIVE_WORKSPACE"];
@@ -26,6 +27,7 @@ export async function runProductLivePilot(
     home !== process.env["FORGE_HOME"] ||
     !workspace ||
     !task ||
+    !["en", "zh-CN"].includes(locale) ||
     !["Q02", "Q05", "Q06", "E01", "F03"].includes(task) ||
     process.env["FORGE_PRODUCT_LIVE_OPT_IN"] !== "1"
   )
@@ -89,6 +91,14 @@ export async function runProductLivePilot(
   await until(
     `document.querySelector('.studio-workspace-button')?.title === ${JSON.stringify(selected.cwd)} && document.querySelector('.live-composer textarea') && !document.querySelector('[data-testid=composer-engine]').disabled`,
   );
+  await js("document.querySelector('[data-testid=settings]').click()");
+  await until("document.querySelector('[data-testid=language]')");
+  await js(
+    `(()=>{const e=document.querySelector('[data-testid=language]');Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(e,${JSON.stringify(locale)});e.dispatchEvent(new Event('change',{bubbles:true}));})()`,
+  );
+  await until(`document.documentElement.lang === ${JSON.stringify(locale)}`);
+  await js("document.querySelector('.studio-back').click()");
+  await until("document.querySelector('.live-composer textarea')");
   const events: RunEvent[] = [];
   const decisions: { actionId?: string; allow: boolean; reason: string }[] = [];
   let cancelTimer: ReturnType<typeof setTimeout> | undefined;

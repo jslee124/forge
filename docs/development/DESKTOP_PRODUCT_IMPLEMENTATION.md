@@ -1208,6 +1208,43 @@ one call, zero tools, linked retry and preserved draft. No external model sampli
 installed-app replacement, native IME/VoiceOver or user-trial acceptance is claimed.
 The evidence projection remains opt-in and T05/T13 remain partial.
 
+### Bounded real-model recovery language check (2026-10-26)
+
+The live pilot now accepts `--locale en|zh-CN` (default `zh-CN`), validates it
+before credential access, changes language through Desktop settings and records
+both UI locale and the host-reviewed recovery plan before confirmation.
+
+At `/tmp/forge-recovery-language-831f0a7/README.md`, eight real DeepSeek Flash/high
+summaries cover four captured toy counterexamples in both languages. Inputs retain
+actual selected actions and conflicting answer excerpts, with explicitly synthetic
+interrupted/partial metadata for incomplete observation subsets; they are not full
+historical replays. Two additional real Electron F03 source-and-reviewed-summary
+flows bring the total to twelve runs and fourteen logical model steps. All ten
+summaries used the requested language, one step and zero tools in this sample.
+No general language compliance or accuracy rate follows from this observation.
+
+Both languages explicitly corrected directory count and command identity. Neither
+exception case explicitly resolved the negative-string classification. One English
+summary conflated the current summary's tool-call limit with source-run status;
+other wording occasionally treated missing subset evidence as proof of absence.
+Raw outputs remain unchanged; separate qualitative reviews record these residuals.
+Next work should separate source facts from current summary execution metadata and
+retain the status-confusion counterexample before expanding paid sampling.
+
+Both real UI flows passed review-before-run, source linkage, one-step/zero-tool,
+draft-preservation and unchanged-workspace checks. Four review/summary screenshots
+were visually inspected. Source completion remains model-step-limited/partial;
+summary completion remains tool-call-limited/partial under current zero-tool
+finalization precedence. No status was promoted to success. An initial local config
+schema failure occurred before any provider call; its evidence is retained.
+
+Validation: focused pilot preflight test, root check and root/Desktop builds
+passed; root check retains eight existing warnings and 48 infos. Documentation
+validation passed. This is bounded development evidence, not a complete task
+baseline, installed-app/native IME/VoiceOver or independent-user acceptance.
+Default continuation behavior is unchanged; evidence projection remains opt-in and
+T05/T13 remain partial.
+
 ## 1. Goal and invariants
 
 Complete the native-engine investigation → approval → execution → verification →
