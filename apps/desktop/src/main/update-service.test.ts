@@ -505,6 +505,23 @@ describe("local development build updates", () => {
       });
       expect(f.request).toHaveBeenCalledTimes(2);
       expect(f.openPath).not.toHaveBeenCalled();
+      const switched = await service.command({
+        type: "preferences",
+        channel: "stable",
+        startup: true,
+      });
+      expect(switched).toMatchObject({ phase: "unchecked", channel: "stable" });
+      expect(switched.target).toBeUndefined();
+      expect(f.request).toHaveBeenCalledTimes(2);
+      expect((await service.command({ type: "download" })).phase).toBe(
+        "failed",
+      );
+      expect(f.request).toHaveBeenCalledTimes(2);
+      await service.command({
+        type: "preferences",
+        channel: "preview",
+        startup: true,
+      });
       expect(
         JSON.parse(await readFile(join(f.root, "preferences.json"), "utf8")),
       ).toEqual({ channel: "preview", startup: true });

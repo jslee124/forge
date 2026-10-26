@@ -88,6 +88,16 @@ it.each(["en", "zh-CN"])(
         allowLocalReplacement: true,
       });
       expect(status.startup).toBe(true);
+      status.phase = "current";
+      await act(async () => root.render(createElement(UpdateView)));
+      expect(container.textContent).toContain(
+        locale === "zh-CN"
+          ? "未找到兼容的公开安装包"
+          : "No compatible public installer found",
+      );
+      expect(container.textContent).not.toContain(
+        locale === "zh-CN" ? "已是最新版本" : "Up to date",
+      );
     } finally {
       await act(async () => root.unmount());
       container.remove();

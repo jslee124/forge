@@ -14,8 +14,8 @@ development records, not a claim that every T00–T14 gate is complete.
 
 | ID | State | Remaining outcome and acceptance condition |
 | --- | --- | --- |
-| U01 | Implemented and local UI verified; installation pending | Local builds skip startup checks even with saved preferences; explicit public switching warns about replacement. Stable/preview ordering remains intact. Host/renderer regressions currently pass; installed build must be refreshed separately. |
-| V01 | Next bounded live round | Run E01 coding and F03 budget recovery through the real Desktop; preserve attempts, approvals, exact changes, independent boundary checks and raw answers. Review source facts versus explanation, draft preservation and read-only history. No whole-task retry to chase success. |
+| U01 | Local implementation/UI/install verified | Local builds skip startup checks even with saved preferences; explicit public switching warns about replacement. Stable/preview ordering remains intact. Host/renderer regressions and installed `644383a` checks pass. |
+| V01 | Bounded round complete; semantics partial | Run E01 coding and F03 budget recovery through the real Desktop; preserve attempts, approvals, exact changes, independent boundary checks and raw answers. Review source facts versus explanation, draft preservation and read-only history. No whole-task retry to chase success. |
 | V02 / T00,T13 | Pending full gate | Score all 24 fixed tasks in two independent rounds with pinned model/config/seed and predeclared rubric. Existing partial diagnostic samples do not satisfy this gate. |
 | V03 / T13 | Pending | Five target users perform Q02/E01/F03 without developer coaching; record blockers and results. Agent-operated tests cannot substitute for independent users. |
 | A01 / T12 | Partial | Native IME candidate confirmation must not send early; verify actual VoiceOver stage/error/approval announcements and keyboard recovery. AX/composition simulations are supporting evidence only. |
@@ -1377,6 +1377,60 @@ read-only reopening after a renderer reload. It first records completion-time dr
 preservation, then explicitly clears the disposable fixture draft before reloading;
 it does not bypass the normal unsent-draft guard or claim draft reload persistence.
 No new provider result is established by that probe change alone.
+
+### Bounded coding, recovery and history acceptance (2026-10-27)
+
+Real development Desktop at `644383a` ran E01 and F03 with DeepSeek Flash/high,
+Chinese UI and default continuation, followed by one explicitly reviewed summary
+each. Four runs consumed ten logical model steps; no whole-task retry was made.
+Raw evidence and qualitative review are at `/tmp/forge-product-644383a/README.md`.
+E01 changed only `workflow.mjs`, observed `node --test fixture.test.mjs` exit zero
+with two tests, and passed 22 separate independent boundary assertions after the
+Agent finished. An inline probe outside the fixed pilot process allowlist was
+refused without a rephrased retry. The independent assertions are not Agent tests.
+F03 preserved a read-only workspace and budget finalization after two steps/two tools.
+
+Both source runs remain model-step-limited/partial (E01 six steps/eight tools;
+F03 two/two). Both summaries remain tool-call-limited/partial (one step/zero tools),
+with all eight recovery checks true, including linked source facts and read-only
+reopening after reload. Completion-time draft preservation was measured before
+explicitly clearing the disposable fixture draft. Both history screenshots were
+inspected; F03's upper card is partially above the viewport and is not a full-card
+geometry acceptance image.
+
+The E01 model summary still omits the `tools` directory, and the source answer's
+line range is shorter than its displayed replacement. F03 source says ten entries
+but enumerates nine; its summary explicitly corrects the directory omission.
+Source/current-summary reasons remain distinct, but factuality is not generally
+accepted. Other 22 prepared tasks remain `not_run`; this is not the full baseline
+or independent user acceptance. Retain the failures and improve task-level coverage
+before increasing budgets or declaring T05/T13 complete.
+
+### Local update guard installed (2026-10-27)
+
+The normal Applications app was refreshed to `0.4.0-local.644383a` after backing
+up the previous app and user data. The actual installed artifact completed 110
+scripted-provider UI result entries with isolated Forge/Chromium state, including
+local-build revision and cancelled public-switch review. Normal native startup
+showed original history and no former public-update button. All 85 original
+Forge-home files retained their hashes. Durable private backup/report:
+`/Users/mori/Library/Application Support/Forge Backups/2026-10-27-644383a/`;
+development evidence: `/tmp/forge-install-644383a/README.md`.
+
+This closes U01's local implementation/UI/installation checks, not public release,
+interactive Spotlight, other-platform or live installed-provider acceptance. The
+bounded paid E01/F03 round above establishes its own separate development scope.
+V02/V03/A01/C01/Q01/P01 remain open under their stated acceptance conditions.
+
+### Public replacement channel follow-up (2026-10-27)
+
+Final review adds two local-build edge contracts: changing channel after an explicit
+public check clears the prior candidate/checksum/verified installer without a new
+network request, so a stale preview cannot remain downloadable under stable. No
+compatible public installer is labeled unavailable rather than claiming the local
+source is up to date. The strengthened 27 update/pilot-preflight tests and root
+check passed. The `644383a` installation evidence above predates this small follow-up;
+its replacement artifact is recorded separately after packaging.
 
 ## 1. Goal and invariants
 

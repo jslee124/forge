@@ -51,7 +51,7 @@ export function UpdateView({ compact = false }: { compact?: boolean }) {
     ? {
         unchecked: "尚未检查",
         checking: "正在检查…",
-        current: "已是最新版本",
+        current: status.localBuild ? "未找到兼容的公开安装包" : "已是最新版本",
         available: status.localBuild ? "可切换到公开版本" : "发现新版本",
         downloading: "正在下载…",
         verifying: "正在校验…",
@@ -61,7 +61,9 @@ export function UpdateView({ compact = false }: { compact?: boolean }) {
     : {
         unchecked: "Not checked",
         checking: "Checking…",
-        current: "Up to date",
+        current: status.localBuild
+          ? "No compatible public installer found"
+          : "Up to date",
         available: status.localBuild
           ? "Public version available"
           : "Update available",

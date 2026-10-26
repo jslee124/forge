@@ -275,7 +275,23 @@ export class UpdateService {
         channel: command.channel,
         startup: command.startup,
       };
-      if (!changed || this.status.localBuild) return { ...this.status };
+      if (!changed) return { ...this.status };
+      if (this.status.localBuild) {
+        this.candidate = undefined;
+        this.checksum = undefined;
+        this.verified = undefined;
+        this.status = {
+          ...this.status,
+          phase: "unchecked",
+          target: undefined,
+          notes: undefined,
+          retry: undefined,
+          error: undefined,
+          received: undefined,
+          total: undefined,
+        };
+        return { ...this.status };
+      }
     }
     if (command.type === "check" || command.type === "preferences") {
       if (
