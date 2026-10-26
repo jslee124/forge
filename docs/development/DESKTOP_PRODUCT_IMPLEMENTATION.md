@@ -827,6 +827,24 @@ documentation checks, packed-install verification and Desktop build passed.
 The SDK fixture confirms numbered positions 24–29 reach the actual next model
 request while full raw reads remain unchanged; these are offline tests.
 
+## Numbered-read real-model retest (2026-10-26)
+
+Two isolated Q02 runs at 871806e used the unchanged frozen prompt, model and
+6-step/8-call caps. Both chose numbered reads. Round 1 quoted the key backend
+chain at correct positions (dispatch 24–26, handle 27–29, tool call 28), but with
+one call remaining requested two; the whole batch was refused and renderer was
+not read. The partial answer acknowledged missing evidence, but broadened into
+unrelated defects. Round 2 exhausted eight tools without reading renderer, then
+returned raw DSML during tool-free finalization; the guard produced an explicit
+factual system fallback. Both fail assistant review, despite preserved files.
+Together: 10 model steps / 15 executed tools, 24,522 ms summed recorded duration.
+No billing/token totals captured, retries, installation replacement or release
+claim. These sequential samples do not establish a causal accuracy improvement
+or independent human/user acceptance. Raw evidence and separate assessments:
+`/tmp/forge-t13-numbered-results/report.md`. The remaining gate is evidence
+prioritization, batch allowance compliance and reliable useful finalization;
+T05/T13 remain partial. Numbered output alone does not resolve that gate.
+
 ## 1. Goal and invariants
 
 Complete the native-engine investigation → approval → execution → verification →
