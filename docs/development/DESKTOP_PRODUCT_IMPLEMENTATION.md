@@ -795,6 +795,38 @@ Its query terms are test-specified, not independently chosen by a real model.
 No paid calls, installation update or new UI acceptance occurred; T05/T13 remain
 partial until real investigation and the other existing gates pass.
 
+## Grouped-search retest and numbered read support (2026-10-26)
+
+Two real isolated Desktop Q02 runs at be0cb0c both used grouped source search,
+but neither passes assistant review. Round 1 completed with 5 model steps / 7
+tool calls but misquoted workflow line positions, never read renderer.tsx and
+inferred that other request fields had been lost without proof of input type.
+Round 2 read the relevant UI and backend files, then hit the 8-call limit; its
+tool-free response contained raw DSML and was replaced by the factual system
+fallback. Both preserved the workspace. No retries or user trials occurred.
+Raw evidence and separate assistant assessments:
+`/tmp/forge-t13-grouped-be0cb0c-results/report.md`. Completion is not correctness.
+
+`read_file` now accepts optional `format: numbered`, prefixing each returned
+source line with its absolute 1-based position. Default/explicit raw reads retain
+original content and hash behavior. Number labels count against the existing
+content byte cap, preserve UTF-8 and CRLF, and cannot create a phantom trailing
+line; omitted presentation content reports output_limit. `bytes` measures the
+returned content, and line metadata describes source lines actually represented.
+Numbered output is explicitly marked contentFormat=numbered and never provides
+a whole-file rewrite hash, even if the entire source was read. It does not alter
+files or grant authority. Ranged/scan/cancellation/workspace restrictions remain
+unchanged. Native bounded-run guidance suggests numbered reads for citations
+and raw reads before full rewrites. This is evidence presentation, not automatic
+citation validation or proof of improved model accuracy. T05/T13 remain partial.
+
+Validation: 50 focused tool/application/SDK serialization tests passed before
+one additional rewrite-boundary test; the final 36 tool tests and all 175
+deterministic checks passed. Root checks (existing 8 warnings / 48 infos),
+documentation checks, packed-install verification and Desktop build passed.
+The SDK fixture confirms numbered positions 24–29 reach the actual next model
+request while full raw reads remain unchanged; these are offline tests.
+
 ## 1. Goal and invariants
 
 Complete the native-engine investigation → approval → execution → verification →

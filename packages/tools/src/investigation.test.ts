@@ -36,6 +36,120 @@ async function fixture() {
   return { root, context };
 }
 describe("bounded line investigation", () => {
+  it.each(["", "\n", "a", "a\n", "a\nb", "你好\r\n\r\n结束"])(
+    "numbers source lines without inventing a trailing line: %j",
+    async (content) => {
+      const { root, context } = await fixture();
+      await writeFile(join(root, "note"), content);
+      const expectedLines = content === "" ? [] : content.split(/(?<=\n)/);
+      if (expectedLines.at(-1) === "") expectedLines.pop();
+      const numbered = await readFile(
+        { path: "note", format: "numbered" },
+        context,
+      );
+      expect(numbered).toMatchObject({
+        ok: true,
+        truncated: false,
+        output: {
+          content: expectedLines.map((line, i) => `${i + 1}: ${line}`).join(""),
+          contentFormat: "numbered",
+          returnedLines: expectedLines.length,
+          totalLines: expectedLines.length,
+          totalLinesKnown: true,
+          sha256: null,
+          rewriteAvailable: false,
+          partial: false,
+        },
+      });
+      const raw = await readFile({ path: "note", format: "raw" }, context);
+      expect(raw).toMatchObject({
+        ok: true,
+        output: { content, rewriteAvailable: true },
+      });
+      if (raw.ok) expect(raw.output).not.toHaveProperty("contentFormat");
+      expect(await readText(join(root, "note"), "utf8")).toBe(content);
+    },
+  );
+  it("never turns display labels into a guarded rewrite baseline", async () => {
+    const { root, context } = await fixture();
+    await writeFile(join(root, "note"), "original\n");
+    const numbered = await readFile(
+      { path: "note", format: "numbered" },
+      context,
+    );
+    if (!numbered.ok) throw new Error("Numbered read failed");
+    expect(
+      await editFile(
+        {
+          operation: "rewrite",
+          path: "note",
+          content: "replacement",
+          expectedSha256: numbered.output.resourceVersion,
+        },
+        context,
+      ),
+    ).toMatchObject({ ok: false, error: { code: "stale_file" } });
+    expect(
+      await readFileTool.execute({ path: "note", format: "unknown" }, context),
+    ).toMatchObject({ ok: false, error: { code: "invalid_input" } });
+    expect(await readText(join(root, "note"), "utf8")).toBe("original\n");
+  });
+  it("labels ranged reads with absolute source positions", async () => {
+    const { root, context } = await fixture();
+    await writeFile(join(root, "note"), "a\nb\nc\n");
+    expect(
+      await readFile(
+        { path: "note", startLine: 2, lineCount: 2, format: "numbered" },
+        context,
+      ),
+    ).toMatchObject({
+      ok: true,
+      truncated: false,
+      output: {
+        content: "2: b\n3: c\n",
+        startLine: 2,
+        endLine: 3,
+        returnedLines: 2,
+        bytes: 10,
+        partial: true,
+        rewriteAvailable: false,
+        sha256: null,
+      },
+    });
+    expect(
+      await readFile(
+        { path: "note", startLine: 8, format: "numbered" },
+        context,
+      ),
+    ).toMatchObject({
+      ok: true,
+      truncated: false,
+      output: { content: "", endLine: null, returnedLines: 0 },
+    });
+  });
+  it("counts labels against the byte cap without splitting UTF-8 or emitting empty labels", async () => {
+    const { root, context } = await fixture();
+    await writeFile(join(root, "note"), "你好\r\n第二行\n");
+    for (let maxOutputBytes = 0; maxOutputBytes < 32; maxOutputBytes++) {
+      const result = await readFile(
+        { path: "note", format: "numbered" },
+        { ...context, limits: { ...context.limits, maxOutputBytes } },
+      );
+      if (!result.ok) throw new Error("Numbered read failed");
+      expect(Buffer.byteLength(result.output.content)).toBeLessThanOrEqual(
+        maxOutputBytes,
+      );
+      expect(result.output.bytes).toBe(
+        Buffer.byteLength(result.output.content),
+      );
+      expect(result.output.content).not.toContain("�");
+      expect(result.output.content).not.toMatch(/\d+: $/);
+      expect(result.output.rewriteAvailable).toBe(false);
+      if (result.truncated)
+        expect(result.output.limitReason).toBe("output_limit");
+    }
+  });
+
   it("finds the middle without returning the prefix or granting whole-file rewrite", async () => {
     const { root, context } = await fixture();
     await writeFile(

@@ -19,6 +19,12 @@ export const readFileInputSchema = z
       .string()
       .min(1)
       .describe("Workspace-relative UTF-8 text file path."),
+    format: z
+      .enum(["raw", "numbered"])
+      .optional()
+      .describe(
+        "Default raw. Numbered prefixes each source line with its 1-based number for citation; presentation only, never a rewrite baseline.",
+      ),
     startLine: z
       .number()
       .int()
@@ -43,6 +49,7 @@ export type ReadFileInput = z.infer<typeof readFileInputSchema>;
 export interface ReadFileOutput {
   readonly path: string;
   readonly content: string;
+  readonly contentFormat?: "numbered";
   readonly bytes: number;
   readonly sha256: string | null;
   readonly rewriteAvailable: boolean;
@@ -60,7 +67,7 @@ export interface ReadFileOutput {
 export const readFileTool: ForgeTool = {
   name: "read_file",
   description:
-    "Read workspace UTF-8 text, optionally by 1-based startLine/lineCount. Prefer bounded line ranges for investigation. Ranges and truncated reads never provide a full-file rewrite hash. Streaming skips at most 64 MiB; output and omissions are explicit.",
+    "Read workspace UTF-8 text, optionally by 1-based startLine/lineCount. Prefer bounded line ranges and format=numbered for source citations. Numbered content is presentation only and cannot authorize a whole-file rewrite. Ranges and truncated reads never provide a full-file rewrite hash. Streaming skips at most 64 MiB; output and omissions are explicit.",
   inputSchema: readFileInputSchema,
   risk: "read",
   execute: (input, context) => {
@@ -176,25 +183,33 @@ export async function readFile(
         "not_text",
         "The requested content is not valid UTF-8 text.",
       );
-    const content = bytes.toString("utf8");
-    const returnedLines = lineCount(content);
+    const rawContent = bytes.toString("utf8");
+    const numbered =
+      input.format === "numbered"
+        ? numberLines(rawContent, startLine, outputLimit)
+        : undefined;
+    const content = numbered?.content ?? rawContent;
+    const returnedLines = numbered?.returnedLines ?? lineCount(rawContent);
     const totalLines = completeScan
       ? before.size === 0n
         ? 0
         : line - (lastByte === 10 ? 1 : 0)
       : null;
-    const truncated = outputLimited || scanLimited;
+    const presentationLimited = numbered?.truncated === true;
+    const truncated = outputLimited || scanLimited || presentationLimited;
     const partial = ranged || truncated;
+    const rewriteAvailable = !partial && !numbered;
     return {
       ok: true,
       output: {
         path: relativeWorkspacePath(context.workspace, resolved.path),
         content,
-        bytes: bytes.length,
-        sha256: partial
-          ? null
-          : createHash("sha256").update(bytes).digest("hex"),
-        rewriteAvailable: !partial,
+        ...(numbered ? { contentFormat: "numbered" as const } : {}),
+        bytes: Buffer.byteLength(content),
+        sha256: rewriteAvailable
+          ? createHash("sha256").update(bytes).digest("hex")
+          : null,
+        rewriteAvailable,
         startLine,
         endLine: returnedLines ? startLine + returnedLines - 1 : null,
         returnedLines,
@@ -203,7 +218,7 @@ export async function readFile(
         partial,
         resourceVersion,
         scannedBytes: position,
-        ...(outputLimited
+        ...(outputLimited || presentationLimited
           ? { limitReason: "output_limit" as const }
           : scanLimited
             ? { limitReason: "scan_limit" as const }
@@ -227,4 +242,39 @@ function lineCount(text: string): number {
   )
     count++;
   return count;
+}
+
+/** Prefix only returned source lines; labels share the existing content byte cap. */
+function numberLines(text: string, startLine: number, limit: number) {
+  const parts: string[] = [];
+  let used = 0;
+  let offset = 0;
+  let returnedLines = 0;
+  while (offset < text.length) {
+    const prefix = `${startLine + returnedLines}: `;
+    const prefixBytes = Buffer.byteLength(prefix);
+    if (used + prefixBytes >= limit) break;
+    const newline = text.indexOf("\n", offset);
+    const end = newline < 0 ? text.length : newline + 1;
+    const raw = Buffer.from(text.slice(offset, end));
+    let length = Math.min(raw.length, limit - used - prefixBytes);
+    while (
+      length > 0 &&
+      length < raw.length &&
+      ((raw[length] ?? 0) & 0xc0) === 0x80
+    )
+      length--;
+    if (!length) break;
+    parts.push(prefix, raw.subarray(0, length).toString("utf8"));
+    used += prefixBytes + length;
+    returnedLines++;
+    if (length < raw.length)
+      return { content: parts.join(""), returnedLines, truncated: true };
+    offset = end;
+  }
+  return {
+    content: parts.join(""),
+    returnedLines,
+    truncated: offset < text.length,
+  };
 }

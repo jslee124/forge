@@ -42,7 +42,14 @@ it.each(["core", "application"])(
           const calls =
             index === 1
               ? paths.map((path) => ({ path }))
-              : [{ path: "workflow.mjs", startLine: 24, lineCount: 6 }];
+              : [
+                  {
+                    path: "workflow.mjs",
+                    startLine: 24,
+                    lineCount: 6,
+                    format: "numbered",
+                  },
+                ];
           return response(
             {
               tool_calls: calls.map((input, i) => ({
@@ -166,7 +173,13 @@ it.each(["core", "application"])(
         ok: true,
         truncated: false,
         output: {
-          content: `${source.trimEnd().split("\n").slice(23, 29).join("\n")}\n`,
+          content: `${source
+            .trimEnd()
+            .split("\n")
+            .slice(23, 29)
+            .map((line, i) => `${24 + i}: ${line}`)
+            .join("\n")}\n`,
+          contentFormat: "numbered",
           startLine: 24,
           endLine: 29,
           returnedLines: 6,
