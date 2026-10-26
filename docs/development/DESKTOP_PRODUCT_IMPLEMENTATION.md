@@ -655,6 +655,42 @@ unchanged. This removes a deterministic false-routing mechanism and sharpens
 model-facing scope, but does not establish that the model's own irrelevant tool
 choices or investigation duration have improved. T06/T13 remain partial.
 
+## Two-run investigation retest and remaining-allowance follow-up (2026-10-26)
+
+The pilot launcher now accepts a validated unique `--task` subset of Q02/E01/F03;
+`--task Q02` runs only that frozen task, with the original limits and seed checks.
+The default three-task batch is unchanged. Unknown or duplicate task IDs fail
+before credential access. A no-call regression verifies selection and preserves
+the extra-workspace-file rejection.
+
+Two independent Q02 runs at source `04a5390` (including `4f6e2b2`) both ended at
+the tool-call limit: round 1 used 4 model steps/7 tool calls, round 2 used 4/5.
+Neither called host product-help tools nor loaded Skills, and both preserved all
+workspace files. Both still failed the reviewed task gate: renderer.tsx remained
+unread, the first invented a busy-lock consequence despite no read of busy, and
+the second over-constrained untyped requestId data. Keyword-reference checks
+passing does not establish semantic correctness. No installation trial package
+was prepared under the proposed investigation-pass gate.
+
+The last batches requested 3 calls with 1 remaining and 4 with 3 remaining;
+existing core behavior refused each whole batch and finalized without execution.
+After retaining those results, reserved-final-step runs gained a low-allowance
+instruction when at most 3 tool calls remain, stating the current remaining count
+and whole-batch refusal rule. It asks for essential evidence or an answer without
+skipping required verification. Limits, approvals, all-or-nothing batch refusal
+and direct-policy defaults remain unchanged. Instructions flow through existing
+context admission/cache-prefix accounting. This is planning guidance, not a new
+permission or proof of improved model behavior.
+
+Validation after the change: 19 finalization regressions, 153 deterministic checks,
+root check and Desktop build passed. The new regression updates hints across
+3→2→1 and verifies that an oversized batch still has zero extra effects. No paid
+calls occurred after this change; the two real runs are pre-change evidence only.
+No additional live retries were made. Raw results/screenshots are under
+`/tmp/forge-t13-scope-q02-round-{1,2}/`; reviewed report, machine summary and actual
+executed build hashes are `/tmp/forge-t13-scope-q02-results/`. Reviews remain
+assistant assessments, not independent user trials; T06/T13 remain partial.
+
 ## 1. Goal and invariants
 
 Complete the native-engine investigation → approval → execution → verification →

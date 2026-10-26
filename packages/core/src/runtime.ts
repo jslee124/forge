@@ -520,12 +520,20 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
     if (finalizing && options.model.supportsToolChoiceNone !== true) {
       return fallback("The adapter cannot request tool-free finalization.");
     }
+    const remainingToolCalls = Math.max(0, limits.maxToolCalls - toolCalls);
+    const requestInstructions =
+      reserveFinalStep && !finalizing && remainingToolCalls <= 3
+        ? [
+            investigationInstructions,
+            `Investigation allowance is nearly exhausted: ${remainingToolCalls} tool calls remain before this request. A batch larger than this remaining allowance will be refused in full. Request at most ${remainingToolCalls} calls, prioritize evidence essential to the user's question, or answer now from observed evidence. Do not skip required verification or claim unread files were inspected.`,
+          ]
+            .filter(Boolean)
+            .join("\n\n")
+        : investigationInstructions;
     let request: import("./model.js").ModelRequest = {
       prompt: options.prompt,
       ...(options.images?.length ? { images: options.images } : {}),
-      ...(investigationInstructions
-        ? { instructions: investigationInstructions }
-        : {}),
+      ...(requestInstructions ? { instructions: requestInstructions } : {}),
       ...(options.conversation ? { conversation: options.conversation } : {}),
       tools,
       ...(continuation ? { continuation } : {}),

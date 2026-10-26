@@ -131,6 +131,64 @@ describe("reserved final model step", () => {
     expect(f.requests[0]?.toolChoice).toBeUndefined();
     expect(f.requests[0]?.instructions).toBeUndefined();
   });
+  it("reports remaining low tool allowance on the next request without splitting or executing oversized batches", async () => {
+    const f = fixture((request, step) =>
+      request.toolChoice === "none"
+        ? [
+            {
+              type: "text.delta",
+              text: "Partial result; the oversized batch was not executed.",
+            },
+            finish(),
+          ]
+        : step === 1
+          ? [
+              call("a"),
+              call("b"),
+              call("c"),
+              call("d"),
+              call("e"),
+              finish(true),
+            ]
+          : [call("f"), call("g"), call("h"), call("i"), finish(true)],
+    );
+    const result = await runAgent({
+      ...f.options,
+      limits: { maxModelSteps: 6, maxToolCalls: 8 },
+    });
+    expect(f.requests[0]?.instructions).not.toContain("nearly exhausted");
+    expect(f.requests[1]?.instructions).toContain("3 tool calls remain");
+    expect(f.requests[1]?.instructions).toContain("refused in full");
+    expect(f.requests[2]?.toolChoice).toBe("none");
+    expect(f.requests[2]?.toolResults).toHaveLength(4);
+    expect(f.effects()).toBe(5);
+    expect(result).toMatchObject({
+      partial: true,
+      modelSteps: 3,
+      toolCalls: 5,
+      limitReason: "tool_call_limit",
+    });
+    validateCanonicalConversation(result.canonicalDelta ?? []);
+  });
+
+  it("updates the low-allowance hint as successful calls consume the fixed total", async () => {
+    const f = fixture();
+    const result = await runAgent({
+      ...f.options,
+      limits: { maxModelSteps: 6, maxToolCalls: 3 },
+    });
+    expect(
+      f.requests
+        .slice(0, 3)
+        .map(
+          (request) =>
+            request.instructions?.match(/(\d) tool calls remain/u)?.[1],
+        ),
+    ).toEqual(["3", "2", "1"]);
+    expect(f.requests[3]?.toolChoice).toBe("none");
+    expect(result.toolCalls).toBe(3);
+    expect(f.effects()).toBe(3);
+  });
   it("gives bounded runs their actual total allowance and permits an early answer", async () => {
     const f = fixture(() => [
       { type: "text.delta", text: "Enough evidence; here is the answer." },
