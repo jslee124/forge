@@ -874,6 +874,26 @@ Offline validation: 77 focused core/adapter/SDK transport tests, 177 determinist
 checks, root checks (existing 8 warnings / 48 infos), documentation checks, packed
 installation verification and Desktop build passed. No new UI layout was changed.
 
+## Answer-stage real Desktop retest (2026-10-26)
+
+Two new Q02 runs at 22263a2 kept the frozen prompt/model and 6-step/8-call caps.
+Both read renderer/main/workflow, used numbered source, and produced final prose
+without raw DSML warnings or system fallback. Both preserved the workspace and
+remain limit_reached/tool_call_limit/partial (4 steps and 8 tools each); useful
+prose does not change that outcome. Summed recorded run duration: 32,353 ms.
+
+Assistant review judged round 1 usable with verbosity/scope notes: correct source
+positions, separate UI/backend paths and explicit missing bridges, but an extra
+fixture-test read and unused-wrapper discussion. Round 2 still fails strict
+correctness: it claims draft text is not carried by dispatch even though requestId
+is untyped and the bridge is unknown. Protocol finalization therefore must not
+be counted as task correctness. Reviews are not independent human/user trials.
+Raw attempts and separate assessments:
+`/tmp/forge-t13-answer-stage-results/report.md`. The diagnostic comparisons remain
+at `/tmp/forge-finalization-diagnostic-42ce526/README.md`. No task retry, installation
+replacement, general reliability claim or release acceptance. T05/T13 remain
+partial; next work is argument/data inference and broader fixed-corpus coverage.
+
 ## 1. Goal and invariants
 
 Complete the native-engine investigation → approval → execution → verification →
