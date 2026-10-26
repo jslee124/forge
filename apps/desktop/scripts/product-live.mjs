@@ -13,6 +13,8 @@ const { values } = parseArgs({
     check: { type: "boolean" },
     round: { type: "string", multiple: true },
     task: { type: "string", multiple: true },
+    "finalization-input": { type: "string" },
+    "recover-summary": { type: "boolean" },
   },
   strict: true,
 });
@@ -22,7 +24,7 @@ if (
   !values.round?.length
 )
   throw new Error(
-    "Usage: --check|--live --round <prepared-round-directory> [--round <directory>] [--task Q02|Q05|Q06|E01|F03]",
+    "Usage: --check|--live --round <prepared-round-directory> [--round <directory>] [--task Q02|Q05|Q06|E01|F03] [--finalization-input continuation|evidence] [--recover-summary]",
   );
 const tasks = values.task ?? ["Q02", "E01", "F03"];
 if (
@@ -32,6 +34,14 @@ if (
   throw new Error(
     "Pilot tasks must be unique members of Q02, Q05, Q06, E01, F03",
   );
+const finalizationInput = values["finalization-input"] ?? "continuation";
+if (!["continuation", "evidence"].includes(finalizationInput))
+  throw new Error("Invalid finalization input");
+if (
+  values["recover-summary"] &&
+  !tasks.some((task) => ["E01", "F03"].includes(task))
+)
+  throw new Error("Summary recovery pilot requires E01 or F03");
 const require = createRequire(import.meta.url);
 const key = values.live
   ? new AuthenticationManager().requireApiKey("deepseek").apiKey
@@ -124,6 +134,16 @@ for (const supplied of values.round) {
         toolCalls: task === "E01" ? 16 : 8,
         wallClockMs: 175000,
         status: "not_run",
+        finalizationInput,
+        ...(values["recover-summary"] && ["E01", "F03"].includes(task)
+          ? {
+              recoverySummary: {
+                maxModelSteps: 1,
+                maxToolCalls: 0,
+                wallClockMs: 90000,
+              },
+            }
+          : {}),
       });
     }
     if (values.check) {
@@ -191,6 +211,9 @@ for (const supplied of values.round) {
       FORGE_PRODUCT_LIVE_WORKSPACE: workspace,
       FORGE_PRODUCT_LIVE_TASK: task,
       FORGE_PRODUCT_LIVE_OPT_IN: "1",
+      FORGE_PRODUCT_LIVE_FINALIZATION_INPUT: finalizationInput,
+      FORGE_PRODUCT_LIVE_RECOVER_SUMMARY:
+        values["recover-summary"] && ["E01", "F03"].includes(task) ? "1" : "0",
     });
     console.log(
       `Round ${manifest.round} / ${task}: starting real provider run; max steps ${limits.maxSteps}`,
@@ -205,7 +228,12 @@ for (const supplied of values.round) {
       stream.on("data", (chunk) => {
         log.push(chunk.toString().split(key).join("[redacted]"));
       });
-    const timer = setTimeout(() => child.kill(), 200_000);
+    const timer = setTimeout(
+      () => child.kill(),
+      values["recover-summary"] && ["E01", "F03"].includes(task)
+        ? 290_000
+        : 200_000,
+    );
     let code;
     try {
       code = await new Promise((resolveExit, reject) => {
@@ -241,6 +269,32 @@ for (const supplied of values.round) {
     }
     const result = JSON.parse(
       await readFile(join(directory, "pilot-result.json"), "utf8"),
+    );
+    const finalizationEvents = [];
+    for (const entry of await readdir(join(home, "runs"), {
+      withFileTypes: true,
+    })) {
+      if (!entry.isFile() || !entry.name.endsWith(".jsonl")) continue;
+      const lines = (await readFile(join(home, "runs", entry.name), "utf8"))
+        .trim()
+        .split("\n");
+      const trace = lines.map((line) => JSON.parse(line));
+      for (const record of trace)
+        if (record.event?.type === "run.finalizing")
+          finalizationEvents.push({
+            runId: record.runId,
+            ...record.event,
+            modelRequestStarted: trace.some(
+              (r) =>
+                r.event?.type === "model.started" &&
+                r.event.step === record.event.step,
+            ),
+          });
+    }
+    await writeFile(
+      join(directory, "projection-observation.json"),
+      `${JSON.stringify({ selected: finalizationInput, finalizationEvents }, null, 2)}\n`,
+      { flag: "wx", mode: 0o600 },
     );
     let independent = { status: "not_applicable" };
     if (task === "E01") {
@@ -283,6 +337,14 @@ for (const supplied of values.round) {
     );
     results.push({
       task,
+      finalizationInput,
+      ...(values["recover-summary"] && ["E01", "F03"].includes(task)
+        ? {
+            recovery: JSON.parse(
+              await readFile(join(directory, "recovery-result.json"), "utf8"),
+            ),
+          }
+        : {}),
       outcome: result.completion?.outcome,
       checks: result.checks,
       independent,

@@ -29,6 +29,10 @@
   "instructions": ["product/AGENTS.md", "development/AGENTS.md"],
   "decisions": [
     {
+      "path": "decisions/0007-experimental-evidence-finalization.md",
+      "status": "accepted"
+    },
+    {
       "path": "decisions/0006-explicit-answer-stage-message.md",
       "status": "accepted"
     },

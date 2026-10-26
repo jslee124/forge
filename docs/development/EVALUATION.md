@@ -220,3 +220,23 @@ reported usage and answers are retained; authentication headers and generated
 reasoning text are not saved. Semantic review stays separate from stop/prose
 validity. Requested/returned model labels do not prove distinct backend weights,
 and two samples per cell do not establish general model reliability or user success.
+
+## Experimental evidence finalization and reviewed summary
+
+The real Desktop pilot accepts `--finalization-input continuation|evidence`;
+default remains continuation. Only the isolated pilot's explicit host override
+selects evidence input. Prepare fresh directories per mode/round, then use:
+
+```bash
+node apps/desktop/scripts/product-live.mjs --check --task E01 --task F03 --finalization-input evidence --recover-summary --round /tmp/fresh-evidence-round
+```
+
+Live execution of that same selection is explicit paid opt-in and must run from
+apps/desktop (as existing pilot commands require). `--recover-summary` adds a
+separate reviewed/confirmed one-step, zero-tool summary after each selected E01
+or F03 run; it does not change source task budgets or automatically recover the
+product. Original pilot-result/events stay immutable; recovery-result and review/
+summary screenshots are separate, and projection-observation records trace intent
+plus whether that model step started. A source run finishing early does not test
+the reserved projection. Check command exit/verification, edit scope, independent
+port assertions, source links, unknown outcomes and preserved draft separately.

@@ -1097,6 +1097,44 @@ packed-install verification and Desktop build passed. The malformed output
 regression proves no extra tool effect/model retry and no raw protocol in the
 final answer or canonical delta; ordinary protocol examples remain readable.
 
+## Experimental runtime evidence finalization (2026-10-26)
+
+A host-only `finalizationInput: evidence` option now projects supplied history and
+all canonical/pending exchanges into the existing tool-free step. Original
+question/images, host instructions, tool schemas, directive, counters, limits,
+truncated/failed/refused records and unknown omissions remain explicit. No provider
+reasoning or model-generated summary replaces evidence. The fresh request omits
+provider continuation/conversation/toolResults; original canonical records remain
+unchanged. Text is capped at 256 KiB and actual context admission; overflow uses
+factual fallback without silent omission, extra model attempts or effects. Direct
+runs ignore the option; default native Desktop/CLI/gateway/Codex behavior remains.
+See [ADR-0007](../decisions/0007-experimental-evidence-finalization.md).
+
+The isolated real-pilot runner accepts `--finalization-input continuation|evidence`
+and explicit `--recover-summary` for E01/F03. Default selection/mode is unchanged.
+Source-run caps stay E01 6 model steps/16 tools, F03 2/8. Each explicitly reviewed
+summary is a separate linked one-step/zero-tool run with its own 90-second window;
+source deadlines stay unchanged. It uses the actual recovery dialog and checks
+that no run starts before confirmation, the source link/draft survive, and files
+remain unchanged. These are test-host options, not new product permissions.
+
+Before paid sampling, review coding and recovery separately: E01 hidden 22-boundary
+checks and edit scope, actual agent verification versus post-run grading, honest
+exit/failure claims, correct partial outcomes, and no invented completion. F03
+must summarize observed evidence without new actions. Reviewed summaries must
+retain source failures/unknowns and partial scope rather than imply repaired code
+or replay. Compare two fresh rounds per mode on the same frozen Flash/high corpus;
+report projection requested/admitted versus early normal completion, all attempts,
+and UI/recovery evidence independently. Eight source runs plus at most eight
+one-step summaries are planned; at most 40 logical model steps in total, without
+whole-task retries. This does not fill the full baseline or independent user gate.
+
+Offline validation: 73 focused runtime/application/SDK/Desktop tests passed before
+one added unsupported-none case; all seven projection tests and 200 deterministic
+checks passed afterward. Root type/lint/routing checks, docs, packed-install
+verification and Desktop build passed. This validates record/budget contracts,
+not real-model factual accuracy or installed-app acceptance.
+
 ## 1. Goal and invariants
 
 Complete the native-engine investigation → approval → execution → verification →

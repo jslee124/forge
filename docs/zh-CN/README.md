@@ -52,6 +52,7 @@ Forge 文档按“读者想完成什么”组织。第一次接触项目时无�
 
 | 记录 | 决策 |
 | --- | --- |
+| [ADR-0007](../decisions/0007-experimental-evidence-finalization.md) | 宿主显式选择证据收尾实验，保留记录与执行限制（英文） |
 | [ADR-0006](../decisions/0006-explicit-answer-stage-message.md) | 明确回答阶段，保留证据与既有运行限制（英文） |
 | [ADR-0001](../decisions/0001-gateway-single-owner-workspace.md) | 聊天网关只服务一个 owner 和一个 workspace（英文） |
 | [ADR-0002](../decisions/0002-desktop-run-presentation-contract.md) | 桌面运行展示保留语义，不恢复执行权限（英文） |

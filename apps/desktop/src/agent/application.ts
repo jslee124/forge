@@ -66,6 +66,7 @@ export class DesktopApplication {
   readonly #env: NodeJS.ProcessEnv;
   readonly #initialCwd: string;
   readonly #overrides: {
+    finalizationInput?: RunDependencies["finalizationInput"];
     createAdapter?: RunDependencies["createAdapter"];
     connect?: () => Promise<CodexClient>;
   };
@@ -94,6 +95,7 @@ export class DesktopApplication {
     env: NodeJS.ProcessEnv,
     cwd: string,
     overrides: {
+      finalizationInput?: RunDependencies["finalizationInput"];
       createAdapter?: RunDependencies["createAdapter"];
       connect?: () => Promise<CodexClient>;
     } = {},
@@ -1047,6 +1049,9 @@ export class DesktopApplication {
             context.phase("finalizing");
             finalizing = true;
             result = await summarizeRecordedRun(recovery.prepared, {
+              ...(this.#overrides.finalizationInput
+                ? { finalizationInput: this.#overrides.finalizationInput }
+                : {}),
               env: this.#env,
               cwd: this.#cwd,
               runId: request.runId,
@@ -1083,6 +1088,9 @@ export class DesktopApplication {
               {
                 ...shared,
                 completionPolicy: "reserve-final-step",
+                ...(this.#overrides.finalizationInput
+                  ? { finalizationInput: this.#overrides.finalizationInput }
+                  : {}),
                 ...(builtinResourceRoot ? { builtinResourceRoot } : {}),
                 sessionId: request.sessionId,
                 runId: request.runId,

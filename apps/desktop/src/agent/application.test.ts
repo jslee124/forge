@@ -49,6 +49,7 @@ const call = (name: string, input: unknown): ModelStreamEvent => ({
 async function fixture(
   steps: ModelStreamEvent[][],
   beforeStream?: () => Promise<void>,
+  finalizationInput?: "continuation" | "evidence",
 ) {
   const cwd = await mkdtemp(join(tmpdir(), "forge-desktop-execute-"));
   roots.push(cwd);
@@ -79,6 +80,7 @@ async function fixture(
     },
   };
   const application = new DesktopApplication(env, cwd, {
+    ...(finalizationInput ? { finalizationInput } : {}),
     createAdapter: () => model,
   });
   await application.manage({ type: "workspace", cwd });
@@ -974,58 +976,66 @@ describe("reviewed run recovery", () => {
     if (!plan) throw new Error("No recovery plan");
     return plan;
   }
-  it("persists a linked summary, makes no tools, and rejects reused preparation tokens", async () => {
-    const f = await fixture([]);
-    const source = await run(f.application, f.sessionId);
-    const plan = await prepare(f, source.final.runId, "summarize");
-    expect(plan).toMatchObject({
-      maxModelSteps: 1,
-      maxToolCalls: 0,
-      permissionProfile: "safe",
-    });
-    const options = {
-      prompt: plan.prompt,
-      model: plan.selection.model,
-      provider: plan.selection.provider,
-      reasoningEffort: plan.selection.effort ?? "high",
-      recovery: {
-        token: plan.token,
-        kind: plan.kind,
-        sourceRunId: plan.sourceRunId,
-      },
-    };
-    const summary = await run(f.application, f.sessionId, "allow", options);
-    expect(summary.final.payload).toMatchObject({
-      outcome: "limit_reached",
-      partial: true,
-      modelSteps: 1,
-      toolCalls: 0,
-      recovery: { sourceRunId: source.final.runId, kind: "summarize" },
-    });
-    expect(
-      summary.events.some(
-        (event) =>
-          event.payload.type === "approval" || event.payload.type === "action",
-      ),
-    ).toBe(false);
-    expect(f.requests).toHaveLength(2);
-    expect(f.requests[1]).toMatchObject({ tools: [], toolChoice: "none" });
-    const recorded = await new FileProductRunStore(f.env.FORGE_HOME).read(
-      f.sessionId,
-      summary.final.runId,
-    );
-    expect(recorded.summary.recovery).toEqual({
-      sourceRunId: source.final.runId,
-      kind: "summarize",
-    });
-    expect(
-      desktopStateSchema.safeParse(await f.application.state()).success,
-    ).toBe(true);
-    const replay = await run(f.application, f.sessionId, "allow", options);
-    expect(replay.accepted).toBe(false);
-    expect(f.requests).toHaveLength(2);
-    f.application.close();
-  });
+  it.each(["continuation", "evidence"] as const)(
+    "persists a linked %s summary without tools and rejects reused preparation tokens",
+    async (finalizationInput) => {
+      const f = await fixture([], undefined, finalizationInput);
+      const source = await run(f.application, f.sessionId);
+      const plan = await prepare(f, source.final.runId, "summarize");
+      expect(plan).toMatchObject({
+        maxModelSteps: 1,
+        maxToolCalls: 0,
+        permissionProfile: "safe",
+      });
+      const options = {
+        prompt: plan.prompt,
+        model: plan.selection.model,
+        provider: plan.selection.provider,
+        reasoningEffort: plan.selection.effort ?? "high",
+        recovery: {
+          token: plan.token,
+          kind: plan.kind,
+          sourceRunId: plan.sourceRunId,
+        },
+      };
+      const summary = await run(f.application, f.sessionId, "allow", options);
+      expect(summary.final.payload).toMatchObject({
+        outcome: "limit_reached",
+        partial: true,
+        modelSteps: 1,
+        toolCalls: 0,
+        recovery: { sourceRunId: source.final.runId, kind: "summarize" },
+      });
+      expect(
+        summary.events.some(
+          (event) =>
+            event.payload.type === "approval" ||
+            event.payload.type === "action",
+        ),
+      ).toBe(false);
+      expect(f.requests).toHaveLength(2);
+      expect(f.requests[1]).toMatchObject({ tools: [], toolChoice: "none" });
+      if (finalizationInput === "evidence") {
+        expect(f.requests[1]?.prompt).toContain("run_evidence");
+        expect(f.requests[1]?.continuation).toBeUndefined();
+      }
+      const recorded = await new FileProductRunStore(f.env.FORGE_HOME).read(
+        f.sessionId,
+        summary.final.runId,
+      );
+      expect(recorded.summary.recovery).toEqual({
+        sourceRunId: source.final.runId,
+        kind: "summarize",
+      });
+      expect(
+        desktopStateSchema.safeParse(await f.application.state()).success,
+      ).toBe(true);
+      const replay = await run(f.application, f.sessionId, "allow", options);
+      expect(replay.accepted).toBe(false);
+      expect(f.requests).toHaveLength(2);
+      f.application.close();
+    },
+  );
   it("rejects changed configuration before model admission", async () => {
     const f = await fixture([]);
     const source = await run(f.application, f.sessionId);

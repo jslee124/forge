@@ -146,6 +146,7 @@ export function prepareRunRecovery(
 export async function summarizeRecordedRun(
   prepared: PreparedRunRecovery,
   options: {
+    readonly finalizationInput?: "continuation" | "evidence";
     readonly configurationSnapshot?: Awaited<
       ReturnType<typeof loadForgeConfig>
     >;
@@ -244,6 +245,9 @@ export async function summarizeRecordedRun(
     tools: [],
     policy: new ReadOnlyPolicy(),
     completionPolicy: "reserve-final-step",
+    ...(options.finalizationInput
+      ? { finalizationInput: options.finalizationInput }
+      : {}),
     limits: { maxModelSteps: 1, maxToolCalls: 0 },
     contextConfiguration: loaded.config.context,
     signal: options.signal,

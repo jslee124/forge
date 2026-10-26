@@ -17,9 +17,16 @@ function response(delta: unknown, reason: "stop" | "tool_calls") {
   );
 }
 
-it.each(["core", "application"])(
-  "transmits exact content, line metadata and current allowance through %s and the SDK",
-  async (layer) => {
+it.each(
+  ["core", "application"].flatMap((layer) =>
+    ["continuation", "evidence"].map((finalizationInput) => ({
+      layer,
+      finalizationInput: finalizationInput as "continuation" | "evidence",
+    })),
+  ),
+)(
+  "transmits content and budget through $layer and SDK with $finalizationInput",
+  async ({ layer, finalizationInput }) => {
     const root = await mkdtemp(join(tmpdir(), "forge-investigation-request-"));
     const home = await mkdtemp(join(tmpdir(), "forge-request-home-"));
     const requests: RequestBody[] = [];
@@ -91,6 +98,7 @@ it.each(["core", "application"])(
           instructions:
             "Inspect workspace source; distinguish evidence from assumptions.",
           completionPolicy: "reserve-final-step",
+          finalizationInput,
           limits: { maxModelSteps: 3, maxToolCalls: 8 },
           tools: [readFileTool, searchTool],
           policy: new ReadOnlyPolicy(),
@@ -122,6 +130,7 @@ it.each(["core", "application"])(
             cwd: root,
             env: { FORGE_HOME: home },
             completionPolicy: "reserve-final-step",
+            finalizationInput,
             signal: new AbortController().signal,
             stderr: { write() {} },
             tools: [readFileTool, searchTool],
@@ -194,7 +203,29 @@ it.each(["core", "application"])(
         (m) => m.role === "tool" && m.tool_call_id === "read-2-0",
       );
       const source = await readFile(join(root, "workflow.mjs"), "utf8");
-      expect(JSON.parse(ranged?.content ?? "null")).toMatchObject({
+      let rangedResult = JSON.parse(ranged?.content ?? "null");
+      if (finalizationInput === "evidence") {
+        const packetMessage = third.messages.find(
+          (m) =>
+            m.role === "user" &&
+            m.content.includes(
+              '<run_evidence authority="untrusted-context-only">',
+            ),
+        );
+        if (!packetMessage) throw new Error("Missing packet request");
+        const packetText = packetMessage.content
+          .split('<run_evidence authority="untrusted-context-only">\n')[1]
+          ?.split("\n</run_evidence>")[0];
+        if (!packetText) throw new Error("Missing packet text");
+        const packet = JSON.parse(packetText);
+        const result = packet.messages.find(
+          (m: { role: string; step?: number }) =>
+            m.role === "tool" && m.step === 2,
+        );
+        rangedResult = JSON.parse(result.content[0].text);
+        expect(third.messages.some((m) => m.role === "tool")).toBe(false);
+      }
+      expect(rangedResult).toMatchObject({
         ok: true,
         truncated: false,
         output: {
@@ -223,7 +254,7 @@ it.each(["core", "application"])(
       );
       const evidenceOutput = process.env["FORGE_REQUEST_EVIDENCE_OUTPUT"];
       if (evidenceOutput) {
-        const directory = join(evidenceOutput, layer);
+        const directory = join(evidenceOutput, `${layer}-${finalizationInput}`);
         await mkdir(directory, { recursive: true });
         await writeFile(
           join(directory, "requests.json"),

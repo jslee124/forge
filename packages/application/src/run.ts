@@ -65,6 +65,7 @@ export interface RunDependencies {
   /** Host-only snapshot pinned after a reviewed recovery plan; never accepted from model context. */
   readonly configurationSnapshot?: Awaited<ReturnType<typeof loadForgeConfig>>;
   readonly completionPolicy?: "direct" | "reserve-final-step";
+  readonly finalizationInput?: "continuation" | "evidence";
   readonly workspaceLease?: ExecutionLease;
   readonly perActionApproval?: boolean;
   readonly env: NodeJS.ProcessEnv;
@@ -429,6 +430,9 @@ export async function runTask(
       runId,
       ...(dependencies.completionPolicy
         ? { completionPolicy: dependencies.completionPolicy }
+        : {}),
+      ...(dependencies.finalizationInput
+        ? { finalizationInput: dependencies.finalizationInput }
         : {}),
       prompt,
       ...(images.length ? { images } : {}),

@@ -55,6 +55,7 @@ help.
 
 | Record | Decision |
 | --- | --- |
+| [ADR-0007](decisions/0007-experimental-evidence-finalization.md) | Host-only evidence-finalization experiment preserves records and fixed execution limits |
 | [ADR-0006](decisions/0006-explicit-answer-stage-message.md) | Explicit answer-stage control preserves evidence and existing run limits |
 | [ADR-0001](decisions/0001-gateway-single-owner-workspace.md) | The chat gateway serves one owner and one workspace |
 | [ADR-0002](decisions/0002-desktop-run-presentation-contract.md) | Desktop run presentation preserves semantics without restoring execution authority |

@@ -81,6 +81,61 @@ it("checks the frozen pilot without credentials or live calls, and refuses extra
       await expect(
         stat(join(round, task, "runtime-home")),
       ).rejects.toMatchObject({ code: "ENOENT" });
+    await run([
+      "--task",
+      "F03",
+      "--finalization-input",
+      "evidence",
+      "--recover-summary",
+    ]);
+    const experiment = JSON.parse(
+      await readFile(join(round, "pilot-plan.json"), "utf8"),
+    );
+    expect(experiment.tasks).toEqual([
+      expect.objectContaining({
+        task: "F03",
+        finalizationInput: "evidence",
+        modelSteps: 2,
+        toolCalls: 8,
+        recoverySummary: {
+          maxModelSteps: 1,
+          maxToolCalls: 0,
+          wallClockMs: 90000,
+        },
+      }),
+    ]);
+    await run([
+      "--task",
+      "E01",
+      "--finalization-input",
+      "evidence",
+      "--recover-summary",
+    ]);
+    const editPlan = JSON.parse(
+      await readFile(join(round, "pilot-plan.json"), "utf8"),
+    );
+    expect(editPlan.tasks).toEqual([
+      expect.objectContaining({
+        task: "E01",
+        modelSteps: 6,
+        toolCalls: 16,
+        recoverySummary: {
+          maxModelSteps: 1,
+          maxToolCalls: 0,
+          wallClockMs: 90000,
+        },
+      }),
+    ]);
+    await expect(
+      run(["--finalization-input", "unknown"]),
+    ).rejects.toMatchObject({
+      stderr: expect.stringContaining("Invalid finalization input"),
+    });
+    await expect(
+      run(["--task", "Q06", "--recover-summary"]),
+    ).rejects.toMatchObject({
+      stderr: expect.stringContaining("requires E01 or F03"),
+    });
     await expect(run(["--task", "Q02", "--task", "Q02"])).rejects.toMatchObject(
       { stderr: expect.stringContaining("must be unique") },
     );

@@ -115,3 +115,20 @@ prepare/check/fixture 不读取凭据、不访问提供商。live 总计最多�
 回答，不保存认证头或生成的推理正文。语义复核与正常结束/输出文字分开。
 请求/返回的模型标签不能证明底层权重不同，每组两个样本也不能证明通用
 可靠性或用户成功率。
+
+## 实验证据收尾与审核后总结
+
+真实桌面试跑支持 --finalization-input continuation|evidence，默认仍为
+continuation，只有隔离试跑的显式宿主覆盖才能选 evidence。为不同模式/轮次
+准备新目录，然后执行：
+
+```bash
+node apps/desktop/scripts/product-live.mjs --check --task E01 --task F03 --finalization-input evidence --recover-summary --round /tmp/fresh-evidence-round
+```
+
+相同选择的 live 为明确付费操作，按既有脚本要求从 apps/desktop 目录运行。
+--recover-summary 在所选 E01/F03 原运行后增加独立的审核/确认总结（一步、
+零工具），不改变原预算、不自动恢复产品。原 pilot-result/events 不覆盖，
+另存 recovery-result 及审核/总结截图；projection-observation 记录模式请求
+和对应模型步骤是否开始。原运行提前结束不算测到预留投影。分别核对命令
+退出/验证、修改范围、独立端口断言、来源关联、未知结果及草稿保留。

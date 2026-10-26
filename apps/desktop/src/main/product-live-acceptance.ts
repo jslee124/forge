@@ -6,6 +6,7 @@ import type { RunEvent } from "../shared/run-protocol.js";
 import type { AgentProcess } from "./agent-process.js";
 import type { FileService } from "./file-service.js";
 import { allowPilotApproval } from "./product-live-policy.js";
+import { runPilotSummaryRecovery } from "./product-live-recovery.js";
 
 /** Real provider pilot via the same renderer, preflight, Agent and run journal as normal Desktop. */
 export async function runProductLivePilot(
@@ -13,6 +14,10 @@ export async function runProductLivePilot(
   agent: AgentProcess,
   files: FileService,
 ) {
+  const {
+    FORGE_PRODUCT_LIVE_FINALIZATION_INPUT: finalizationInput = "continuation",
+    FORGE_PRODUCT_LIVE_RECOVER_SUMMARY: recoverSummary,
+  } = process.env;
   const home = process.env["FORGE_PRODUCT_LIVE_HOME"];
   const workspace = process.env["FORGE_PRODUCT_LIVE_WORKSPACE"];
   const task = process.env["FORGE_PRODUCT_LIVE_TASK"];
@@ -183,6 +188,7 @@ export async function runProductLivePilot(
     const report = {
       schemaVersion: 1,
       task,
+      finalizationInput: finalizationInput,
       observedAt: new Date().toISOString(),
       providerCalls:
         "real external DeepSeek API; count bounded by recorded model steps",
@@ -247,12 +253,29 @@ export async function runProductLivePilot(
     console.log(
       `Live pilot ${task}: ${completion?.type === "complete" ? completion.outcome : "unknown"}; evidence recorded`,
     );
+    if (["E01", "F03"].includes(task) && recoverSummary === "1") {
+      stop();
+      if (cancelTimer) clearTimeout(cancelTimer);
+      if (deadline) clearTimeout(deadline);
+      const sourceRunId = events.findLast(
+        (e) => e.payload.type === "complete",
+      )?.runId;
+      if (!sourceRunId) throw new Error("Missing source run for recovery");
+      await runPilotSummaryRecovery({
+        window,
+        agent,
+        directory,
+        sourceRunId,
+        until,
+        hashes,
+      });
+    }
   } finally {
     stop();
     if (cancelTimer) clearTimeout(cancelTimer);
     if (deadline) clearTimeout(deadline);
   }
-  // No second attempt or automatic recovery: preserve every original outcome.
+  // No second attempt or implicit recovery; explicit pilot summary uses a separate record.
   if (!(await lstat(join(directory, "pilot-result.json"))).isFile())
     throw new Error("Missing pilot evidence");
 }

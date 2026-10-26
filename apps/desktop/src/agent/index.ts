@@ -15,7 +15,17 @@ if (!parentPort) {
 
 configureHttpDispatcher(process.env);
 
-const application = new DesktopApplication(process.env, process.cwd());
+const {
+  FORGE_PRODUCT_LIVE_OPT_IN: liveOptIn,
+  FORGE_PRODUCT_LIVE_FINALIZATION_INPUT: liveInput,
+} = process.env;
+const application = new DesktopApplication(
+  process.env,
+  process.cwd(),
+  liveOptIn === "1" && liveInput === "evidence"
+    ? { finalizationInput: "evidence" }
+    : {},
+);
 const runs = new RunService(
   (message) => parentPort.postMessage(message),
   application.execute,
