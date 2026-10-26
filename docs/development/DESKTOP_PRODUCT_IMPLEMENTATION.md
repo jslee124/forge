@@ -725,6 +725,40 @@ request bodies are `/tmp/forge-request-evidence/README.md` and its before/after/
 verified directories. No paid calls or installation updates occurred. Prior live
 failures, frozen corpus and product acceptance gates remain unchanged.
 
+## Fixed-evidence comprehension diagnostic (2026-10-26)
+
+After the input-chain audit, a separate opt-in diagnostic supplied the original
+Q02 question and complete main.mjs/workflow.mjs/renderer.tsx/package.json snapshots
+at source `1274d84`. It used the same deepseek-flash/high model with no tools,
+history, Skills or product-help context. The local driver first verified request
+serialization without credentials; live mode permitted at most two independent
+network requests, one per sample, with requested max_tokens 4096 and a 90-second
+timeout. Extra network requests and redirects were refused. It is a temporary
+analysis driver, not a new product execution mode or benchmark revision.
+
+Both live samples stopped normally with one request each and explained the main
+receive → handle → dispatch → tool chain, UI send callback and missing wiring.
+Neither repeated the busy-lock or string-only requestId errors. Assistant review
+found useful main explanations with minor wording/citation caveats: sample 1
+called the package entry an Electron main entry too strongly and placed handle
+at its body line in a diagram; sample 2 blurred state initialization and update.
+This is not a perfect-answer or independent human pass claim.
+
+Provider-reported usage summed to 1,872 input / 4,958 output / 6,830 total tokens;
+reasoning is not added again to total. No price or general performance inference
+is made. The diagnostic changed evidence availability, instructions, history, tool
+catalog and output limits together, so it is not controlled A/B evidence for a
+single root cause. It shows that these supplied-evidence samples can yield a
+usable explanation, while autonomous Desktop investigation still fails its gate.
+Next implementation should prioritize relevant-file discovery, read ordering and
+bounded evidence delivery. Full-corpus, installation and user-trial gates remain.
+
+The original fixture and live Desktop failures are unchanged; no runtime or
+installed app was modified in this diagnostic increment. Local plan, synthetic
+request bodies, answers, reviews, script and hashes are retained under
+`/tmp/forge-comprehension-diagnostic-1274d84/README.md`. Authentication headers and
+reasoning text were not saved. Documentation checks passed.
+
 ## 1. Goal and invariants
 
 Complete the native-engine investigation → approval → execution → verification →
