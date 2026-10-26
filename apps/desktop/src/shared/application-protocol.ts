@@ -39,6 +39,7 @@ export const recoveryPlanSchema = z
     sourceRunId: id,
     kind: z.enum(["summarize", "continue", "retry"]),
     prompt: text,
+    responseLocale: z.enum(["en", "zh-CN"]).optional(),
     selection: selectionSchema,
     permissionProfile: z.enum(["safe", "workspace-write"]),
     maxModelSteps: z.number().int().positive(),
@@ -79,6 +80,7 @@ export const managementCommandSchema = z.discriminatedUnion("type", [
   z
     .object({
       type: z.literal("prepare-recovery"),
+      responseLocale: z.enum(["en", "zh-CN"]).optional(),
       sourceRunId: id,
       kind: z.enum(["summarize", "continue", "retry"]),
       selection: selectionSchema,

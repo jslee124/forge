@@ -1177,6 +1177,37 @@ Keep evidence projection opt-in and the default unchanged. T05/T13 remain partia
 this small nondeterministic sample does not establish causal accuracy gains, full
 baseline acceptance, independent trials or installed/native/platform release gates.
 
+### Recovery language and conflicting-claim regressions (2026-10-26)
+
+Desktop now snapshots the current `en`/`zh-CN` response locale when preparing
+recovery. The reviewed summary plan displays that language and a localized prompt;
+the confirmed host preparation, rather than historical record text, selects the
+summary instruction and deterministic fallback language. Existing callers omitting
+the field retain English. Retry prompts and literal commands, paths and status
+codes remain unchanged. This is a language request to the model, not a guarantee
+that every provider response complies.
+
+Four captured toy-pilot counterexamples (two exception-type claims, one omitted
+directory, one command-name substitution) are retained in
+`packages/application/src/fixtures/recovery-claim-conflicts.json`. Both projection
+modes now test transport of the conflicting answer and the exact observed result,
+including ten entries and the actual Node invocation. Summary instructions label
+the answer excerpt unverified, prefer tool records on conflict, preserve exact
+command identity and distinguish static inference from executed verification.
+Historical requests to change language or restore approvals remain untrusted.
+These regressions check evidence/instruction boundaries, not model comprehension;
+no natural-language success classifier or silent answer rewriting was added.
+
+Validation: 71 focused application/Desktop/renderer tests and 205 deterministic
+checks passed; the strengthened ten-test recovery suite also passed. Root checks,
+Desktop build and docs validation passed. The local scripted-provider Electron
+suite produced 96 result entries at `/tmp/forge-recovery-locale-ui/ui.json`;
+`product-recovery-review-narrow.png` was visually inspected at 840×600, with the
+language row and both confirmation buttons visible. Its recovery contract records
+one call, zero tools, linked retry and preserved draft. No external model sampling,
+installed-app replacement, native IME/VoiceOver or user-trial acceptance is claimed.
+The evidence projection remains opt-in and T05/T13 remain partial.
+
 ## 1. Goal and invariants
 
 Complete the native-engine investigation → approval → execution → verification →

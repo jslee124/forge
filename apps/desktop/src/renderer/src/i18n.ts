@@ -135,6 +135,7 @@ export const resources = {
         model: "Model",
         budget: "New budget",
         budgetValue: "Up to {{steps}} model steps · {{tools}} tool calls",
+        language: "Summary language",
         permission: "Permissions",
         permissions: {
           safe: "Ask to approve actions",
@@ -699,6 +700,7 @@ export const resources = {
         model: "模型",
         budget: "新预算",
         budgetValue: "最多 {{steps}} 个模型步骤 · {{tools}} 次工具调用",
+        language: "摘要语言",
         permission: "权限",
         permissions: {
           safe: "按需审批",

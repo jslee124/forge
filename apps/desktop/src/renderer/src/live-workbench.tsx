@@ -668,6 +668,7 @@ export function LiveWorkbench(): React.JSX.Element {
     };
     const next = await manage({
       type: "prepare-recovery",
+      responseLocale: zh ? "zh-CN" : "en",
       sourceRunId,
       kind,
       selection: chosen,

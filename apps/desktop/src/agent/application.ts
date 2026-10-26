@@ -259,6 +259,7 @@ export class DesktopApplication {
           await store.read(session.sessionId, command.sourceRunId),
           session.history,
           command.kind,
+          { responseLocale: command.responseLocale },
         );
         const view: RecoveryPlan = {
           token: randomUUID(),
@@ -268,6 +269,7 @@ export class DesktopApplication {
           prompt: String(
             redactValue(prepared.prompt, configuredSecrets(this.#env)),
           ),
+          responseLocale: prepared.responseLocale,
           selection,
           permissionProfile:
             command.kind === "summarize" ? "safe" : command.permissionProfile,
@@ -907,6 +909,7 @@ export class DesktopApplication {
             record,
             session.history,
             request.recovery.kind,
+            { responseLocale: recovery.view.responseLocale },
           );
           if (current.sourceFingerprint !== recovery.prepared.sourceFingerprint)
             throw new Error("recovery-stale");

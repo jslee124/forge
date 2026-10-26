@@ -964,9 +964,11 @@ describe("reviewed run recovery", () => {
     f: Awaited<ReturnType<typeof fixture>>,
     sourceRunId: string,
     kind: "summarize" | "continue" | "retry",
+    responseLocale?: "en" | "zh-CN",
   ) {
     const state = await f.application.manage({
       type: "prepare-recovery",
+      ...(responseLocale ? { responseLocale } : {}),
       sourceRunId,
       kind,
       selection,
@@ -981,10 +983,11 @@ describe("reviewed run recovery", () => {
     async (finalizationInput) => {
       const f = await fixture([], undefined, finalizationInput);
       const source = await run(f.application, f.sessionId);
-      const plan = await prepare(f, source.final.runId, "summarize");
+      const plan = await prepare(f, source.final.runId, "summarize", "zh-CN");
       expect(plan).toMatchObject({
         maxModelSteps: 1,
         maxToolCalls: 0,
+        responseLocale: "zh-CN",
         permissionProfile: "safe",
       });
       const options = {
@@ -1015,6 +1018,10 @@ describe("reviewed run recovery", () => {
       ).toBe(false);
       expect(f.requests).toHaveLength(2);
       expect(f.requests[1]).toMatchObject({ tools: [], toolChoice: "none" });
+      expect(plan.prompt).toContain("请用简体中文总结");
+      expect(f.requests[1]?.instructions).toContain(
+        "Respond in Simplified Chinese",
+      );
       if (finalizationInput === "evidence") {
         expect(f.requests[1]?.prompt).toContain("run_evidence");
         expect(f.requests[1]?.continuation).toBeUndefined();

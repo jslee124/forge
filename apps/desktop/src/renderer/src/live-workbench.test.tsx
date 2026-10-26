@@ -11,7 +11,7 @@ import type {
   RunEvent,
   RunPayload,
 } from "../../shared/run-protocol.js";
-import "./i18n.js";
+import i18n from "./i18n.js";
 import { LiveWorkbench } from "./live-workbench.js";
 
 vi.mock("./markdown.js", () => ({
@@ -77,6 +77,7 @@ beforeEach(async () => {
   container = document.createElement("div");
   document.body.append(container);
   root = createRoot(container);
+  await i18n.changeLanguage("zh-CN");
   await act(async () => root.render(createElement(LiveWorkbench)));
 });
 
@@ -360,6 +361,9 @@ describe("reviewed recovery", () => {
         if (command.type === "prepare-recovery")
           current.recoveryPlan = {
             token: "review-token",
+            ...(command.responseLocale
+              ? { responseLocale: command.responseLocale }
+              : {}),
             sessionId: state.sessionId as string,
             sourceRunId: command.sourceRunId,
             kind: command.kind,
@@ -399,26 +403,41 @@ describe("reviewed recovery", () => {
       throw new Error(`Unavailable control: ${selector}`);
     await act(async () => button.click());
   }
-  it("reviews summary before starting and preserves the next draft", async () => {
-    await finishedSource();
-    await click("[data-run-result=current] [data-recovery=summarize]");
-    expect(runCommand).toHaveBeenCalledTimes(1);
-    expect(container.querySelector("dialog")?.textContent).toContain(
-      "test-model",
-    );
-    expect(document.activeElement).toBe(
-      container.querySelector("dialog button"),
-    );
-    await click("dialog .studio-confirmation-actions button:last-child");
-    expect(runCommand).toHaveBeenCalledTimes(2);
-    expect(runCommand.mock.calls[1]?.[0]).toMatchObject({
-      type: "start",
-      prompt: "Summarize recorded facts",
-      permissionProfile: "safe",
-      recovery: { kind: "summarize", token: "review-token" },
-    });
-    expect(composer().value).toBe("next draft");
-  });
+  it.each(["en", "zh-CN"] as const)(
+    "reviews a %s summary before starting and preserves the next draft",
+    async (responseLocale) => {
+      await act(async () => {
+        await i18n.changeLanguage(responseLocale);
+      });
+      await finishedSource();
+      await click("[data-run-result=current] [data-recovery=summarize]");
+      expect(runCommand).toHaveBeenCalledTimes(1);
+      expect(window.forgeDesktop.manage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "prepare-recovery",
+          responseLocale,
+        }),
+      );
+      expect(container.querySelector("dialog")?.textContent).toContain(
+        responseLocale === "zh-CN" ? "简体中文" : "English",
+      );
+      expect(container.querySelector("dialog")?.textContent).toContain(
+        "test-model",
+      );
+      expect(document.activeElement).toBe(
+        container.querySelector("dialog button"),
+      );
+      await click("dialog .studio-confirmation-actions button:last-child");
+      expect(runCommand).toHaveBeenCalledTimes(2);
+      expect(runCommand.mock.calls[1]?.[0]).toMatchObject({
+        type: "start",
+        prompt: "Summarize recorded facts",
+        permissionProfile: "safe",
+        recovery: { kind: "summarize", token: "review-token" },
+      });
+      expect(composer().value).toBe("next draft");
+    },
+  );
   it("keeps the draft on cancel and loads retry only after explicit replacement", async () => {
     await finishedSource();
     await click("[data-run-result=current] [data-recovery=retry]");

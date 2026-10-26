@@ -60,6 +60,12 @@ export function RecoveryReview({
             tools: plan.maxToolCalls,
           })}
         </dd>
+        {plan.kind === "summarize" && plan.responseLocale && (
+          <>
+            <dt>{t("recovery.language")}</dt>
+            <dd>{plan.responseLocale === "zh-CN" ? "简体中文" : "English"}</dd>
+          </>
+        )}
         <dt>{t("recovery.permission")}</dt>
         <dd>
           {plan.kind === "summarize"
