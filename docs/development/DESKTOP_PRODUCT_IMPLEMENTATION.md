@@ -14,7 +14,7 @@ development records, not a claim that every T00–T14 gate is complete.
 
 | ID | State | Remaining outcome and acceptance condition |
 | --- | --- | --- |
-| U01 | Local implementation/UI/install verified | Local builds skip startup checks even with saved preferences; explicit public switching warns about replacement. Stable/preview ordering remains intact. Host/renderer regressions and installed `644383a` checks pass. |
+| U01 | Local implementation/UI/install verified | Local builds skip startup checks even with saved preferences; explicit public switching warns about replacement. Stable/preview ordering remains intact. Host/renderer regressions and installed `e819783` checks pass. |
 | V01 | Bounded round complete; semantics partial | Run E01 coding and F03 budget recovery through the real Desktop; preserve attempts, approvals, exact changes, independent boundary checks and raw answers. Review source facts versus explanation, draft preservation and read-only history. No whole-task retry to chase success. |
 | V02 / T00,T13 | Pending full gate | Score all 24 fixed tasks in two independent rounds with pinned model/config/seed and predeclared rubric. Existing partial diagnostic samples do not satisfy this gate. |
 | V03 / T13 | Pending | Five target users perform Q02/E01/F03 without developer coaching; record blockers and results. Agent-operated tests cannot substitute for independent users. |
@@ -1431,6 +1431,18 @@ compatible public installer is labeled unavailable rather than claiming the loca
 source is up to date. The strengthened 27 update/pilot-preflight tests and root
 check passed. The `644383a` installation evidence above predates this small follow-up;
 its replacement artifact is recorded separately after packaging.
+
+### Final local artifact after channel edge checks (2026-10-27)
+
+The normal installation is now `0.4.0-local.e819783`, including the stale-candidate
+and no-compatible-public-package follow-up. Its actual Applications artifact passed
+110 scripted installed-UI result entries, source revision `e819783`, with isolated
+Forge/Chromium data. Original history is visible on normal startup and all 85
+original Forge-home hashes remain unchanged. Final evidence and private rollback
+references: `/tmp/forge-install-e819783/README.md`. The 27 focused tests, root check,
+207 deterministic checks and docs checks passed. No additional paid sampling was
+performed after the `644383a` E01/F03 round. These separate code/provider/installed
+identities must remain explicit. V02/V03/A01/C01/Q01/P01 stay open.
 
 ## 1. Goal and invariants
 
