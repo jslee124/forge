@@ -90,3 +90,28 @@ Milestone 13 增加了已检入的 [v0.3.2 对比基线](../../../evals/reports/
 [v0.3.3 Milestone 13 release gate](../../../evals/reports/v0.3.3/M13_RELEASE_GATES.md) 进一步覆盖 exact/near-match permission scope、deny feedback、canonical workspace 与高风险拒绝、异步更新与 dismiss、安装来源、受保护的 `FORGE_HOME` 和窄/宽 Ink 渲染。报告明确记录 live trial 需要 `eval:live` 显式 opt-in，本次离线 gate 没有付费调用。该报告早于 Milestone 14 structured history，只是历史 M13 证据。当前 deterministic release matrix 还会运行[跨层 session contract](../../../evals/src/session-contract.test.ts)，覆盖 runtime canonical delta 到 save/load、resume projection、checkpoint validation、取消结果恢复、重复 provider call ID、不恢复 approval state，以及 durable-size 拒绝。
 
 资源评测默认同样确定性、离线运行。脚本化 fixtures 覆盖匹配、不匹配、歧义、显式调用、用户关闭自动调用、冲突、重复加载、超预算、对抗性 Skill、产品问题和未知问题。指标包括选择精确率/召回率、不必要加载、目录与已加载 token、引用准确率、延迟和任务完成率；真实供应商资源试验仍需显式启用。
+
+## 固定观察记录的负面证据对照
+
+[对照脚本](../../../evals/scripts/compare-negative-evidence.mjs)固定原始 Q06
+题目、depth=1 文件清单和 analytics 字面搜索，复用现有原生调查指令，比较
+请求模型名（deepseek-flash / deepseek-v4-pro）与上下文组织（成对工具历史 /
+同一观察集中放入不可信证据包）。四种组合各两个样本，预定顺序交错。
+这是合成历史投影，不是原始提供商请求重放或桌面验收。
+
+```bash
+CI=true pnpm eval:negative-evidence --prepare --output /tmp/forge-negative-compare-new
+CI=true pnpm eval:negative-evidence --check --output /tmp/forge-negative-compare-new
+CI=true pnpm eval:negative-evidence --fixture --output /tmp/forge-negative-compare-new
+# 明确选择的付费诊断，不更改产品模型配置或安装版：
+CI=true pnpm eval:negative-evidence --live --output /tmp/forge-negative-compare-new
+```
+
+prepare/check/fixture 不读取凭据、不访问提供商。live 总计最多八次请求，
+每样本一次、每次最多 4096 输出 token、90 秒，无工具执行器、不跟随重定向，
+拒绝额外 HTTP 重试；服务/认证/中断错误停止整批。无效协议或不完整输出记为该组
+结果，其余预定独立组继续，不重试失败组、不覆盖旧尝试。输入、脚本、策略、schema
+或源码版本改变时需要新目录重新准备。保留实际请求正文、提供商 usage 和
+回答，不保存认证头或生成的推理正文。语义复核与正常结束/输出文字分开。
+请求/返回的模型标签不能证明底层权重不同，每组两个样本也不能证明通用
+可靠性或用户成功率。

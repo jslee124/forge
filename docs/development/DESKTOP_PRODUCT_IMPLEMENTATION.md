@@ -1025,6 +1025,37 @@ partial: tool evidence presentation is implemented, model semantic compliance is
 not solved. A fixed-input comparison of evidence framing/model behavior should
 precede further instruction accumulation or unchanged-question retries.
 
+## Fixed-input model/context diagnostic preparation (2026-10-26)
+
+The new `eval:negative-evidence` runner fixes Q06 observations and current native
+policy, compares requested Flash/V4 Pro IDs and paired-tool-history/evidence-packet
+framing, and takes two samples per cell in a counterbalanced eight-request order.
+The paired history is synthetic, not recovered provider-owned reasoning. Both
+framings retain the same tools under none and the same logical tool evidence;
+packet wrapping/roles and resulting token counts necessarily differ. No source
+contents, production metrics, credentials or user history enter the observations.
+
+The investigation-policy literal was extracted for reuse and verified byte-for-
+byte unchanged (SHA-256 0de188f2997f2a586c9c639344cc439dd4daf3adeb5ef0adea031277d7cdff6a).
+This refactor adds no new runtime guidance, retry or model routing. Preparation
+pins source/script/policy/schema/input hashes; fixture tests inspect actual SDK
+HTTP bodies for both models, fixed observations and controls, block tampered live
+inputs before credential access and preserve previous attempts. See the
+[evaluation workflow](EVALUATION.md#fixed-observation-negative-evidence-diagnostic).
+
+Review criteria are fixed before paid calls: no invented DAU/zero, no inferred
+local/online telemetry or deployment absence from keywords/listings, and explicit
+missing metric source/definition. Prose/stop is not semantic pass. Report all
+samples, errors and not-run cells separately; do not use this diagnostic to fill
+Desktop or user-trial gates. Provider labels do not prove distinct weights or
+justify changing product defaults. T05/T13 remain partial.
+
+Offline validation: three diagnostic-control tests (plus six existing wire tests
+in the focused run), 185 deterministic checks, root checks (existing 8 warnings /
+48 infos), docs, packed-install verification and Desktop build passed. Fixture
+responses include raw protocol, unexpected tools and truncated output to verify
+that those outcomes cannot masquerade as valid answers. No paid result is implied.
+
 ## 1. Goal and invariants
 
 Complete the native-engine investigation → approval → execution → verification →

@@ -190,3 +190,33 @@ checkpoint validation, cancellation outcome recovery, repeated provider call
 IDs, non-restored approval state, and durable-size rejection.
 
 Resource evaluation is deterministic and offline by default. Scripted fixtures cover matching, non-matching, ambiguous, explicit, user-disabled, collision, repeated-load, over-budget, adversarial Skill, product-question, and unsupported-question cases. Metrics include selection precision and recall, unnecessary loads, catalog and loaded tokens, citation accuracy, latency, and task completion. Live-provider resource trials remain explicit opt-in.
+
+## Fixed-observation negative-evidence diagnostic
+
+The [comparison runner](../../evals/scripts/compare-negative-evidence.mjs) isolates
+requested model ID (deepseek-flash / deepseek-v4-pro) and context framing (paired
+tool history / the same observations in an untrusted evidence packet). Each of
+four cells has two samples in a predeclared counterbalanced order. It uses the
+frozen Q06 question, a depth-1 file listing and literal analytics search, reusing
+the native investigation instructions without rewriting them. This is synthetic
+history projection, not a replay of original provider requests or Desktop acceptance.
+
+```bash
+CI=true pnpm eval:negative-evidence --prepare --output /tmp/forge-negative-compare-new
+CI=true pnpm eval:negative-evidence --check --output /tmp/forge-negative-compare-new
+CI=true pnpm eval:negative-evidence --fixture --output /tmp/forge-negative-compare-new
+# Explicit opt-in paid diagnostic; no model configuration or installation is changed:
+CI=true pnpm eval:negative-evidence --live --output /tmp/forge-negative-compare-new
+```
+
+Prepare/check/fixture do not read credentials or contact providers. Live caps the
+batch at eight requests, one per sample, 4096 output tokens each and 90 seconds
+per request, with no tool executor, redirects or additional HTTP retries. Errors
+stop the batch, except invalid/incomplete model output, which is recorded for that cell
+while other predeclared independent cells continue. No failed cell is retried.
+Existing attempts are never overwritten. Changed input, script,
+policy, schema or source revision requires a fresh preparation. Request bodies,
+reported usage and answers are retained; authentication headers and generated
+reasoning text are not saved. Semantic review stays separate from stop/prose
+validity. Requested/returned model labels do not prove distinct backend weights,
+and two samples per cell do not establish general model reliability or user success.
