@@ -13,6 +13,16 @@ import { readFile } from "./read-file.js";
 
 const MAX_SEARCH_FILE_BYTES = 1_048_576;
 const MAX_SEARCH_SCAN_BYTES = 16 * 1024 * 1024;
+const SOURCE_EXCLUDED_DIRECTORIES = new Set([
+  ".git",
+  "node_modules",
+  ".next",
+  "dist",
+  "build",
+  "coverage",
+  ".venv",
+  "__pycache__",
+]);
 const glob = z
   .string()
   .min(1)
@@ -24,7 +34,20 @@ const glob = z
 export const searchInputSchema = z
   .object({
     query: z.string().min(1).max(1024),
+    additionalQueries: z
+      .array(z.string().min(1).max(1024))
+      .max(3)
+      .default([])
+      .describe(
+        "Up to three additional related literal symbols in the same bounded scan. All queries share maxMatches, scan and output budgets. Prefer a few relevant entry/call-site names over repeated broad searches.",
+      ),
     path: z.string().min(1).default("."),
+    scope: z
+      .enum(["all", "source"])
+      .default("all")
+      .describe(
+        "Source scope skips nested .git, node_modules, .next, dist, build, coverage, .venv and __pycache__ directories and reports their count. An explicitly targeted root directory is still searched; use all for generated/dependency code. Workspace permissions still apply.",
+      ),
     caseSensitive: z.boolean().default(false),
     maxMatches: z.number().int().min(1).max(500).default(100),
     contextBefore: z.number().int().min(0).max(20).default(0),
@@ -59,6 +82,7 @@ type Match = {
   readonly preview: string;
   readonly previewStartColumn: number;
   readonly previewTruncated: boolean;
+  readonly matchedQueries?: readonly string[];
 };
 type ContextLine = {
   readonly line: number;
@@ -75,6 +99,9 @@ type ContextRange = {
 };
 export interface SearchOutput {
   readonly query: string;
+  readonly queries?: readonly string[];
+  readonly scope?: "source";
+  readonly skippedDirectories?: number;
   readonly mode: "literal";
   readonly matches: readonly Match[];
   readonly ranges?: readonly ContextRange[];
@@ -90,7 +117,7 @@ export interface SearchOutput {
 export const searchTool: ForgeTool = {
   name: "search",
   description:
-    "Search per-line literal text in workspace UTF-8 files. Use contextBefore/contextAfter (0–20) and relative include/exclude globs to narrow investigation; overlapping context merges. Regex is unsupported. Files over 1 MiB are skipped with disclosure; scan, entry, match and output limits are explicit.",
+    "Locate related source entrypoints and call sites in one bounded pass: query plus up to three additionalQueries, all literal. Use scope=source to avoid nested dependency/cache/build directories, small contextBefore/contextAfter (0–20), and relative include/exclude globs; overlapping context merges. A name match is evidence to inspect, not proof of a call or wiring. Regex is unsupported. Files over 1 MiB are skipped; all terms share scan, entry, match and output limits.",
   inputSchema: searchInputSchema,
   risk: "read",
   execute: (input, context) => {
@@ -132,9 +159,15 @@ export async function search(
       ? {
           files: excluded(resolved.path) ? [] : [resolved.path],
           truncated: false,
+          skippedDirectories: 0,
         }
       : target.isDirectory()
-        ? await collectFiles(resolved.path, context, excluded)
+        ? await collectFiles(
+            resolved.path,
+            context,
+            excluded,
+            options.scope === "source",
+          )
         : undefined;
     if (!collection)
       return failure("not_file", "The requested path cannot be searched.");
@@ -147,15 +180,26 @@ export async function search(
     let scannedFiles = 0;
     let scannedBytes = 0;
     // Every metacharacter is escaped: this is a fixed literal pattern, not arbitrary regex execution.
-    const needle = new RegExp(
-      options.query.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&"),
-      options.caseSensitive ? "u" : "iu",
+    const queries = [...new Set([options.query, ...options.additionalQueries])];
+    const needles = queries.map(
+      (query) =>
+        new RegExp(
+          query.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&"),
+          options.caseSensitive ? "u" : "iu",
+        ),
     );
     const output = (
       candidateMatches: readonly Match[] = matches,
       candidateRanges: readonly ContextRange[] = ranges,
     ): SearchOutput => ({
       query: options.query,
+      ...(queries.length > 1 ? { queries } : {}),
+      ...(options.scope === "source"
+        ? {
+            scope: "source" as const,
+            skippedDirectories: collection.skippedDirectories,
+          }
+        : {}),
       mode: "literal",
       matches: candidateMatches,
       ...(options.contextBefore || options.contextAfter
@@ -229,8 +273,19 @@ export async function search(
       const fileMatches: Match[] = [];
       const previousRanges = ranges;
       for (const [index, line] of lines.entries()) {
-        const hit = needle.exec(line);
-        if (!hit) continue;
+        const hits = needles.flatMap((needle, queryIndex) => {
+          const hit = needle.exec(line);
+          return hit
+            ? [
+                {
+                  index: hit.index,
+                  query: queries[queryIndex] ?? options.query,
+                },
+              ]
+            : [];
+        });
+        if (!hits.length) continue;
+        const firstColumn = Math.min(...hits.map((hit) => hit.index));
         if (
           matches.length >= options.maxMatches ||
           matches.length >= context.limits.maxEntries
@@ -238,14 +293,17 @@ export async function search(
           limits.add("matches");
           break;
         }
-        const preview = previewLine(line, hit.index);
+        const preview = previewLine(line, firstColumn);
         const match: Match = {
           path: relative,
           line: index + 1,
-          column: hit.index + 1,
+          column: firstColumn + 1,
           preview: preview.text,
           previewStartColumn: preview.startColumn,
           previewTruncated: preview.truncated,
+          ...(queries.length > 1
+            ? { matchedQueries: hits.map((hit) => hit.query) }
+            : {}),
         };
         const nextFileMatches = [...fileMatches, match];
         const nextRanges =
@@ -362,16 +420,30 @@ async function collectFiles(
   root: string,
   context: ToolContext,
   excluded: (file: string) => boolean,
-): Promise<{ files: string[]; truncated: boolean }> {
+  sourceOnly: boolean,
+): Promise<{
+  files: string[];
+  truncated: boolean;
+  skippedDirectories: number;
+}> {
   const files: string[] = [];
   let visited = 0;
   let truncated = false;
+  let skippedDirectories = 0;
   const visit = async (directory: string) => {
     if (excluded(directory)) return;
     const children: import("node:fs").Dirent[] = [];
     const handle = await opendir(directory);
     for await (const child of handle) {
       if (context.signal.aborted) return;
+      if (
+        sourceOnly &&
+        child.isDirectory() &&
+        SOURCE_EXCLUDED_DIRECTORIES.has(child.name)
+      ) {
+        skippedDirectories++;
+        continue;
+      }
       if (children.length >= context.limits.maxEntries - visited) {
         truncated = true;
         break;
@@ -393,5 +465,5 @@ async function collectFiles(
     }
   };
   await visit(root);
-  return { files, truncated };
+  return { files, truncated, skippedDirectories };
 }

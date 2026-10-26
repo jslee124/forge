@@ -759,6 +759,42 @@ request bodies, answers, reviews, script and hashes are retained under
 `/tmp/forge-comprehension-diagnostic-1274d84/README.md`. Authentication headers and
 reasoning text were not saved. Documentation checks passed.
 
+## Bounded grouped source discovery (2026-10-26)
+
+`search` now accepts up to three optional `additionalQueries` alongside its
+existing primary literal query. Distinct terms share one file traversal, the
+existing 16 MiB scan cap, 1 MiB per-file cap, entry count, global matching-line
+count and output budget. A line matching several terms consumes one match;
+`matchedQueries` identifies the terms and the column points to the earliest hit.
+Overlapping contexts merge across terms. Regex remains unsupported. Omitting
+additional terms or repeating the primary term preserves single-query output.
+
+An explicit `scope: source` skips nested .git/node_modules/.next/dist/build/
+coverage/.venv/__pycache__ directories before their contents consume the entry
+budget. The result reports source scope and skipped-directory count; it is not
+an exhaustive workspace search. An explicitly targeted directory root is still
+searched under normal workspace restrictions, and default `scope: all` retains
+existing behavior. Include/exclude filters, cancellation, symlink boundaries and
+all I/O/output limits remain enforced. This is a read filter, not new authority.
+
+Native bounded-run instructions now suggest locating relevant entry/call sites
+with source-scoped grouped literals and small context windows, then reading only
+ranges needed to establish actual calls/imports. A name match alone is not wiring;
+missing connections remain unknown. It does not automatically infer a dependency
+graph or guarantee that a model chooses useful terms or stops at the right time.
+
+Validation: 65 tool/application tests and 166 deterministic checks passed; root
+check, Desktop build and packed-install verification passed. A frozen-fixture
+regression collects main.mjs, renderer.tsx and workflow.mjs context in one search,
+including send(draft), dispatch and the actual tool call. Another reproduces a
+small entry budget consumed by dependency/build trees in all scope and confirms
+source scope reaches src while explicit dependency-path lookup still works.
+The discovery regression joins `eval:deterministic`; the task corpus itself is
+unchanged. Local demonstration: `/tmp/forge-grouped-search-evidence/README.md`.
+Its query terms are test-specified, not independently chosen by a real model.
+No paid calls, installation update or new UI acceptance occurred; T05/T13 remain
+partial until real investigation and the other existing gates pass.
+
 ## 1. Goal and invariants
 
 Complete the native-engine investigation → approval → execution → verification →

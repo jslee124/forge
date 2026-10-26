@@ -238,6 +238,186 @@ describe("bounded line investigation", () => {
 });
 
 describe("literal search with bounded context", () => {
+  it("lets source investigation reach code without spending the entry budget in dependency/build trees", async () => {
+    const { root, context } = await fixture();
+    await mkdir(join(root, "node_modules"));
+    await mkdir(join(root, "dist"));
+    await mkdir(join(root, "src"));
+    for (let i = 0; i < 10; i++)
+      await writeFile(
+        join(root, "node_modules", `dep-${i}.js`),
+        "dependency\n",
+      );
+    await writeFile(join(root, "dist", "bundle.js"), "handle generated\n");
+    await writeFile(join(root, "src", "entry.ts"), "handle(request)\n");
+    const bounded = {
+      ...context,
+      limits: { ...context.limits, maxEntries: 3 },
+    };
+    const all = await search({ query: "handle" }, bounded);
+    expect(all).toMatchObject({ ok: true, truncated: true });
+    if (all.ok)
+      expect(
+        all.output.matches.some((match) => match.path.startsWith("src/")),
+      ).toBe(false);
+    expect(
+      await search({ query: "handle", scope: "source" }, bounded),
+    ).toMatchObject({
+      ok: true,
+      truncated: false,
+      output: {
+        scope: "source",
+        skippedDirectories: 2,
+        scannedFiles: 1,
+        matches: [{ path: "src/entry.ts" }],
+      },
+    });
+    expect(
+      await search(
+        { query: "dependency", path: "node_modules", scope: "source" },
+        context,
+      ),
+    ).toMatchObject({
+      ok: true,
+      truncated: false,
+      output: { scope: "source", skippedDirectories: 0, scannedFiles: 10 },
+    });
+  });
+  it("finds related symbols in one scan, merges context and counts a shared line once", async () => {
+    const { root, context } = await fixture();
+    const content = "header\nsend -> handle\ndispatch\nfooter\n";
+    await writeFile(join(root, "code.ts"), content);
+    const result = await search(
+      {
+        query: "handle",
+        additionalQueries: ["send", "dispatch", "send"],
+        contextBefore: 1,
+        contextAfter: 1,
+      },
+      context,
+    );
+    expect(result).toMatchObject({
+      ok: true,
+      truncated: false,
+      output: {
+        query: "handle",
+        queries: ["handle", "send", "dispatch"],
+        scannedFiles: 1,
+        scanBudgetBytes: Buffer.byteLength(content),
+        matches: [
+          { line: 2, column: 1, matchedQueries: ["handle", "send"] },
+          { line: 3, column: 1, matchedQueries: ["dispatch"] },
+        ],
+        ranges: [{ startLine: 1, endLine: 4 }],
+      },
+    });
+  });
+  it("keeps omitted or duplicate additional queries equivalent to a single query", async () => {
+    const { root, context } = await fixture();
+    await writeFile(join(root, "code"), "needle\n");
+    const single = await search({ query: "needle" }, context);
+    expect(
+      await search({ query: "needle", additionalQueries: [] }, context),
+    ).toEqual(single);
+    expect(
+      await search({ query: "needle", additionalQueries: ["needle"] }, context),
+    ).toEqual(single);
+  });
+  it("applies literal/case rules to every term and rejects excessive or invalid groups", async () => {
+    const { root, context } = await fixture();
+    await writeFile(join(root, "code"), "a.*b\naxb\nSEND\nsend\n");
+    expect(
+      await search(
+        {
+          query: "absent",
+          additionalQueries: ["a.*b", "send"],
+          caseSensitive: true,
+        },
+        context,
+      ),
+    ).toMatchObject({
+      ok: true,
+      output: {
+        matches: [
+          { line: 1, matchedQueries: ["a.*b"] },
+          { line: 4, matchedQueries: ["send"] },
+        ],
+      },
+    });
+    for (const additionalQueries of [
+      ["a", "b", "c", "d"],
+      [""],
+      ["x".repeat(1025)],
+    ])
+      expect(
+        await searchTool.execute({ query: "x", additionalQueries }, context),
+      ).toMatchObject({ ok: false, error: { code: "invalid_input" } });
+  });
+  it("shares match and output limits across all terms", async () => {
+    const { root, context } = await fixture();
+    await writeFile(join(root, "code"), "send\nhandle\ndispatch\n");
+    expect(
+      await search(
+        {
+          query: "send",
+          additionalQueries: ["handle", "dispatch"],
+          maxMatches: 1,
+        },
+        context,
+      ),
+    ).toMatchObject({
+      ok: true,
+      truncated: true,
+      output: { matches: [{ line: 1 }], limits: ["matches"] },
+    });
+    const bounded = await search(
+      {
+        query: "send",
+        additionalQueries: ["handle", "dispatch"],
+        contextBefore: 20,
+        contextAfter: 20,
+      },
+      { ...context, limits: { ...context.limits, maxOutputBytes: 450 } },
+    );
+    expect(bounded).toMatchObject({
+      ok: true,
+      truncated: true,
+      output: { limits: ["output"] },
+    });
+    if (bounded.ok)
+      expect(
+        Buffer.byteLength(JSON.stringify(bounded.output)),
+      ).toBeLessThanOrEqual(450);
+  });
+  it("keeps filters, cancellation and workspace boundaries for grouped searches", async () => {
+    const { root, context } = await fixture();
+    const outside = await mkdtemp(join(tmpdir(), "forge-search-outside-"));
+    roots.push(outside);
+    await writeFile(join(root, "yes.ts"), "send\n");
+    await writeFile(join(root, "no.js"), "handle\n");
+    await writeFile(join(outside, "secret"), "send\nhandle\n");
+    await symlink(join(outside, "secret"), join(root, "link.ts"));
+    expect(
+      await search(
+        { query: "send", additionalQueries: ["handle"], include: ["*.ts"] },
+        context,
+      ),
+    ).toMatchObject({ ok: true, output: { matches: [{ path: "yes.ts" }] } });
+    expect(
+      await search(
+        { query: "send", additionalQueries: ["handle"], path: outside },
+        context,
+      ),
+    ).toMatchObject({ ok: false, error: { code: "outside_workspace" } });
+    const controller = new AbortController();
+    controller.abort();
+    expect(
+      await search(
+        { query: "send", additionalQueries: ["handle"] },
+        { ...context, signal: controller.signal },
+      ),
+    ).toMatchObject({ ok: false, error: { code: "cancelled" } });
+  });
   it("merges overlapping contexts and keeps accurate locations", async () => {
     const { root, context } = await fixture();
     await writeFile(
@@ -372,24 +552,35 @@ describe("literal search with bounded context", () => {
     );
     expect(entries).toMatchObject({ ok: true, truncated: true });
   });
-  it("accounts for binary read attempts and stops at the aggregate scan budget", async () => {
-    const { root, context } = await fixture();
-    for (let i = 0; i < 18; i++)
-      await writeFile(
-        join(root, `binary-${String(i).padStart(2, "0")}`),
-        Buffer.from([0]),
+  it.each([
+    { additionalQueries: [] },
+    { additionalQueries: ["also-absent", "still-absent", "missing"] },
+  ])(
+    "accounts for binary attempts and a shared scan budget ($additionalQueries)",
+    async ({ additionalQueries }) => {
+      const { root, context } = await fixture();
+      for (let i = 0; i < 18; i++)
+        await writeFile(
+          join(root, `binary-${String(i).padStart(2, "0")}`),
+          Buffer.from([0]),
+        );
+      const result = await search(
+        { query: "absent", additionalQueries },
+        context,
       );
-    const result = await search({ query: "absent" }, context);
-    expect(result).toMatchObject({
-      ok: true,
-      truncated: true,
-      output: { limits: ["scan"] },
-    });
-    if (!result.ok) throw new Error("fixture search failed");
-    expect(result.output.scanBudgetBytes).toBeLessThanOrEqual(16 * 1024 * 1024);
-    expect(result.output.skippedFiles.binary).toBeGreaterThan(0);
-    expect(result.output.skippedFiles.binary).toBeLessThan(18);
-  });
+      expect(result).toMatchObject({
+        ok: true,
+        truncated: true,
+        output: { limits: ["scan"] },
+      });
+      if (!result.ok) throw new Error("fixture search failed");
+      expect(result.output.scanBudgetBytes).toBeLessThanOrEqual(
+        16 * 1024 * 1024,
+      );
+      expect(result.output.skippedFiles.binary).toBeGreaterThan(0);
+      expect(result.output.skippedFiles.binary).toBeLessThan(18);
+    },
+  );
   it("preserves complete surrogate pairs in clipped previews and rejects unusably small output budgets", async () => {
     const { root, context } = await fixture();
     await writeFile(
