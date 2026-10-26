@@ -41,6 +41,7 @@ import {
   FileProductRunStore,
   FileSessionStore,
   type ProductRecordPayload,
+  type ProductRunRecord,
   redactValue,
 } from "@forge/persistence";
 import type {
@@ -1334,14 +1335,7 @@ export class DesktopApplication {
         ...page,
         ...(record
           ? {
-              selected: {
-                summary: record.summary,
-                activity: projectRecordedActivity(record),
-                delivery: projectRunDelivery(record),
-                incomplete:
-                  record.incomplete ||
-                  Boolean(record.summary.journalIncomplete),
-              },
+              selected: await this.#projectHistoryRecord(store, record),
             }
           : {}),
       };
@@ -1362,6 +1356,30 @@ export class DesktopApplication {
       },
     };
   }
+  async #projectHistoryRecord(
+    store: FileProductRunStore,
+    record: ProductRunRecord,
+  ) {
+    const project = (value: ProductRunRecord) => ({
+      summary: value.summary,
+      activity: projectRecordedActivity(value),
+      delivery: projectRunDelivery(value),
+      incomplete: value.incomplete || Boolean(value.summary.journalIncomplete),
+    });
+    const selected = project(record);
+    if (record.summary.recovery?.kind !== "summarize") return selected;
+    const sourceRunId = record.summary.recovery.sourceRunId;
+    try {
+      const source = await store.read(record.summary.sessionId, sourceRunId);
+      return {
+        ...selected,
+        recoverySource: { sourceRunId, record: project(source) },
+      };
+    } catch {
+      // A missing source must not hide the summary or be replaced by its prose.
+      return { ...selected, recoverySource: { sourceRunId } };
+    }
+  }
   async #loadRunHistory(before?: number, runId?: string): Promise<void> {
     const sessionId = this.#session?.sessionId;
     if (!sessionId) {
@@ -1379,14 +1397,7 @@ export class DesktopApplication {
         ...page,
         ...(record
           ? {
-              selected: {
-                summary: record.summary,
-                activity: projectRecordedActivity(record),
-                delivery: projectRunDelivery(record),
-                incomplete:
-                  record.incomplete ||
-                  Boolean(record.summary.journalIncomplete),
-              },
+              selected: await this.#projectHistoryRecord(store, record),
             }
           : {}),
       };

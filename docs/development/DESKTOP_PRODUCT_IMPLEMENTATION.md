@@ -1303,6 +1303,34 @@ Build and eight runtime accounting/workspace checks passed; all full answers wer
 manually reviewed and documentation checks passed. This step adds no UI acceptance
 or source behavior change; T05/T13 remain partial.
 
+### Deterministic recovery facts surface (2026-10-27)
+
+Desktop history now projects a summary's source record separately from the summary
+record, within the same session and without recursively following recovery links.
+Both active-session history and read-only browsed history use this projection.
+Unavailable source content leaves an explicit unavailable source reference while
+preserving the summary. This adds optional Desktop projection metadata only;
+persistence formats, canonical history and execution authority are unchanged.
+
+The main transcript and selected history show a recorded-facts surface with source
+ID, recorded outcome/reason, partial/incomplete caveats, exact command identity and
+exit status, plus expandable delivery and source activity. Generated summary text
+is labeled model explanation. Zero command exits are not labeled task/test-suite
+success; absent records are unconfirmed. No narrative parser chooses these facts.
+The main surface appears once across the live-to-persisted handoff. File previews
+retain the existing explicit-click workspace checks.
+
+Validation: 65 focused host/renderer tests and 207 deterministic checks passed;
+root checks and Desktop build passed (eight existing warnings, 48 infos). Tests
+cover both locales, a failed command despite a successful model claim, separate
+source status, read-only browsing and unreadable source content. The scripted
+Electron suite checks a single linked facts card, separate explanation and
+light/dark × en/zh-CN × 1100/840 layouts. Evidence is retained at
+`/tmp/forge-recovery-facts-ui-final/`. Documentation checks passed. This step makes
+recorded evidence visible; it does not establish model semantic accuracy, a new
+live-provider result, installed-app/native IME/VoiceOver or user-trial acceptance.
+T05/T13 remain partial.
+
 ## 1. Goal and invariants
 
 Complete the native-engine investigation → approval → execution → verification →

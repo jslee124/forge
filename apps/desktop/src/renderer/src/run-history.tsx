@@ -3,6 +3,7 @@ import type {
   DesktopState,
   ManagementCommand,
 } from "../../shared/application-protocol.js";
+import { RecoveryFacts } from "./recovery-facts.js";
 import { RunActivity } from "./run-activity.js";
 import { RunDelivery } from "./run-delivery.js";
 import { RunResult } from "./run-result.js";
@@ -82,6 +83,12 @@ export function RunHistory({
         >
           <h4>{selected.summary.prompt}</h4>
           <p>{t("runUi.historyReadOnly")}</p>
+          {selected.recoverySource && (
+            <RecoveryFacts
+              source={selected.recoverySource}
+              onPreview={onPreview}
+            />
+          )}
           {selected.summary.completion && (
             <RunResult
               historical

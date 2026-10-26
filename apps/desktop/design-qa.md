@@ -317,3 +317,14 @@ Reproduce the existing full fixture after building with `FORGE_T12_MODE=verify`.
 Local output: `/tmp/forge-onboarding-acceptance/` including `ui.json` and onboarding
 screenshots. Validation: 190 related tests, six live tests skipped, 134 deterministic
 evaluations, root check and Desktop build. No external-provider or release claim.
+
+## Recovery source facts (2026-10-27)
+
+The recovery summary now presents deterministic source status and recorded command
+results before the model explanation, with missing/incomplete evidence called out.
+Host/renderer regressions cover conflicting model claims, separate source state,
+read-only history and unavailable source content. The local scripted-provider
+Electron matrix at `/tmp/forge-recovery-facts-ui-final/` covers en/zh-CN, light/dark
+and 1100/840 widths and asserts a single facts card across persistence handoff.
+This is development UI evidence; no paid-model, installed-app, native IME,
+VoiceOver or independent-user acceptance is implied.

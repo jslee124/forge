@@ -178,13 +178,32 @@ const sessionMessagesSchema = z
     }),
   )
   .max(10000);
+const selectedRunSchema = productRunHistorySchema.shape.selected.unwrap();
+export const desktopRunHistorySchema = productRunHistorySchema.extend({
+  selected: selectedRunSchema
+    .extend({
+      recoverySource: z
+        .object({
+          sourceRunId: id,
+          record: selectedRunSchema.optional(),
+        })
+        .strict()
+        .optional(),
+    })
+    .optional(),
+});
+export type RecoverySource = NonNullable<
+  NonNullable<
+    z.infer<typeof desktopRunHistorySchema>["selected"]
+  >["recoverySource"]
+>;
 export const browsedSessionSchema = z
   .object({
     sessionId: id,
     cwd: text,
     title: text,
     messages: sessionMessagesSchema,
-    runHistory: productRunHistorySchema,
+    runHistory: desktopRunHistorySchema,
     truncated: z.boolean(),
   })
   .strict();
@@ -193,7 +212,7 @@ export const desktopStateSchema = z
   .object({
     readiness: readinessSchema.optional(),
     automaticWorkspace: z.boolean().optional(),
-    runHistory: productRunHistorySchema.optional(),
+    runHistory: desktopRunHistorySchema.optional(),
     browsedSession: browsedSessionSchema.optional(),
     recoveryPlan: recoveryPlanSchema.optional(),
     management: z

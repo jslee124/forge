@@ -891,6 +891,58 @@ export async function runUiAcceptance(
         "Summary recovery lost its bounded scope, source link or draft",
       );
     }
+    await until(
+      "document.querySelector('.live-transcript .recovery-facts') && document.querySelector('.live-transcript .recovery-explanation-label')",
+    );
+    if (
+      (await js(
+        "document.querySelectorAll('.live-transcript .recovery-facts').length",
+      )) !== 1
+    )
+      throw new Error(
+        "Recovery facts duplicated between live and persisted output",
+      );
+    const factsSource = await js(
+      "document.querySelector('.live-transcript .recovery-facts').dataset.recoverySource",
+    );
+    if (factsSource !== summaryRecovery.recovery.sourceRunId)
+      throw new Error(
+        "Recovery facts refer to the summary instead of its source",
+      );
+    for (const appearance of ["light", "dark"]) {
+      for (const locale of ["zh-CN", "en"]) {
+        await click('[data-testid="settings"]');
+        await js(
+          `(() => {const e=document.querySelector('[data-testid=language]');Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(e,${JSON.stringify(locale)});e.dispatchEvent(new Event('change',{bubbles:true}));})()`,
+        );
+        await click(
+          `.theme-options button:nth-child(${appearance === "light" ? 1 : 2})`,
+        );
+        await click(".studio-back");
+        await until(
+          `document.documentElement.lang === ${JSON.stringify(locale)} && document.documentElement.dataset.theme === ${JSON.stringify(appearance)}`,
+        );
+        for (const width of [1100, 840]) {
+          window.setContentSize(width, 800);
+          await js(
+            "document.querySelector('.live-transcript .recovery-facts').scrollIntoView({block:'start'})",
+          );
+          await until(
+            "(() => {const r=document.querySelector('.live-transcript .recovery-facts').getBoundingClientRect();return r.left>=0 && r.right<=innerWidth;})()",
+          );
+          await capture(
+            `product-recovery-facts-${appearance}-${locale}-${width}`,
+          );
+        }
+      }
+    }
+    results.push({
+      name: "recovery-source-facts",
+      linkedSource: true,
+      separateExplanation: true,
+      externalProvider: false,
+    });
+    window.setContentSize(1100, 728);
     await capture("product-recovery-summary");
     await click("[data-run-result=current] > button");
     await until(

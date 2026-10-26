@@ -2406,3 +2406,37 @@
   border-top: 1px solid var(--border);
   padding-top: 12px;
 }
+
+.recovery-facts {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  margin-block: 16px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.recovery-facts h3 {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+.recovery-facts p,
+.recovery-explanation-label {
+  color: var(--muted);
+  font-size: 12px;
+}
+.recovery-facts .recovery-plan-metadata {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+}
+.recovery-facts .recovery-plan-metadata dd {
+  min-width: 0;
+}
+.recovery-fact-command {
+  margin-block: 12px;
+}
+.recovery-fact-command strong {
+  font-size: 13px;
+}
+.recovery-explanation-label {
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}

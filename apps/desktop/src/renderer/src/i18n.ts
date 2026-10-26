@@ -120,6 +120,18 @@ export const resources = {
           "Review source, model, limits and permissions. Native Forge records only.",
         viewSource: "View source run",
         summaryTitle: "Existing-information summary",
+        factsTitle: "Source run · recorded facts",
+        factsScope:
+          "Read from saved run records. Missing evidence does not prove an operation never occurred.",
+        recordedStatus: "Recorded source status",
+        sourceReason: "Recorded source stop reason",
+        unknownStatus: "Unknown",
+        sourceUnavailable:
+          "Source record unavailable. The explanation below cannot replace it.",
+        verificationScope:
+          "Command results below are execution observations; they do not establish that the task or all tests passed.",
+        sourceActivity: "Source operations and output",
+        explanation: "Model explanation · verify against the recorded facts",
         start: "Start new run",
         cancel: "Cancel",
         replaceDraft: "Replace with retry draft",
@@ -143,7 +155,7 @@ export const resources = {
         },
         noTools: "Tool-free summary",
         incomplete:
-          "Source records are incomplete or clipped; missing evidence is not proof of success.",
+          "Source records are incomplete or clipped; missing evidence is not proof of success or non-execution.",
         draftConflict:
           "Your current draft will only be replaced if you confirm.",
         draftPreserved: "Your current draft will be preserved.",
@@ -686,6 +698,16 @@ export const resources = {
         reviewFirst: "先确认来源、模型、预算与权限，仅支持原生 Forge 记录。",
         viewSource: "查看来源运行",
         summaryTitle: "已有信息摘要",
+        factsTitle: "来源运行 · 记录事实",
+        factsScope: "直接读取已保存的运行记录。缺少证据不代表操作从未发生。",
+        recordedStatus: "来源记录状态",
+        sourceReason: "来源记录停止原因",
+        unknownStatus: "未知",
+        sourceUnavailable: "无法读取来源记录，下方模型解释不能代替原始记录。",
+        verificationScope:
+          "以下命令结果只代表执行观察，不代表任务或所有测试通过。",
+        sourceActivity: "来源操作与输出",
+        explanation: "模型解释 · 请对照记录事实核实",
         start: "开始新运行",
         cancel: "取消",
         replaceDraft: "替换为重试草稿",
@@ -707,7 +729,8 @@ export const resources = {
           workspace: "允许工作区写入，进程仍需审批",
         },
         noTools: "无工具总结",
-        incomplete: "来源记录不完整或已裁剪，缺少证据不能证明成功。",
+        incomplete:
+          "来源记录不完整或已裁剪，缺少证据不能证明成功，也不能证明操作从未发生。",
         draftConflict: "只有确认后才会替换现有草稿。",
         draftPreserved: "现有草稿会保留。",
         prompt: "新运行输入",

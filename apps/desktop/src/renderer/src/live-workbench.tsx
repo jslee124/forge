@@ -24,6 +24,7 @@ import markUrl from "./assets/forge-mark.svg";
 import { ComposerControls } from "./composer-controls.js";
 import { ConversationMessage } from "./conversation-message.js";
 import { ContentPreview, DiffViewer } from "./file-preview.js";
+import { RecoveryFacts } from "./recovery-facts.js";
 import { RecoveryReview } from "./recovery-review.js";
 import { RunActivity } from "./run-activity.js";
 import { RunDelivery } from "./run-delivery.js";
@@ -1332,16 +1333,50 @@ export function LiveWorkbench(): React.JSX.Element {
                         }
                       />
                     ) : (
-                      <ConversationMessage
-                        key={message.id}
-                        author={message.role}
-                        content={message.content}
-                      />
+                      <div key={message.id}>
+                        {message.role === "assistant" &&
+                          message.runId ===
+                            displayState?.runHistory?.selected?.summary.runId &&
+                          displayState?.runHistory?.selected
+                            ?.recoverySource && (
+                            <RecoveryFacts
+                              source={
+                                displayState?.runHistory?.selected
+                                  ?.recoverySource
+                              }
+                              onPreview={(path) =>
+                                void previewDeliveryFile(path)
+                              }
+                            />
+                          )}
+                        <ConversationMessage
+                          author={message.role}
+                          content={message.content}
+                          explanation={Boolean(
+                            message.role === "assistant" &&
+                              displayState?.runHistory?.runs.some(
+                                (run) =>
+                                  run.runId === message.runId &&
+                                  run.recovery?.kind === "summarize",
+                              ),
+                          )}
+                        />
+                      </div>
                     ),
                   )}
                 {!viewed && prompt && (
                   <ConversationMessage author="user" content={prompt} />
                 )}
+                {!viewed &&
+                  answer &&
+                  completionRunId ===
+                    state?.runHistory?.selected?.summary.runId &&
+                  state?.runHistory?.selected?.recoverySource && (
+                    <RecoveryFacts
+                      source={state?.runHistory?.selected?.recoverySource}
+                      onPreview={(path) => void previewDeliveryFile(path)}
+                    />
+                  )}
                 {!viewed &&
                 answer &&
                 completion?.answerSource === "system-fallback" &&
@@ -1354,6 +1389,7 @@ export function LiveWorkbench(): React.JSX.Element {
                   <ConversationMessage
                     author="assistant"
                     content={answer}
+                    explanation={completion?.recovery?.kind === "summarize"}
                     streaming={Boolean(active)}
                   />
                 ) : null}

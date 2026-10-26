@@ -8,10 +8,12 @@ export const ConversationMessage = memo(function ConversationMessage({
   author,
   content,
   streaming = false,
+  explanation = false,
 }: {
   author: "user" | "assistant";
   content: string;
   streaming?: boolean;
+  explanation?: boolean;
 }) {
   const { t } = useTranslation();
   return (
@@ -27,6 +29,11 @@ export const ConversationMessage = memo(function ConversationMessage({
           alt=""
           aria-hidden="true"
         />
+      )}
+      {explanation && (
+        <p className="recovery-explanation-label">
+          {t("recovery.explanation")}
+        </p>
       )}
       <Markdown>{content}</Markdown>
       {author === "assistant" && (

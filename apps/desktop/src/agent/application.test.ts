@@ -1037,6 +1037,48 @@ describe("reviewed run recovery", () => {
       expect(
         desktopStateSchema.safeParse(await f.application.state()).success,
       ).toBe(true);
+      if (source.final.payload.type !== "complete")
+        throw new Error("Missing source completion");
+      const projected = (await f.application.state()).runHistory?.selected;
+      expect(projected?.recoverySource).toMatchObject({
+        sourceRunId: source.final.runId,
+        record: {
+          summary: {
+            runId: source.final.runId,
+            completion: { outcome: source.final.payload.outcome },
+          },
+        },
+      });
+      expect(projected?.recoverySource?.record?.summary.runId).not.toBe(
+        summary.final.runId,
+      );
+      const browsed = await f.application.manage({
+        type: "browse-session",
+        sessionId: f.sessionId,
+        runId: summary.final.runId,
+      });
+      expect(
+        browsed.browsedSession?.runHistory.selected?.recoverySource,
+      ).toEqual(projected?.recoverySource);
+      const sourceJournal = join(
+        f.env.FORGE_HOME,
+        "run-records",
+        f.sessionId,
+        source.final.runId,
+        "events.jsonl",
+      );
+      await rm(sourceJournal);
+      await mkdir(sourceJournal);
+      const missing = await f.application.manage({
+        type: "run-history",
+        runId: summary.final.runId,
+      });
+      expect(missing.runHistory?.selected?.summary.runId).toBe(
+        summary.final.runId,
+      );
+      expect(missing.runHistory?.selected?.recoverySource).toEqual({
+        sourceRunId: source.final.runId,
+      });
       const replay = await run(f.application, f.sessionId, "allow", options);
       expect(replay.accepted).toBe(false);
       expect(f.requests).toHaveLength(2);
