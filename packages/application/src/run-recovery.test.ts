@@ -340,3 +340,114 @@ it.each(["continuation", "evidence"] as const)(
     }
   },
 );
+
+// Captured residual from claim-3-en in the bounded 2026-10-26 live diagnostic:
+// the source's synthetic interrupted/disconnected state was confused with the
+// separate summary invocation's tool_call_limit. This checks the request boundary,
+// not whether a real model obeys it; the deliberately wrong answer stays unchanged.
+it.each(["continuation", "evidence"] as const)(
+  "separates source outcome and missing observations from current %s summary limits",
+  async (finalizationInput) => {
+    const f = await fixture();
+    const record = await f.store.read(sessionId, sourceId);
+    for (const completion of [
+      {
+        outcome: "interrupted" as const,
+        partial: true,
+        reason: "disconnected" as const,
+      },
+      undefined,
+    ]) {
+      const prepared = prepareRunRecovery(
+        {
+          ...record,
+          incomplete: true,
+          summary: { ...record.summary, completion },
+        },
+        [],
+        "summarize",
+      );
+      const evidence = JSON.parse(prepared.evidence);
+      expect(evidence).toMatchObject({
+        schemaVersion: 2,
+        recordScope: "source-run-only",
+        sourceRunId: sourceId,
+        incomplete: true,
+        observedActions: [expect.objectContaining({ status: "unknown" })],
+      });
+      expect(evidence.outcome).toEqual(completion);
+      expect(evidence.coverage).toContain(
+        "absence is not proof of non-execution",
+      );
+      const summaryId = randomUUID();
+      const wrongAnswer =
+        "The run ended at the tool-call limit; per the finalization notice, no further tools may execute.";
+      const requests: ModelRequest[] = [];
+      const result = await summarizeRecordedRun(prepared, {
+        finalizationInput,
+        env: { FORGE_HOME: join(f.root, "home") },
+        cwd: f.root,
+        runId: summaryId,
+        sessionId,
+        selection: { provider: "deepseek", model: "deepseek-flash" },
+        signal: new AbortController().signal,
+        onEvent: () => {},
+        createAdapter: () => ({
+          supportsToolChoiceNone: true,
+          async *stream(request) {
+            requests.push(request);
+            yield { type: "text.delta", text: wrongAnswer };
+            yield {
+              type: "finish",
+              finishReason: "stop",
+              usage: {
+                inputTokens: 1,
+                outputTokens: 1,
+                reasoningTokens: 0,
+                cachedInputTokens: 0,
+                cacheWriteTokens: 0,
+                totalTokens: 2,
+              },
+            };
+          },
+        }),
+      });
+      expect(requests).toHaveLength(1);
+      const request = requests[0];
+      expect(request?.instructions).toContain(
+        JSON.stringify({
+          summaryRunId: summaryId,
+          sourceRunId: sourceId,
+          maxModelSteps: 1,
+          maxToolCalls: 0,
+        }),
+      );
+      expect(request?.instructions).toContain(
+        "not the outcome or stop reason of any historical source run",
+      );
+      expect(request?.instructions).toContain(
+        "If source completion is absent, report it unknown",
+      );
+      expect(request?.instructions).toContain(
+        "not proof that they never occurred",
+      );
+      expect(request?.instructions).toContain(
+        "explicitly state the conflicting claim",
+      );
+      const context =
+        finalizationInput === "evidence"
+          ? request?.prompt
+          : JSON.stringify(request?.conversation);
+      expect(context).toContain("source-run-only");
+      expect(context).toContain("unknown");
+      expect(result).toMatchObject({
+        modelSteps: 1,
+        toolCalls: 0,
+        partial: true,
+        limitReason: "tool_call_limit",
+        finalText: wrongAnswer,
+      });
+      expect(evidence.outcome?.reason).not.toBe(result.limitReason);
+    }
+  },
+);

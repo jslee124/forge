@@ -1245,6 +1245,33 @@ baseline, installed-app/native IME/VoiceOver or independent-user acceptance.
 Default continuation behavior is unchanged; evidence projection remains opt-in and
 T05/T13 remain partial.
 
+### Source and summary execution boundaries (2026-10-27)
+
+Prepared recovery evidence now labels its schema and `source-run-only` scope;
+coverage explicitly says missing bounded observations do not prove non-execution.
+Existing observation and completion fields remain source facts. The separate
+host instruction carries summary/source run IDs and the one-step/zero-tool limits.
+Core finalization notices explicitly apply to the current invocation rather than
+historical source outcomes. Missing source completion remains unknown.
+
+Summary guidance requires explicit treatment of material conflicts, distinguishing
+supported correction from unresolved evidence, and observed verification failure
+from unverified work. The deterministic fallback also distinguishes missing output
+from proof that an action never occurred. This changes request guidance and scope
+labels, not model-output classification, terminal status or execution authority.
+
+The retained English status-confusion counterexample from the preceding bounded
+live diagnostic is exercised with interrupted/disconnected and missing source
+completion in both continuation and evidence projections. Tests assert one call,
+zero tools, separate IDs/limits and unchanged provider text even when it repeats
+the wrong claim. They validate transport and instructions, not model comprehension.
+
+Validation: 46 focused tests and all 207 deterministic checks passed. Root check
+passed with the existing eight warnings and 48 infos; documentation checks passed.
+No new paid model sampling or UI acceptance was performed in this step. The next
+bounded live check should evaluate source-status attribution and explicit conflict
+handling; T05/T13 remain partial.
+
 ## 1. Goal and invariants
 
 Complete the native-engine investigation → approval → execution → verification →
