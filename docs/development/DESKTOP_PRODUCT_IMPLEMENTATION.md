@@ -2,10 +2,33 @@
 
 [简体中文](../zh-CN/development/DESKTOP_PRODUCT_IMPLEMENTATION.md) · [PRD](DESKTOP_PRODUCT_PRD.md) · [Roadmap](ROADMAP.md) · [Documentation index](../README.md)
 
-Updated: 2026-10-26. Status: core product flows implemented incrementally; full product acceptance remains pending. This is a layered development
+Updated: 2026-10-27. Status: core product flows implemented incrementally; full product acceptance remains pending. This is a layered development
 contract and task list, not shipped behavior. New filenames, types, fields, and
 configuration below are proposed; section 2 separately identifies existing code.
 Resolve PRD/implementation disagreements in both documents before implementing.
+
+## Remaining acceptance work (2026-10-27)
+
+Use this table for the next action; the chronological increments below are scoped
+development records, not a claim that every T00–T14 gate is complete.
+
+| ID | State | Remaining outcome and acceptance condition |
+| --- | --- | --- |
+| U01 | Implemented and local UI verified; installation pending | Local builds skip startup checks even with saved preferences; explicit public switching warns about replacement. Stable/preview ordering remains intact. Host/renderer regressions currently pass; installed build must be refreshed separately. |
+| V01 | Next bounded live round | Run E01 coding and F03 budget recovery through the real Desktop; preserve attempts, approvals, exact changes, independent boundary checks and raw answers. Review source facts versus explanation, draft preservation and read-only history. No whole-task retry to chase success. |
+| V02 / T00,T13 | Pending full gate | Score all 24 fixed tasks in two independent rounds with pinned model/config/seed and predeclared rubric. Existing partial diagnostic samples do not satisfy this gate. |
+| V03 / T13 | Pending | Five target users perform Q02/E01/F03 without developer coaching; record blockers and results. Agent-operated tests cannot substitute for independent users. |
+| A01 / T12 | Partial | Native IME candidate confirmation must not send early; verify actual VoiceOver stage/error/approval announcements and keyboard recovery. AX/composition simulations are supporting evidence only. |
+| C01 / T01–T04,T13 | Partial | Refresh CLI/gateway/Codex compatibility and platform-specific install/interrupt evidence. Current arm64 local install is verified separately; Windows/Intel/other macOS versions and real Codex coverage remain limited. |
+| Q01 / T05–T07 | Partial | Retained exception, code-transcription and missing-evidence counterexamples must remain explicit. Recorded facts are authoritative display fields; model factuality requires separate task-level review, not prose-based success classification. |
+| P01 / T14 | Pending release gate | Synchronize product help/resources and R01–R15 evidence mapping, verify distributable artifacts, and decide signing/notarization/platform scope before proposing publication. Development tests and local installation are not release acceptance. |
+
+Completed local installation from `adfbad2` is recorded at
+`/tmp/forge-install-adfbad2/README.md`: packaged smoke and 105 scripted installed-UI
+entries; all 85 original Forge-home file hashes retained. Original history was
+visible in the normal Applications app. Interactive Spotlight launching remained
+unverified because native computer control failed; metadata had a single refreshed
+Applications entry. No real-provider quality claim follows from that installation.
 
 ## Implementation progress
 
@@ -1330,6 +1353,30 @@ light/dark × en/zh-CN × 1100/840 layouts. Evidence is retained at
 recorded evidence visible; it does not establish model semantic accuracy, a new
 live-provider result, installed-app/native IME/VoiceOver or user-trial acceptance.
 T05/T13 remain partial.
+
+### Local build update identity (2026-10-27)
+
+Explicit `-local.<revision>` or `+local.<revision>` builds now expose local identity
+and a valid abbreviated source hash. They skip startup checks even if a prior
+public-build preference enabled them, without silently rewriting that preference.
+Channel changes save preferences but do not trigger local-build checks. Explicit
+manual public switching requires renderer review and the corresponding typed check
+command. It selects the public channel independently of local SemVer precedence;
+public versions are replacements, not evidence of newer local source. Local tags
+are excluded from public release candidates; stable/preview ordering is retained.
+
+Validation: 27 update/pilot-preflight tests, root check and all 207 deterministic
+checks passed. The local-build Electron suite generated 110 result entries at
+`/tmp/forge-local-update-ui/ui.json`, including cancellation without checking and
+four locale/width confirmation screenshots. Chinese 840 and English 1100 views
+were visually inspected. This build used base `adfbad2` plus working changes;
+installed `adfbad2` remains a separate, older artifact until rebuilt/replaced.
+
+The bounded live recovery probe additionally checks source facts linkage and
+read-only reopening after a renderer reload. It first records completion-time draft
+preservation, then explicitly clears the disposable fixture draft before reloading;
+it does not bypass the normal unsent-draft guard or claim draft reload persistence.
+No new provider result is established by that probe change alone.
 
 ## 1. Goal and invariants
 

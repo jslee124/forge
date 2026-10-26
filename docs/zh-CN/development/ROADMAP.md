@@ -18,6 +18,8 @@
 
 ## 当前开发
 
+桌面端下一步以[当前剩余工作表](DESKTOP_PRODUCT_IMPLEMENTATION.md#当前剩余工作2026-10-27)为入口，区分实现、真实模型、安装与发布门槛。
+
 - Desktop 产品化：[PRD](DESKTOP_PRODUCT_PRD.md)与[实现方案](DESKTOP_PRODUCT_IMPLEMENTATION.md)
   定义面向本地小型开发任务的 M0—M4 计划，覆盖结构化运行／审批事件、收敛、恢复与产品验收。
   展示链路、持久历史与验收任务集已有部分实现，其余 gate 待验收；不修改已有完成记录，也不代表已发布行为。

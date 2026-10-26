@@ -113,6 +113,47 @@ export async function runUiAcceptance(
     noRunCreated: true,
     modelCalls: 0,
   });
+  const updateIdentity = await js(
+    "window.forgeDesktop.update({type:'status'})",
+  );
+  if (updateIdentity.localBuild) {
+    for (const locale of ["zh-CN", "en"]) {
+      await click('[data-testid="settings"]');
+      await click(".settings-nav button:first-child");
+      await until("document.querySelector('[data-testid=language]')");
+      await js(
+        `(() => {const e=document.querySelector('[data-testid=language]');Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(e,${JSON.stringify(locale)});e.dispatchEvent(new Event('change',{bubbles:true}));})()`,
+      );
+      await click(".settings-nav button:last-child");
+      await until(
+        "document.querySelector('[data-testid=local-build-identity]') && document.querySelector('#settings-updates input[type=checkbox]').disabled && !document.querySelector('#settings-updates input[type=checkbox]').checked",
+      );
+      await js(
+        "Array.from(document.querySelectorAll('#settings-updates button')).find(e=>e.textContent==='检查更新'||e.textContent==='Check for updates').click()",
+      );
+      await until("document.querySelector('dialog[open]')");
+      for (const width of [1100, 840]) {
+        window.setContentSize(width, 800);
+        await until(
+          "(()=>{const r=document.querySelector('dialog .studio-confirmation-actions').getBoundingClientRect();return r.left>=0 && r.right<=innerWidth && r.bottom<=innerHeight;})()",
+        );
+        await capture(`local-update-review-${locale}-${width}`);
+      }
+      await click("dialog .studio-confirmation-actions button:first-child");
+      if (
+        (await js("window.forgeDesktop.update({type:'status'})")).phase !==
+        "unchecked"
+      )
+        throw new Error("Cancelled local replacement changed update state");
+      await click(".studio-back");
+    }
+    results.push({
+      name: "local-build-update-review",
+      sourceRevision: updateIdentity.sourceRevision,
+      cancelledWithoutCheck: true,
+      externalProvider: false,
+    });
+  }
   for (const appearance of ["light", "dark"]) {
     await click('[data-testid="settings"]');
     await until("document.querySelector('.theme-options button')");

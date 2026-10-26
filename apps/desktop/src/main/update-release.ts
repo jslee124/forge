@@ -15,6 +15,19 @@ export function parseVersion(value: string) {
     pre: match[4]?.split(".") ?? [],
   };
 }
+/** Local is an explicit build namespace, independent from SemVer precedence. */
+export function desktopBuildIdentity(version: string | null) {
+  if (!version) return { localBuild: false };
+  const parsed = parseVersion(version);
+  const metadata = version.split("+")[1]?.split(".") ?? [];
+  const local = [parsed.pre, metadata].find((parts) => parts[0] === "local");
+  return {
+    localBuild: Boolean(local),
+    ...(local?.[1] && /^[a-f0-9]{7,40}$/.test(local[1])
+      ? { sourceRevision: local[1] }
+      : {}),
+  };
+}
 export function compareVersions(a: string, b: string): number {
   const x = parseVersion(a),
     y = parseVersion(b);
@@ -61,7 +74,7 @@ export interface UpdateCandidate {
 }
 export function selectRelease(
   releases: Release[],
-  current: string,
+  current: string | null,
   channel: "stable" | "preview",
   platform: "darwin" | "win32",
   arch: string,
@@ -77,8 +90,9 @@ export function selectRelease(
         const v = r.tag_name.slice(8);
         const parsed = parseVersion(v);
         return (
+          !desktopBuildIdentity(v).localBuild &&
           (channel === "preview" || (!r.prerelease && !parsed.pre.length)) &&
-          compareVersions(v, current) > 0
+          (current === null || compareVersions(v, current) > 0)
         );
       } catch {
         return false;

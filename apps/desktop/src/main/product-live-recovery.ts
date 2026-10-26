@@ -81,15 +81,56 @@ export async function runPilotSummaryRecovery(options: {
     const completion = events.findLast(
       (e) => e.payload.type === "complete",
     )?.payload;
+    const draftPreserved =
+      (await js("document.querySelector('.live-composer textarea').value")) ===
+      draft;
+    const sourceFacts = state.runHistory?.selected?.recoverySource;
+    await until(
+      `document.querySelector('.live-transcript [data-recovery-source="${sourceRunId}"]') && document.querySelector('.live-transcript .recovery-explanation-label')`,
+    );
+    const eventsBeforeReload = events.length;
+    // This is a disposable fixture draft. Completion preservation was measured
+    // above; explicitly clear it so the normal reload guard is not bypassed.
+    await js(
+      "(()=>{const e=document.querySelector('.live-composer textarea');Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(e,'');e.dispatchEvent(new Event('input',{bubbles:true}));})()",
+    );
+    await new Promise<void>((resolve) => {
+      window.webContents.once("did-finish-load", () => resolve());
+      window.webContents.reload();
+    });
+    await until(
+      `document.querySelector('[data-session-id="${state.sessionId}"]')`,
+    );
+    await js(
+      `document.querySelector('[data-session-id="${state.sessionId}"]').click()`,
+    );
+    await until(
+      `document.querySelector('.live-transcript [data-recovery-source="${sourceRunId}"]')`,
+    );
+    await js(
+      "document.querySelector('.live-transcript .recovery-facts').scrollIntoView({block:'start'})",
+    );
+    await writeFile(
+      join(directory, "recovery-history.png"),
+      (await window.webContents.capturePage()).toPNG(),
+      { flag: "wx" },
+    );
+    const readOnlyAfterReload = events.length === eventsBeforeReload;
     const report = {
       sourceRunId,
       locale,
       reviewedPlan: plan,
       summary,
+      sourceFacts,
+      clearedFixtureDraftBeforeReload: true,
       completion,
       events,
       checks: {
         reviewedBeforeRun: true,
+        sourceFactsLinked:
+          sourceFacts?.sourceRunId === sourceRunId &&
+          sourceFacts.record?.summary.runId === sourceRunId,
+        historyReadOnlyAfterReload: readOnlyAfterReload,
         linkedSource:
           summary?.recovery?.sourceRunId === sourceRunId &&
           summary?.recovery?.kind === "summarize",
@@ -105,10 +146,7 @@ export async function runPilotSummaryRecovery(options: {
         oneStep:
           completion?.type === "complete" &&
           (completion.modelSteps ?? Infinity) <= 1,
-        draftPreserved:
-          (await js(
-            "document.querySelector('.live-composer textarea').value",
-          )) === draft,
+        draftPreserved,
         workspaceUnchanged: JSON.stringify(before) === JSON.stringify(after),
       },
       answer: state.messages
