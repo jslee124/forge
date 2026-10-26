@@ -12,6 +12,7 @@ const { values } = parseArgs({
     live: { type: "boolean" },
     check: { type: "boolean" },
     round: { type: "string", multiple: true },
+    task: { type: "string", multiple: true },
   },
   strict: true,
 });
@@ -21,13 +22,18 @@ if (
   !values.round?.length
 )
   throw new Error(
-    "Usage: --check|--live --round <prepared-round-directory> [--round <directory>]",
+    "Usage: --check|--live --round <prepared-round-directory> [--round <directory>] [--task Q02|E01|F03]",
   );
+const tasks = values.task ?? ["Q02", "E01", "F03"];
+if (
+  new Set(tasks).size !== tasks.length ||
+  tasks.some((task) => !["Q02", "E01", "F03"].includes(task))
+)
+  throw new Error("Pilot tasks must be unique members of Q02, E01, F03");
 const require = createRequire(import.meta.url);
 const key = values.live
   ? new AuthenticationManager().requireApiKey("deepseek").apiKey
   : "";
-const tasks = ["Q02", "E01", "F03"];
 const corpus = JSON.parse(
   await readFile(
     new URL(
@@ -139,7 +145,7 @@ for (const supplied of values.round) {
         { mode: 0o600 },
       );
       console.log(
-        `Round ${manifest.round}: pinned seed/model checks passed; 3 pilot tasks pending; no credential access or provider calls`,
+        `Round ${manifest.round}: pinned seed/model checks passed; ${tasks.length} pilot tasks pending; no credential access or provider calls`,
       );
       continue;
     }
@@ -289,7 +295,7 @@ for (const supplied of values.round) {
           round: manifest.round,
           model: manifest.primaryModel,
           results,
-          remainingTasks: 21,
+          remainingTasks: 24 - tasks.length,
           userTrial: false,
           fullBaselineComplete: false,
         },

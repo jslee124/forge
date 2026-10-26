@@ -14,10 +14,10 @@ it("checks the frozen pilot without credentials or live calls, and refuses extra
     new URL("../../apps/desktop/scripts/product-live.mjs", import.meta.url),
   );
   const cwd = fileURLToPath(new URL("../../", import.meta.url));
-  const run = () =>
+  const run = (extra: string[] = []) =>
     promisify(execFile)(
       process.execPath,
-      [script, "--check", "--round", round],
+      [script, "--check", "--round", round, ...extra],
       {
         cwd,
         env: {
@@ -44,6 +44,19 @@ it("checks the frozen pilot without credentials or live calls, and refuses extra
       "E01",
       "F03",
     ]);
+    await run(["--task", "Q02"]);
+    const selected = JSON.parse(
+      await readFile(join(round, "pilot-plan.json"), "utf8"),
+    );
+    expect(selected.tasks.map((task: { task: string }) => task.task)).toEqual([
+      "Q02",
+    ]);
+    await expect(run(["--task", "Q02", "--task", "Q02"])).rejects.toMatchObject(
+      { stderr: expect.stringContaining("must be unique") },
+    );
+    await expect(run(["--task", "Q01"])).rejects.toMatchObject({
+      stderr: expect.stringContaining("must be unique"),
+    });
     await expect(
       stat(join(round, "E01", "runtime-home")),
     ).rejects.toMatchObject({ code: "ENOENT" });
