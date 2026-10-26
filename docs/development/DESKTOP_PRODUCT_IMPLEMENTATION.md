@@ -934,6 +934,35 @@ deterministic checks passed, as did root checks (existing 8 warnings / 48 infos)
 documentation checks, packed installation verification and Desktop build. No paid
 results or installed-app acceptance are implied by these checks.
 
+## Broader evidence-boundary real Desktop samples (2026-10-26)
+
+Two rounds of Q05/Q06/F03 at 5791a31 preserved original prompts/model/seeds and
+predeclared review criteria. Six runs used 18 model steps / 22 executed tools,
+63,300 ms summed recorded run duration. All preserved the workspace, granted no
+approvals and produced prose without raw DSML warnings or system fallback.
+
+- Both Q05 answers locate dispatch and its context without unsupported argument
+  type/data-loss claims. One completed at 4 steps/5 tools; the other retains the
+  partial tool-limit outcome at 5/8. Assistant review: usable with verbosity notes.
+- Both Q06 runs completed (2/2 and 3/3), correctly decline DAU numbers and zero,
+  but fail strict review: keyword misses do not prove missing instrumentation,
+  and manifest/private/size metadata do not establish deployment or user state.
+- Both F03 runs retain partial model-step-limit outcomes (2/2), summarize actual
+  evidence and pass budgetFinalized. Content interprets the ambiguous prompt as
+  investigating limit implementation and is verbose; this is a contract observation,
+  not a complete task/user acceptance pass.
+
+Do not aggregate these categories into a product success rate. Independent human,
+24-task/two-round and user trials remain outstanding. Each present round leaves
+21 tasks unselected; older-revision results do not fill these gaps. No retries,
+push, installation update, billing total or new UI acceptance is claimed.
+Evidence: `/tmp/forge-t13-evidence-boundaries-results/report.md`, with raw attempts
+and separately saved assistant reviews. Initial outbound automatic approval was
+rejected; a full nine-file sensitivity/hash inspection supplied new low-risk
+evidence, after which approval passed and the originally planned samples ran.
+The next gap is negative-evidence scope: absence of searched strings does not
+establish absence of a feature, deployment or analytics. T05/T13 remain partial.
+
 ## 1. Goal and invariants
 
 Complete the native-engine investigation → approval → execution → verification →
