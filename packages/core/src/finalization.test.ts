@@ -86,6 +86,43 @@ function fixture(
   return { options, requests, effects: () => effects };
 }
 describe("reserved final model step", () => {
+  it("warns about the model-step boundary even while the tool-call budget is plentiful", async () => {
+    const f = fixture();
+    const result = await runAgent({
+      ...f.options,
+      limits: { maxModelSteps: 6, maxToolCalls: 1000 },
+    });
+    expect(result).toMatchObject({
+      modelSteps: 6,
+      toolCalls: 5,
+      limitReason: "model_step_limit",
+      partial: true,
+    });
+    expect(f.requests[0]?.instructions).not.toContain(
+      "Model-response allowance is nearly exhausted",
+    );
+    expect(f.requests[1]?.instructions).not.toContain(
+      "Model-response allowance is nearly exhausted",
+    );
+    for (const request of f.requests.slice(2, 5)) {
+      expect(request.instructions).toContain(
+        "at most three tool-capable model responses remain",
+      );
+      expect(request.instructions).toContain(
+        "Do not skip necessary verification",
+      );
+      expect(request.instructions).not.toContain(
+        "Investigation allowance is nearly exhausted",
+      );
+    }
+    expect(f.requests[2]?.instructions).toBe(f.requests[3]?.instructions);
+    expect(f.requests[3]?.instructions).toBe(f.requests[4]?.instructions);
+    expect(f.requests[5]).toMatchObject({ toolChoice: "none" });
+    expect(f.requests[5]?.instructions).not.toContain(
+      "Model-response allowance is nearly exhausted",
+    );
+    expect(f.effects()).toBe(5);
+  });
   it.each([1, 2, 12])(
     "stays inside a %i-step total budget and executes no tools in the final step",
     async (maxModelSteps) => {

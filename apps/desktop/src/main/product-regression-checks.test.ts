@@ -87,6 +87,12 @@ it("observes a model-authored regression only with ordered pre-execution file id
     autonomousRegressionCycleObserved: true,
     regressionTestBytesPreserved: true,
   });
+  expect(check(command("red", 2, 1), [redSnapshot], "seed")).toMatchObject({
+    regressionFailedOnUnchangedSource: true,
+    regressionPassedOnChangedSource: false,
+    regressionTestBytesPreserved: true,
+    autonomousRegressionCycleObserved: false,
+  });
   expect(check(events, [])).toMatchObject({
     autonomousRegressionCycleObserved: false,
   });

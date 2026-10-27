@@ -33,11 +33,53 @@ are evidence only and never restore authority. They do not prove assertion
 relevance, exhaustive correctness, filesystem isolation or absence of unobserved
 transient edits; independent behavioral probes and source review remain required.
 
-Two fresh rounds are planned, each capped at six model steps and sixteen tool
-calls, with no automatic task retry. They receive no prewritten assertions or
-reference implementation. Final test code, actual command outcomes, observed
-hashes and independent edit-probes-v2 results will be reviewed separately. Do not
-record live success before those runs complete.
+Two fresh real DeepSeek rounds executed at `2cb26da`, each capped at six model
+steps and sixteen tool calls, with no automatic task retry and no supplied test
+assertions/reference implementation. They consumed twelve recorded model steps
+and seventeen tool calls in total; HTTP attempts/retries and billing were not
+measured. Both created `regression.test.mjs`, preserved all original files, and
+observed assertion-level failures on the unchanged implementation. Neither
+edited the implementation or reached a passing verification run before the
+model-step limit; both remain partial/limit_reached, with eight of fourteen
+independent assertions failing. No autonomous repair cycle or goal success is
+claimed.
+
+Source review found that round 1's tests wrongly allowed an absolute path and
+expected surrounding spaces to be trimmed. Round 2 tested relative paths and
+workspace escapes but omitted some whitespace/platform boundaries; its final
+proposed direction still mentioned trim. The regression-first permission path
+works in these samples, but assertion quality and repair completion remain
+unresolved. A new local counterexample confirms that an incorrectly specified
+whitespace test can go red-to-green with a wrong trim-based implementation while
+the independent probe still fails. This is not a model-output success classifier.
+
+The initial observer tied test-byte preservation to the presence of a green run.
+That reporting condition is now separated: a red-only observation plus matching
+final test bytes can confirm observed byte identity while the repair cycle stays
+false. Original reports remain unchanged and any corrected read-only observation
+is recorded separately; it does not convert either task to a pass.
+
+The live traces also exposed late budget guidance: warnings previously tracked
+remaining tool calls while both samples spent their model responses on discovery
+and test setup. Bounded core runs now add a fixed notice during the last three
+tool-capable model responses, independent of the remaining tool-call allowance.
+The notice remains textually stable within that phase rather than changing the
+instruction prefix every step. It requests scoped work and necessary checks,
+never new permission, skipped verification or additional budget; the reserved
+final response remains tool-free. Tests cover a six-step/1000-tool allowance,
+stable phase wording and unchanged action/call caps. This follow-up has not had
+another real-model sample; no claim that it fixes model comprehension follows.
+
+The six-step diagnostic is stricter than the product's current default twelve
+steps (`packages/config/src/schema.ts`). These samples do not establish how the
+default budget would behave. Validation after the follow-up: 824 full local tests
+passed with six opt-in tests skipped, 214 deterministic checks passed, and root
+and documentation checks passed. Electron out was temporarily absent during the
+full suite and restored. Evidence and separate assistant reviews are retained in
+`evals/artifacts/autonomous-regression-2cb26da/` (git ignored). Only the second
+round's final screenshot was inspected; independent-user/native IME/VoiceOver,
+full 24-task baseline, platform and release gates remain open. This increment
+did not replace the installed app or push remote changes.
 
 ## Focused code-repair quality follow-up (2026-10-27)
 
@@ -196,6 +238,7 @@ development records, not a claim that every T00–T14 gate is complete.
 | V07 | Remaining control faults verified locally in two rounds | Source `e451d1b`: F06/F05/F04 passed six local scripted control checks with zero paid calls. All 24 IDs now have hooks, but scoped controls are not a complete primary-model baseline. Retained task title and record discovery are now implemented; their new F05 acceptance is separate from this earlier evidence. |
 | V08 | Retained task discovery locally verified | `893b3d7`: canonical-empty sessions use saved request titles; explicit record entry replaces the welcome. Two isolated F05 rounds and 114 installed UI entries pass; no automatic replay or restored authority. |
 | V09 | Focused repair diagnostic; original case still fails | `69947ec` adds bounded repair guidance and faults-v2 public path tests. `6cbdf94` preserves v1 and corrects containment/command scoring; the assisted artifact passes 14 v2 checks, while both original-prompt samples still fail. Three real samples used 18 steps; reassessment made no provider calls. |
+| V10 | Model-authored regression path observed; repair loop pending | Two `2cb26da` faults-v3 E04 samples wrote their own tests and observed relevant failures, but neither repaired the source within six steps. Assertion errors remain. Early model-step guidance is locally tested only; the default twelve-step configuration has not been sampled here. |
 | V02 / T00,T13 | Pending full gate | Score all 24 fixed tasks in two independent rounds with pinned model/config/seed and predeclared rubric. Existing partial diagnostic samples do not satisfy this gate. |
 | V03 / T13 | Pending | Five target users perform Q02/E01/F03 without developer coaching; record blockers and results. Agent-operated tests cannot substitute for independent users. |
 | A01 / T12 | Partial | Native IME candidate confirmation must not send early; verify actual VoiceOver stage/error/approval announcements and keyboard recovery. AX/composition simulations are supporting evidence only. |

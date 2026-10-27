@@ -1,11 +1,60 @@
 import { execFile } from "node:child_process";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { cp, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { expect, it } from "vitest";
 import { prepareDesktopProductRound } from "./desktop-product-evaluation.js";
+
+const { checkProductEdit } = await import(
+  new URL("../scripts/desktop-product-assertions.mjs", import.meta.url).href
+);
+
+it("does not treat a regression cycle with incorrect whitespace assertions as task correctness", async () => {
+  const root = await mkdtemp(join(tmpdir(), "forge-autotest-contract-"));
+  try {
+    const workspace = join(root, "workspace");
+    await cp(
+      fileURLToPath(
+        new URL("../fixtures/desktop-product/seed/", import.meta.url),
+      ),
+      workspace,
+      { recursive: true },
+    );
+    const source = join(workspace, "workflow.mjs");
+    const regression = join(workspace, "regression.test.mjs");
+    // Captures the live model's mistaken assumption that surrounding path spaces
+    // should be removed. Such a test can go green while the task remains wrong.
+    await writeFile(
+      regression,
+      `import assert from 'node:assert/strict';
+import {test} from 'node:test'; import {relativePath} from './workflow.mjs';
+test('spaces',()=>assert.equal(relativePath(' dir/file name '),'dir/file name'));
+`,
+    );
+    const run = () =>
+      promisify(execFile)(process.execPath, ["--test", regression], {
+        cwd: workspace,
+        env: { PATH: process.env["PATH"] ?? "", HOME: root },
+      });
+    await expect(run()).rejects.toThrow();
+    const original = await readFile(source, "utf8");
+    await writeFile(
+      source,
+      original.replace(
+        'return value.trim().split(" ")[0];',
+        "return value.trim();",
+      ),
+    );
+    await run();
+    expect(
+      await checkProductEdit("E04", workspace, root, "edit-probes-v2"),
+    ).toMatchObject({ status: "failed" });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
 
 it("prepares autonomous regression diagnostics without supplying tests or accessing credentials", async () => {
   const root = await mkdtemp(join(tmpdir(), "forge-autonomous-test-"));

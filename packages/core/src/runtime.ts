@@ -528,15 +528,28 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
       return fallback("The adapter cannot request tool-free finalization.");
     }
     const remainingToolCalls = Math.max(0, limits.maxToolCalls - toolCalls);
-    const requestInstructions =
-      reserveFinalStep && !finalizing && remainingToolCalls <= 3
+    const remainingActionSteps = Math.max(
+      0,
+      limits.maxModelSteps - modelSteps - 1,
+    );
+    const budgetWarnings =
+      reserveFinalStep && !finalizing
         ? [
-            investigationInstructions,
-            `Investigation allowance is nearly exhausted: ${remainingToolCalls} tool calls remain before this request. A batch larger than this remaining allowance will be refused in full. Request at most ${remainingToolCalls} calls, prioritize evidence essential to the user's question, or answer now from observed evidence. Do not skip required verification or claim unread files were inspected.`,
-          ]
-            .filter(Boolean)
-            .join("\n\n")
-        : investigationInstructions;
+            // Keep this phase notice stable rather than changing the instruction prefix
+            // on every step. The model budget can run out while many tool calls remain.
+            remainingActionSteps <= 3
+              ? "Model-response allowance is nearly exhausted: at most three tool-capable model responses remain, including this request, before the reserved tool-free final response. If an authorized repair is still pending, prioritize the scoped implementation and relevant checks rather than opening another investigation branch. Group independent reads or already specified authorized actions only when their inputs do not depend on unseen results. Do not skip necessary verification, assume earlier calls succeeded, weaken tests or expand permissions to fit the budget; report unfinished work honestly."
+              : undefined,
+            remainingToolCalls <= 3
+              ? `Investigation allowance is nearly exhausted: ${remainingToolCalls} tool calls remain before this request. A batch larger than this remaining allowance will be refused in full. Request at most ${remainingToolCalls} calls, prioritize evidence essential to the user's question, or answer now from observed evidence. Do not skip required verification or claim unread files were inspected.`
+              : undefined,
+          ].filter(Boolean)
+        : [];
+    const requestInstructions = budgetWarnings.length
+      ? [investigationInstructions, ...budgetWarnings]
+          .filter(Boolean)
+          .join("\n\n")
+      : investigationInstructions;
     let request: import("./model.js").ModelRequest = {
       prompt: options.prompt,
       ...(options.images?.length ? { images: options.images } : {}),

@@ -127,15 +127,10 @@ export function autonomousRegressionChecks(
     : undefined;
   const preserved = Boolean(
     red &&
-      green &&
       finalTestSha256 &&
       finalTestSha256 === red.observation.test.sha256 &&
       observations
-        .filter(
-          (value) =>
-            value.sequence >= red.observation.sequence &&
-            value.sequence <= green.observation.sequence,
-        )
+        .filter((value) => value.sequence >= red.observation.sequence)
         .every(
           (value) =>
             value.test.status === "observed" &&
