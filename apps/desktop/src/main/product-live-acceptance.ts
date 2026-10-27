@@ -434,14 +434,24 @@ async function runPilot(
       "document.fonts.ready.then(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))))",
     );
     if (
-      ["D01", "D06"].includes(task) &&
-      (await js("Boolean(document.querySelector('.run-delivery'))"))
+      ["D01", "D02", "D06"].includes(task) &&
+      (current.runHistory?.selected?.delivery?.commands.length ?? 0) > 0
     ) {
       await until("document.querySelector('.run-delivery')");
       await js(
         "document.querySelector('.run-delivery').open=true;document.querySelector('.run-delivery-commands').scrollIntoView({block:'nearest'})",
       );
     }
+    await js(
+      "new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))",
+    );
+    if (
+      ["D01", "D02", "D06"].includes(task) &&
+      (current.runHistory?.selected?.delivery?.commands.length ?? 0) > 0
+    )
+      await until(
+        "document.querySelector('.run-delivery').open && document.querySelector('.run-delivery-commands li').getBoundingClientRect().height>0",
+      );
     await writeFile(
       join(directory, "desktop.png"),
       (await window.webContents.capturePage()).toPNG(),
