@@ -50,10 +50,10 @@ export async function runUiAcceptance(
     fixtures.push({ id: snapshot.id, cwd, kind, file });
   }
   const js = (code: string) => window.webContents.executeJavaScript(code);
-  const until = async (condition: string) => {
+  const until = async (condition: string, timeoutMs = 10000) => {
     console.log("D12 UI wait", condition);
     await js(
-      `new Promise((resolve, reject) => { const end = Date.now() + 10000; const poll = () => { if (${condition}) resolve(true); else if(Date.now() > end) reject(new Error('UI condition timed out')); else setTimeout(poll, 40); }; poll(); })`,
+      `new Promise((resolve, reject) => { const end = Date.now() + ${timeoutMs}; const poll = () => { if (${condition}) resolve(true); else if(Date.now() > end) reject(new Error('UI condition timed out')); else setTimeout(poll, 40); }; poll(); })`,
     );
   };
   const click = async (selector: string) => {
@@ -1432,6 +1432,60 @@ export async function runUiAcceptance(
         syntheticReplay: true,
       });
     }
+    // A progressing task crosses both former default ceilings through actual
+    // renderer -> utility -> adapter -> tools -> journal, with no explicit caps.
+    const longWorkspace = join(home, "long-task-workspace");
+    await mkdir(longWorkspace, { recursive: true });
+    for (let index = 1; index <= 45; index++)
+      await writeFile(
+        join(longWorkspace, `evidence-${index}.txt`),
+        `Evidence ${index}\n`,
+      );
+    const longConfig = { ...deliveryConfig };
+    delete longConfig.limits;
+    await writeFile(join(home, "config.json"), JSON.stringify(longConfig));
+    const originalOpenDialog = dialog.showOpenDialog;
+    try {
+      dialog.showOpenDialog = async () => ({
+        canceled: false,
+        filePaths: [longWorkspace],
+      });
+      await js("window.forgeDesktop.chooseWorkspace()");
+    } finally {
+      dialog.showOpenDialog = originalOpenDialog;
+    }
+    window.webContents.reload();
+    await until(
+      "document.querySelector('.studio-welcome') && !document.querySelector('[data-testid=composer-engine]').disabled",
+    );
+    provider.setMode("long-run");
+    const longCalls = provider.calls;
+    const longNoneRequests = provider.noneRequests;
+    await enterDraft("Progressing task beyond the former default ceilings");
+    await click(".studio-composer-footer > button:last-child");
+    await until(
+      "document.querySelector('[data-run-result=current]') && !document.querySelector('[data-testid=composer-engine]').disabled && document.body.innerText.includes('Long task complete')",
+      60000,
+    );
+    const longState = await js("window.forgeDesktop.manage({type:'state'})");
+    const longCompletion = longState.runHistory?.selected?.summary.completion;
+    if (
+      longCompletion?.outcome !== "completed" ||
+      longCompletion.modelSteps !== 46 ||
+      longCompletion.toolCalls !== 45 ||
+      provider.calls - longCalls !== 46 ||
+      provider.noneRequests !== longNoneRequests
+    )
+      throw new Error(
+        "Default unlimited task stopped at a former ceiling or forced finalization",
+      );
+    await capture("product-default-long-task");
+    results.push({
+      name: "default-unlimited-task",
+      completion: longCompletion,
+      fixture: true,
+      externalProvider: false,
+    });
     results.push({
       name: "p4-loopback-workflow",
       calls: provider.calls,
@@ -1443,6 +1497,6 @@ export async function runUiAcceptance(
   }
   await writeFile(
     join(output, "ui.json"),
-    `${JSON.stringify({ kind: "offline rendered UI with real IPC and file services; no model calls", results }, null, 2)}\n`,
+    `${JSON.stringify({ kind: "offline rendered UI with real IPC, scripted transport and file services; no external provider requests", results }, null, 2)}\n`,
   );
 }

@@ -1,5 +1,6 @@
 import { expect, it } from "vitest";
 import {
+  InvalidActionLoopTracker,
   ReadProgressTracker,
   unchangedReadFingerprint,
 } from "./read-progress.js";
@@ -143,4 +144,65 @@ it("forgets cycles on tracking capacity instead of inferring a loop", () => {
   expect(observe(tracker, "file-0")).toBe(false);
   expect(observe(tracker, "file-1")).toBe(false);
   expect(observe(tracker, "file-0")).toBe(false);
+});
+
+it("stops identical refused actions but never treats normal test failures or changed requests as that loop", () => {
+  const tracker = new InvalidActionLoopTracker();
+  const denied = [
+    {
+      callId: "read",
+      toolName: "read_file",
+      result: {
+        ok: false as const,
+        error: {
+          code: "approval_denied" as const,
+          message: "denied",
+          retryable: false,
+        },
+      },
+    },
+  ];
+  expect(tracker.observe([call], denied)).toBe(false);
+  expect(tracker.observe([call], denied)).toBe(false);
+  expect(tracker.observe([call], denied)).toBe(true);
+  expect(
+    tracker.observe([{ ...call, input: { path: "different" } }], denied),
+  ).toBe(false);
+  for (let n = 0; n < 5; n++)
+    expect(
+      tracker.observe(
+        [call],
+        [
+          {
+            callId: "read",
+            toolName: "read_file",
+            result: { ok: true, output: { exitCode: 1 }, truncated: false },
+          },
+        ],
+      ),
+    ).toBe(false);
+});
+
+it("does not stop retryable failures as repeated invalid actions", () => {
+  const tracker = new InvalidActionLoopTracker();
+  for (let index = 0; index < 5; index++)
+    expect(
+      tracker.observe(
+        [call],
+        [
+          {
+            callId: call.id,
+            toolName: call.name,
+            result: {
+              ok: false,
+              error: {
+                code: "limit_reached",
+                message: "retry later",
+                retryable: true,
+              },
+            },
+          },
+        ],
+      ),
+    ).toBe(false);
 });

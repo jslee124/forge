@@ -2436,3 +2436,30 @@ do not manufacture a report directory before selecting a version.
 - [ ] Canonical/continuation/policy/gateway-ADR invariants remain intact.
 - [ ] Failures and unverified platforms are retained; records never become authority.
 - [ ] Document, code, live, installed-app, and release completion are tracked separately.
+
+## 13. Optional native task ceilings (2026-10-28)
+
+Ordinary native runs now default to `maxSteps: null` and `maxToolCalls: null`,
+meaning no fixed total ceiling. Explicit positive limits remain supported; CLI
+`--max-steps unlimited` and `--max-tool-calls unlimited` explicitly clear them.
+Project configuration may tighten an unlimited parent or lower a finite ceiling,
+but cannot relax a finite user ceiling with `null`. Recovery review displays the
+effective nullable limits; answer-only recovery remains one model step, no tools.
+
+Core retains cancellation, context/output bounds and command timeout. Repeated
+unchanged versioned reads and three consecutive identical batches of permanent
+refused/invalid actions trigger `no_progress`; normal nonzero test exits and
+retryable errors do not establish that loop. These guards are conservative and
+do not detect every possible loop or enforce a monetary spending limit. The
+loop yields to the event loop so local fast adapters remain cancellable.
+Delegation remains bounded: at most four children; absent parent ceilings use a
+shared pool of 16 model steps and 32 tool calls, with per-child defaults of 4/8.
+
+Regression coverage includes progressing direct/reserved tasks completing 46
+model steps and 45 tool calls, cancellation without total caps, explicit finite
+limits, nullable config precedence and recovery protocol. The desktop acceptance
+scenario `default-unlimited-task` uses the actual renderer, IPC, utility adapter,
+workspace tools and journal with 45 distinct local files, without external
+provider calls. It verifies completion at 46/45 and no forced tool-free response.
+This scripted case establishes transport/control behavior, not model quality,
+cost, or completion of the remaining real-task/user acceptance gates.

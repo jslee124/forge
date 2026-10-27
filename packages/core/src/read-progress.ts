@@ -2,6 +2,55 @@ import { createHash } from "node:crypto";
 import type { ModelToolResult } from "./model.js";
 import type { ToolCall } from "./tools.js";
 
+/** Only repeated stateless refusals/invalid requests, not ordinary failed tests. */
+export class InvalidActionLoopTracker {
+  #last: string | undefined;
+  #count = 0;
+  observe(
+    calls: readonly ToolCall[],
+    results: readonly ModelToolResult[],
+  ): boolean {
+    let fingerprint: string | undefined;
+    if (calls.length && calls.length === results.length) {
+      try {
+        const entries = calls.map((call, index) => {
+          const entry = results[index];
+          if (
+            !entry ||
+            entry.callId !== call.id ||
+            entry.result.ok ||
+            entry.result.error.retryable ||
+            ![
+              "approval_denied",
+              "invalid_input",
+              "unknown_tool",
+              "outside_workspace",
+              "limit_reached",
+            ].includes(entry.result.error.code)
+          )
+            return undefined;
+          return [call.name, call.input, entry.result.error.code];
+        });
+        if (entries.every((entry) => entry !== undefined)) {
+          const value = JSON.stringify(entries);
+          if (value.length <= 65_536)
+            fingerprint = createHash("sha256").update(value).digest("hex");
+        }
+      } catch {
+        /* Unobservable input does not establish a loop. */
+      }
+    }
+    this.#count =
+      fingerprint && fingerprint === this.#last
+        ? this.#count + 1
+        : fingerprint
+          ? 1
+          : 0;
+    this.#last = fingerprint;
+    return this.#count >= 3;
+  }
+}
+
 /** Bounded, run-local stop evidence; never caches results or grants authority. */
 export class ReadProgressTracker {
   readonly #seen = new Set<string>();

@@ -128,8 +128,8 @@ export type ReasoningGears = z.infer<typeof reasoningGearsSchema>;
 
 const limitsSchema = z
   .object({
-    maxSteps: z.number().int().positive().optional(),
-    maxToolCalls: z.number().int().positive().optional(),
+    maxSteps: z.number().int().positive().nullable().optional(),
+    maxToolCalls: z.number().int().positive().nullable().optional(),
     commandTimeoutMs: z.number().int().positive().optional(),
     maxToolOutputBytes: z.number().int().positive().optional(),
   })
@@ -212,8 +212,8 @@ export interface EffectiveForgeConfig {
   };
   readonly permissionProfile: PermissionProfile;
   readonly limits: {
-    readonly maxSteps: number;
-    readonly maxToolCalls: number;
+    readonly maxSteps: number | null;
+    readonly maxToolCalls: number | null;
     readonly commandTimeoutMs: number;
     readonly maxToolOutputBytes: number;
   };
@@ -244,8 +244,8 @@ export const DEFAULT_FORGE_CONFIG: EffectiveForgeConfig = {
   },
   permissionProfile: "safe",
   limits: {
-    maxSteps: 12,
-    maxToolCalls: 40,
+    maxSteps: null,
+    maxToolCalls: null,
     commandTimeoutMs: 60_000,
     maxToolOutputBytes: 65_536,
   },

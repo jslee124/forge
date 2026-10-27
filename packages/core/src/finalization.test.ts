@@ -86,6 +86,86 @@ function fixture(
   return { options, requests, effects: () => effects };
 }
 describe("reserved final model step", () => {
+  it.each(["direct", "reserve-final-step"] as const)(
+    "allows a progressing %s task beyond both old default ceilings",
+    async (completionPolicy) => {
+      const f = fixture((request, step) =>
+        request.toolChoice === "none" || step > 45
+          ? [{ type: "text.delta", text: "Task complete" }, finish()]
+          : [call(`read-${step}`), finish(true)],
+      );
+      let version = 0;
+      const tool = f.options.tools[0];
+      if (!tool) throw new Error("Fixture tool missing");
+      const result = await runAgent({
+        ...f.options,
+        completionPolicy,
+        tools: [
+          {
+            ...tool,
+            execute: async () => ({
+              ok: true,
+              output: {
+                content: "new evidence",
+                resourceVersion: String(++version),
+              },
+              truncated: false,
+            }),
+          },
+        ],
+      });
+      expect(result).toMatchObject({
+        status: "completed",
+        modelSteps: 46,
+        toolCalls: 45,
+      });
+      expect(f.requests).toHaveLength(46);
+      expect(JSON.stringify(result)).not.toContain("Infinity");
+      expect(
+        f.requests.every(
+          (request) => !request.instructions?.includes("null model"),
+        ),
+      ).toBe(true);
+    },
+  );
+  it.each(["direct", "reserve-final-step"] as const)(
+    "stops repeated invalid actions without a configured %s total cap",
+    async (completionPolicy) => {
+      const f = fixture((request, step) =>
+        request.toolChoice === "none"
+          ? [{ type: "text.delta", text: "Invalid action stopped" }, finish()]
+          : [
+              {
+                type: "tool.call",
+                call: { id: String(step), name: "nonexistent", input: {} },
+              },
+              finish(true),
+            ],
+      );
+      const result = await runAgent({ ...f.options, completionPolicy });
+      expect(result).toMatchObject({
+        status: "limit_reached",
+        partial: true,
+        limitReason: "no_progress",
+      });
+      expect(f.requests).toHaveLength(completionPolicy === "direct" ? 3 : 4);
+      expect(f.effects()).toBe(0);
+    },
+  );
+  it("honors cancellation in an unlimited fast-adapter loop", async () => {
+    const f = fixture();
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10);
+    try {
+      const result = await runAgent({
+        ...f.options,
+        signal: controller.signal,
+      });
+      expect(result.status).toBe("cancelled");
+    } finally {
+      clearTimeout(timer);
+    }
+  });
   it("warns about the model-step boundary even while the tool-call budget is plentiful", async () => {
     const f = fixture();
     const result = await runAgent({
@@ -440,7 +520,7 @@ describe("reserved final model step", () => {
     expect(f.effects()).toBe(1);
     validateCanonicalConversation(result.canonicalDelta ?? []);
   });
-  it("summarizes after three identical reads with known unchanged versions", async () => {
+  it("summarizes uncapped tasks after three identical reads with known unchanged versions", async () => {
     const f = fixture();
     const reader = f.options.tools[0];
     if (!reader) throw new Error("missing fixture tool");
@@ -462,7 +542,6 @@ describe("reserved final model step", () => {
           },
         },
       ],
-      limits: { maxModelSteps: 12 },
     });
     expect(result).toMatchObject({
       status: "limit_reached",

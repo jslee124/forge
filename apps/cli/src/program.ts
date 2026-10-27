@@ -251,11 +251,15 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
       "--permission-profile <profile>",
       "permission profile: safe or workspace-write",
     )
-    .option("--max-steps <count>", "maximum model steps", parsePositiveInteger)
+    .option(
+      "--max-steps <count>",
+      "maximum model steps, or unlimited",
+      parseRunLimit,
+    )
     .option(
       "--max-tool-calls <count>",
-      "maximum tool calls",
-      parsePositiveInteger,
+      "maximum tool calls, or unlimited",
+      parseRunLimit,
     )
     .option(
       "--command-timeout-ms <milliseconds>",
@@ -288,11 +292,21 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
       "checkpoint summary target",
       parsePositiveInteger,
     )
-    .action(async (prompt: string, options: AskOptions) => {
+    .action(async (prompt: string, options: RunCLIOptions) => {
+      const { maxSteps, maxToolCalls, ...otherOptions } = options;
+      const runOptions: AskOptions = {
+        ...otherOptions,
+        ...(maxSteps !== undefined
+          ? { maxSteps: maxSteps === "unlimited" ? null : maxSteps }
+          : {}),
+        ...(maxToolCalls !== undefined
+          ? { maxToolCalls: maxToolCalls === "unlimited" ? null : maxToolCalls }
+          : {}),
+      };
       setExitCode(
         options.engine === "codex"
-          ? await codex(prompt, options, env)
-          : await run(prompt, options, env),
+          ? await codex(prompt, runOptions, env)
+          : await run(prompt, runOptions, env),
       );
     });
 
@@ -467,6 +481,16 @@ export function createProgram(dependencies: ProgramDependencies = {}): Command {
     });
 
   return program;
+}
+
+type RunCLIOptions = Omit<AskOptions, "maxSteps" | "maxToolCalls"> & {
+  readonly maxSteps?: number | "unlimited";
+  readonly maxToolCalls?: number | "unlimited";
+};
+
+function parseRunLimit(value: string): number | "unlimited" {
+  // Commander normalizes a parser's null result to an empty string.
+  return value === "unlimited" ? "unlimited" : parsePositiveInteger(value);
 }
 
 function parsePositiveInteger(value: string): number {

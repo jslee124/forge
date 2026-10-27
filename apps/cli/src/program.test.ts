@@ -40,6 +40,35 @@ describe("Forge CLI", () => {
     );
   });
 
+  it.each([
+    ["unlimited", null],
+    ["80", 80],
+  ] as const)(
+    "passes %s task ceilings through CLI parsing",
+    async (value, expected) => {
+      let received: unknown;
+      const program = createProgram({
+        env: {},
+        runTask: async (_prompt, options) => {
+          received = { steps: options.maxSteps, tools: options.maxToolCalls };
+          return 0;
+        },
+        setExitCode: () => {},
+      });
+      await program.parseAsync([
+        "node",
+        "forge",
+        "run",
+        "hello",
+        "--max-steps",
+        value,
+        "--max-tool-calls",
+        value,
+      ]);
+      expect(received).toEqual({ steps: expected, tools: expected });
+    },
+  );
+
   it("passes model options and environment to the ask command", async () => {
     let received:
       | {

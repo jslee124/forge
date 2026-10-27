@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { setImmediate as yieldToEventLoop } from "node:timers/promises";
 import {
   type ApprovalDescriptor,
   type ApprovalResponse,
@@ -39,7 +40,10 @@ import type {
   ApprovalPolicy,
   ProposedAction,
 } from "./policy.js";
-import { ReadProgressTracker } from "./read-progress.js";
+import {
+  InvalidActionLoopTracker,
+  ReadProgressTracker,
+} from "./read-progress.js";
 import type {
   ForgeTool,
   ModelToolDefinition,
@@ -48,8 +52,8 @@ import type {
   ToolResult,
 } from "./tools.js";
 
-export const DEFAULT_MAX_MODEL_STEPS = 12;
-export const DEFAULT_MAX_TOOL_CALLS = 40;
+export const DEFAULT_MAX_MODEL_STEPS = null;
+export const DEFAULT_MAX_TOOL_CALLS = null;
 
 export type FinalizationReason =
   | "model_step_limit"
@@ -274,8 +278,8 @@ export type RunEvent =
     };
 
 export interface RunLimits {
-  readonly maxModelSteps: number;
-  readonly maxToolCalls: number;
+  readonly maxModelSteps: number | null;
+  readonly maxToolCalls: number | null;
 }
 
 export interface RunContextSnapshot {
@@ -432,6 +436,10 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
     maxModelSteps: options.limits?.maxModelSteps ?? DEFAULT_MAX_MODEL_STEPS,
     maxToolCalls: options.limits?.maxToolCalls ?? DEFAULT_MAX_TOOL_CALLS,
   };
+  // Infinity is only an internal comparison value; persisted/displayed limits
+  // retain explicit null to represent an unconfigured ceiling.
+  const maxModelSteps = limits.maxModelSteps ?? Number.POSITIVE_INFINITY;
+  const maxToolCalls = limits.maxToolCalls ?? Number.POSITIVE_INFINITY;
   const events: RunEvent[] = [];
   const emit = async (event: RunEvent) => {
     events.push(event);
@@ -443,6 +451,8 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
     reserveFinalStep && options.finalizationInput === "evidence";
   let finalizing: FinalizationReason | undefined;
   const readProgress = new ReadProgressTracker();
+  const invalidActionProgress = new InvalidActionLoopTracker();
+  let repeatedInvalidActions = false;
   let modelSteps = 0;
   let toolCalls = 0;
   const deniedCalls = new Set<string>();
@@ -493,17 +503,19 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
   const investigationInstructions = reserveFinalStep
     ? [
         options.instructions,
-        `Total allowance: ${limits.maxModelSteps} model steps and ${limits.maxToolCalls} tool calls, including one reserved tool-free final step. Plan investigation within that allowance; finish early when the requested evidence is sufficient. State relevant unknowns; do not claim unexecuted verification or skip necessary verification of changes to finish sooner.`,
+        `Total allowance: ${limits.maxModelSteps ?? "no fixed cap on"} model steps and ${limits.maxToolCalls ?? "no fixed cap on"} tool calls. If an explicit limit or a no-progress condition requires finalization, reserve one tool-free response. Plan investigation within configured limits; finish early when the requested evidence is sufficient. State relevant unknowns; do not claim unexecuted verification or skip necessary verification of changes to finish sooner.`,
       ]
         .filter(Boolean)
         .join("\n\n")
     : options.instructions;
 
   while (true) {
+    // Unlimited fast/local adapters must still admit cancellation and IPC work.
+    await yieldToEventLoop();
     if (options.signal.aborted) {
       return finish("cancelled", "The run was cancelled.");
     }
-    if (modelSteps >= limits.maxModelSteps) {
+    if (modelSteps >= maxModelSteps) {
       return finish("limit_reached", "The model-step limit was reached.");
     }
 
@@ -511,12 +523,10 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
     if (
       reserveFinalStep &&
       !finalizing &&
-      (nextStep >= limits.maxModelSteps || toolCalls >= limits.maxToolCalls)
+      (nextStep >= maxModelSteps || toolCalls >= maxToolCalls)
     ) {
       finalizing =
-        toolCalls >= limits.maxToolCalls
-          ? "tool_call_limit"
-          : "model_step_limit";
+        toolCalls >= maxToolCalls ? "tool_call_limit" : "model_step_limit";
       await emit({
         type: "run.finalizing",
         step: nextStep,
@@ -527,11 +537,8 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
     if (finalizing && options.model.supportsToolChoiceNone !== true) {
       return fallback("The adapter cannot request tool-free finalization.");
     }
-    const remainingToolCalls = Math.max(0, limits.maxToolCalls - toolCalls);
-    const remainingActionSteps = Math.max(
-      0,
-      limits.maxModelSteps - modelSteps - 1,
-    );
+    const remainingToolCalls = Math.max(0, maxToolCalls - toolCalls);
+    const remainingActionSteps = Math.max(0, maxModelSteps - modelSteps - 1);
     const budgetWarnings =
       reserveFinalStep && !finalizing
         ? [
@@ -564,7 +571,7 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
             responseDirective: `The investigation stage has ended. Answer the original user request now, using only the evidence already returned. Do not request tools or further investigation. If a connection or value transformation is unsupported, say it is unknown. Do not infer runtime types or data loss from parameter or field names. Negative text search or manifest metadata cannot establish absent functionality, telemetry, deployment or users. Limit negative claims to the inspected scope and queried literals. Give a concise useful answer without unrelated tutorials. This is the original request: ${options.prompt}`,
             instructions: [
               options.instructions,
-              `Finalization required: ${finalizing}. This notice describes only the current run invocation, not the outcome or stop reason of any historical source run being summarized. The total run budget is fixed. No further tools may execute. Answer the user's original request using only observed evidence and tool results. Distinguish completed work, failed verification, unknowns, and next options. Do not claim the task succeeded merely because you can summarize. ${limits.maxModelSteps === 1 ? "This one-step budget permits answering only; investigation is unavailable." : ""}`,
+              `Finalization required: ${finalizing}. This notice describes only the current run invocation, not the outcome or stop reason of any historical source run being summarized. Any configured run limits remain fixed. No further tools may execute. Answer the user's original request using only observed evidence and tool results. Distinguish completed work, failed verification, unknowns, and next options. Do not claim the task succeeded merely because you can summarize. ${limits.maxModelSteps === 1 ? "This one-step budget permits answering only; investigation is unavailable." : ""}`,
             ]
               .filter(Boolean)
               .join("\n\n"),
@@ -968,7 +975,7 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
         : finish("completed");
     }
 
-    if (toolCalls + step.calls.length > limits.maxToolCalls) {
+    if (toolCalls + step.calls.length > maxToolCalls) {
       if (!reserveFinalStep)
         return finish("limit_reached", "The tool-call limit was reached.");
       finalizing = "tool_call_limit";
@@ -1337,22 +1344,30 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
 
     toolResults = nextResults;
     pendingExchange = canonicalExchange(runId, modelSteps, step, nextResults);
-    if (reserveFinalStep) {
-      if (readProgress.observe(step.calls, nextResults)) {
-        finalizing = "no_progress";
-        await emit({
-          type: "run.finalizing",
-          step: modelSteps + 1,
-          reason: finalizing,
-          ...(evidenceFinalization ? { inputMode: "evidence" as const } : {}),
-        });
-      }
+    repeatedInvalidActions = invalidActionProgress.observe(
+      step.calls,
+      nextResults,
+    );
+    if (
+      readProgress.observe(step.calls, nextResults) ||
+      repeatedInvalidActions
+    ) {
+      finalizing = "no_progress";
+      if (!reserveFinalStep) return fallback(finalizationMessage());
+      await emit({
+        type: "run.finalizing",
+        step: modelSteps + 1,
+        reason: finalizing,
+        ...(evidenceFinalization ? { inputMode: "evidence" as const } : {}),
+      });
     }
   }
 
   function finalizationMessage(): string {
     if (finalizing === "no_progress")
-      return "Investigation stopped after repeated unchanged read-only evidence.";
+      return repeatedInvalidActions
+        ? "Execution stopped after repeated identical refused or invalid tool actions."
+        : "Investigation stopped after repeated unchanged read-only evidence.";
     return finalizing === "tool_call_limit"
       ? "The tool-call limit was reached."
       : "The model-step limit was reached.";
@@ -1390,7 +1405,9 @@ export async function runAgent(options: RunAgentOptions): Promise<RunResult> {
     );
     finalText = [
       finalizing === "no_progress"
-        ? "Partial run result. Investigation repeated unchanged reads and was stopped."
+        ? repeatedInvalidActions
+          ? "Partial run result. Repeated identical refused or invalid actions were stopped."
+          : "Partial run result. Investigation repeated unchanged reads and was stopped."
         : "Partial run result. The total budget does not permit further investigation.",
       ...(facts.length
         ? facts.slice(-20).map((fact) => truncateRunOutcome(fact, 240))

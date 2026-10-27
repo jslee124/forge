@@ -56,8 +56,8 @@ export function RecoveryReview({
         <dt>{t("recovery.budget")}</dt>
         <dd>
           {t("recovery.budgetValue", {
-            steps: plan.maxModelSteps,
-            tools: plan.maxToolCalls,
+            steps: plan.maxModelSteps ?? t("recovery.unlimited"),
+            tools: plan.maxToolCalls ?? t("recovery.unlimited"),
           })}
         </dd>
         {plan.kind === "summarize" && plan.responseLocale && (

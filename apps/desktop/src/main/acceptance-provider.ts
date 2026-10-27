@@ -4,6 +4,7 @@ import { CANCEL_COMMAND } from "./product-live-scenarios.js";
 /** Loopback-only scripted transport for development acceptance, never provider evidence. */
 export async function acceptanceProvider() {
   let mode:
+    | "long-run"
     | "fault-D02"
     | "fault-D05"
     | "fault-D06"
@@ -23,6 +24,7 @@ export async function acceptanceProvider() {
     | { append: (text: string) => void; finish: () => void }
     | undefined;
   let calls = 0;
+  let longRunStep = 0;
   let noneRequests = 0;
   let toolFreeRequests = 0;
   const server = createServer(async (request, response) => {
@@ -70,6 +72,32 @@ export async function acceptanceProvider() {
         `data: ${JSON.stringify({ id: "p4-offline", object: "chat.completion.chunk", created: 1, model: "offline", choices: [{ index: 0, delta, finish_reason }] })}\n\n`,
       );
     send({ role: "assistant" });
+    if (mode === "long-run") {
+      longRunStep++;
+      if (longRunStep <= 45) {
+        send({
+          tool_calls: [
+            {
+              index: 0,
+              id: `long-${longRunStep}`,
+              type: "function",
+              function: {
+                name: "read_file",
+                arguments: JSON.stringify({
+                  path: `evidence-${longRunStep}.txt`,
+                }),
+              },
+            },
+          ],
+        });
+        send({}, "tool_calls");
+      } else {
+        send({ content: "Long task complete" });
+        send({}, "stop");
+      }
+      response.end("data: [DONE]\n\n");
+      return;
+    }
     if (["fault-D02", "fault-D05", "fault-D06"].includes(mode)) {
       const results =
         input.messages?.filter((message) => message.role === "tool") ?? [];
@@ -297,6 +325,7 @@ export async function acceptanceProvider() {
     url: `http://127.0.0.1:${address.port}/v1`,
     setMode(value: typeof mode) {
       mode = value;
+      longRunStep = 0;
     },
     appendText(text: string) {
       if (!textStream) throw new Error("fixture-stream-not-active");

@@ -10,8 +10,8 @@ export function finalizationEvidencePrompt(options: {
   readonly usedModelSteps: number;
   readonly usedToolCalls: number;
   readonly totalLimits: {
-    readonly maxModelSteps: number;
-    readonly maxToolCalls: number;
+    readonly maxModelSteps: number | null;
+    readonly maxToolCalls: number | null;
   };
   readonly knownOmittedMessages?: number;
 }):

@@ -42,8 +42,8 @@ export const recoveryPlanSchema = z
     responseLocale: z.enum(["en", "zh-CN"]).optional(),
     selection: selectionSchema,
     permissionProfile: z.enum(["safe", "workspace-write"]),
-    maxModelSteps: z.number().int().positive(),
-    maxToolCalls: z.number().int().nonnegative(),
+    maxModelSteps: z.number().int().positive().nullable(),
+    maxToolCalls: z.number().int().nonnegative().nullable(),
     incomplete: z.boolean(),
   })
   .strict();

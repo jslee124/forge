@@ -59,8 +59,8 @@ export interface ConfigOverrides {
   readonly reasoningEffort?: string;
   readonly thinking?: string;
   readonly permissionProfile?: string;
-  readonly maxSteps?: number;
-  readonly maxToolCalls?: number;
+  readonly maxSteps?: number | null;
+  readonly maxToolCalls?: number | null;
   readonly commandTimeoutMs?: number;
   readonly maxToolOutputBytes?: number;
   readonly contextMode?: string;
@@ -592,8 +592,14 @@ function mergeOrdinary(
     },
     permissionProfile: next.permissionProfile ?? base.permissionProfile,
     limits: {
-      maxSteps: next.limits?.maxSteps ?? base.limits.maxSteps,
-      maxToolCalls: next.limits?.maxToolCalls ?? base.limits.maxToolCalls,
+      maxSteps:
+        next.limits?.maxSteps !== undefined
+          ? next.limits.maxSteps
+          : base.limits.maxSteps,
+      maxToolCalls:
+        next.limits?.maxToolCalls !== undefined
+          ? next.limits.maxToolCalls
+          : base.limits.maxToolCalls,
       commandTimeoutMs:
         next.limits?.commandTimeoutMs ?? base.limits.commandTimeoutMs,
       maxToolOutputBytes:
@@ -635,7 +641,11 @@ function mergeProjectLimits(
   const limits = { ...base.limits };
   for (const [field, key] of LIMIT_KEYS) {
     const proposed = project.limits?.[field];
-    if (proposed !== undefined && proposed < limits[field]) {
+    if (
+      proposed !== undefined &&
+      proposed !== null &&
+      (limits[field] === null || proposed < limits[field])
+    ) {
       limits[field] = proposed;
       provenance[key] = source;
     }
@@ -798,7 +808,13 @@ function applyCli(
   for (const [field, key] of LIMIT_KEYS) {
     const value = cli[field];
     if (value !== undefined) {
-      if (!Number.isInteger(value) || value <= 0)
+      if (
+        !(
+          value === null &&
+          (field === "maxSteps" || field === "maxToolCalls")
+        ) &&
+        (value === null || !Number.isInteger(value) || value <= 0)
+      )
         throw new ForgeConfigError(
           `--${toKebab(field)} must be a positive integer.`,
         );

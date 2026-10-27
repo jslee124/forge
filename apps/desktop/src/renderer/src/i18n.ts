@@ -119,7 +119,7 @@ export const resources = {
       recovery: {
         actions: {
           summarize: "Summarize existing information",
-          continue: "Continue with a new budget",
+          continue: "Continue task",
           retry: "Edit and retry",
         },
         reviewFirst:
@@ -146,13 +146,14 @@ export const resources = {
         summaryScope:
           "Recorded facts only. No project plugins or tools. At most one logical model call; task completion remains unconfirmed.",
         continueScope:
-          "Start a new run with fresh limits and approval checks. Inspect current state; do not replay unknown effects or denied operations.",
+          "Start a new run using current configured limits and new approval checks. Inspect current state; do not replay unknown effects or denied operations.",
         retryScope:
           "Load the original prompt for editing. Nothing runs until you send it.",
         source: "Source run",
         model: "Model",
-        budget: "New budget",
-        budgetValue: "Up to {{steps}} model steps · {{tools}} tool calls",
+        budget: "Run limits",
+        budgetValue: "Model steps: {{steps}} · Tool calls: {{tools}}",
+        unlimited: "No fixed cap",
         language: "Summary language",
         permission: "Permissions",
         permissions: {
@@ -172,7 +173,7 @@ export const resources = {
       },
       runUi: {
         history: "Run records",
-        noProgressTitle: "Investigation stopped",
+        noProgressTitle: "Repeated operations stopped",
         partialResult:
           "Partial result based on available evidence; the task is not confirmed complete.",
         refreshHistory: "Latest records",
@@ -274,7 +275,7 @@ export const resources = {
         },
         reasons: {
           no_progress:
-            "Investigation repeated the same reads without new evidence and was stopped.",
+            "Repeated unchanged reads or identical refused/invalid actions were stopped. Review the recorded actions before continuing.",
           model_step_limit:
             "The model-step budget was reached. Work may be incomplete.",
           tool_call_limit:
@@ -704,7 +705,7 @@ export const resources = {
       recovery: {
         actions: {
           summarize: "总结已有信息",
-          continue: "新预算继续",
+          continue: "继续任务",
           retry: "编辑后重试",
         },
         reviewFirst: "先确认来源、模型、预算与权限，仅支持原生 Forge 记录。",
@@ -728,12 +729,13 @@ export const resources = {
         summaryScope:
           "仅使用已有记录，不加载项目插件、不调用工具。最多一次逻辑模型调用，不代表原任务完成。",
         continueScope:
-          "创建新运行，使用新预算并重新审批。先检查当前状态，不重放结果未知或已拒绝的操作。",
+          "创建新运行，使用当前配置的限额并重新审批。先检查当前状态，不重放结果未知或已拒绝的操作。",
         retryScope: "先恢复原始输入供你编辑，点击发送前不会运行。",
         source: "来源运行",
         model: "模型",
-        budget: "新预算",
-        budgetValue: "最多 {{steps}} 个模型步骤 · {{tools}} 次工具调用",
+        budget: "本次限额",
+        budgetValue: "模型步骤：{{steps}} · 工具调用：{{tools}}",
+        unlimited: "不限",
         language: "摘要语言",
         permission: "权限",
         permissions: {
@@ -752,7 +754,7 @@ export const resources = {
       },
       runUi: {
         history: "运行记录",
-        noProgressTitle: "调查已停止",
+        noProgressTitle: "已停止重复操作",
         partialResult: "基于已有证据的部分结果，尚未确认任务完成。",
         refreshHistory: "最新记录",
         noHistory: "暂无产品运行记录。旧会话可能没有活动历史。",
@@ -843,7 +845,8 @@ export const resources = {
             "供应商报告速率或额度限制，请检查其额度或稍后重试。",
         },
         reasons: {
-          no_progress: "连续重复读取未获得新证据，已停止调查并总结。",
+          no_progress:
+            "重复不变的读取或相同的拒绝／无效操作已触发兜底停止，请查看记录后决定如何继续。",
           model_step_limit: "已达到模型步骤上限，任务可能尚未完成。",
           tool_call_limit: "已达到工具调用上限，任务可能尚未完成。",
           context_limit: "当前可用上下文预算不足。",

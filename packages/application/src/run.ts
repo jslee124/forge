@@ -305,9 +305,9 @@ export async function runTask(
     ];
     validateSubagentToolSelections(pluginHost.subagents, childTools);
     const subagentBudget = {
-      remainingRuns: Math.min(4, loaded.config.limits.maxToolCalls),
-      remainingModelSteps: loaded.config.limits.maxSteps,
-      remainingToolCalls: loaded.config.limits.maxToolCalls,
+      remainingRuns: Math.min(4, loaded.config.limits.maxToolCalls ?? 4),
+      remainingModelSteps: loaded.config.limits.maxSteps ?? 16,
+      remainingToolCalls: loaded.config.limits.maxToolCalls ?? 32,
     };
     const runSubagent: PluginSubagentRunner = async (
       { subagent, task },
