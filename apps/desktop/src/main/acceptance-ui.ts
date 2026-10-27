@@ -10,6 +10,7 @@ import {
 import { app, type BrowserWindow, dialog } from "electron";
 import { acceptanceProvider } from "./acceptance-provider.js";
 import { runExperienceAcceptance } from "./experience-acceptance.js";
+import { CANCEL_FINISHED, CANCEL_STARTED } from "./product-live-scenarios.js";
 
 /** Explicit development acceptance fixture; never invokes a model or fabricates provider evidence. */
 export async function runUiAcceptance(
@@ -790,6 +791,89 @@ export async function runUiAcceptance(
       "document.querySelector('[data-run-result=current]')?.textContent.includes('Run stopped')",
     );
     await capture("p4-stopped");
+    // Exercise cancellation across the actual utility process and live validator,
+    // not just a historical/synthetic projection that bypasses RunChannel.
+    provider.setMode("cancel-command");
+    const commandCallsBefore = provider.calls;
+    const commandCwd = await js(
+      "window.forgeDesktop.manage({type:'state'}).then(s=>s.cwd)",
+    );
+    if (
+      !(await Promise.all(fixtures.map((f) => realpath(f.cwd)))).includes(
+        await realpath(commandCwd),
+      )
+    )
+      throw new Error("Cancellation probe is outside the isolated fixture");
+    await enterDraft("Live command cancellation transport fixture");
+    await click(".studio-composer-footer > button:last-child");
+    await click(".run-approval footer button:last-of-type");
+    let commandPid: number | undefined;
+    const commandStartDeadline = Date.now() + 5000;
+    while (!commandPid) {
+      if (Date.now() > commandStartDeadline)
+        throw new Error("Command did not start within fixture deadline");
+      try {
+        commandPid = JSON.parse(
+          await readFile(join(commandCwd, CANCEL_STARTED), "utf8"),
+        ).pid;
+      } catch (error) {
+        if (
+          (error as NodeJS.ErrnoException).code !== "ENOENT" ||
+          Date.now() > commandStartDeadline
+        )
+          throw error;
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      }
+    }
+    if (!Number.isSafeInteger(commandPid) || commandPid <= 1)
+      throw new Error("Invalid fixture PID");
+    process.kill(commandPid, 0);
+    await click(".studio-composer-footer > button:last-child");
+    await until(
+      "document.querySelector('[data-run-result=current]')?.textContent.includes('Run stopped') && !document.querySelector('[data-testid=composer-engine]').disabled",
+    );
+    const cancelledCommand = await js(
+      "window.forgeDesktop.manage({type:'state'}).then(s=>s.runHistory.selected)",
+    );
+    if (
+      cancelledCommand.summary.completion?.outcome !== "cancelled" ||
+      !cancelledCommand.delivery.unresolved.some(
+        (item: { status: string }) => item.status === "unknown",
+      ) ||
+      provider.calls !== commandCallsBefore + 1
+    )
+      throw new Error(
+        "Live cancellation lost its transport, outcome or unknown effect",
+      );
+    try {
+      process.kill(commandPid, 0);
+      throw new Error("Command process still alive");
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ESRCH") throw error;
+    }
+    const finished = await readFile(join(commandCwd, CANCEL_FINISHED)).then(
+      () => true,
+      (error: NodeJS.ErrnoException) => {
+        if (error.code !== "ENOENT") throw error;
+        return false;
+      },
+    );
+    if (finished)
+      throw new Error("Cancelled command reached completion marker");
+    await until("document.querySelector('.live-transcript .run-delivery')");
+    await js(
+      "document.querySelector('.live-transcript .run-delivery').open=true;document.querySelector('.live-transcript .run-delivery li').scrollIntoView({block:'center'})",
+    );
+    await capture("live-command-cancel-effects-unknown");
+    results.push({
+      name: "live-command-cancellation",
+      actualUtilityProcess: true,
+      actualChildProcess: true,
+      processExited: true,
+      unknownEffects: true,
+      managementConnected: true,
+      externalProvider: false,
+    });
     provider.setMode("error");
     await enterDraft("P4 offline error workflow");
     await click(".studio-composer-footer > button:last-child");

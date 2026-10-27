@@ -297,6 +297,7 @@ export const runPayloadSchema = z.discriminatedUnion("type", [
             "succeeded",
             "failed",
             "denied",
+            "unknown",
           ]),
           input: z.string().max(16_384),
           output: z.string().max(16_384).optional(),

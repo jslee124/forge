@@ -303,3 +303,66 @@ describe("recovery command boundary", () => {
       expect(parseRunCommand({ ...start, recovery: invalid })).toBeUndefined();
   });
 });
+
+it("keeps the live channel connected for unknown command effects and accepts cancellation completion", async () => {
+  let faults = 0;
+  const channel = new RunChannel(
+    () => undefined,
+    () => {
+      faults++;
+    },
+  );
+  const events: RunEvent[] = [];
+  channel.subscribe((event) => events.push(event));
+  const pending = channel.request(start);
+  channel.receive({ type: "run-reply", requestId: start.requestId, ok: true });
+  expect(await pending).toBe(true);
+  const envelope = {
+    type: "run-event",
+    schemaVersion: 2,
+    occurredAt: new Date().toISOString(),
+    requestId: start.requestId,
+    sessionId: start.sessionId,
+    runId: start.runId,
+  };
+  const action = {
+    actionId: "cancelled-command",
+    step: 1,
+    tool: "run_command",
+    status: "unknown",
+    input: "{}",
+    output: JSON.stringify({
+      ok: false,
+      error: {
+        code: "cancelled",
+        message: "The tool call was cancelled.",
+        retryable: false,
+      },
+    }),
+  };
+  const update = {
+    ...envelope,
+    sequence: 1,
+    payload: { type: "action", action },
+  };
+  expect(parseRunEvent(update)).toBeDefined();
+  expect(
+    parseRunEvent({
+      ...update,
+      payload: { type: "action", action: { ...action, status: "invented" } },
+    }),
+  ).toBeUndefined();
+  channel.receive(update);
+  channel.receive({
+    ...envelope,
+    sequence: 2,
+    payload: { type: "complete", outcome: "cancelled", reason: "cancelled" },
+  });
+  expect(faults).toBe(0);
+  expect(events.map((event) => event.payload.type)).toEqual([
+    "action",
+    "complete",
+  ]);
+  expect(events.at(-1)?.payload).toMatchObject({ outcome: "cancelled" });
+  channel.disconnect();
+});

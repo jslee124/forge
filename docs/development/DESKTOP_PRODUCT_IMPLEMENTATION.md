@@ -1540,6 +1540,35 @@ isolation. The fixture test may still fail for unrelated defects; independent
 checks and model-reported verification must remain separate. Raw answers still
 need task-level semantic review by a named reviewer.
 
+## Matrix interruption and live cancellation correction (2026-10-27)
+
+The `ec18064` partial matrix stopped in round 1 after 17 complete lane reports
+and one failed command-cancellation attempt; round 2 and F03 were not started.
+Completed reports record 74 logical steps; the interrupted lane's retained trace
+records one additional model start. The 75 observed logical starts are not HTTP
+attempts or measured billing. Original evidence is `/tmp/forge-matrix-ec18064`;
+no task was retried. E04 failed independent whitespace/traversal probes. D06 never
+triggered a nonzero command. Several investigation-heavy tasks hit bounded caps;
+inline verification commands outside the fixed allowlist were deliberately denied.
+These harness constraints and semantic counterexamples preclude a product success
+rate. Assistant reviews are not independent user acceptance.
+
+The interruption exposed an omission in `b3ed5dd`: application updates emitted
+`unknown`, but the live transport validator still rejected that valid status.
+RunChannel therefore faulted and killed the Agent before terminal journal summary
+persistence. Earlier historical projection/UI replay bypassed this live boundary
+and did not establish live cancellation reliability. The original command journal
+retains unknown effects and an unfinished summary; it is not relabelled passed.
+
+The validator now accepts the existing application's unknown-effect status while
+continuing to reject invented states. A regression test failed before this fix.
+A real local child-process test now crosses DesktopApplication, RunService and
+RunChannel: wait for PID marker, cancel, observe unknown effects, persist cancelled
+completion, read state and run another task. A loopback scripted-provider UI probe
+also crosses the actual utility process and clicks approval/Stop. These are local
+regression evidence, not a post-fix paid-model rerun. Paid matrix work stays stopped
+pending a fresh pinned plan; V02 remains open.
+
 ## 1. Goal and invariants
 
 Complete the native-engine investigation → approval → execution → verification →

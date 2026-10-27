@@ -1350,3 +1350,127 @@ it("browses snapshots during approval without switching the execution session or
     f.application.close();
   }
 });
+
+it("cancels a started command through live transport, persists unknown effects and remains usable", async () => {
+  const marker = "live-cancel-started.json";
+  const f = await fixture([
+    [
+      call("run_command", {
+        program: process.execPath,
+        args: [
+          "-e",
+          `require('node:fs').writeFileSync('${marker}',JSON.stringify({pid:process.pid}));setTimeout(()=>{},30000)`,
+        ],
+        cwd: ".",
+      }),
+      finish("tool-calls"),
+    ],
+  ]);
+  let faults = 0;
+  const channel = new RunChannel(
+    (command) => service.handle(command),
+    () => {
+      faults++;
+    },
+  );
+  const service = new RunService(
+    (message) => channel.receive(message),
+    f.application.execute,
+  );
+  const identity = {
+    sessionId: f.sessionId,
+    runId: randomUUID(),
+    requestId: randomUUID(),
+  };
+  const events: RunEvent[] = [];
+  let pid: number | undefined;
+  const jobs: Promise<void>[] = [];
+  let complete!: (event: RunEvent) => void;
+  const completed = new Promise<RunEvent>((resolve) => {
+    complete = resolve;
+  });
+  channel.subscribe((event) => {
+    events.push(event);
+    if (event.payload.type === "approval")
+      void channel.request({
+        ...identity,
+        type: "approve",
+        requestId: randomUUID(),
+        approvalId: event.payload.approvalId,
+        actionId: event.payload.descriptor?.actionId,
+        allow: true,
+      });
+    if (
+      event.payload.type === "action" &&
+      event.payload.action.status === "running"
+    )
+      jobs.push(
+        (async () => {
+          const deadline = Date.now() + 3000;
+          while (pid === undefined) {
+            try {
+              pid = JSON.parse(await readFile(join(f.cwd, marker), "utf8")).pid;
+            } catch (error) {
+              if (
+                (error as NodeJS.ErrnoException).code !== "ENOENT" ||
+                Date.now() > deadline
+              )
+                throw error;
+              await new Promise((resolve) => setTimeout(resolve, 10));
+            }
+          }
+          expect(
+            await channel.request({
+              ...identity,
+              type: "cancel",
+              requestId: randomUUID(),
+            }),
+          ).toBe(true);
+        })(),
+      );
+    if (event.payload.type === "complete") complete(event);
+  });
+  try {
+    expect(
+      await channel.request({
+        ...identity,
+        type: "start",
+        engine: "native",
+        prompt: "cancel started command",
+      }),
+    ).toBe(true);
+    expect((await completed).payload).toMatchObject({ outcome: "cancelled" });
+    await Promise.all(jobs);
+    await service.drain();
+    expect(faults).toBe(0);
+    expect(
+      events.some(
+        (e) =>
+          e.payload.type === "action" && e.payload.action.status === "unknown",
+      ),
+    ).toBe(true);
+    expect(pid).toBeTypeOf("number");
+    expect(() => process.kill(pid as number, 0)).toThrow(
+      expect.objectContaining({ code: "ESRCH" }),
+    );
+    const state = await f.application.manage({
+      type: "run-history",
+      runId: identity.runId,
+    });
+    expect(state.runHistory?.selected?.summary.completion?.outcome).toBe(
+      "cancelled",
+    );
+    expect(state.runHistory?.selected?.delivery?.unresolved).toEqual([
+      expect.objectContaining({ tool: "run_command", status: "unknown" }),
+    ]);
+    expect(desktopStateSchema.safeParse(state).success).toBe(true);
+    const next = await run(f.application, f.sessionId);
+    expect(next.accepted).toBe(true);
+    expect(next.final.payload).toMatchObject({ outcome: "completed" });
+    expect(f.requests).toHaveLength(2);
+  } finally {
+    service.close();
+    channel.disconnect();
+    f.application.close();
+  }
+});

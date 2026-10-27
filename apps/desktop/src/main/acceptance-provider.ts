@@ -1,8 +1,10 @@
 import { createServer } from "node:http";
+import { CANCEL_COMMAND } from "./product-live-scenarios.js";
 
 /** Loopback-only scripted transport for development acceptance, never provider evidence. */
 export async function acceptanceProvider() {
   let mode:
+    | "cancel-command"
     | "approval"
     | "wait"
     | "error"
@@ -65,6 +67,28 @@ export async function acceptanceProvider() {
         `data: ${JSON.stringify({ id: "p4-offline", object: "chat.completion.chunk", created: 1, model: "offline", choices: [{ index: 0, delta, finish_reason }] })}\n\n`,
       );
     send({ role: "assistant" });
+    if (mode === "cancel-command") {
+      send({
+        tool_calls: [
+          {
+            index: 0,
+            id: "live-cancel-command",
+            type: "function",
+            function: {
+              name: "run_command",
+              arguments: JSON.stringify({
+                program: "node",
+                args: ["-e", CANCEL_COMMAND],
+                cwd: ".",
+              }),
+            },
+          },
+        ],
+      });
+      send({}, "tool_calls");
+      response.end("data: [DONE]\n\n");
+      return;
+    }
     if (mode === "delivery" || mode === "delivery-fallback") {
       const count =
         input.messages?.filter((message) => message.role === "tool").length ??
