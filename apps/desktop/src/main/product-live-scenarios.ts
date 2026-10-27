@@ -21,7 +21,11 @@ export const PILOT_TASKS = [
   "F01",
   "F02",
   "F03",
+  "F04",
+  "F05",
+  "F06",
 ] as const;
+export const CONTROL_TASKS = ["F04", "F05", "F06"] as const;
 export const EXTERNAL_EDIT_MARKER = "// external-edit-must-survive";
 export const CANCEL_STARTED = "cancel-probe-started.json";
 export const CANCEL_FINISHED = "cancel-probe-finished.txt";
@@ -51,18 +55,22 @@ export function pilotScenario(task: string, cancelStage?: string) {
               : task === "F02"
                 ? `本轮只验证命令阶段的停止。请直接调用 run_command，program="node", args=${JSON.stringify(["-e", CANCEL_COMMAND])}, cwd="."，不改写脚本、不调用其他工具。脚本只在当前测试目录记录自身 PID 并等待，操作者将在启动后点击停止。`
                 : "";
+  const localOnly = (CONTROL_TASKS as readonly string[]).includes(task);
   return {
+    localOnly,
     limits: {
-      maxSteps:
-        task === "D03"
+      maxSteps: localOnly
+        ? 2
+        : task === "D03"
           ? 1
           : task === "F03" || cancelStage === "model"
             ? 2
             : cancelStage === "command"
               ? 3
               : 6,
-      maxToolCalls:
-        cancelStage === "model"
+      maxToolCalls: localOnly
+        ? 2
+        : cancelStage === "model"
           ? 1
           : cancelStage === "command"
             ? 2
@@ -81,7 +89,9 @@ export function pilotScenario(task: string, cancelStage?: string) {
             ? ["workflow.mjs", "main.mjs"]
             : task.startsWith("E")
               ? ["workflow.mjs"]
-              : task === "F02" && cancelStage === "command"
+              : task === "F04" ||
+                  task === "F05" ||
+                  (task === "F02" && cancelStage === "command")
                 ? [CANCEL_STARTED]
                 : [],
   };

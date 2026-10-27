@@ -9,6 +9,7 @@ import { checkProductEdit } from "../../../evals/scripts/desktop-product-asserti
 import { collectAttemptEvidence } from "../../../evals/scripts/desktop-product-attempt.mjs";
 import { AuthenticationManager } from "../../../packages/auth/dist/index.js";
 import {
+  CONTROL_TASKS,
   PILOT_TASKS,
   pilotScenario,
 } from "../src/main/product-live-scenarios.ts";
@@ -49,9 +50,13 @@ if (values["cancel-stage"] && !tasks.includes("F02"))
   throw new Error("--cancel-stage requires F02");
 if (
   values.fixture &&
-  tasks.some((task) => !["D02", "D03", "D05", "D06"].includes(task))
+  tasks.some(
+    (task) => !["D02", "D03", "D05", "D06", ...CONTROL_TASKS].includes(task),
+  )
 )
   throw new Error("Unsupported local fault fixture task");
+const usesLocalFixture = (task) =>
+  Boolean(values.fixture || CONTROL_TASKS.includes(task));
 const finalizationInput = values["finalization-input"] ?? "continuation";
 if (!["continuation", "evidence"].includes(finalizationInput))
   throw new Error("Invalid finalization input");
@@ -190,13 +195,13 @@ for (const supplied of values.round) {
         task,
         faultProtocol: manifest.faultProtocol ?? null,
         taskFixtureSha256: overlays,
-        providerMode: values.fixture
+        providerMode: usesLocalFixture(task)
           ? "local-scripted"
           : task === "D03"
             ? "none"
             : "external",
         credentialAccess:
-          task === "D03" || values.fixture
+          task === "D03" || usesLocalFixture(task)
             ? "none"
             : "only with --live after validation",
         modelSteps:
@@ -214,7 +219,9 @@ for (const supplied of values.round) {
           task,
           task === "F02" ? values["cancel-stage"] : undefined,
         ),
-        wallClockMs: 175000,
+        wallClockMs: task === "F05" ? 400000 : 175000,
+        processPhases:
+          task === "F05" ? ["crash", "read-only-reopen"] : ["execution"],
         status: "not_run",
         finalizationInput,
         locale,
@@ -239,10 +246,11 @@ for (const supplied of values.round) {
             model: manifest.primaryModel,
             tasks: plans,
             fixtureFiles: Object.keys(manifest.fixtureSha256),
-            externalDestination:
-              values.fixture || tasks.every((task) => task === "D03")
-                ? null
-                : "DeepSeek API",
+            externalDestination: tasks.every(
+              (task) => task === "D03" || usesLocalFixture(task),
+            )
+              ? null
+              : "DeepSeek API",
             externalCallsMade: 0,
             approval: "awaiting explicit confirmation",
             fullBaselineComplete: false,
@@ -269,7 +277,7 @@ for (const supplied of values.round) {
       if (actual !== expected)
         throw new Error(`Modified seed: ${task}/${name}`);
     }
-    if (task !== "D03" && !values.fixture && !key)
+    if (task !== "D03" && !usesLocalFixture(task) && !key)
       key = new AuthenticationManager().requireApiKey("deepseek").apiKey;
     const home = join(directory, "runtime-home");
     await mkdir(home, { mode: 0o700 }); // A prior attempt is retained, never overwritten or silently retried.
@@ -293,12 +301,14 @@ for (const supplied of values.round) {
     );
     Object.assign(env, {
       CI: "true",
-      ...(task !== "D03" && !values.fixture ? { DEEPSEEK_API_KEY: key } : {}),
+      ...(task !== "D03" && !usesLocalFixture(task)
+        ? { DEEPSEEK_API_KEY: key }
+        : {}),
       FORGE_HOME: home,
       FORGE_PRODUCT_LIVE_HOME: home,
       FORGE_PRODUCT_LIVE_WORKSPACE: workspace,
       FORGE_PRODUCT_LIVE_TASK: task,
-      FORGE_PRODUCT_LIVE_FIXTURE: values.fixture ? "1" : "0",
+      FORGE_PRODUCT_LIVE_FIXTURE: usesLocalFixture(task) ? "1" : "0",
       FORGE_PRODUCT_LIVE_OPT_IN: "1",
       FORGE_PRODUCT_LIVE_FINALIZATION_INPUT: finalizationInput,
       FORGE_PRODUCT_LIVE_LOCALE: locale,
@@ -309,44 +319,59 @@ for (const supplied of values.round) {
         values["recover-summary"] && ["E01", "F03"].includes(task) ? "1" : "0",
     });
     console.log(
-      `Round ${manifest.round} / ${task}: starting ${task === "D03" ? "zero-call admission" : values.fixture ? "local scripted fixture" : "real provider run"}; max steps ${limits.maxSteps}`,
-    );
-    const child = spawn(
-      require("electron"),
-      [resolve("."), "--desktop-product-live"],
-      { env, stdio: ["ignore", "pipe", "pipe"] },
+      `Round ${manifest.round} / ${task}: starting ${task === "D03" ? "zero-call admission" : usesLocalFixture(task) ? "local scripted fixture" : "real provider run"}; max steps ${limits.maxSteps}`,
     );
     const log = [];
-    for (const stream of [child.stdout, child.stderr])
-      stream.on("data", (chunk) => {
-        log.push(
-          key
-            ? chunk.toString().split(key).join("[redacted]")
-            : chunk.toString(),
+    async function launchDesktop(phase) {
+      const child = spawn(
+        require("electron"),
+        [resolve("."), "--desktop-product-live"],
+        {
+          env: {
+            ...env,
+            ...(phase ? { FORGE_PRODUCT_CONTROL_PHASE: phase } : {}),
+          },
+          stdio: ["ignore", "pipe", "pipe"],
+        },
+      );
+      for (const stream of [child.stdout, child.stderr])
+        stream.on("data", (chunk) =>
+          log.push(
+            key
+              ? chunk.toString().split(key).join("[redacted]")
+              : chunk.toString(),
+          ),
         );
-      });
-    const timer = setTimeout(
-      () => child.kill(),
-      values["recover-summary"] && ["E01", "F03"].includes(task)
-        ? 290_000
-        : 200_000,
-    );
-    let code;
-    let launchError;
-    try {
-      code = await new Promise((resolveExit, reject) => {
-        child.once("error", reject);
-        child.once("exit", resolveExit);
-      });
-    } catch (cause) {
-      code = null;
-      launchError = String(cause);
-    } finally {
-      clearTimeout(timer);
-      await writeFile(join(directory, "desktop.log"), log.join(""), {
-        mode: 0o600,
-      });
+      const timer = setTimeout(
+        () => child.kill(),
+        values["recover-summary"] && ["E01", "F03"].includes(task)
+          ? 290000
+          : 200000,
+      );
+      try {
+        return {
+          code: await new Promise((resolveExit, reject) => {
+            child.once("error", reject);
+            child.once("exit", resolveExit);
+          }),
+          launchError: undefined,
+        };
+      } catch (cause) {
+        return { code: null, launchError: String(cause) };
+      } finally {
+        clearTimeout(timer);
+      }
     }
+    let { code, launchError } = await launchDesktop();
+    if (code === 0 && task === "F05") {
+      // A fresh process inspects the crashed run; it never resubmits its prompt.
+      await readFile(join(directory, "crash-start.json"), "utf8");
+      ({ code, launchError } = await launchDesktop("reopen"));
+    }
+    await writeFile(join(directory, "desktop.log"), log.join(""), {
+      mode: 0o600,
+      flag: "wx",
+    });
     if (code !== 0) {
       const forensic = await collectAttemptEvidence(home, directory).catch(
         (error) => ({ error: String(error) }),
@@ -374,6 +399,9 @@ for (const supplied of values.round) {
             "attempt-records.json",
             "observed-events.json",
             "control-failure.json",
+            "crash-start.json",
+            "events.json",
+            "before-crash.png",
           ];
       failedAssessment.evidence = [
         "attempt-failure.json",
@@ -406,7 +434,8 @@ for (const supplied of values.round) {
             launchError,
             limits,
             status: retained ? "contract_failed" : "failed_to_record",
-            externalProviderConfigured: task !== "D03" && !values.fixture,
+            externalProviderConfigured:
+              task !== "D03" && !usesLocalFixture(task),
             forensic,
             actualExternalCalls:
               "HTTP attempts are not established by logical steps",
@@ -424,12 +453,25 @@ for (const supplied of values.round) {
     const result = JSON.parse(
       await readFile(join(directory, "pilot-result.json"), "utf8"),
     );
-    if (task === "D03") {
+    if (task === "D03" || CONTROL_TASKS.includes(task)) {
       const assessment = JSON.parse(
         await readFile(join(directory, "assessment.json"), "utf8"),
       );
-      assessment.status = "executed_admission_checked";
-      assessment.evidence = ["pilot-result.json", "desktop.png"];
+      assessment.status =
+        task === "D03"
+          ? "executed_admission_checked"
+          : "executed_control_checked";
+      assessment.evidence =
+        task === "D03"
+          ? ["pilot-result.json", "desktop.png"]
+          : [
+              "pilot-result.json",
+              "desktop.png",
+              "events.json",
+              ...(task === "F05"
+                ? ["crash-start.json", "before-crash.png"]
+                : []),
+            ];
       await writeFile(
         join(directory, "assessment.json"),
         JSON.stringify(assessment, null, 2) + "\n",

@@ -40,6 +40,19 @@ it("validates mock overlays before credentials and discloses zero-call admission
       credentialAccess: "none",
     });
     expect(plan.externalDestination).toBeNull();
+    for (const task of ["F04", "F05", "F06"]) {
+      await run("--task", task);
+      const control = JSON.parse(
+        await readFile(join(round, "pilot-plan.json"), "utf8"),
+      );
+      expect(control.externalDestination).toBeNull();
+      expect(control.tasks[0]).toMatchObject({
+        task,
+        providerMode: "local-scripted",
+        credentialAccess: "none",
+        scenario: { localOnly: true },
+      });
+    }
     await run("--task", "D02", "--fixture");
     plan = JSON.parse(await readFile(join(round, "pilot-plan.json"), "utf8"));
     expect(plan.tasks[0]).toMatchObject({

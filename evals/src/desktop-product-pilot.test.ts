@@ -189,7 +189,7 @@ it("checks the frozen pilot without credentials or live calls, and refuses extra
     await expect(run(["--task", "Q02", "--task", "Q02"])).rejects.toMatchObject(
       { stderr: expect.stringContaining("must be unique") },
     );
-    await expect(run(["--task", "F04"])).rejects.toMatchObject({
+    await expect(run(["--task", "X01"])).rejects.toMatchObject({
       stderr: expect.stringContaining("must be unique"),
     });
     await expect(

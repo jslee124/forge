@@ -1665,6 +1665,33 @@ a full unchanged-prompt baseline. Next prioritize record-write failure, crash/re
 and large-output controls before a newly pinned remaining/full run. Existing
 installed product build `d2fbf0e` was not replaced for these evaluator-only changes.
 
+## Remaining control-fault hooks (2026-10-27)
+
+F04/F05/F06 now have dedicated isolated, local-scripted Desktop hooks. They do not
+access real provider credentials or send fixture data externally. F04 produces
+10,000 reasoning fragments plus large text, reaches actual approval and Stop,
+checks merged/bounded display and explicit omitted-output wording, and cancels an
+owned child command. F05 kills the owned Agent utility process after the child PID
+marker, then cleans up that one child; a fresh Desktop process resumes only the
+historical view, checking interrupted/unknown state, no restored grants/approval,
+unchanged model trace and no effect replay. This is an Agent-process crash probe,
+not a machine/power failure or all-descendant process-tree test.
+
+F06 temporarily renames its original journal and puts an empty directory at the
+append path before the scripted model response. It checks storage failure before
+approval/tool effects, existing-file preservation and no false completion, then
+restores the exact original journal bytes. The empty blocker is removed without
+recursive deletion; the original journal is never discarded or replaced with a
+successful result. Host observations and persisted completion remain distinct.
+
+The task registry can now dispatch all 24 IDs / 50 lanes including both F02 stages.
+Control faults are always local, even in a mixed matrix. A F05 reopen is a separate
+read-only process phase, not a task retry, and has a separately disclosed time cap.
+The default planned maximum is 242 logical steps, of which at most 230 are real
+model steps; no calls are made during preparation. `fullBaselineComplete` remains
+false pending complete execution and semantic acceptance. Implementation and unit
+checks alone do not establish successful fault execution; results follow separately.
+
 ## 1. Goal and invariants
 
 Complete the native-engine investigation → approval → execution → verification →

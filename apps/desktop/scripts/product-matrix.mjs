@@ -36,14 +36,12 @@ if (
   );
 const output = resolve(values.output);
 const corpus = await loadDesktopProductCorpus();
-const unavailable = {
-  F04: "Large-output/10000-fragment injection and control-reachability probe not wired into this matrix.",
-  F05: "Crash-after-tool-start, relaunch and no-replay probe not wired into this matrix.",
-  F06: "Journal-write failure injection and side-effect audit not wired into this matrix.",
-};
+const unavailable = {};
 const files = [
   "apps/desktop/out/main/index.js",
   "apps/desktop/out/main/agent.js",
+  "apps/desktop/src/main/product-control-acceptance.ts",
+  "apps/desktop/src/main/product-control-faults.ts",
   "apps/desktop/src/main/product-live-scenarios.ts",
   "apps/desktop/src/main/product-live-policy.ts",
   "apps/desktop/scripts/product-live.mjs",
@@ -117,24 +115,37 @@ if (values.prepare) {
     finalizationInput: "continuation",
     wholeTaskRetries: 0,
     externalDestination:
-      values.fixture || lanes.every((l) => l.task === "D03")
+      values.fixture ||
+      lanes.every((l) => l.task === "D03" || l.scenario.localOnly)
         ? null
         : "DeepSeek API",
     maxLogicalModelSteps: lanes.reduce(
       (n, l) => n + (l.task === "D03" ? 0 : l.scenario.limits.maxSteps),
       0,
     ),
-    maxWallClockMsPerLane: 200000,
+    maxWallClockMsPerLane: lanes.some((l) => l.task === "F05")
+      ? 400000
+      : 200000,
     stimulusDisclosure:
       "Original prompt plus exact per-lane scenario supplement. Supplemented fault probes are not unchanged-prompt baseline.",
     missing: unavailable,
     faultProtocol: "desktop-product-faults-v1",
     selectedTasks: values.task ?? PILOT_TASKS,
-    providerMode: values.fixture ? "local-scripted" : "external",
+    providerMode:
+      values.fixture ||
+      lanes.every((l) => l.scenario.localOnly || l.task === "D03")
+        ? "local-scripted"
+        : lanes.some((l) => l.scenario.localOnly)
+          ? "mixed"
+          : "external",
     maxPaidLogicalModelSteps: values.fixture
       ? 0
       : lanes.reduce(
-          (n, l) => n + (l.task === "D03" ? 0 : l.scenario.limits.maxSteps),
+          (n, l) =>
+            n +
+            (l.task === "D03" || l.scenario.localOnly
+              ? 0
+              : l.scenario.limits.maxSteps),
           0,
         ),
     lanes,
@@ -142,7 +153,7 @@ if (values.prepare) {
   };
   await save("matrix-plan.json", plan);
   console.log(
-    `Prepared 48 task rows / ${lanes.length} supported lanes; 3 missing task protocols per round; zero model calls.`,
+    `Prepared 48 task rows / ${lanes.length} supported lanes; no missing task hooks; fault controls are local scripted lanes; zero model calls.`,
   );
 }
 const plan = JSON.parse(
@@ -166,6 +177,8 @@ async function report() {
           assessment: await read("assessment.json"),
           completion: result?.completion ?? null,
           admission: result?.admission ?? null,
+          controlReview: result?.controlReview ?? null,
+          fixtureModel: result?.fixtureModel ?? null,
           forensic: await read("attempt-records.json"),
           checks: result?.checks ?? null,
           independent: await read("independent-check.json"),
@@ -180,7 +193,12 @@ async function report() {
           ? "not_run_missing_protocol"
           : lanes.length === 0
             ? "not_selected"
-            : lanes.every((l) => l.completion || l.admission?.blocked)
+            : lanes.every(
+                  (l) =>
+                    l.completion ||
+                    l.admission?.blocked ||
+                    l.controlReview?.checked,
+                )
               ? "executed_needs_semantic_review"
               : "not_run_or_infrastructure_failure",
         missingProtocol: plan.missing[task.id] ?? null,
@@ -210,7 +228,7 @@ async function report() {
 if (values.live) {
   if (!values["supported-only"])
     throw new Error(
-      "Full baseline blocked by three missing task protocols; use explicit --supported-only for the disclosed partial matrix",
+      "Live execution requires --supported-only; task execution does not establish full semantic baseline acceptance",
     );
   if (
     (await revision()) !== plan.sourceRevision ||
@@ -284,7 +302,11 @@ if (values.live) {
     );
     const current = row.lanes.find((l) => l.stage === (lane.stage ?? null));
     if (
-      !(current.completion || current.admission?.blocked) ||
+      !(
+        current.completion ||
+        current.admission?.blocked ||
+        current.controlReview?.checked
+      ) ||
       ["configuration_error", "disconnected"].includes(
         current.completion?.reason,
       ) ||

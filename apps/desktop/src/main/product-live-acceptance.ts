@@ -16,6 +16,7 @@ import { runPilotSummaryRecovery } from "./product-live-recovery.js";
 import {
   CANCEL_FINISHED,
   CANCEL_STARTED,
+  CONTROL_TASKS,
   EXTERNAL_EDIT_MARKER,
   PILOT_TASKS,
   pilotScenario,
@@ -28,6 +29,12 @@ export async function runProductLivePilot(
   files: FileService,
 ) {
   const task = process.env["FORGE_PRODUCT_LIVE_TASK"];
+  if ((CONTROL_TASKS as readonly string[]).includes(task ?? "")) {
+    const { runProductControlPilot } = await import(
+      "./product-control-acceptance.js"
+    );
+    return runProductControlPilot(window, agent, files);
+  }
   const local = process.env["FORGE_PRODUCT_LIVE_FIXTURE"] === "1";
   if (!local || task === "D03") return runPilot(window, agent, files);
   if (!["D02", "D05", "D06"].includes(task ?? ""))
