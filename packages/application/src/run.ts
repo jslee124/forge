@@ -57,6 +57,7 @@ import { resolveImageInputs } from "./image-input.js";
 import {
   NATIVE_CHANGE_INSTRUCTIONS,
   NATIVE_INVESTIGATION_INSTRUCTIONS,
+  NATIVE_REGRESSION_INSTRUCTIONS,
 } from "./investigation-instructions.js";
 import {
   type CreateForgeModelAdapterOptions,
@@ -223,7 +224,11 @@ export async function runTask(
       pluginPrompt.prompt,
       activeContext.memory,
       ...(dependencies.completionPolicy === "reserve-final-step"
-        ? [NATIVE_INVESTIGATION_INSTRUCTIONS, NATIVE_CHANGE_INSTRUCTIONS]
+        ? [
+            NATIVE_INVESTIGATION_INSTRUCTIONS,
+            NATIVE_CHANGE_INSTRUCTIONS,
+            NATIVE_REGRESSION_INSTRUCTIONS,
+          ]
         : []),
     ]
       .filter((value) => value !== "")

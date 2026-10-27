@@ -43,7 +43,8 @@ const root = fileURLToPath(
 );
 export type DesktopProductFaultProtocol =
   | "desktop-product-faults-v1"
-  | "desktop-product-faults-v2";
+  | "desktop-product-faults-v2"
+  | "desktop-product-faults-v3";
 
 export function desktopProductOverlayDirectory(
   task: string,

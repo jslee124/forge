@@ -22,6 +22,11 @@ import {
   PILOT_TASKS,
   pilotScenario,
 } from "./product-live-scenarios.js";
+import {
+  autonomousRegressionChecks,
+  observeRegressionInputs,
+  type RegressionObservation,
+} from "./product-regression-checks.js";
 
 /** Real provider pilot via the same renderer, preflight, Agent and run journal as normal Desktop. */
 export async function runProductLivePilot(
@@ -242,6 +247,7 @@ async function runPilot(
   }[] = [];
   const controlJobs: Promise<void>[] = [];
   const controlErrors: string[] = [];
+  const regressionObservations: RegressionObservation[] = [];
   const cancellation: PilotCancellation | undefined =
     task === "F02" ? { stage: cancelStage as "model" | "command" } : undefined;
   let externalEdit:
@@ -324,6 +330,20 @@ async function runPilot(
       });
       controlJobs.push(
         (async () => {
+          if (
+            task === "E04" &&
+            faultProtocol === "desktop-product-faults-v3" &&
+            allow &&
+            approval.descriptor?.effect === "process"
+          ) {
+            regressionObservations.push(
+              await observeRegressionInputs(
+                workspace,
+                approval.descriptor.actionId,
+                event.sequence,
+              ),
+            );
+          }
           if (
             task === "D05" &&
             allow &&
@@ -485,6 +505,7 @@ async function runPilot(
       submittedPrompt,
       cancellation,
       externalEdit,
+      regressionObservations,
       recorded: current.runHistory?.selected,
       controlErrors,
       finalizationInput: finalizationInput,
@@ -516,6 +537,22 @@ async function runPilot(
           scenario.expectedWrites.includes(path),
         ),
         uiControlsSucceeded: controlErrors.length === 0,
+        ...(task === "E04" && faultProtocol === "desktop-product-faults-v3"
+          ? {
+              ...autonomousRegressionChecks(
+                events,
+                regressionObservations,
+                before["workflow.mjs"],
+                after["workflow.mjs"],
+                after["regression.test.mjs"],
+              ),
+              regressionTestCreated:
+                !before["regression.test.mjs"] &&
+                Boolean(after["regression.test.mjs"]),
+              originalTestsPreserved:
+                before["fixture.test.mjs"] === after["fixture.test.mjs"],
+            }
+          : {}),
         pathTestsPreserved:
           task === "E04" && faultProtocol === "desktop-product-faults-v2"
             ? Boolean(before["path.test.mjs"]) &&

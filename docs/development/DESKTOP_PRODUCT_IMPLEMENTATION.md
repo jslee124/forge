@@ -7,6 +7,38 @@ contract and task list, not shipped behavior. New filenames, types, fields, and
 configuration below are proposed; section 2 separately identifies existing code.
 Resolve PRD/implementation disagreements in both documents before implementing.
 
+## Model-authored regression diagnostic (2026-10-27)
+
+Bounded native guidance now describes an authorized regression-first repair:
+choose assertions from the requested contract, observe a relevant failure on the
+unchanged implementation, preserve the test, fix the source, and rerun the same
+command. Syntax/import/unrelated failures and a zero exit alone are insufficient.
+This guidance grants no test-write/process permission and exempts trivial
+nonbehavioral edits from unnecessary testing.
+
+Opt-in `desktop-product-faults-v3` E04 starts from the unchanged v1 seed, with no
+supplied path or regression tests. The declared scope permits only `workflow.mjs`
+and a model-created `regression.test.mjs`, plus the exact cwd-local
+`node --test regression.test.mjs` command. Existing tests, other files, inline
+code, shell substitutions and widened cwd remain outside this pilot allowlist.
+The default and previous protocols remain unchanged. This is a disclosed
+permission/procedure diagnostic, not an unchanged-prompt baseline.
+
+Before each approved test command, the host records bounded regular-file hashes
+for the implementation and test. Mechanical checks require a nonzero exit on the
+seed implementation, a later zero exit on the changed final implementation, and
+the same test bytes across the observed commands and final state. Missing, late,
+nonregular or oversized observations cannot establish that loop. These snapshots
+are evidence only and never restore authority. They do not prove assertion
+relevance, exhaustive correctness, filesystem isolation or absence of unobserved
+transient edits; independent behavioral probes and source review remain required.
+
+Two fresh rounds are planned, each capped at six model steps and sixteen tool
+calls, with no automatic task retry. They receive no prewritten assertions or
+reference implementation. Final test code, actual command outcomes, observed
+hashes and independent edit-probes-v2 results will be reviewed separately. Do not
+record live success before those runs complete.
+
 ## Focused code-repair quality follow-up (2026-10-27)
 
 A fresh original E04 run at `d6fee80` reproduced an unresolved coding failure:

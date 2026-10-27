@@ -70,6 +70,12 @@ it.each(["direct", "reserve-final-step"] as const)(
         expect(instructions).toContain("a denied command does not authorize");
         expect(instructions).toContain("preserving operators and arguments");
         expect(instructions).toContain(
+          "Run it against the unchanged implementation first",
+        );
+        expect(instructions).toContain(
+          "Do not weaken tests to obtain a passing result",
+        );
+        expect(instructions).toContain(
           "do not authorize edits for read-only questions",
         );
       } else

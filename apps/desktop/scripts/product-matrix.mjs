@@ -38,9 +38,11 @@ if (
 const output = resolve(values.output);
 const faultProtocol = values["fault-protocol"] ?? "desktop-product-faults-v1";
 if (
-  !["desktop-product-faults-v1", "desktop-product-faults-v2"].includes(
-    faultProtocol,
-  )
+  ![
+    "desktop-product-faults-v1",
+    "desktop-product-faults-v2",
+    "desktop-product-faults-v3",
+  ].includes(faultProtocol)
 )
   throw new Error("Unknown fault protocol");
 if (values["fault-protocol"] && !values.prepare)
@@ -57,6 +59,7 @@ const files = [
   "apps/desktop/src/main/product-control-stream.ts",
   "apps/desktop/src/main/product-live-scenarios.ts",
   "apps/desktop/src/main/product-live-policy.ts",
+  "apps/desktop/src/main/product-regression-checks.ts",
   "apps/desktop/scripts/product-live.mjs",
   "apps/desktop/scripts/product-matrix.mjs",
   "apps/desktop/scripts/product-matrix-inputs.mjs",

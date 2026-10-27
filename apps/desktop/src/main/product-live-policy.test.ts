@@ -287,3 +287,70 @@ it("enables only the declared read-only path test in faults-v2", () => {
   });
   expect(pilotScenario("E04").supplement).toBe("");
 });
+
+it("permits only a dedicated model-authored test in the autonomous protocol", () => {
+  const protocol = "desktop-product-faults-v3";
+  const command = approval("process", {
+    program: "node",
+    args: ["--test", "regression.test.mjs"],
+    cwd: ".",
+  });
+  expect(allowPilotApproval("E04", command, undefined, protocol)).toBe(true);
+  expect(
+    allowPilotApproval(
+      "E04",
+      approval("write", { path: "regression.test.mjs" }),
+      undefined,
+      protocol,
+    ),
+  ).toBe(true);
+  for (const old of [
+    undefined,
+    "desktop-product-faults-v1",
+    "desktop-product-faults-v2",
+  ])
+    expect(allowPilotApproval("E04", command, undefined, old)).toBe(false);
+  for (const path of [
+    "fixture.test.mjs",
+    "path.test.mjs",
+    "../regression.test.mjs",
+    "/regression.test.mjs",
+    "main.mjs",
+  ])
+    expect(
+      allowPilotApproval(
+        "E04",
+        approval("write", { path }),
+        undefined,
+        protocol,
+      ),
+    ).toBe(false);
+  for (const task of ["Q02", "E01", "D02"])
+    expect(
+      allowPilotApproval(
+        task,
+        approval("write", { path: "regression.test.mjs" }),
+        undefined,
+        protocol,
+      ),
+    ).toBe(false);
+  for (const input of [
+    { program: "node", args: ["-e", "code"] },
+    { program: "node", args: ["--test", "regression.test.mjs"], cwd: ".." },
+    { program: "node", args: ["--test", "fixture.test.mjs"] },
+    { program: "node", args: ["--test", "regression.test.mjs", "extra.mjs"] },
+    { program: "sh", args: ["-c", "node --test regression.test.mjs"] },
+  ])
+    expect(
+      allowPilotApproval(
+        "E04",
+        approval("process", input),
+        undefined,
+        protocol,
+      ),
+    ).toBe(false);
+  expect(pilotScenario("E04", undefined, protocol)).toMatchObject({
+    limits: { maxSteps: 6, maxToolCalls: 16 },
+    expectedWrites: ["workflow.mjs", "regression.test.mjs"],
+  });
+});

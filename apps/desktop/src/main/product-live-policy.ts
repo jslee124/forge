@@ -31,6 +31,9 @@ export function allowPilotApproval(
           ? input.path === "workflow.mjs"
           : /^E0[1-6]$/.test(task) &&
             (input.path === "workflow.mjs" ||
+              (task === "E04" &&
+                faultProtocol === "desktop-product-faults-v3" &&
+                input.path === "regression.test.mjs") ||
               (task === "E06" && input.path === "main.mjs"));
     if (approval.descriptor.effect !== "process") return false;
     if (task === "F02")
@@ -52,9 +55,11 @@ export function allowPilotApproval(
       input.args[1] ===
         (task === "D02"
           ? "mock.test.mjs"
-          : task === "E04" && faultProtocol === "desktop-product-faults-v2"
-            ? "path.test.mjs"
-            : "fixture.test.mjs")
+          : task === "E04" && faultProtocol === "desktop-product-faults-v3"
+            ? "regression.test.mjs"
+            : task === "E04" && faultProtocol === "desktop-product-faults-v2"
+              ? "path.test.mjs"
+              : "fixture.test.mjs")
     );
   } catch {
     return false;
