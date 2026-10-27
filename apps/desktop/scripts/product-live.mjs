@@ -454,6 +454,8 @@ for (const supplied of values.round) {
       await readFile(join(directory, "pilot-result.json"), "utf8"),
     );
     if (task === "D03" || CONTROL_TASKS.includes(task)) {
+      if (CONTROL_TASKS.includes(task))
+        await collectAttemptEvidence(home, directory);
       const assessment = JSON.parse(
         await readFile(join(directory, "assessment.json"), "utf8"),
       );

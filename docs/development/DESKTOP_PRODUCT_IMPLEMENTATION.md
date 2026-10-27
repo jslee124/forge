@@ -19,6 +19,7 @@ development records, not a claim that every T00–T14 gate is complete.
 | V04 | Bounded pilot and regression fix complete | D01/F01/F02 (model and command) used seven logical model steps at `806ceeb`. Original command-lane failure remains recorded; fix `b3ed5dd` passed deterministic projection replay and source `945582e` passed visible UI replay. These samples do not close V02 or V03. |
 | V05 | Matrix stopped; live cancellation fixed locally | `ec18064` produced 17 complete lane reports and one disconnected command-cancel attempt in round 1. Original failure retained; `d2fbf0e` corrects live validation and passed 114 installed local UI entries. Round 2/F03 and six missing protocols remain unexecuted; no post-fix paid rerun. |
 | V06 | Four protocol lanes verified twice; semantics partial | Source `50f8220`: D02/D03/D05/D06 mechanical checks passed in two fresh rounds. Six real tasks used 30 logical model steps; D03 made no model calls. Local scripted checks are separate. F04/F05/F06 remain unwired; prior matrix failures and unexecuted tasks stay unchanged. |
+| V07 | Remaining control faults verified locally in two rounds | Source `e451d1b`: F06/F05/F04 passed six local scripted control checks with zero paid calls. All 24 IDs now have hooks, but scoped controls are not a complete primary-model baseline. Crash reopening still shows a generic new-task title; improve recovery discoverability next. |
 | V02 / T00,T13 | Pending full gate | Score all 24 fixed tasks in two independent rounds with pinned model/config/seed and predeclared rubric. Existing partial diagnostic samples do not satisfy this gate. |
 | V03 / T13 | Pending | Five target users perform Q02/E01/F03 without developer coaching; record blockers and results. Agent-operated tests cannot substitute for independent users. |
 | A01 / T12 | Partial | Native IME candidate confirmation must not send early; verify actual VoiceOver stage/error/approval announcements and keyboard recovery. AX/composition simulations are supporting evidence only. |
@@ -1702,6 +1703,46 @@ of missing renderer truncation. The original failure is retained in
 standard Responses reasoning-summary delta events. A no-network test through the
 real compatibility adapter confirms all 10,000 deltas, the large text and exact
 owned command survive parsing before the next Desktop run. No paid calls occurred.
+
+## Control-fault execution results (2026-10-27)
+
+Source/build `e451d1b` completed two isolated rounds of F06, F05 and F04. Six local
+scripted requests and six raw trace model starts were observed; no real provider
+credentials or paid model calls were used. Success-side journal/trace inventory is
+now retained as well as failure evidence, so storage-error and crash cases without
+normal completion counters are not silently counted as zero. F05's fresh-process
+read-only review is not a task retry or a fabricated original completion.
+
+Both F06 rounds reported `failed/storage_error` before approvals or running tools,
+preserved every preexisting fixture file, restored the exact original journal
+bytes and never persisted a successful completion. Both F05 rounds killed the
+owned utility process after a real child PID marker, cleaned up that one command,
+and reopened in a fresh Desktop process: the original summary was running at the
+crash, recovered history was interrupted/unknown, grants were empty and no old
+approval became executable. Unchanged model trace and workspace verified no replay.
+
+Both F04 rounds recorded exactly 10,000 reasoning events in the original core
+trace using the validated Responses stream, plus large answer text. Actual
+approval and Stop clicks succeeded; rendering remained merged/bounded and omission
+wording was DOM-checked. The owned command exited with unknown effects and no
+completion marker. Final screenshots focus cancelled delivery; they are not a
+full visual/accessibility audit or primary-provider throughput benchmark. The
+invalid first `a725e44` stress attempt remains separate and failed.
+
+33 focused tests, 213 deterministic checks, root checks and docs checks passed.
+Original runtime evidence is `/tmp/forge-control-local-e451d1b`; selected reports,
+screenshots and original local-only journals/traces are privately retained under
+the ignored `evals/artifacts/product-control-e451d1b/`, with hashes. Credential,
+config and Chromium trees were not copied. Daily installed build `d2fbf0e` was
+not replaced for evaluator-only changes.
+
+A visible recovery UX issue remains: after a crash the sidebar/header can still
+show a generic new-task label while the actual prompt survives in run history.
+Mechanical safety is verified for these probes; task discovery and recovery entry
+points need refinement. All 24 IDs now dispatch, but V02's full pinned two-round
+primary-model/semantic baseline, existing counterexamples, independent users,
+native IME/VoiceOver, platform and release gates remain open. Do not aggregate
+these different revisions/protocols into a product success rate.
 
 ## 1. Goal and invariants
 
