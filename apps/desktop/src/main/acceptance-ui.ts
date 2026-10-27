@@ -1,7 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, realpath, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { FileSessionStore, recordRunInSession } from "@forge/persistence";
+import {
+  FileProductRunStore,
+  FileSessionStore,
+  productActionSchema,
+  recordRunInSession,
+} from "@forge/persistence";
 import { app, type BrowserWindow, dialog } from "electron";
 import { acceptanceProvider } from "./acceptance-provider.js";
 import { runExperienceAcceptance } from "./experience-acceptance.js";
@@ -1254,6 +1259,95 @@ export async function runUiAcceptance(
       noReadReplay: true,
       externalProvider: false,
     });
+    const cancellationFixture = process.env.FORGE_CANCEL_REPLAY_FIXTURE;
+    if (cancellationFixture) {
+      const captured = JSON.parse(
+        await readFile(cancellationFixture, "utf8"),
+      ) as { action: unknown };
+      const action = productActionSchema.parse(captured.action);
+      const sourceCalls = provider.calls;
+      const runId = randomUUID();
+      const cwd = fixtures[0]?.cwd;
+      if (!cwd) throw new Error("Missing replay workspace");
+      const replay = recordRunInSession(store.create({ root: cwd, cwd }), {
+        prompt: "Captured cancellation projection replay",
+        finalText: "Captured cancellation; inspect unknown effects.",
+        status: "cancelled",
+        runId,
+      });
+      await store.save(replay);
+      const writer = await new FileProductRunStore(home).create({
+        sessionId: replay.id,
+        runId,
+        engine: "native",
+        prompt: "Captured cancellation projection replay",
+      });
+      await writer.record({ type: "action", action });
+      await writer.finish({
+        outcome: "cancelled",
+        reason: "cancelled",
+        toolCalls: 1,
+      });
+      // This is a synthetic record containing a captured terminal action. It
+      // exercises read-only projection, never the historical operation itself.
+      const loaded = new Promise<void>((resolve) =>
+        window.webContents.once("did-finish-load", () => resolve()),
+      );
+      window.webContents.reload();
+      await loaded;
+      await click(`[data-session-id="${replay.id}"]`);
+      if (!(await js("Boolean(document.querySelector('.live-panel'))")))
+        await click(".studio-panel-toggle");
+      await click(".studio-tabs button:last-child");
+      await click(".run-history li:first-child button");
+      await until(
+        "document.querySelector('.run-history-selected .run-delivery')",
+      );
+      await js(
+        "document.querySelector('.run-history-selected .run-delivery').open=true;document.querySelector('.run-history-selected .run-delivery li').scrollIntoView({block:'center'})",
+      );
+      const projected = await js(
+        "window.forgeDesktop.manage({type:'state'}).then(s=>s.runHistory.selected)",
+      );
+      if (
+        projected.delivery.unresolved[0]?.status !== "unknown" ||
+        projected.activity.items[0]?.action?.status !== "unknown" ||
+        projected.delivery.commands.length ||
+        provider.calls !== sourceCalls ||
+        (await js("Boolean(document.querySelector('.run-approval'))"))
+      )
+        throw new Error(
+          "Captured cancellation replay lost unknown effects or replayed execution",
+        );
+      await until(
+        "document.querySelector('.run-history-selected .run-delivery li')?.textContent.includes(document.documentElement.lang.startsWith('zh')?'影响未知':'Effect unknown')",
+      );
+      // Session view restoration may finish after history selection; ensure
+      // the captured surface is the visible activity tab, not hidden DOM.
+      await click(".studio-tabs button:last-child");
+      await until(
+        "document.querySelector('.studio-tabs button:last-child').getAttribute('aria-pressed') === 'true' && document.querySelector('.run-history-selected .run-delivery li').getBoundingClientRect().height > 0",
+      );
+      await js(
+        "document.querySelector('.run-history-selected .run-delivery li').scrollIntoView({block:'center'})",
+      );
+      await capture("captured-cancel-effect-unknown");
+      if (
+        !(await js(
+          "document.querySelector('.studio-tabs button:last-child').getAttribute('aria-pressed') === 'true' && document.querySelector('.run-history-selected .run-delivery li').getBoundingClientRect().height > 0",
+        ))
+      )
+        throw new Error("Captured cancellation surface was hidden");
+      results.push({
+        name: "captured-cancel-effect-replay",
+        originalFailedRecordRetained: true,
+        activityUnknown: true,
+        deliveryUnknown: true,
+        noReexecution: true,
+        externalProvider: false,
+        syntheticReplay: true,
+      });
+    }
     results.push({
       name: "p4-loopback-workflow",
       calls: provider.calls,

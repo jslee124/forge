@@ -1469,6 +1469,32 @@ Nine focused policy/check/preflight tests, root check and 207 deterministic chec
 passed. No provider result is established by this preparation. Source/pilot-only
 changes do not imply the installed application was replaced.
 
+## Diagnosis, denial and cancellation pilot (2026-10-27)
+
+At source `806ceeb`, four separately isolated live lanes used seven logical model
+steps in total (predeclared maximum 17), without whole-task retries. D01 diagnosed
+the captured failing test without edits; F01 stopped after an actual UI denial;
+F02/model stopped during model output. Their mechanical contracts passed.
+F02/command stopped the confirmed running probe process and did not create its
+completion marker, but its original contract failed: cancelled tool execution
+was projected as failed rather than effects unknown. The original failed report
+is retained under `/tmp/forge-fault-806ceeb`; it must not be relabelled as passed.
+
+Fix `b3ed5dd` maps structured cancellation errors to unknown effects across live
+activity, historical activity, delivery and recovery preparation. Ordinary failures,
+denials and prose are unchanged. The captured terminal action is a regression
+fixture. A read-only replay of the full original journal passed all five projection
+and integrity checks without changing its bytes or executing a model/tool. This
+is post-fix replay evidence, not a new live-model pass. Focused tests: 105 passed;
+cross-layer deterministic tests: 212 passed. Root checks passed with existing
+warnings. An opt-in UI replay also exercises the captured action in a synthetic
+session; it must not be described as rerunning the original operation.
+
+These fixed-stimulus diagnostic samples do not satisfy the full two-round 24-task
+gate or independent user trials. D01's answer overgeneralized from two tests;
+F02/command began with an English introduction. Semantic and platform gates stay
+open. The PID check covers this one process only, not descendant process trees.
+
 ## 1. Goal and invariants
 
 Complete the native-engine investigation → approval → execution → verification →
