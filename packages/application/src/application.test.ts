@@ -62,6 +62,16 @@ it.each(["direct", "reserve-final-step"] as const)(
         expect(instructions).toContain(
           "Static inspection is not an executed test",
         );
+        expect(instructions).toContain("Reserve remaining steps for the edit");
+        expect(instructions).toContain("Preserve valid input data exactly");
+        expect(instructions).toContain(
+          "an unrelated passing test is not evidence",
+        );
+        expect(instructions).toContain("a denied command does not authorize");
+        expect(instructions).toContain("preserving operators and arguments");
+        expect(instructions).toContain(
+          "do not authorize edits for read-only questions",
+        );
       } else
         expect(instructions).not.toContain(
           "Forge product documentation describes the host product",

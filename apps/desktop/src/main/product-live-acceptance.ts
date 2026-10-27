@@ -83,6 +83,7 @@ async function runPilot(
     FORGE_PRODUCT_LIVE_RECOVER_SUMMARY: recoverSummary,
     FORGE_PRODUCT_LIVE_LOCALE: locale = "zh-CN",
     FORGE_PRODUCT_LIVE_CANCEL_STAGE: cancelStage,
+    FORGE_PRODUCT_LIVE_FAULT_PROTOCOL: faultProtocol,
   } = process.env;
   const home = process.env["FORGE_PRODUCT_LIVE_HOME"];
   const workspace = process.env["FORGE_PRODUCT_LIVE_WORKSPACE"];
@@ -97,7 +98,7 @@ async function runPilot(
     process.env["FORGE_PRODUCT_LIVE_OPT_IN"] !== "1"
   )
     throw new Error("Live pilot requires explicit isolated inputs and opt-in");
-  const scenario = pilotScenario(task, cancelStage);
+  const scenario = pilotScenario(task, cancelStage, faultProtocol);
   const directory = join(workspace, "..");
   const assessment = JSON.parse(
     await readFile(join(directory, "assessment.json"), "utf8"),
@@ -305,7 +306,12 @@ async function runPilot(
     events.push(event);
     if (event.payload.type === "approval") {
       const approval = event.payload;
-      const allow = allowPilotApproval(task, approval, cancelStage);
+      const allow = allowPilotApproval(
+        task,
+        approval,
+        cancelStage,
+        faultProtocol,
+      );
       const decisionIndex = decisions.length + 1;
       decisions.push({
         approvalId: approval.approvalId,
@@ -482,6 +488,7 @@ async function runPilot(
       controlErrors,
       finalizationInput: finalizationInput,
       observedAt: new Date().toISOString(),
+      faultProtocol: faultProtocol ?? null,
       providerCalls:
         process.env["FORGE_PRODUCT_LIVE_FIXTURE"] === "1"
           ? "local scripted transport; no external model"
@@ -508,6 +515,26 @@ async function runPilot(
           scenario.expectedWrites.includes(path),
         ),
         uiControlsSucceeded: controlErrors.length === 0,
+        pathTestsPreserved:
+          task === "E04" && faultProtocol === "desktop-product-faults-v2"
+            ? Boolean(before["path.test.mjs"]) &&
+              before["path.test.mjs"] === after["path.test.mjs"]
+            : null,
+        pathFailureThenSuccess:
+          task === "E04" && faultProtocol === "desktop-product-faults-v2"
+            ? (() => {
+                const exits = events.flatMap((event) => {
+                  if (event.payload.type !== "action") return [];
+                  const facts = event.payload.action.facts;
+                  return facts?.kind === "command" &&
+                    facts.command === "node --test path.test.mjs"
+                    ? [facts.exitCode]
+                    : [];
+                });
+                const failed = exits.findIndex((code) => code === 1);
+                return failed >= 0 && exits.slice(failed + 1).includes(0);
+              })()
+            : null,
         ...pilotFaultChecks(task, events, cancellation),
         mockTestsPreserved:
           task === "D02"

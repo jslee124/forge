@@ -5,6 +5,7 @@ import { createRequire } from "node:module";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs, promisify } from "node:util";
+import { desktopProductOverlayDirectory } from "../../../evals/dist/desktop-product-evaluation.js";
 import { checkProductEdit } from "../../../evals/scripts/desktop-product-assertions.mjs";
 import { collectAttemptEvidence } from "../../../evals/scripts/desktop-product-attempt.mjs";
 import { AuthenticationManager } from "../../../packages/auth/dist/index.js";
@@ -68,6 +69,7 @@ if (
 const locale = values.locale ?? "zh-CN";
 if (!["en", "zh-CN"].includes(locale)) throw new Error("Invalid pilot locale");
 const require = createRequire(import.meta.url);
+const desktopRoot = fileURLToPath(new URL("../", import.meta.url));
 let key = ""; // Loaded only after all selected inputs validate; D03 never reads credentials.
 const corpus = JSON.parse(
   await readFile(
@@ -95,7 +97,7 @@ const originalFiles = await inventory(
   ),
 );
 const sourceRevision = (
-  await promisify(execFile)("git", ["rev-parse", "HEAD"])
+  await promisify(execFile)("git", ["rev-parse", "HEAD"], { cwd: desktopRoot })
 ).stdout.trim();
 for (const supplied of values.round) {
   const round = resolve(supplied);
@@ -116,7 +118,9 @@ for (const supplied of values.round) {
   const expectedByTask = {};
   if (
     manifest.faultProtocol !== undefined &&
-    manifest.faultProtocol !== "desktop-product-faults-v1"
+    !["desktop-product-faults-v1", "desktop-product-faults-v2"].includes(
+      manifest.faultProtocol,
+    )
   )
     throw new Error("Unrecognized fault protocol");
   {
@@ -136,16 +140,18 @@ for (const supplied of values.round) {
         corpus.tasks.find((entry) => entry.id === task)?.prompt
       )
         throw new Error("Modified task prompt");
-      if (
-        task === "D02" &&
-        manifest.faultProtocol !== "desktop-product-faults-v1"
-      )
+      if (task === "D02" && !manifest.faultProtocol)
         throw new Error("D02 requires the versioned mock fixture protocol");
-      const overlays =
-        task === "D02" ? (manifest.taskFixtureSha256?.D02 ?? {}) : {};
-      if (task === "D02") {
+      const overlayDirectory = desktopProductOverlayDirectory(
+        task,
+        manifest.faultProtocol,
+      );
+      const overlays = overlayDirectory
+        ? (manifest.taskFixtureSha256?.[task] ?? {})
+        : {};
+      if (overlayDirectory) {
         const overlayUrl = new URL(
-          "../../../evals/fixtures/desktop-product/protocols/faults-v1/D02/",
+          `../../../evals/fixtures/desktop-product/${overlayDirectory}`,
           import.meta.url,
         );
         const names = await inventory(fileURLToPath(overlayUrl));
@@ -210,14 +216,17 @@ for (const supplied of values.round) {
             : pilotScenario(
                 task,
                 task === "F02" ? values["cancel-stage"] : undefined,
+                manifest.faultProtocol,
               ).limits.maxSteps,
         toolCalls: pilotScenario(
           task,
           task === "F02" ? values["cancel-stage"] : undefined,
+          manifest.faultProtocol,
         ).limits.maxToolCalls,
         scenario: pilotScenario(
           task,
           task === "F02" ? values["cancel-stage"] : undefined,
+          manifest.faultProtocol,
         ),
         wallClockMs: task === "F05" ? 400000 : 175000,
         processPhases:
@@ -284,6 +293,7 @@ for (const supplied of values.round) {
     const limits = pilotScenario(
       task,
       task === "F02" ? values["cancel-stage"] : undefined,
+      manifest.faultProtocol,
     ).limits;
     await writeFile(
       join(home, "config.json"),
@@ -308,6 +318,9 @@ for (const supplied of values.round) {
       FORGE_PRODUCT_LIVE_HOME: home,
       FORGE_PRODUCT_LIVE_WORKSPACE: workspace,
       FORGE_PRODUCT_LIVE_TASK: task,
+      ...(manifest.faultProtocol
+        ? { FORGE_PRODUCT_LIVE_FAULT_PROTOCOL: manifest.faultProtocol }
+        : {}),
       FORGE_PRODUCT_LIVE_FIXTURE: usesLocalFixture(task) ? "1" : "0",
       FORGE_PRODUCT_LIVE_OPT_IN: "1",
       FORGE_PRODUCT_LIVE_FINALIZATION_INPUT: finalizationInput,
@@ -325,8 +338,9 @@ for (const supplied of values.round) {
     async function launchDesktop(phase) {
       const child = spawn(
         require("electron"),
-        [resolve("."), "--desktop-product-live"],
+        [desktopRoot, "--desktop-product-live"],
         {
+          cwd: desktopRoot,
           env: {
             ...env,
             ...(phase ? { FORGE_PRODUCT_CONTROL_PHASE: phase } : {}),

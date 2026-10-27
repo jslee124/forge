@@ -41,6 +41,19 @@ const corpusSchema = z
 const root = fileURLToPath(
   new URL("../fixtures/desktop-product/", import.meta.url),
 );
+export type DesktopProductFaultProtocol =
+  | "desktop-product-faults-v1"
+  | "desktop-product-faults-v2";
+
+export function desktopProductOverlayDirectory(
+  task: string,
+  protocol?: DesktopProductFaultProtocol,
+): string | undefined {
+  if (protocol && task === "D02") return "protocols/faults-v1/D02/";
+  if (protocol === "desktop-product-faults-v2" && task === "E04")
+    return "protocols/faults-v2/E04/";
+  return undefined;
+}
 export async function loadDesktopProductCorpus() {
   const corpus = corpusSchema.parse(
     JSON.parse(await readFile(join(root, "manifest.json"), "utf8")),
@@ -60,7 +73,7 @@ export async function loadDesktopProductCorpus() {
 export async function prepareDesktopProductRound(
   destination: string,
   round: 1 | 2,
-  faultProtocol?: "desktop-product-faults-v1",
+  faultProtocol?: DesktopProductFaultProtocol,
 ) {
   const corpus = await loadDesktopProductCorpus();
   await mkdir(destination, { recursive: false, mode: 0o700 });
@@ -88,8 +101,12 @@ export async function prepareDesktopProductRound(
     const directory = join(destination, task.id);
     await mkdir(directory, { mode: 0o700 });
     await copySeed(join(root, "seed"), join(directory, "workspace"));
-    if (faultProtocol && task.id === "D02") {
-      const overlay = join(root, "protocols/faults-v1/D02");
+    const overlayDirectory = desktopProductOverlayDirectory(
+      task.id,
+      faultProtocol,
+    );
+    if (overlayDirectory) {
+      const overlay = join(root, overlayDirectory);
       const extra: Record<string, string> = {};
       for (const entry of await readdir(overlay, { withFileTypes: true })) {
         if (!entry.isFile()) throw new Error("unexpected-protocol-entry");

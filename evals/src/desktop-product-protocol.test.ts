@@ -21,6 +21,7 @@ it("validates mock overlays before credentials and discloses zero-call admission
       process.execPath,
       [script, "--check", "--round", round, ...args],
       {
+        cwd: root,
         env: {
           PATH: process.env["PATH"] ?? "",
           HOME: root,

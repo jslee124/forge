@@ -54,7 +54,10 @@ import {
   WorkspaceResolutionError,
 } from "@forge/tools";
 import { resolveImageInputs } from "./image-input.js";
-import { NATIVE_INVESTIGATION_INSTRUCTIONS } from "./investigation-instructions.js";
+import {
+  NATIVE_CHANGE_INSTRUCTIONS,
+  NATIVE_INVESTIGATION_INSTRUCTIONS,
+} from "./investigation-instructions.js";
 import {
   type CreateForgeModelAdapterOptions,
   createForgeModelAdapter,
@@ -220,7 +223,7 @@ export async function runTask(
       pluginPrompt.prompt,
       activeContext.memory,
       ...(dependencies.completionPolicy === "reserve-final-step"
-        ? [NATIVE_INVESTIGATION_INSTRUCTIONS]
+        ? [NATIVE_INVESTIGATION_INSTRUCTIONS, NATIVE_CHANGE_INSTRUCTIONS]
         : []),
     ]
       .filter((value) => value !== "")

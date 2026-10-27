@@ -24,6 +24,7 @@ const { values } = parseArgs({
     output: { type: "string" },
     "supported-only": { type: "boolean" },
     task: { type: "string", multiple: true },
+    "fault-protocol": { type: "string" },
   },
   strict: true,
 });
@@ -35,6 +36,15 @@ if (
     "Usage: --prepare|--live|--report --output <matrix-directory> [--supported-only]",
   );
 const output = resolve(values.output);
+const faultProtocol = values["fault-protocol"] ?? "desktop-product-faults-v1";
+if (
+  !["desktop-product-faults-v1", "desktop-product-faults-v2"].includes(
+    faultProtocol,
+  )
+)
+  throw new Error("Unknown fault protocol");
+if (values["fault-protocol"] && !values.prepare)
+  throw new Error("Set --fault-protocol only when preparing a fresh matrix");
 const corpus = await loadDesktopProductCorpus();
 const unavailable = {};
 const buildFiles = [
@@ -55,6 +65,7 @@ const files = [
   "evals/fixtures/desktop-product/protocols/faults-v1/D02/mock.mjs",
   "evals/fixtures/desktop-product/protocols/faults-v1/D02/mock-implementation.mjs",
   "evals/fixtures/desktop-product/protocols/faults-v1/D02/mock.test.mjs",
+  "evals/fixtures/desktop-product/protocols/faults-v2/E04/path.test.mjs",
   "evals/fixtures/desktop-product/manifest.json",
 ];
 const snapshot = () => snapshotMatrixInputs(root, files, buildFiles);
@@ -72,11 +83,7 @@ if (values.prepare) {
   const lanes = [];
   for (const round of [1, 2]) {
     const directory = join(output, `round-${round}`);
-    await prepareDesktopProductRound(
-      directory,
-      round,
-      "desktop-product-faults-v1",
-    );
+    await prepareDesktopProductRound(directory, round, faultProtocol);
     const command = join(output, `round-${round}-command`);
     await mkdir(command, { mode: 0o700 });
     await cp(join(directory, "round.json"), join(command, "round.json"));
@@ -89,7 +96,7 @@ if (values.prepare) {
       throw new Error("Invalid matrix task subset");
     for (const task of tasks) {
       for (const stage of task === "F02" ? ["model", "command"] : [undefined]) {
-        const scenario = pilotScenario(task, stage);
+        const scenario = pilotScenario(task, stage, faultProtocol);
         lanes.push({
           round,
           task,
@@ -126,7 +133,7 @@ if (values.prepare) {
     stimulusDisclosure:
       "Original prompt plus exact per-lane scenario supplement. Supplemented fault probes are not unchanged-prompt baseline.",
     missing: unavailable,
-    faultProtocol: "desktop-product-faults-v1",
+    faultProtocol,
     selectedTasks: values.task ?? PILOT_TASKS,
     providerMode:
       values.fixture ||

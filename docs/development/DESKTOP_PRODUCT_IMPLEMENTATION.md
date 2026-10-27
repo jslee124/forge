@@ -7,6 +7,40 @@ contract and task list, not shipped behavior. New filenames, types, fields, and
 configuration below are proposed; section 2 separately identifies existing code.
 Resolve PRD/implementation disagreements in both documents before implementing.
 
+## Focused code-repair quality follow-up (2026-10-27)
+
+A fresh original E04 run at `d6fee80` reproduced an unresolved coding failure:
+six model steps and ten tool calls exhausted investigation without any edit or
+command. The answer proposed `trim()`, still discarding valid whitespace. The
+independent 12-assertion probe failed eight assertions. This is separate from the
+older `ec18064` failure, and does not demonstrate a host workspace escape.
+Current tool create/read/edit and Desktop preview regressions preserve meaningful
+path whitespace while rejecting traversal/symlink escapes.
+
+Bounded native implementation guidance now distinguishes a requested repair from
+a read-only explanation, prioritizes edits and relevant verification within the
+budget, preserves valid input data, treats scope constraints as acceptance
+conditions, and asks for exact operators/arguments and condition-order reasoning.
+It grants no new authority and does not classify or silently rewrite model output.
+Instruction transport tests do not establish model comprehension or accuracy.
+
+Opt-in `desktop-product-faults-v2` adds only E04's public read-only `path.test.mjs`
+to the unchanged v1 seed, retaining the v1 D02 overlay. E04 alone may execute the
+exact `node --test path.test.mjs` command in the fixture cwd; test writes, inline
+code and widened cwd remain denied. The prompt supplement and file hashes are
+disclosed. Independent probes still check additional Windows/type cases: a
+reference superficial repair passes public tests but fails independent probes.
+The default matrix remains faults-v1. Test-assisted runs are separate diagnostics,
+not unchanged-prompt baseline samples or evidence of a causal prompt improvement.
+
+The live launcher now resolves the app and git cwd from its own location. An
+initial root-cwd launch failure is retained separately at
+`/tmp/forge-quality-d6fee80/`, with zero discovered model-start records. The actual
+baseline is `/tmp/forge-quality-current-d6fee80/`. No failed attempt was overwritten.
+Next bounded sampling is one original E04 and one v2-assisted E04, each capped at
+six steps, with no automatic retry. Results remain pending until executed and
+reviewed; known answer-accuracy and full product acceptance gates remain open.
+
 ## Matrix planning on a clean CI checkout (2026-10-27)
 
 Four recent CI runs at `50f8220`, `3cf2a16`, `a725e44`, and `1d97974`

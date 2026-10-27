@@ -7,6 +7,7 @@ export function allowPilotApproval(
   task: string,
   approval: Extract<RunPayload, { type: "approval" }>,
   cancelStage?: string,
+  faultProtocol?: string,
 ): boolean {
   if (
     !(
@@ -48,7 +49,12 @@ export function allowPilotApproval(
       Array.isArray(input.args) &&
       input.args.length === 2 &&
       input.args[0] === "--test" &&
-      input.args[1] === (task === "D02" ? "mock.test.mjs" : "fixture.test.mjs")
+      input.args[1] ===
+        (task === "D02"
+          ? "mock.test.mjs"
+          : task === "E04" && faultProtocol === "desktop-product-faults-v2"
+            ? "path.test.mjs"
+            : "fixture.test.mjs")
     );
   } catch {
     return false;

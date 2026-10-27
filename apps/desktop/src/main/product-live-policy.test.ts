@@ -239,3 +239,51 @@ it("bounds the new mock and stale-rewrite protocols to exact paths and test comm
   ).toBe(false);
   expect(pilotScenario("D06").supplement).toContain("fixture.test.mjs");
 });
+
+it("enables only the declared read-only path test in faults-v2", () => {
+  const command = approval("process", {
+    program: "node",
+    args: ["--test", "path.test.mjs"],
+    cwd: ".",
+  });
+  expect(allowPilotApproval("E04", command)).toBe(false);
+  expect(
+    allowPilotApproval("E04", command, undefined, "desktop-product-faults-v1"),
+  ).toBe(false);
+  expect(
+    allowPilotApproval("E04", command, undefined, "desktop-product-faults-v2"),
+  ).toBe(true);
+  for (const task of ["E01", "D02", "Q02"])
+    expect(
+      allowPilotApproval(task, command, undefined, "desktop-product-faults-v2"),
+    ).toBe(false);
+  for (const input of [
+    { program: "node", args: ["--test", "path.test.mjs"], cwd: ".." },
+    { program: "node", args: ["--test", "../path.test.mjs"] },
+    { program: "node", args: ["--test", "path.test.mjs", "--eval", "code"] },
+    { program: "node", args: ["-e", "code"] },
+  ])
+    expect(
+      allowPilotApproval(
+        "E04",
+        approval("process", input),
+        undefined,
+        "desktop-product-faults-v2",
+      ),
+    ).toBe(false);
+  expect(
+    allowPilotApproval(
+      "E04",
+      approval("write", { path: "path.test.mjs" }),
+      undefined,
+      "desktop-product-faults-v2",
+    ),
+  ).toBe(false);
+  expect(
+    pilotScenario("E04", undefined, "desktop-product-faults-v2"),
+  ).toMatchObject({
+    limits: { maxSteps: 6, maxToolCalls: 16 },
+    expectedWrites: ["workflow.mjs"],
+  });
+  expect(pilotScenario("E04").supplement).toBe("");
+});
