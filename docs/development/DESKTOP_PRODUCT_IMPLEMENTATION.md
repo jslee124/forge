@@ -65,11 +65,28 @@ checks. The command checker now matches the exact quoted identity emitted by
 unrelated commands, missing observations and reversed order. It does not infer
 verification from prose or parse arbitrary display commands.
 
-Original scores, events and snapshots are immutable. A separately named,
-provider-free reassessment of the existing outputs will record the new probe
-and checker hashes rather than overwrite those results. The original task
-failure, answer-quality limits, unchanged-prompt full baseline and independent
-user/platform/release gates remain open; this is not causal accuracy evidence.
+Original scores, events and snapshots are immutable. The separate provider-free
+reassessment at `6cbdf94` replayed v1 with the exact original failures, then ran
+v2: the baseline and guided-original samples still failed eight and seven of
+14 assertions; the assisted sample passed all 14. Its original event stream
+confirms the same quoted command exited 1 and then 0. All source reports and
+workspace hashes were unchanged. No model run was repeated for reassessment,
+and no original outcome was promoted from partial/limit_reached.
+
+Three real-model samples used 18 recorded logical steps and 29 tool calls in
+total; HTTP attempts, retries and billing were not measured. Evidence, final
+fixture code, raw journal/core traces, separate assistant reviews and hashes are
+retained locally under `evals/artifacts/repair-quality-69947ec/` (git ignored).
+The assisted final screenshot was inspected; this is not independent-user visual
+acceptance. The initial zero-start launch failure is retained alongside the
+three recorded samples. No configuration, credential or Chromium trees were copied.
+
+Validation: 818 full local tests passed with 6 opt-in tests skipped while
+Desktop `out/` was temporarily absent and then restored; root and documentation
+checks passed. The original-task failure, answer-quality limits, unchanged-prompt
+full baseline and independent-user/platform/release gates remain open. The
+test-assisted sample does not establish a causal accuracy gain. This increment
+did not replace the installed application or push remote changes.
 
 ## Matrix planning on a clean CI checkout (2026-10-27)
 
@@ -146,6 +163,7 @@ development records, not a claim that every T00–T14 gate is complete.
 | V06 | Four protocol lanes verified twice; semantics partial | Source `50f8220`: D02/D03/D05/D06 mechanical checks passed in two fresh rounds. Six real tasks used 30 logical model steps; D03 made no model calls. Local scripted checks are separate. F04/F05/F06 remain unwired; prior matrix failures and unexecuted tasks stay unchanged. |
 | V07 | Remaining control faults verified locally in two rounds | Source `e451d1b`: F06/F05/F04 passed six local scripted control checks with zero paid calls. All 24 IDs now have hooks, but scoped controls are not a complete primary-model baseline. Retained task title and record discovery are now implemented; their new F05 acceptance is separate from this earlier evidence. |
 | V08 | Retained task discovery locally verified | `893b3d7`: canonical-empty sessions use saved request titles; explicit record entry replaces the welcome. Two isolated F05 rounds and 114 installed UI entries pass; no automatic replay or restored authority. |
+| V09 | Focused repair diagnostic; original case still fails | `69947ec` adds bounded repair guidance and faults-v2 public path tests. `6cbdf94` preserves v1 and corrects containment/command scoring; the assisted artifact passes 14 v2 checks, while both original-prompt samples still fail. Three real samples used 18 steps; reassessment made no provider calls. |
 | V02 / T00,T13 | Pending full gate | Score all 24 fixed tasks in two independent rounds with pinned model/config/seed and predeclared rubric. Existing partial diagnostic samples do not satisfy this gate. |
 | V03 / T13 | Pending | Five target users perform Q02/E01/F03 without developer coaching; record blockers and results. Agent-operated tests cannot substitute for independent users. |
 | A01 / T12 | Partial | Native IME candidate confirmation must not send early; verify actual VoiceOver stage/error/approval announcements and keyboard recovery. AX/composition simulations are supporting evidence only. |
