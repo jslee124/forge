@@ -1259,7 +1259,7 @@ export async function runUiAcceptance(
       noReadReplay: true,
       externalProvider: false,
     });
-    const cancellationFixture = process.env.FORGE_CANCEL_REPLAY_FIXTURE;
+    const cancellationFixture = process.env["FORGE_CANCEL_REPLAY_FIXTURE"];
     if (cancellationFixture) {
       const captured = JSON.parse(
         await readFile(cancellationFixture, "utf8"),
