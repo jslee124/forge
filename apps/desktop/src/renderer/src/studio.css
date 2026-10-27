@@ -2440,3 +2440,32 @@
   border-top: 1px solid var(--border);
   padding-top: 12px;
 }
+
+/* A retained admission is a record, not a fabricated conversation turn. */
+.retained-task {
+  width: 100%;
+  min-width: 0;
+  max-width: 72ch;
+  margin: 24px auto;
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.retained-task h2 {
+  margin: 0 0 16px;
+  font-size: 18px;
+}
+.retained-task p,
+.retained-task-prompt {
+  overflow-wrap: anywhere;
+}
+.retained-task-prompt {
+  white-space: pre-wrap;
+  max-height: 12em;
+  overflow: auto;
+}
+.retained-task button {
+  margin-top: 8px;
+  max-width: 100%;
+  white-space: normal;
+}

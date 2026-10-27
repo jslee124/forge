@@ -748,3 +748,53 @@ it.each([
       expect(container.querySelector("[data-recovery=retry]")).not.toBeNull();
   },
 );
+
+describe("retained task entry", () => {
+  it("opens the saved record without sending or fabricating conversation", async () => {
+    const summary = {
+      schemaVersion: 1 as const,
+      sessionId: state.sessionId,
+      runId: "crashed",
+      engine: "native" as const,
+      prompt: "恢复中文任务",
+      state: "running" as const,
+      startedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      sequence: 0,
+      omittedCharacters: 0,
+      omittedEvents: 0,
+    };
+    vi.mocked(window.forgeDesktop.manage).mockResolvedValue({
+      ...state,
+      sessions: [
+        { id: state.sessionId, title: summary.prompt, cwd: state.cwd },
+      ],
+      runHistory: { runs: [summary] },
+    });
+    await act(async () => {
+      root.unmount();
+      root = createRoot(container);
+      root.render(createElement(LiveWorkbench));
+    });
+    expect(container.querySelector(".studio-welcome")).toBeNull();
+    expect(container.querySelector(".retained-task")?.textContent).toContain(
+      summary.prompt,
+    );
+    const button = container.querySelector<HTMLButtonElement>(
+      ".retained-task button",
+    );
+    expect(button).not.toBeNull();
+    await act(async () => button?.click());
+    expect(window.forgeDesktop.manage).toHaveBeenCalledWith({
+      type: "run-history",
+      runId: "crashed",
+    });
+    expect(
+      container.querySelector<HTMLElement>(
+        ".studio-panel-body:not([hidden]) .run-history",
+      ),
+    ).not.toBeNull();
+    expect(runCommand).not.toHaveBeenCalled();
+    expect(container.querySelector(".conversation-message")).toBeNull();
+  });
+});

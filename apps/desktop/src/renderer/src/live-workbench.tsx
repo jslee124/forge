@@ -186,6 +186,37 @@ export function LiveWorkbench(): React.JSX.Element {
         }
       : state;
 
+  const loadHistory = async (
+    command: Extract<ManagementCommand, { type: "run-history" }>,
+  ) => {
+    if (viewedRef.current)
+      await browseSession(
+        viewedRef.current.sessionId,
+        command.runId,
+        command.before,
+      );
+    else if (activeRef.current && api && state?.sessionId) {
+      const sourceSession = state.sessionId;
+      const view = await readSession(
+        sourceSession,
+        command.runId,
+        command.before,
+      );
+      if (view)
+        setState((value) =>
+          value?.sessionId === sourceSession
+            ? { ...value, runHistory: view.runHistory }
+            : value,
+        );
+    } else await manage(command);
+  };
+
+  const retainedRun =
+    !displayState?.messages.length && (!prompt || viewed)
+      ? (displayState?.runHistory?.selected?.summary ??
+        displayState?.runHistory?.runs[0])
+      : undefined;
+
   const scopeRef = React.useRef(scope);
   scopeRef.current = scope;
   const previousSelectionScope = React.useRef(executionScope);
@@ -1266,39 +1297,78 @@ export function LiveWorkbench(): React.JSX.Element {
                     {viewed.truncated && ` ${t("browsing.truncated")}`}
                   </p>
                 )}
-                {!displayState?.messages.length && (!prompt || viewed) && (
-                  <div className="studio-welcome">
-                    <span className="studio-welcome-icon">
-                      <img src={markUrl} alt="" width={72} height={72} />
-                    </span>
-
-                    <h1>{t("studio.title")}</h1>
-                    <p>{t("studio.subtitle")}</p>
-                    <div className="studio-suggestions">
-                      {[
-                        { key: "code", icon: Code },
-                        { key: "document", icon: FileText },
-                        { key: "research", icon: Globe },
-                      ].map(({ key: suggestion, icon: Icon }) => (
-                        <button
-                          type="button"
-                          key={suggestion}
-                          onClick={() => {
-                            setDrafts((values) => ({
-                              ...values,
-                              [key]: t(`studio.prompts.${suggestion}`),
-                            }));
-                            composerRef.current?.focus();
-                          }}
-                        >
-                          <Icon size={20} />
-                          <span>{t(`studio.suggestions.${suggestion}`)}</span>
-                          <Plus size={14} />
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                {retainedRun && (
+                  <section
+                    className="retained-task"
+                    aria-labelledby="retained-task-title"
+                  >
+                    <h2 id="retained-task-title">
+                      {t(
+                        retainedRun.completion?.outcome === "interrupted"
+                          ? "browsing.interruptedTitle"
+                          : "browsing.retainedTitle",
+                      )}
+                    </h2>
+                    <section
+                      className="retained-task-prompt"
+                      aria-label={t("browsing.savedRequest")}
+                      // biome-ignore lint/a11y/noNoninteractiveTabindex: Scrollable saved requests need keyboard scrolling.
+                      tabIndex={0}
+                    >
+                      {retainedRun.prompt}
+                    </section>
+                    <p>{t("browsing.retainedDescription")}</p>
+                    <button
+                      type="button"
+                      disabled={pending || viewLoading}
+                      onClick={async () => {
+                        await loadHistory({
+                          type: "run-history",
+                          runId: retainedRun.runId,
+                        });
+                        setPanel(true);
+                        setPanelTab("context");
+                      }}
+                    >
+                      {t("browsing.openRecord")}
+                    </button>
+                  </section>
                 )}
+                {!retainedRun &&
+                  !displayState?.messages.length &&
+                  (!prompt || viewed) && (
+                    <div className="studio-welcome">
+                      <span className="studio-welcome-icon">
+                        <img src={markUrl} alt="" width={72} height={72} />
+                      </span>
+
+                      <h1>{t("studio.title")}</h1>
+                      <p>{t("studio.subtitle")}</p>
+                      <div className="studio-suggestions">
+                        {[
+                          { key: "code", icon: Code },
+                          { key: "document", icon: FileText },
+                          { key: "research", icon: Globe },
+                        ].map(({ key: suggestion, icon: Icon }) => (
+                          <button
+                            type="button"
+                            key={suggestion}
+                            onClick={() => {
+                              setDrafts((values) => ({
+                                ...values,
+                                [key]: t(`studio.prompts.${suggestion}`),
+                              }));
+                              composerRef.current?.focus();
+                            }}
+                          >
+                            <Icon size={20} />
+                            <span>{t(`studio.suggestions.${suggestion}`)}</span>
+                            <Plus size={14} />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 {displayState?.messages
                   .filter(
                     (message) =>
@@ -1844,28 +1914,7 @@ export function LiveWorkbench(): React.JSX.Element {
                 onRecover={(kind, sourceRunId) =>
                   void prepareRecovery(kind, sourceRunId)
                 }
-                onLoad={async (command) => {
-                  if (viewedRef.current)
-                    await browseSession(
-                      viewedRef.current.sessionId,
-                      command.runId,
-                      command.before,
-                    );
-                  else if (activeRef.current && api && state?.sessionId) {
-                    const sourceSession = state.sessionId;
-                    const view = await readSession(
-                      sourceSession,
-                      command.runId,
-                      command.before,
-                    );
-                    if (view)
-                      setState((value) =>
-                        value?.sessionId === sourceSession
-                          ? { ...value, runHistory: view.runHistory }
-                          : value,
-                      );
-                  } else await manage(command);
-                }}
+                onLoad={loadHistory}
               />
               {!viewed && activity.items.length > 0 && (
                 <>

@@ -121,11 +121,31 @@ export async function runProductControlPilot(
         runId: prior.runId,
       });
       await reload();
-      if (!(await js("Boolean(document.querySelector('.live-panel'))")))
+      const originalPrompt = state.runHistory?.selected?.summary.prompt ?? "";
+      const title = originalPrompt
+        .split(/\r?\n/u)
+        .find((line) => line.trim())
+        ?.trim()
+        .slice(0, 80);
+      checks["retainedTaskTitle"] =
+        Boolean(title) &&
+        (await js(
+          `document.querySelector('.studio-task-title')?.textContent===${JSON.stringify(title)} && [...document.querySelectorAll('.live-sessions [data-session-id]')].some(e=>e.textContent.includes(${JSON.stringify(title)}))`,
+        ));
+      checks["retainedRequestVisible"] = await js(
+        `document.querySelector('.retained-task-prompt')?.textContent===${JSON.stringify(originalPrompt)} && !document.querySelector('.studio-welcome')`,
+      );
+      if (await js("Boolean(document.querySelector('.live-panel'))"))
         await click(".studio-panel-toggle");
-      await click(".studio-tabs button:last-child");
-      await click(".run-history li:first-child button");
-      await click(".studio-tabs button:last-child");
+      await capture("retained-task");
+      const { width, height } = window.getBounds();
+      window.setSize(840, 728);
+      await capture("retained-task-narrow");
+      checks["retainedEntryFitsNarrowWindow"] = await js(
+        "(()=>{const e=document.querySelector('.retained-task'); const b=e?.querySelector('button')?.getBoundingClientRect();return Boolean(e && e.scrollWidth<=e.clientWidth+1 && b && b.left>=0 && b.right<=innerWidth)})()",
+      );
+      window.setSize(width, height);
+      await click(".retained-task button");
       await until(
         "document.querySelector('.studio-panel-body:not([hidden]) .run-history-selected .run-activity')?.getBoundingClientRect().height>0",
       );

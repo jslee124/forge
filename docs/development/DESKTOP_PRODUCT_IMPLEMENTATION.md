@@ -7,6 +7,29 @@ contract and task list, not shipped behavior. New filenames, types, fields, and
 configuration below are proposed; section 2 separately identifies existing code.
 Resolve PRD/implementation disagreements in both documents before implementing.
 
+## Retained task discovery (2026-10-27)
+
+An admitted request can survive in the product run journal before its canonical
+conversation is committed. Desktop navigation now derives a bounded title from
+that journal only when the canonical session has zero messages; existing
+conversation titles remain authoritative. Listing and browsing do not reconcile
+records, modify snapshots, restore grants, or execute the request. Missing or
+unreadable journals preserve the ordinary empty-session fallback.
+
+An empty conversation with a retained run shows its saved request and a
+“View record and next options” action instead of the new-task welcome. This
+opens the existing read-only activity/history surface. It does not continue,
+retry, approve, or create a synthetic conversation turn. Interruption wording
+requires an actual recorded interrupted outcome; an unfinished snapshot is
+labelled only as a saved record. Existing reviewed recovery remains separate.
+
+Regression coverage checks snapshot preservation, no replay, canonical title
+precedence, missing journals, and opening a record from an unselected history
+list. The F05 isolated two-process crash/reopen probe additionally checks sidebar
+and header titles, the retained request, and entry layout at 840px. Acceptance
+results are recorded separately after execution; this does not close the full
+primary-model, independent-user, accessibility, or release gates below.
+
 ## Remaining acceptance work (2026-10-27)
 
 Use this table for the next action; the chronological increments below are scoped
@@ -19,7 +42,7 @@ development records, not a claim that every T00–T14 gate is complete.
 | V04 | Bounded pilot and regression fix complete | D01/F01/F02 (model and command) used seven logical model steps at `806ceeb`. Original command-lane failure remains recorded; fix `b3ed5dd` passed deterministic projection replay and source `945582e` passed visible UI replay. These samples do not close V02 or V03. |
 | V05 | Matrix stopped; live cancellation fixed locally | `ec18064` produced 17 complete lane reports and one disconnected command-cancel attempt in round 1. Original failure retained; `d2fbf0e` corrects live validation and passed 114 installed local UI entries. Round 2/F03 and six missing protocols remain unexecuted; no post-fix paid rerun. |
 | V06 | Four protocol lanes verified twice; semantics partial | Source `50f8220`: D02/D03/D05/D06 mechanical checks passed in two fresh rounds. Six real tasks used 30 logical model steps; D03 made no model calls. Local scripted checks are separate. F04/F05/F06 remain unwired; prior matrix failures and unexecuted tasks stay unchanged. |
-| V07 | Remaining control faults verified locally in two rounds | Source `e451d1b`: F06/F05/F04 passed six local scripted control checks with zero paid calls. All 24 IDs now have hooks, but scoped controls are not a complete primary-model baseline. Crash reopening still shows a generic new-task title; improve recovery discoverability next. |
+| V07 | Remaining control faults verified locally in two rounds | Source `e451d1b`: F06/F05/F04 passed six local scripted control checks with zero paid calls. All 24 IDs now have hooks, but scoped controls are not a complete primary-model baseline. Retained task title and record discovery are now implemented; their new F05 acceptance is separate from this earlier evidence. |
 | V02 / T00,T13 | Pending full gate | Score all 24 fixed tasks in two independent rounds with pinned model/config/seed and predeclared rubric. Existing partial diagnostic samples do not satisfy this gate. |
 | V03 / T13 | Pending | Five target users perform Q02/E01/F03 without developer coaching; record blockers and results. Agent-operated tests cannot substitute for independent users. |
 | A01 / T12 | Partial | Native IME candidate confirmation must not send early; verify actual VoiceOver stage/error/approval announcements and keyboard recovery. AX/composition simulations are supporting evidence only. |

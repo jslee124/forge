@@ -112,6 +112,30 @@ export class DesktopApplication {
     });
     this.#home = loaded.forgeHome;
     const sessions = await new FileSessionStore(this.#home).list();
+    // Admission records survive a crash before canonical conversation is saved.
+    // This is a read-only display fallback, never a recovered user turn.
+    const journal = new FileProductRunStore(this.#home, {
+      secrets: configuredSecrets(this.#env),
+    });
+    const navigationSessions: DesktopState["sessions"] = [];
+    for (const session of sessions) {
+      let title = session.title;
+      if (session.messageCount === 0) {
+        try {
+          const { runs } = await journal.list(session.id);
+          const prompt = runs.find((run) => run.prompt.trim())?.prompt;
+          const firstLine = prompt?.split(/\r?\n/u).find((line) => line.trim());
+          title = firstLine?.trim().slice(0, 80) || title;
+        } catch {
+          // An unreadable journal must not hide the other saved tasks.
+        }
+      }
+      navigationSessions.push({
+        id: session.id,
+        title: String(redactValue(title, configuredSecrets(this.#env))),
+        cwd: session.workingDirectory,
+      });
+    }
     return {
       management: this.#management,
       web: await new WebPluginSettings(
@@ -140,11 +164,7 @@ export class DesktopApplication {
       sessionId: this.#session?.sessionId ?? "",
       model: loaded.config.model.id,
       provider: loaded.config.model.provider,
-      sessions: sessions.map((s) => ({
-        id: s.id,
-        title: s.title,
-        cwd: s.workingDirectory,
-      })),
+      sessions: navigationSessions,
       messages: projectSessionMessages(
         this.#session?.history ?? [],
         this.#session?.recordedRunIds ?? [],

@@ -48,6 +48,12 @@ export const resources = {
           "{{count}} earlier answer characters are not shown in the live preview.",
       },
       browsing: {
+        savedRequest: "Previously submitted request",
+        interruptedTitle: "The previous run was interrupted",
+        retainedTitle: "Saved run record",
+        retainedDescription:
+          "Review the saved request and recorded actions before deciding how to continue. Opening the record will not run it again.",
+        openRecord: "View record and next options",
         draftWhileRunning:
           "Draft kept here. Finish or stop the running task before continuing this one.",
         draftReady: "Draft kept here. Choose Continue this task to send.",
@@ -634,6 +640,12 @@ export const resources = {
         omitted: "实时预览已省略较早的 {{count}} 个回答字符。",
       },
       browsing: {
+        savedRequest: "此前提交的请求",
+        interruptedTitle: "上次运行已中断",
+        retainedTitle: "已保留运行记录",
+        retainedDescription:
+          "查看此前提交的请求与已执行的操作，再决定如何继续。打开记录不会自动重跑。",
+        openRecord: "查看记录与后续选项",
         draftWhileRunning: "草稿会保留，当前运行结束后可继续此任务并发送。",
         draftReady: "草稿已保留，点击“继续此任务”后可发送。",
         unfinishedRecord: "记录未结束",

@@ -1474,3 +1474,79 @@ it("cancels a started command through live transport, persists unknown effects a
     f.application.close();
   }
 });
+
+describe("retained admission navigation", () => {
+  it("uses the durable request for an empty session without reconciling or replaying it", async () => {
+    const f = await fixture([]);
+    const prepared = await createPersistentInteractiveSession({
+      cwd: f.cwd,
+      env: f.env,
+    });
+    await prepared.prepareRun("test");
+    await prepared.persistPreparedSession();
+    if (!prepared.sessionId)
+      throw new Error("Prepared session identity missing");
+    f.sessionId = prepared.sessionId;
+    const store = new FileProductRunStore(f.env.FORGE_HOME);
+    await store.create({
+      sessionId: f.sessionId,
+      runId: "admitted",
+      engine: "native",
+      prompt: "修复中文任务标题\n不要自动重跑",
+    });
+    const snapshot = join(f.env.FORGE_HOME, "sessions", `${f.sessionId}.json`);
+    const before = await readFile(snapshot, "utf8");
+    const reopened = new DesktopApplication(f.env, f.cwd);
+    const navigation = await reopened.state();
+    expect(
+      navigation.sessions.find((entry) => entry.id === f.sessionId)?.title,
+    ).toBe("修复中文任务标题");
+    const browse = await reopened.manage({
+      type: "browse-session",
+      sessionId: f.sessionId,
+    });
+    expect(browse.browsedSession?.title).toBe("修复中文任务标题");
+    expect(browse.browsedSession?.messages).toEqual([]);
+    expect((await store.read(f.sessionId, "admitted")).summary.state).toBe(
+      "running",
+    );
+    expect(await readFile(snapshot, "utf8")).toBe(before);
+    expect(f.requests).toHaveLength(0);
+    expect(navigation.permissionGrants).toEqual([]);
+    reopened.close();
+    f.application.close();
+  });
+  it("keeps canonical titles and tolerates a missing journal", async () => {
+    const f = await fixture([]);
+    const prepared = await createPersistentInteractiveSession({
+      cwd: f.cwd,
+      env: f.env,
+    });
+    await prepared.prepareRun("test");
+    await prepared.persistPreparedSession();
+    if (!prepared.sessionId)
+      throw new Error("Prepared session identity missing");
+    f.sessionId = prepared.sessionId;
+    expect(
+      (await f.application.state()).sessions.find(
+        (entry) => entry.id === f.sessionId,
+      )?.title,
+    ).toBe("Empty session");
+    await f.application.manage({ type: "resume", sessionId: f.sessionId });
+    await run(f.application, f.sessionId, "allow", {
+      prompt: "Canonical title",
+    });
+    await new FileProductRunStore(f.env.FORGE_HOME).create({
+      sessionId: f.sessionId,
+      runId: "later",
+      engine: "native",
+      prompt: "Do not replace the canonical title",
+    });
+    expect(
+      (await f.application.state()).sessions.find(
+        (entry) => entry.id === f.sessionId,
+      )?.title,
+    ).toBe("Canonical title");
+    f.application.close();
+  });
+});
