@@ -42,6 +42,7 @@ const files = [
   "apps/desktop/out/main/agent.js",
   "apps/desktop/src/main/product-control-acceptance.ts",
   "apps/desktop/src/main/product-control-faults.ts",
+  "apps/desktop/src/main/product-control-stream.ts",
   "apps/desktop/src/main/product-live-scenarios.ts",
   "apps/desktop/src/main/product-live-policy.ts",
   "apps/desktop/scripts/product-live.mjs",

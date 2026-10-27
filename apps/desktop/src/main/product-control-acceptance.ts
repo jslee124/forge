@@ -15,6 +15,7 @@ import {
   waitForPidExit,
   workspaceHashes,
 } from "./product-control-faults.js";
+import { controlStressEvents } from "./product-control-stream.js";
 import {
   CANCEL_COMMAND,
   CANCEL_FINISHED,
@@ -265,20 +266,20 @@ export async function runProductControlPilot(
           "content-type": "text/event-stream",
           "cache-control": "no-cache",
         });
+        if (task === "F04") {
+          for (const event of controlStressEvents()) {
+            response.write(`data: ${JSON.stringify(event)}\n\n`);
+            if (event.type === "response.reasoning_summary_text.delta")
+              fragmentsWritten++;
+          }
+          response.end("data: [DONE]\n\n");
+          return;
+        }
         const send = (delta: unknown, finish_reason: string | null = null) =>
           response.write(
             `data: ${JSON.stringify({ id: "control-fixture", object: "chat.completion.chunk", created: 1, model: "scripted", choices: [{ index: 0, delta, finish_reason }] })}\n\n`,
           );
         send({ role: "assistant" });
-        if (task === "F04") {
-          for (let n = 0; n < 10000; n++) {
-            send({ reasoning_content: `fragment-${n}-${"x".repeat(16)}\n` });
-            fragmentsWritten++;
-          }
-          send({
-            content: `Large local output\n${"bounded output ".repeat(8000)}`,
-          });
-        }
         send({
           tool_calls: [
             {
@@ -321,7 +322,7 @@ export async function runProductControlPilot(
         model: { engine: "forge", provider: "control-fixture", id: "scripted" },
         providers: {
           "control-fixture": {
-            api: "openai-completions",
+            api: task === "F04" ? "openai-responses" : "openai-completions",
             baseUrl: `http://127.0.0.1:${address.port}/v1`,
             auth: { type: "none" },
             models: [{ id: "scripted" }],

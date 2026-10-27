@@ -1692,6 +1692,17 @@ model steps; no calls are made during preparation. `fullBaselineComplete` remain
 false pending complete execution and semantic acceptance. Implementation and unit
 checks alone do not establish successful fault execution; results follow separately.
 
+### Stress transport correction
+
+The initial `a725e44` local batch passed round-1 F06 and F05, then stopped at
+F04: the scripted Chat route ignored `reasoning_content`, and the retained trace
+contained zero reasoning events. That is an invalid pressure stimulus, not proof
+of missing renderer truncation. The original failure is retained in
+`/tmp/forge-control-local-a725e44`; round 2 was not started there. F04 now uses
+standard Responses reasoning-summary delta events. A no-network test through the
+real compatibility adapter confirms all 10,000 deltas, the large text and exact
+owned command survive parsing before the next Desktop run. No paid calls occurred.
+
 ## 1. Goal and invariants
 
 Complete the native-engine investigation → approval → execution → verification →
