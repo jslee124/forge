@@ -17,6 +17,7 @@ development records, not a claim that every T00–T14 gate is complete.
 | U01 | Local implementation/UI/install verified | Local builds skip startup checks even with saved preferences; explicit public switching warns about replacement. Stable/preview ordering remains intact. Host/renderer regressions and installed `e819783` checks pass. |
 | V01 | Bounded round complete; semantics partial | Run E01 coding and F03 budget recovery through the real Desktop; preserve attempts, approvals, exact changes, independent boundary checks and raw answers. Review source facts versus explanation, draft preservation and read-only history. No whole-task retry to chase success. |
 | V04 | Bounded pilot and regression fix complete | D01/F01/F02 (model and command) used seven logical model steps at `806ceeb`. Original command-lane failure remains recorded; fix `b3ed5dd` passed deterministic projection replay and source `945582e` passed visible UI replay. These samples do not close V02 or V03. |
+| V05 | Matrix stopped; live cancellation fixed locally | `ec18064` produced 17 complete lane reports and one disconnected command-cancel attempt in round 1. Original failure retained; `d2fbf0e` corrects live validation and passed 114 installed local UI entries. Round 2/F03 and six missing protocols remain unexecuted; no post-fix paid rerun. |
 | V02 / T00,T13 | Pending full gate | Score all 24 fixed tasks in two independent rounds with pinned model/config/seed and predeclared rubric. Existing partial diagnostic samples do not satisfy this gate. |
 | V03 / T13 | Pending | Five target users perform Q02/E01/F03 without developer coaching; record blockers and results. Agent-operated tests cannot substitute for independent users. |
 | A01 / T12 | Partial | Native IME candidate confirmation must not send early; verify actual VoiceOver stage/error/approval announcements and keyboard recovery. AX/composition simulations are supporting evidence only. |
@@ -1568,6 +1569,24 @@ completion, read state and run another task. A loopback scripted-provider UI pro
 also crosses the actual utility process and clicks approval/Stop. These are local
 regression evidence, not a post-fix paid-model rerun. Paid matrix work stays stopped
 pending a fresh pinned plan; V02 remains open.
+
+## Live transport fix installed verification (2026-10-27)
+
+Local build `0.4.0-local.d2fbf0e` replaced installed `945582e` after a private
+app/data/profile backup and ZIP integrity check. Both development and actual
+installed Applications artifacts passed 114 local scripted-provider UI entries,
+including the new live utility-process/child-process cancellation probe. PID exit,
+unknown effects, persisted cancelled completion and connected management were
+observed; screenshots were visually inspected. Later fixture operations also
+remained usable. This is stronger live-boundary regression evidence than the
+previous synthetic history replay, but it is not a paid-provider rerun.
+
+All 85 original Forge-home file hashes were preserved. Normal startup reopened
+original history without an active task/draft. Selected matrix records and
+rollback metadata are copied into the private persistent backup directory;
+`/tmp/forge-install-d2fbf0e/README.md` describes the scope. 79 focused tests, 212
+deterministic checks, root checks and docs checks passed. The paid matrix remains
+stopped, and V02/V03/A01/C01/Q01/P01 are not complete.
 
 ## 1. Goal and invariants
 
