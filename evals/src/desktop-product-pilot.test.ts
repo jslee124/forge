@@ -56,6 +56,44 @@ it("checks the frozen pilot without credentials or live calls, and refuses extra
       locale: "en",
       recoverySummary: { maxModelSteps: 1, maxToolCalls: 0 },
     });
+    await run(["--task", "D01", "--task", "F01"]);
+    const faults = JSON.parse(
+      await readFile(join(round, "pilot-plan.json"), "utf8"),
+    );
+    expect(faults.tasks.map((t: { task: string }) => t.task)).toEqual([
+      "D01",
+      "F01",
+    ]);
+    expect(
+      faults.tasks.every(
+        (t: { scenario: { supplement: string } }) =>
+          t.scenario.supplement.length > 0,
+      ),
+    ).toBe(true);
+    await expect(run(["--task", "F02"])).rejects.toThrow("cancel-stage");
+    await expect(
+      run(["--task", "Q02", "--cancel-stage", "model"]),
+    ).rejects.toThrow("requires F02");
+    await run(["--task", "F02", "--cancel-stage", "model"]);
+    expect(
+      JSON.parse(await readFile(join(round, "pilot-plan.json"), "utf8"))
+        .tasks[0],
+    ).toMatchObject({
+      task: "F02",
+      modelSteps: 2,
+      toolCalls: 1,
+      scenario: { cancelStage: "model" },
+    });
+    await run(["--task", "F02", "--cancel-stage", "command"]);
+    expect(
+      JSON.parse(await readFile(join(round, "pilot-plan.json"), "utf8"))
+        .tasks[0],
+    ).toMatchObject({
+      task: "F02",
+      modelSteps: 3,
+      toolCalls: 2,
+      scenario: { cancelStage: "command" },
+    });
     await run(["--task", "Q02"]);
     const selected = JSON.parse(
       await readFile(join(round, "pilot-plan.json"), "utf8"),

@@ -1,6 +1,7 @@
 import { expect, it } from "vitest";
 import type { RunPayload } from "../shared/run-protocol.js";
 import { allowPilotApproval } from "./product-live-policy.js";
+import { CANCEL_COMMAND, pilotScenario } from "./product-live-scenarios.js";
 
 const approval = (
   effect: "write" | "process",
@@ -93,3 +94,52 @@ it.each(["Q05", "Q06"])(
     ).toBe(false);
   },
 );
+
+it("keeps fault probes on their declared command, stage and path", () => {
+  const testCommand = approval("process", {
+    program: "node",
+    args: ["--test", "fixture.test.mjs"],
+    cwd: ".",
+  });
+  expect(allowPilotApproval("D01", testCommand)).toBe(true);
+  expect(
+    allowPilotApproval("D01", approval("write", { path: "workflow.mjs" })),
+  ).toBe(false);
+  expect(allowPilotApproval("F01", testCommand)).toBe(false);
+  expect(allowPilotApproval("F02", testCommand, "command")).toBe(false);
+  const cancel = approval("process", {
+    program: "node",
+    args: ["-e", CANCEL_COMMAND],
+    cwd: ".",
+  });
+  expect(allowPilotApproval("F02", cancel, "command")).toBe(true);
+  expect(allowPilotApproval("F02", cancel, "model")).toBe(false);
+  expect(
+    allowPilotApproval(
+      "F02",
+      approval("process", {
+        program: "node",
+        args: ["-e", CANCEL_COMMAND + ";console.log('extra')"],
+        cwd: ".",
+      }),
+      "command",
+    ),
+  ).toBe(false);
+  expect(
+    allowPilotApproval(
+      "F02",
+      approval("process", {
+        program: "node",
+        args: ["-e", CANCEL_COMMAND],
+        cwd: "..",
+      }),
+      "command",
+    ),
+  ).toBe(false);
+  expect(() => pilotScenario("F02")).toThrow("cancel-stage");
+  expect(() => pilotScenario("D01", "command")).toThrow("other tasks");
+  expect(pilotScenario("F02", "command")).toMatchObject({
+    limits: { maxSteps: 3, maxToolCalls: 2 },
+    expectedWrites: ["cancel-probe-started.json"],
+  });
+});

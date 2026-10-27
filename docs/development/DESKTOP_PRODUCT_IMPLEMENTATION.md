@@ -1444,6 +1444,31 @@ references: `/tmp/forge-install-e819783/README.md`. The 27 focused tests, root c
 performed after the `644383a` E01/F03 round. These separate code/provider/installed
 identities must remain explicit. V02/V03/A01/C01/Q01/P01 stay open.
 
+### Diagnosis, refusal and cancellation pilot preparation (2026-10-27)
+
+The opt-in Desktop pilot now accepts D01/F01/F02. F02 requires an explicit
+`--cancel-stage model|command` and separate fresh prepared directories for its two
+lanes. Plans record fixed prompt supplements as disclosed stimuli; original corpus
+prompts remain unchanged in assessment files. These scenarios are not an unchanged-
+prompt full baseline. D01 permits only direct `node --test fixture.test.mjs` and
+no file edits; F01 denies all effects and records whether another process/edit is
+proposed in a later model step after denial feedback. Both use rendered approval
+buttons. F02/model stops after streamed reasoning/text; F02/command permits only a
+fixed Node probe that writes its own PID in the toy workspace and waits 30 seconds.
+It clicks Stop only after confirming that owned PID started, then checks exit,
+absence of the completion marker, no new tool starts, five-second cancellation and
+unknown effect labeling. This single-process probe does not establish descendant-
+process, OS-sandbox or cross-platform isolation guarantees.
+
+No trigger means unexercised/failure, not a pass. Failed contracts retain source
+results, attempt details and an executed-contract-failed assessment rather than
+mislabeling an executed sample `not_run`. Planned paid cap: D01 six steps, F01 six,
+F02/model two and F02/command three, seventeen logical steps maximum, zero implicit
+summaries or whole-task retries. Three fresh round directories separate variants.
+Nine focused policy/check/preflight tests, root check and 207 deterministic checks
+passed. No provider result is established by this preparation. Source/pilot-only
+changes do not imply the installed application was replaced.
+
 ## 1. Goal and invariants
 
 Complete the native-engine investigation → approval → execution → verification →

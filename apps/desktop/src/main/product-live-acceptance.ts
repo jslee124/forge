@@ -5,8 +5,18 @@ import type { BrowserWindow } from "electron";
 import type { RunEvent } from "../shared/run-protocol.js";
 import type { AgentProcess } from "./agent-process.js";
 import type { FileService } from "./file-service.js";
+import {
+  type PilotCancellation,
+  pilotFaultChecks,
+} from "./product-live-checks.js";
 import { allowPilotApproval } from "./product-live-policy.js";
 import { runPilotSummaryRecovery } from "./product-live-recovery.js";
+import {
+  CANCEL_FINISHED,
+  CANCEL_STARTED,
+  PILOT_TASKS,
+  pilotScenario,
+} from "./product-live-scenarios.js";
 
 /** Real provider pilot via the same renderer, preflight, Agent and run journal as normal Desktop. */
 export async function runProductLivePilot(
@@ -18,6 +28,7 @@ export async function runProductLivePilot(
     FORGE_PRODUCT_LIVE_FINALIZATION_INPUT: finalizationInput = "continuation",
     FORGE_PRODUCT_LIVE_RECOVER_SUMMARY: recoverSummary,
     FORGE_PRODUCT_LIVE_LOCALE: locale = "zh-CN",
+    FORGE_PRODUCT_LIVE_CANCEL_STAGE: cancelStage,
   } = process.env;
   const home = process.env["FORGE_PRODUCT_LIVE_HOME"];
   const workspace = process.env["FORGE_PRODUCT_LIVE_WORKSPACE"];
@@ -28,15 +39,19 @@ export async function runProductLivePilot(
     !workspace ||
     !task ||
     !["en", "zh-CN"].includes(locale) ||
-    !["Q02", "Q05", "Q06", "E01", "F03"].includes(task) ||
+    !(PILOT_TASKS as readonly string[]).includes(task) ||
     process.env["FORGE_PRODUCT_LIVE_OPT_IN"] !== "1"
   )
     throw new Error("Live pilot requires explicit isolated inputs and opt-in");
+  const scenario = pilotScenario(task, cancelStage);
   const directory = join(workspace, "..");
   const assessment = JSON.parse(
     await readFile(join(directory, "assessment.json"), "utf8"),
   ) as { id: string; prompt: string };
   if (assessment.id !== task) throw new Error("Pilot task mismatch");
+  const submittedPrompt = [assessment.prompt, scenario.supplement]
+    .filter(Boolean)
+    .join("\n\n");
   const js = (code: string) => window.webContents.executeJavaScript(code);
   const until = async (condition: string) => {
     try {
@@ -100,7 +115,67 @@ export async function runProductLivePilot(
   await js("document.querySelector('.studio-back').click()");
   await until("document.querySelector('.live-composer textarea')");
   const events: RunEvent[] = [];
-  const decisions: { actionId?: string; allow: boolean; reason: string }[] = [];
+  const decisions: {
+    approvalId: string;
+    actionId?: string;
+    allow: boolean;
+    reason: string;
+  }[] = [];
+  const controlJobs: Promise<void>[] = [];
+  const controlErrors: string[] = [];
+  const cancellation: PilotCancellation | undefined =
+    task === "F02" ? { stage: cancelStage as "model" | "command" } : undefined;
+  let stopScheduled = false;
+  const scheduleStop = () => {
+    if (stopScheduled || !cancellation) return;
+    stopScheduled = true;
+    const job = (async () => {
+      if (cancellation.stage === "command") {
+        const end = Date.now() + 5000;
+        while (true) {
+          try {
+            const marker = JSON.parse(
+              await readFile(join(workspace, CANCEL_STARTED), "utf8"),
+            ) as { pid?: unknown };
+            if (
+              typeof marker.pid !== "number" ||
+              !Number.isSafeInteger(marker.pid) ||
+              marker.pid <= 1
+            )
+              throw new Error("Invalid probe PID");
+            process.kill(marker.pid, 0);
+            cancellation.pid = marker.pid;
+            break;
+          } catch (cause) {
+            if (
+              (cause as NodeJS.ErrnoException).code !== "ENOENT" ||
+              Date.now() > end
+            )
+              throw cause;
+            await new Promise((resolve) => setTimeout(resolve, 20));
+          }
+        }
+      }
+      await until(
+        `document.querySelector('.studio-composer-footer > button:last-child:not(:disabled)')?.getAttribute('aria-label') === ${JSON.stringify(locale === "zh-CN" ? "停止" : "Stop")}`,
+      );
+      await writeFile(
+        join(directory, "before-stop.png"),
+        (await window.webContents.capturePage()).toPNG(),
+        { flag: "wx" },
+      );
+      const sequence = events.at(-1)?.sequence;
+      if (sequence === undefined) throw new Error("No event at cancellation");
+      cancellation.sequence = sequence;
+      cancellation.requestedAt = Date.now();
+      await js(
+        "document.querySelector('.studio-composer-footer > button:last-child').click()",
+      );
+    })().catch((cause) => {
+      controlErrors.push(String(cause));
+    });
+    controlJobs.push(job);
+  };
   let cancelTimer: ReturnType<typeof setTimeout> | undefined;
   let finished!: () => void;
   const done = new Promise<void>((resolve) => {
@@ -110,25 +185,47 @@ export async function runProductLivePilot(
     events.push(event);
     if (event.payload.type === "approval") {
       const approval = event.payload;
-      const allow = allowPilotApproval(task, approval);
+      const allow = allowPilotApproval(task, approval, cancelStage);
+      const decisionIndex = decisions.length + 1;
       decisions.push({
+        approvalId: approval.approvalId,
         ...(approval.descriptor?.actionId
           ? { actionId: approval.descriptor?.actionId }
           : {}),
         allow,
         reason: "fixed pilot task/path/process allowlist",
       });
-      void agent.runs.request({
-        type: "approve",
-        requestId: randomUUID(),
-        runId: event.runId,
-        sessionId: event.sessionId,
-        approvalId: approval.approvalId,
-        allow,
-        ...(approval.descriptor?.actionId
-          ? { actionId: approval.descriptor?.actionId }
-          : {}),
-      });
+      if (["D01", "F01", "F02"].includes(task)) {
+        controlJobs.push(
+          (async () => {
+            const selector = `.run-approval footer button:${allow ? "last" : "first"}-of-type`;
+            await until(
+              `document.querySelector(${JSON.stringify(selector)}) && !document.querySelector(${JSON.stringify(selector)}).disabled`,
+            );
+            await writeFile(
+              join(directory, `approval-${decisionIndex}.png`),
+              (await window.webContents.capturePage()).toPNG(),
+              { flag: "wx" },
+            );
+            await js(
+              `document.querySelector(${JSON.stringify(selector)}).click()`,
+            );
+          })().catch((cause) => {
+            controlErrors.push(String(cause));
+          }),
+        );
+      } else
+        void agent.runs.request({
+          type: "approve",
+          requestId: randomUUID(),
+          runId: event.runId,
+          sessionId: event.sessionId,
+          approvalId: approval.approvalId,
+          allow,
+          ...(approval.descriptor?.actionId
+            ? { actionId: approval.descriptor?.actionId }
+            : {}),
+        });
     }
     if (!cancelTimer)
       cancelTimer = setTimeout(() => {
@@ -139,12 +236,32 @@ export async function runProductLivePilot(
           sessionId: event.sessionId,
         });
       }, 150_000);
-    if (event.payload.type === "complete") finished();
+    if (
+      task === "F02" &&
+      cancelStage === "model" &&
+      ((event.payload.type === "detail" &&
+        event.payload.kind === "reasoning" &&
+        event.payload.text.trim()) ||
+        (event.payload.type === "text" && event.payload.text.trim()))
+    )
+      scheduleStop();
+    if (
+      task === "F02" &&
+      cancelStage === "command" &&
+      event.payload.type === "action" &&
+      event.payload.action.tool === "run_command" &&
+      event.payload.action.status === "running"
+    )
+      scheduleStop();
+    if (event.payload.type === "complete") {
+      if (cancellation) cancellation.completedAt = Date.now();
+      finished();
+    }
   });
   let deadline: ReturnType<typeof setTimeout> | undefined;
   try {
     await js(
-      `(()=>{const e=document.querySelector('.live-composer textarea');Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(e,${JSON.stringify(assessment.prompt)});e.dispatchEvent(new Event('input',{bubbles:true}));})()`,
+      `(()=>{const e=document.querySelector('.live-composer textarea');Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(e,${JSON.stringify(submittedPrompt)});e.dispatchEvent(new Event('input',{bubbles:true}));})()`,
     );
     await until(
       "!document.querySelector('.studio-composer-footer > button:last-child').disabled",
@@ -173,6 +290,22 @@ export async function runProductLivePilot(
     await until(
       "document.querySelector('[data-run-result=current]') && !document.querySelector('[data-testid=composer-engine]').disabled",
     );
+    await Promise.all(controlJobs);
+    if (cancellation?.stage === "command" && cancellation.pid) {
+      try {
+        process.kill(cancellation.pid, 0);
+        cancellation.pidExited = false;
+      } catch (cause) {
+        cancellation.pidExited =
+          (cause as NodeJS.ErrnoException).code === "ESRCH";
+      }
+      cancellation.finishedMarkerAbsent = await lstat(
+        join(workspace, CANCEL_FINISHED),
+      ).then(
+        () => false,
+        (cause: NodeJS.ErrnoException) => cause.code === "ENOENT",
+      );
+    }
     const current = await agent.management.request({ type: "state" });
     const answer = current.messages
       .filter((m) => m.role === "assistant" && m.kind !== "system-outcome")
@@ -184,6 +317,12 @@ export async function runProductLivePilot(
     await js(
       "document.fonts.ready.then(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))))",
     );
+    if (task === "D01") {
+      await until("document.querySelector('.run-delivery')");
+      await js(
+        "document.querySelector('.run-delivery').open=true;document.querySelector('.run-delivery-commands').scrollIntoView({block:'nearest'})",
+      );
+    }
     await writeFile(
       join(directory, "desktop.png"),
       (await window.webContents.capturePage()).toPNG(),
@@ -198,6 +337,12 @@ export async function runProductLivePilot(
     const report = {
       schemaVersion: 1,
       task,
+      scenario,
+      originalPrompt: assessment.prompt,
+      submittedPrompt,
+      cancellation,
+      recorded: current.runHistory?.selected,
+      controlErrors,
       finalizationInput: finalizationInput,
       observedAt: new Date().toISOString(),
       providerCalls:
@@ -215,7 +360,24 @@ export async function runProductLivePilot(
       before,
       after,
       checks: {
-        readOnlyPreserved: task === "E01" ? null : changed.length === 0,
+        readOnlyPreserved:
+          task === "E01" || cancellation?.stage === "command"
+            ? null
+            : changed.length === 0,
+        expectedEffectScope: changed.every((path) =>
+          scenario.expectedWrites.includes(path),
+        ),
+        uiControlsSucceeded: controlErrors.length === 0,
+        ...pilotFaultChecks(task, events, cancellation),
+        cancelledCommandEffectsUnknown:
+          cancellation?.stage === "command"
+            ? Boolean(
+                current.runHistory?.selected?.delivery?.unresolved.some(
+                  (entry) =>
+                    entry.tool === "run_command" && entry.status === "unknown",
+                ),
+              )
+            : null,
         portEditScope:
           task === "E01"
             ? changed.every((path) => path === "workflow.mjs")
@@ -263,6 +425,13 @@ export async function runProductLivePilot(
     console.log(
       `Live pilot ${task}: ${completion?.type === "complete" ? completion.outcome : "unknown"}; evidence recorded`,
     );
+    if (
+      ["D01", "F01", "F02"].includes(task) &&
+      Object.values(report.checks).some((value) => value === false)
+    )
+      throw new Error(
+        "Pilot fault contract not satisfied; original evidence retained",
+      );
     if (["E01", "F03"].includes(task) && recoverSummary === "1") {
       stop();
       if (cancelTimer) clearTimeout(cancelTimer);

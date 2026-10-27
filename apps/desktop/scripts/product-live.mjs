@@ -6,6 +6,10 @@ import { join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseArgs, promisify } from "node:util";
 import { AuthenticationManager } from "../../../packages/auth/dist/index.js";
+import {
+  PILOT_TASKS,
+  pilotScenario,
+} from "../src/main/product-live-scenarios.ts";
 
 const { values } = parseArgs({
   options: {
@@ -16,6 +20,7 @@ const { values } = parseArgs({
     "finalization-input": { type: "string" },
     "recover-summary": { type: "boolean" },
     locale: { type: "string" },
+    "cancel-stage": { type: "string" },
   },
   strict: true,
 });
@@ -25,16 +30,20 @@ if (
   !values.round?.length
 )
   throw new Error(
-    "Usage: --check|--live --round <prepared-round-directory> [--round <directory>] [--task Q02|Q05|Q06|E01|F03] [--finalization-input continuation|evidence] [--recover-summary] [--locale en|zh-CN]",
+    "Usage: --check|--live --round <prepared-round-directory> [--round <directory>] [--task Q02|Q05|Q06|E01|F03|D01|F01|F02] [--finalization-input continuation|evidence] [--recover-summary] [--locale en|zh-CN] [--cancel-stage model|command]",
   );
 const tasks = values.task ?? ["Q02", "E01", "F03"];
 if (
   new Set(tasks).size !== tasks.length ||
-  tasks.some((task) => !["Q02", "Q05", "Q06", "E01", "F03"].includes(task))
+  tasks.some((task) => !PILOT_TASKS.includes(task))
 )
   throw new Error(
-    "Pilot tasks must be unique members of Q02, Q05, Q06, E01, F03",
+    `Pilot tasks must be unique members of ${PILOT_TASKS.join(", ")}`,
   );
+for (const task of tasks)
+  pilotScenario(task, task === "F02" ? values["cancel-stage"] : undefined);
+if (values["cancel-stage"] && !tasks.includes("F02"))
+  throw new Error("--cancel-stage requires F02");
 const finalizationInput = values["finalization-input"] ?? "continuation";
 if (!["continuation", "evidence"].includes(finalizationInput))
   throw new Error("Invalid finalization input");
@@ -133,8 +142,18 @@ for (const supplied of values.round) {
       }
       plans.push({
         task,
-        modelSteps: task === "F03" ? 2 : 6,
-        toolCalls: task === "E01" ? 16 : 8,
+        modelSteps: pilotScenario(
+          task,
+          task === "F02" ? values["cancel-stage"] : undefined,
+        ).limits.maxSteps,
+        toolCalls: pilotScenario(
+          task,
+          task === "F02" ? values["cancel-stage"] : undefined,
+        ).limits.maxToolCalls,
+        scenario: pilotScenario(
+          task,
+          task === "F02" ? values["cancel-stage"] : undefined,
+        ),
         wallClockMs: 175000,
         status: "not_run",
         finalizationInput,
@@ -189,10 +208,10 @@ for (const supplied of values.round) {
     }
     const home = join(directory, "runtime-home");
     await mkdir(home, { mode: 0o700 }); // A prior attempt is retained, never overwritten or silently retried.
-    const limits = {
-      maxSteps: task === "F03" ? 2 : 6,
-      maxToolCalls: task === "E01" ? 16 : 8,
-    };
+    const limits = pilotScenario(
+      task,
+      task === "F02" ? values["cancel-stage"] : undefined,
+    ).limits;
     await writeFile(
       join(home, "config.json"),
       JSON.stringify({
@@ -217,6 +236,9 @@ for (const supplied of values.round) {
       FORGE_PRODUCT_LIVE_OPT_IN: "1",
       FORGE_PRODUCT_LIVE_FINALIZATION_INPUT: finalizationInput,
       FORGE_PRODUCT_LIVE_LOCALE: locale,
+      ...(task === "F02"
+        ? { FORGE_PRODUCT_LIVE_CANCEL_STAGE: values["cancel-stage"] }
+        : {}),
       FORGE_PRODUCT_LIVE_RECOVER_SUMMARY:
         values["recover-summary"] && ["E01", "F03"].includes(task) ? "1" : "0",
     });
@@ -252,6 +274,29 @@ for (const supplied of values.round) {
       });
     }
     if (code !== 0) {
+      const retained = await readFile(
+        join(directory, "pilot-result.json"),
+        "utf8",
+      ).then(JSON.parse, () => undefined);
+      const failedAssessment = JSON.parse(
+        await readFile(join(directory, "assessment.json"), "utf8"),
+      );
+      failedAssessment.status = retained
+        ? "executed_contract_failed"
+        : "infrastructure_failed";
+      failedAssessment.evidence = retained
+        ? [
+            "pilot-result.json",
+            "events.json",
+            "desktop.png",
+            "attempt-failure.json",
+          ]
+        : ["attempt-failure.json", "desktop.log"];
+      await writeFile(
+        join(directory, "assessment.json"),
+        JSON.stringify(failedAssessment, null, 2) + "\n",
+        { mode: 0o600 },
+      );
       await writeFile(
         join(directory, "attempt-failure.json"),
         JSON.stringify(
@@ -259,9 +304,11 @@ for (const supplied of values.round) {
             sourceRevision,
             exitCode: code,
             limits,
-            status: "failed_to_record",
+            status: retained ? "contract_failed" : "failed_to_record",
             externalProviderConfigured: true,
-            actualExternalCalls: "not_established_by_failed_attempt",
+            actualExternalCalls:
+              "HTTP attempts are not established by logical steps",
+            recordedLogicalModelSteps: retained?.completion?.modelSteps ?? null,
           },
           null,
           2,
