@@ -1,5 +1,4 @@
 import { execFile, spawn } from "node:child_process";
-import { createHash } from "node:crypto";
 import { cp, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -12,6 +11,7 @@ import {
   PILOT_TASKS,
   pilotScenario,
 } from "../src/main/product-live-scenarios.ts";
+import { snapshotMatrixInputs } from "./product-matrix-inputs.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const desktop = join(root, "apps/desktop");
@@ -37,9 +37,11 @@ if (
 const output = resolve(values.output);
 const corpus = await loadDesktopProductCorpus();
 const unavailable = {};
-const files = [
+const buildFiles = [
   "apps/desktop/out/main/index.js",
   "apps/desktop/out/main/agent.js",
+];
+const files = [
   "apps/desktop/src/main/product-control-acceptance.ts",
   "apps/desktop/src/main/product-control-faults.ts",
   "apps/desktop/src/main/product-control-stream.ts",
@@ -47,6 +49,7 @@ const files = [
   "apps/desktop/src/main/product-live-policy.ts",
   "apps/desktop/scripts/product-live.mjs",
   "apps/desktop/scripts/product-matrix.mjs",
+  "apps/desktop/scripts/product-matrix-inputs.mjs",
   "evals/scripts/desktop-product-assertions.mjs",
   "evals/scripts/desktop-product-attempt.mjs",
   "evals/fixtures/desktop-product/protocols/faults-v1/D02/mock.mjs",
@@ -54,17 +57,8 @@ const files = [
   "evals/fixtures/desktop-product/protocols/faults-v1/D02/mock.test.mjs",
   "evals/fixtures/desktop-product/manifest.json",
 ];
-const hashes = async () =>
-  Object.fromEntries(
-    await Promise.all(
-      files.map(async (name) => [
-        name,
-        createHash("sha256")
-          .update(await readFile(join(root, name)))
-          .digest("hex"),
-      ]),
-    ),
-  );
+const snapshot = () => snapshotMatrixInputs(root, files, buildFiles);
+const hashes = async () => (await snapshot()).sha256;
 const revision = async () =>
   (
     await promisify(execFile)("git", ["rev-parse", "HEAD"], { cwd: root })
@@ -106,10 +100,12 @@ if (values.prepare) {
       }
     }
   }
+  const inputs = await snapshot();
   const plan = {
     schemaVersion: 1,
     sourceRevision: await revision(),
-    sha256: await hashes(),
+    sha256: inputs.sha256,
+    missingBuildArtifacts: inputs.missingBuildArtifacts,
     model: corpus.primaryModel,
     corpus: corpus.revision,
     locale: "zh-CN",
@@ -156,6 +152,10 @@ if (values.prepare) {
   console.log(
     `Prepared 48 task rows / ${lanes.length} supported lanes; no missing task hooks; fault controls are local scripted lanes; zero model calls.`,
   );
+  if (inputs.missingBuildArtifacts.length)
+    console.log(
+      "Desktop build is pending; build and prepare a fresh matrix before live execution.",
+    );
 }
 const plan = JSON.parse(
   await readFile(join(output, "matrix-plan.json"), "utf8"),
@@ -231,9 +231,14 @@ if (values.live) {
     throw new Error(
       "Live execution requires --supported-only; task execution does not establish full semantic baseline acceptance",
     );
+  const inputs = await snapshot();
+  if (plan.missingBuildArtifacts?.length || inputs.missingBuildArtifacts.length)
+    throw new Error(
+      "Desktop build missing at preparation; run pnpm desktop:build and prepare a fresh matrix before live execution",
+    );
   if (
     (await revision()) !== plan.sourceRevision ||
-    JSON.stringify(await hashes()) !== JSON.stringify(plan.sha256)
+    JSON.stringify(inputs.sha256) !== JSON.stringify(plan.sha256)
   )
     throw new Error("Source/build drift since preparation");
   // Validate every lane before accessing credentials or making a paid request.

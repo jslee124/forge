@@ -7,6 +7,26 @@ contract and task list, not shipped behavior. New filenames, types, fields, and
 configuration below are proposed; section 2 separately identifies existing code.
 Resolve PRD/implementation disagreements in both documents before implementing.
 
+## Matrix planning on a clean CI checkout (2026-10-27)
+
+Four recent CI runs at `50f8220`, `3cf2a16`, `a725e44`, and `1d97974`
+failed in the same matrix test: ordinary `pnpm build` compiles TypeScript but
+does not create `apps/desktop/out/main/index.js`. An existing local Electron
+build had hidden that dependency. The missing-build failure was reproduced
+locally before the fix.
+
+Matrix preparation now records absent Electron build inputs explicitly as null
+hashes plus `missingBuildArtifacts`; source inputs remain mandatory. Such a
+plan is planning-only: live execution rejects missing artifacts in either the
+saved plan or current inputs before credentials or provider requests. Build the
+desktop and prepare a fresh matrix to execute it. Complete build/source hashes
+and drift checks remain required; no dummy artifacts or test skips were added.
+
+With the existing Desktop `out/` temporarily absent, full `CI=true pnpm test`
+passed 813 tests (6 opt-in tests skipped); the original build was restored.
+`CI=true pnpm check` passed. This is local clean-checkout-equivalent evidence,
+not a claim that remote CI has passed; no remote push or old-run retry occurred.
+
 ## Retained task discovery (2026-10-27)
 
 An admitted request can survive in the product run journal before its canonical
