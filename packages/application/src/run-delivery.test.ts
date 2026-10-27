@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -9,7 +9,9 @@ import {
 } from "@forge/persistence";
 import { describe, expect, it } from "vitest";
 import { projectActionEvent } from "./product-run.js";
+import { projectRecordedActivity } from "./product-run-history.js";
 import { projectRunDelivery } from "./run-delivery.js";
+import { prepareRunRecovery } from "./run-recovery.js";
 
 function record(actions: RecordedAction[] = []): ProductRunRecord {
   const time = new Date().toISOString();
@@ -236,3 +238,67 @@ describe("factual delivery projection", () => {
     }
   });
 });
+
+it("keeps captured command cancellation effects unknown across live, history, delivery and recovery without mutating records", async () => {
+  const fixture = JSON.parse(
+    await readFile(
+      new URL("./fixtures/cancelled-command-action.json", import.meta.url),
+      "utf8",
+    ),
+  ) as { action: RecordedAction };
+  const historical = record([fixture.action]);
+  const before = JSON.stringify(historical);
+  const live = projectActionEvent({
+    type: "tool.failed",
+    step: fixture.action.step,
+    call: {
+      id: fixture.action.actionId,
+      name: fixture.action.tool,
+      input: JSON.parse(fixture.action.input),
+    },
+    result: JSON.parse(fixture.action.output ?? "null"),
+  });
+  expect(live?.status).toBe("unknown");
+  if (!live) throw new Error("Missing cancellation projection");
+  for (const source of [historical, record([live])]) {
+    expect(projectRecordedActivity(source).items[0]?.action?.status).toBe(
+      "unknown",
+    );
+    expect(projectRunDelivery(source)).toMatchObject({
+      commands: [],
+      unresolved: [
+        {
+          actionId: fixture.action.actionId,
+          tool: "run_command",
+          status: "unknown",
+        },
+      ],
+    });
+    expect(
+      JSON.parse(prepareRunRecovery(source, [], "summarize").evidence)
+        .observedActions[0].status,
+    ).toBe("unknown");
+  }
+  expect(JSON.stringify(historical)).toBe(before);
+});
+it.each([
+  "The tool call was cancelled.",
+  '{"ok":true,"error":{"code":"cancelled"}}',
+  '{"ok":false,"error":{"code":"process_error"}}',
+  '{"ok":false,"error":{"code":"approval_denied"}}',
+])(
+  "does not infer cancelled execution from prose or other errors: %s",
+  (output) => {
+    const source = record([
+      {
+        actionId: "a",
+        step: 1,
+        tool: "run_command",
+        status: "failed",
+        input: "{}",
+        output,
+      },
+    ]);
+    expect(projectRunDelivery(source).unresolved[0]?.status).toBe("failed");
+  },
+);

@@ -21,6 +21,7 @@ import {
   createForgeModelAdapter,
 } from "./model-adapter.js";
 import { parseThinkingMode } from "./options.js";
+import { recordedActionStatus } from "./product-run.js";
 
 export interface PreparedRunRecovery {
   readonly link: ProductRecoveryLink;
@@ -66,7 +67,10 @@ export function prepareRunRecovery(
   let answerCharacters = 0;
   for (const { payload } of record.events) {
     if (payload.type === "action")
-      actions.set(payload.action.actionId, payload.action);
+      actions.set(payload.action.actionId, {
+        ...payload.action,
+        status: recordedActionStatus(payload.action),
+      });
     if (payload.type === "text") {
       answerCharacters += payload.text.length;
       answer = (answer + payload.text).slice(-8192);

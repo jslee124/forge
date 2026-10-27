@@ -6,7 +6,10 @@ import {
   ProductRunStorageError,
   type ProductRunWriter,
 } from "@forge/persistence";
-import type { ProductRunCompletion } from "./product-run.js";
+import {
+  type ProductRunCompletion,
+  recordedActionStatus,
+} from "./product-run.js";
 
 export type { ProductActivity, ProductActivityItem } from "@forge/persistence";
 
@@ -92,7 +95,10 @@ export function projectRecordedActivity(
         id: key,
         kind: "action",
         text: "",
-        action: activityAction,
+        action: {
+          ...activityAction,
+          status: recordedActionStatus(payload.action),
+        },
         truncated: Boolean(payload.action.truncated),
       };
       const index = items.findIndex((entry) => entry.id === key);
@@ -145,7 +151,9 @@ export function projectRecordedActivity(
   items = items.map((item) => {
     if (
       !item.action ||
-      ["succeeded", "failed", "denied"].includes(item.action.status)
+      ["succeeded", "failed", "denied", "unknown", "cancelled"].includes(
+        item.action.status,
+      )
     )
       return item;
     return {

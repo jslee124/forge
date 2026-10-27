@@ -2,6 +2,7 @@ import type { RunEvent, RunResult, RunStatus } from "@forge/core";
 import {
   type ProductActionFacts,
   productActionFactsSchema,
+  type RecordedAction,
 } from "@forge/persistence";
 
 export type ProductRunOutcome = RunStatus | "interrupted";
@@ -46,11 +47,30 @@ export interface ProductActionUpdate {
     | "running"
     | "succeeded"
     | "failed"
-    | "denied";
+    | "denied"
+    | "unknown";
   readonly input: string;
   readonly output?: string;
   readonly facts?: ProductActionFacts;
   readonly truncated?: boolean;
+}
+
+/** Legacy cancellation is a structured result code, never a prose classifier. */
+export function recordedActionStatus(
+  action: RecordedAction,
+): RecordedAction["status"] {
+  if (action.status !== "failed" || !action.output) return action.status;
+  try {
+    const result = JSON.parse(action.output) as {
+      ok?: unknown;
+      error?: { code?: unknown };
+    };
+    if (result?.ok === false && result.error?.code === "cancelled")
+      return "unknown";
+  } catch {
+    /* Clipped/legacy text cannot establish a cancellation result. */
+  }
+  return action.status;
 }
 
 const MAX_ACTIVITY_TEXT = 16_384;
@@ -96,7 +116,9 @@ export function projectActionEvent(
           ? "succeeded"
           : event.result.error.code === "approval_denied"
             ? "denied"
-            : "failed",
+            : event.result.error.code === "cancelled"
+              ? "unknown"
+              : "failed",
         output: output.slice(0, MAX_ACTIVITY_TEXT),
         ...(event.result.ok
           ? projectActionFacts(

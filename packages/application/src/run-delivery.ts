@@ -4,6 +4,8 @@ import type {
   RecordedAction,
 } from "@forge/persistence";
 
+import { recordedActionStatus } from "./product-run.js";
+
 /** Only recorded execution facts. Never classify an answer or a command name as verification. */
 export function projectRunDelivery(
   record: ProductRunRecord,
@@ -11,7 +13,10 @@ export function projectRunDelivery(
   const actions = new Map<string, RecordedAction>();
   for (const { payload } of record.events)
     if (payload.type === "action")
-      actions.set(payload.action.actionId, payload.action);
+      actions.set(payload.action.actionId, {
+        ...payload.action,
+        status: recordedActionStatus(payload.action),
+      });
   const files: ProductRunDelivery["files"] = [];
   const commands: ProductRunDelivery["commands"] = [];
   const unresolved: ProductRunDelivery["unresolved"] = [];
