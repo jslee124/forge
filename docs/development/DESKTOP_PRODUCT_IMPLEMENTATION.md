@@ -16,6 +16,7 @@ development records, not a claim that every T00–T14 gate is complete.
 | --- | --- | --- |
 | U01 | Local implementation/UI/install verified | Local builds skip startup checks even with saved preferences; explicit public switching warns about replacement. Stable/preview ordering remains intact. Host/renderer regressions and installed `e819783` checks pass. |
 | V01 | Bounded round complete; semantics partial | Run E01 coding and F03 budget recovery through the real Desktop; preserve attempts, approvals, exact changes, independent boundary checks and raw answers. Review source facts versus explanation, draft preservation and read-only history. No whole-task retry to chase success. |
+| V04 | Bounded pilot and regression fix complete | D01/F01/F02 (model and command) used seven logical model steps at `806ceeb`. Original command-lane failure remains recorded; fix `b3ed5dd` passed deterministic projection replay and source `945582e` passed visible UI replay. These samples do not close V02 or V03. |
 | V02 / T00,T13 | Pending full gate | Score all 24 fixed tasks in two independent rounds with pinned model/config/seed and predeclared rubric. Existing partial diagnostic samples do not satisfy this gate. |
 | V03 / T13 | Pending | Five target users perform Q02/E01/F03 without developer coaching; record blockers and results. Agent-operated tests cannot substitute for independent users. |
 | A01 / T12 | Partial | Native IME candidate confirmation must not send early; verify actual VoiceOver stage/error/approval announcements and keyboard recovery. AX/composition simulations are supporting evidence only. |
@@ -1494,6 +1495,24 @@ These fixed-stimulus diagnostic samples do not satisfy the full two-round 24-tas
 gate or independent user trials. D01's answer overgeneralized from two tests;
 F02/command began with an English introduction. Semantic and platform gates stay
 open. The PID check covers this one process only, not descendant process trees.
+
+## Cancellation fix installed verification (2026-10-27)
+
+Local arm64 build `0.4.0-local.945582e` now replaces the previous installed
+`e819783` build. Development and actual Applications-artifact UI suites each
+completed 112 local scripted-provider entries, including the captured cancellation
+surface with a visible activity tab, unknown delivery effects and no operation
+reexecution. The installed screenshot was visually inspected. No external model
+calls were added for these checks. Original paid failure and post-fix replay stay
+separate evidence classes.
+
+The old app ZIP passed archive integrity checks; app, Forge data and Chromium
+preferences were privately backed up before replacement. All 85 original Forge
+home file hashes remain unchanged. The normal installed app reopened with original
+history and no active task/draft. Metadata and rollback instructions are in
+`/tmp/forge-install-945582e/README.md`, also copied into the private persistent
+backup directory. This remains an unsigned local build. V02/V03/A01/C01/Q01/P01
+remain open; no public-release, native-IME/VoiceOver or independent-user claim.
 
 ## 1. Goal and invariants
 
