@@ -27,8 +27,26 @@ Regression coverage checks snapshot preservation, no replay, canonical title
 precedence, missing journals, and opening a record from an unselected history
 list. The F05 isolated two-process crash/reopen probe additionally checks sidebar
 and header titles, the retained request, and entry layout at 840px. Acceptance
-results are recorded separately after execution; this does not close the full
-primary-model, independent-user, accessibility, or release gates below.
+results remain scoped; this does not close the full primary-model,
+independent-user, accessibility, or release gates below.
+
+Source `893b3d7` passed 65 focused tests, 213 deterministic checks, root checks,
+and documentation checks. Both fresh F05 rounds passed all 13 mechanical checks;
+the assistant inspected the first round's narrow and open-panel screenshots.
+There were two local scripted requests and zero paid calls. Raw records, hashes,
+and screenshots are retained locally at
+`evals/artifacts/retained-task-893b3d7/` (git ignored), with the original execution
+at `/tmp/forge-retained-893b3d7`. This is not an independent-user visual review.
+
+The installed macOS arm64 app now runs `0.4.0-local.893b3d7`, verified from its
+installed archive; the bundle's base version remains `0.4.0`. Its 114 isolated
+local UI acceptance entries passed. Normal native reopening preserved the
+original task list; all 85 original Forge configuration/history files retained
+their hashes. Previous app ZIP, Forge home and Chromium data are backed up at
+`~/Library/Application Support/Forge Backups/2026-10-27-893b3d7/`. Installation
+hashes and checks are retained under the evidence directory's `installed/`.
+This is an unsigned local build, with no signing/notarization or other-platform
+claim.
 
 ## Remaining acceptance work (2026-10-27)
 
@@ -43,6 +61,7 @@ development records, not a claim that every T00–T14 gate is complete.
 | V05 | Matrix stopped; live cancellation fixed locally | `ec18064` produced 17 complete lane reports and one disconnected command-cancel attempt in round 1. Original failure retained; `d2fbf0e` corrects live validation and passed 114 installed local UI entries. Round 2/F03 and six missing protocols remain unexecuted; no post-fix paid rerun. |
 | V06 | Four protocol lanes verified twice; semantics partial | Source `50f8220`: D02/D03/D05/D06 mechanical checks passed in two fresh rounds. Six real tasks used 30 logical model steps; D03 made no model calls. Local scripted checks are separate. F04/F05/F06 remain unwired; prior matrix failures and unexecuted tasks stay unchanged. |
 | V07 | Remaining control faults verified locally in two rounds | Source `e451d1b`: F06/F05/F04 passed six local scripted control checks with zero paid calls. All 24 IDs now have hooks, but scoped controls are not a complete primary-model baseline. Retained task title and record discovery are now implemented; their new F05 acceptance is separate from this earlier evidence. |
+| V08 | Retained task discovery locally verified | `893b3d7`: canonical-empty sessions use saved request titles; explicit record entry replaces the welcome. Two isolated F05 rounds and 114 installed UI entries pass; no automatic replay or restored authority. |
 | V02 / T00,T13 | Pending full gate | Score all 24 fixed tasks in two independent rounds with pinned model/config/seed and predeclared rubric. Existing partial diagnostic samples do not satisfy this gate. |
 | V03 / T13 | Pending | Five target users perform Q02/E01/F03 without developer coaching; record blockers and results. Agent-operated tests cannot substitute for independent users. |
 | A01 / T12 | Partial | Native IME candidate confirmation must not send early; verify actual VoiceOver stage/error/approval announcements and keyboard recovery. AX/composition simulations are supporting evidence only. |
