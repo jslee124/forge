@@ -143,3 +143,58 @@ it("keeps fault probes on their declared command, stage and path", () => {
     expectedWrites: ["cancel-probe-started.json"],
   });
 });
+
+it.each(["E02", "E03", "E04", "E05", "E06"])(
+  "bounds %s edits and processes to the declared fixture surface",
+  (task) => {
+    expect(
+      allowPilotApproval(task, approval("write", { path: "workflow.mjs" })),
+    ).toBe(true);
+    expect(
+      allowPilotApproval(task, approval("write", { path: "main.mjs" })),
+    ).toBe(task === "E06");
+    for (const path of [
+      "fixture.test.mjs",
+      "tools/implementation.mjs",
+      "../workflow.mjs",
+      "/workflow.mjs",
+    ])
+      expect(allowPilotApproval(task, approval("write", { path }))).toBe(false);
+    expect(
+      allowPilotApproval(
+        task,
+        approval("process", {
+          program: "node",
+          args: ["--test", "fixture.test.mjs"],
+          cwd: ".",
+        }),
+      ),
+    ).toBe(true);
+    expect(
+      allowPilotApproval(
+        task,
+        approval("process", {
+          program: "sh",
+          args: ["-c", "node --test fixture.test.mjs"],
+        }),
+      ),
+    ).toBe(false);
+  },
+);
+it.each(["Q01", "Q03", "Q04", "D04"])(
+  "keeps %s diagnosis read-only",
+  (task) => {
+    expect(
+      allowPilotApproval(task, approval("write", { path: "workflow.mjs" })),
+    ).toBe(false);
+    expect(
+      allowPilotApproval(
+        task,
+        approval("process", {
+          program: "node",
+          args: ["--test", "fixture.test.mjs"],
+        }),
+      ),
+    ).toBe(false);
+  },
+);

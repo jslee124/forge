@@ -3,8 +3,9 @@ import { createHash } from "node:crypto";
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { join, resolve } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import { parseArgs, promisify } from "node:util";
+import { checkProductEdit } from "../../../evals/scripts/desktop-product-assertions.mjs";
 import { AuthenticationManager } from "../../../packages/auth/dist/index.js";
 import {
   PILOT_TASKS,
@@ -30,7 +31,7 @@ if (
   !values.round?.length
 )
   throw new Error(
-    "Usage: --check|--live --round <prepared-round-directory> [--round <directory>] [--task Q02|Q05|Q06|E01|F03|D01|F01|F02] [--finalization-input continuation|evidence] [--recover-summary] [--locale en|zh-CN] [--cancel-stage model|command]",
+    "Usage: --check|--live --round <prepared-round-directory> [--round <directory>] [--task <supported-task-id>] [--finalization-input continuation|evidence] [--recover-summary] [--locale en|zh-CN] [--cancel-stage model|command]",
   );
 const tasks = values.task ?? ["Q02", "E01", "F03"];
 if (
@@ -349,24 +350,8 @@ for (const supplied of values.round) {
       { flag: "wx", mode: 0o600 },
     );
     let independent = { status: "not_applicable" };
-    if (task === "E01") {
-      const moduleUrl = pathToFileURL(join(workspace, "workflow.mjs")).href;
-      const test = `import assert from 'node:assert/strict';import {parsePort} from ${JSON.stringify(moduleUrl)};for(const value of ['1','8080','65535'])assert.equal(parsePort(value),Number(value));for(const value of ['0','65536','1.5','1e2','+80','-1','Infinity','NaN','',' ',' 80','80 ','0x50','65535.0',null,undefined,1,[],{}])assert.throws(()=>parsePort(value));`;
-      try {
-        await promisify(execFile)(
-          process.execPath,
-          ["--input-type=module", "--eval", test],
-          {
-            cwd: workspace,
-            timeout: 10_000,
-            env: { PATH: process.env.PATH ?? "", HOME: home },
-          },
-        );
-        independent = { status: "passed", assertions: 22 };
-      } catch {
-        independent = { status: "failed", assertions: 22 };
-      }
-    }
+    if (/^E0[1-6]$/.test(task))
+      independent = await checkProductEdit(task, workspace, home);
     await writeFile(
       join(directory, "independent-check.json"),
       JSON.stringify(independent, null, 2) + "\n",

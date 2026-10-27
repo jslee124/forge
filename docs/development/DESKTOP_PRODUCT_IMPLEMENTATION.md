@@ -1514,6 +1514,32 @@ history and no active task/draft. Metadata and rollback instructions are in
 backup directory. This remains an unsigned local build. V02/V03/A01/C01/Q01/P01
 remain open; no public-release, native-IME/VoiceOver or independent-user claim.
 
+## Two-round matrix readiness (2026-10-27)
+
+The [matrix launcher](../../apps/desktop/scripts/product-matrix.mjs) prepares
+48 task rows and pins source, build, manifest, model, seed and disclosed stimuli.
+It supports 18 task IDs / 38 lanes (F02 has two stages per round), capped at 206
+logical model steps with no whole-task retries. Infrastructure/provider failures
+or observed critical mechanical failures stop further paid calls. Every approval
+is now operated through the rendered approval buttons. Ordinary Q/E/D04/D06
+prompts remain unchanged; previously disclosed fault supplements remain explicit.
+
+The six missing protocols are D02 (no mock specimen in the frozen v1 seed), D03
+(matrix-specific missing-model admission), D05 (external edit trigger), F04
+(fragment/output injection), F05 (crash/relaunch), F06 (journal-write failure).
+A full `--live` request fails closed; `--supported-only` explicitly selects the
+partial matrix. Preparation and reports never imply a full baseline pass.
+Existing standalone UI/contract tests do not substitute for these task rows.
+
+Independent edit probes now cover E01–E06, including preserved user fields,
+concurrent submissions and recovery after failure, whitespace/traversal, async
+error identity and consistent cross-file rename. Probes live outside the model's
+workspace, preserve individual failed assertions and have a 10-second process
+limit. They are bounded behavioral examples, not exhaustive proofs or OS
+isolation. The fixture test may still fail for unrelated defects; independent
+checks and model-reported verification must remain separate. Raw answers still
+need task-level semantic review by a named reviewer.
+
 ## 1. Goal and invariants
 
 Complete the native-engine investigation → approval → execution → verification →

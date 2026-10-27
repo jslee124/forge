@@ -195,37 +195,24 @@ export async function runProductLivePilot(
         allow,
         reason: "fixed pilot task/path/process allowlist",
       });
-      if (["D01", "F01", "F02"].includes(task)) {
-        controlJobs.push(
-          (async () => {
-            const selector = `.run-approval footer button:${allow ? "last" : "first"}-of-type`;
-            await until(
-              `document.querySelector(${JSON.stringify(selector)}) && !document.querySelector(${JSON.stringify(selector)}).disabled`,
-            );
-            await writeFile(
-              join(directory, `approval-${decisionIndex}.png`),
-              (await window.webContents.capturePage()).toPNG(),
-              { flag: "wx" },
-            );
-            await js(
-              `document.querySelector(${JSON.stringify(selector)}).click()`,
-            );
-          })().catch((cause) => {
-            controlErrors.push(String(cause));
-          }),
-        );
-      } else
-        void agent.runs.request({
-          type: "approve",
-          requestId: randomUUID(),
-          runId: event.runId,
-          sessionId: event.sessionId,
-          approvalId: approval.approvalId,
-          allow,
-          ...(approval.descriptor?.actionId
-            ? { actionId: approval.descriptor?.actionId }
-            : {}),
-        });
+      controlJobs.push(
+        (async () => {
+          const selector = `.run-approval footer button:${allow ? "last" : "first"}-of-type`;
+          await until(
+            `document.querySelector(${JSON.stringify(selector)}) && !document.querySelector(${JSON.stringify(selector)}).disabled`,
+          );
+          await writeFile(
+            join(directory, `approval-${decisionIndex}.png`),
+            (await window.webContents.capturePage()).toPNG(),
+            { flag: "wx" },
+          );
+          await js(
+            `document.querySelector(${JSON.stringify(selector)}).click()`,
+          );
+        })().catch((cause) => {
+          controlErrors.push(String(cause));
+        }),
+      );
     }
     if (!cancelTimer)
       cancelTimer = setTimeout(() => {
@@ -317,7 +304,10 @@ export async function runProductLivePilot(
     await js(
       "document.fonts.ready.then(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))))",
     );
-    if (task === "D01") {
+    if (
+      ["D01", "D06"].includes(task) &&
+      (await js("Boolean(document.querySelector('.run-delivery'))"))
+    ) {
       await until("document.querySelector('.run-delivery')");
       await js(
         "document.querySelector('.run-delivery').open=true;document.querySelector('.run-delivery-commands').scrollIntoView({block:'nearest'})",
@@ -361,7 +351,7 @@ export async function runProductLivePilot(
       after,
       checks: {
         readOnlyPreserved:
-          task === "E01" || cancellation?.stage === "command"
+          task.startsWith("E") || cancellation?.stage === "command"
             ? null
             : changed.length === 0,
         expectedEffectScope: changed.every((path) =>

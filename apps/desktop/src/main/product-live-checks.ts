@@ -26,15 +26,14 @@ export function pilotFaultChecks(
     (a) => a.tool === "run_command" && a.status === "denied",
   );
   return {
-    diagnosisFailedCommandRecorded:
-      task === "D01"
-        ? actions.some(
-            (a) =>
-              a.tool === "run_command" &&
-              a.facts?.kind === "command" &&
-              a.facts.exitCode === 1,
-          )
-        : null,
+    diagnosisFailedCommandRecorded: ["D01", "D06"].includes(task)
+      ? actions.some(
+          (a) =>
+            a.tool === "run_command" &&
+            a.facts?.kind === "command" &&
+            a.facts.exitCode === 1,
+        )
+      : null,
     denialObserved: task === "F01" ? Boolean(denied) : null,
     deniedCommandNeverStarted:
       task === "F01"

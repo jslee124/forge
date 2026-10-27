@@ -8,7 +8,10 @@ export function allowPilotApproval(
   approval: Extract<RunPayload, { type: "approval" }>,
   cancelStage?: string,
 ): boolean {
-  if (!["E01", "D01", "F02"].includes(task) || !approval.descriptor)
+  if (
+    !(/^E0[1-6]$/.test(task) || ["D01", "D06", "F02"].includes(task)) ||
+    !approval.descriptor
+  )
     return false;
   try {
     const input = JSON.parse(approval.descriptor.input) as {
@@ -18,7 +21,11 @@ export function allowPilotApproval(
       cwd?: unknown;
     };
     if (approval.descriptor.effect === "write")
-      return task === "E01" && input.path === "workflow.mjs";
+      return (
+        /^E0[1-6]$/.test(task) &&
+        (input.path === "workflow.mjs" ||
+          (task === "E06" && input.path === "main.mjs"))
+      );
     if (approval.descriptor.effect !== "process") return false;
     if (task === "F02")
       return (

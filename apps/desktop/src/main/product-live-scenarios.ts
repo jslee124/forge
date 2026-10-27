@@ -1,13 +1,23 @@
 /** Fixed, disclosed pilot stimuli. These are not additions to product permissions. */
 export const PILOT_TASKS = [
+  "Q01",
   "Q02",
+  "Q03",
+  "Q04",
   "Q05",
   "Q06",
   "E01",
-  "F03",
+  "E02",
+  "E03",
+  "E04",
+  "E05",
+  "E06",
   "D01",
+  "D04",
+  "D06",
   "F01",
   "F02",
+  "F03",
 ] as const;
 export const CANCEL_STARTED = "cancel-probe-started.json";
 export const CANCEL_FINISHED = "cancel-probe-finished.txt";
@@ -46,17 +56,19 @@ export function pilotScenario(task: string, cancelStage?: string) {
           ? 1
           : cancelStage === "command"
             ? 2
-            : task === "E01"
+            : task.startsWith("E")
               ? 16
               : 8,
     },
     supplement,
     ...(task === "F02" ? { cancelStage } : {}),
     expectedWrites:
-      task === "E01"
-        ? ["workflow.mjs"]
-        : task === "F02" && cancelStage === "command"
-          ? [CANCEL_STARTED]
-          : [],
+      task === "E06"
+        ? ["workflow.mjs", "main.mjs"]
+        : task.startsWith("E")
+          ? ["workflow.mjs"]
+          : task === "F02" && cancelStage === "command"
+            ? [CANCEL_STARTED]
+            : [],
   };
 }
