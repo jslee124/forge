@@ -1,11 +1,12 @@
 import { execFile, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs, promisify } from "node:util";
 import { checkProductEdit } from "../../../evals/scripts/desktop-product-assertions.mjs";
+import { collectAttemptEvidence } from "../../../evals/scripts/desktop-product-attempt.mjs";
 import { AuthenticationManager } from "../../../packages/auth/dist/index.js";
 import {
   PILOT_TASKS,
@@ -15,6 +16,7 @@ import {
 const { values } = parseArgs({
   options: {
     live: { type: "boolean" },
+    fixture: { type: "boolean" },
     check: { type: "boolean" },
     round: { type: "string", multiple: true },
     task: { type: "string", multiple: true },
@@ -45,6 +47,11 @@ for (const task of tasks)
   pilotScenario(task, task === "F02" ? values["cancel-stage"] : undefined);
 if (values["cancel-stage"] && !tasks.includes("F02"))
   throw new Error("--cancel-stage requires F02");
+if (
+  values.fixture &&
+  tasks.some((task) => !["D02", "D03", "D05", "D06"].includes(task))
+)
+  throw new Error("Unsupported local fault fixture task");
 const finalizationInput = values["finalization-input"] ?? "continuation";
 if (!["continuation", "evidence"].includes(finalizationInput))
   throw new Error("Invalid finalization input");
@@ -56,9 +63,7 @@ if (
 const locale = values.locale ?? "zh-CN";
 if (!["en", "zh-CN"].includes(locale)) throw new Error("Invalid pilot locale");
 const require = createRequire(import.meta.url);
-const key = values.live
-  ? new AuthenticationManager().requireApiKey("deepseek").apiKey
-  : "";
+let key = ""; // Loaded only after all selected inputs validate; D03 never reads credentials.
 const corpus = JSON.parse(
   await readFile(
     new URL(
@@ -103,6 +108,12 @@ for (const supplied of values.round) {
       })
   )
     throw new Error("Unrecognized prepared model/corpus");
+  const expectedByTask = {};
+  if (
+    manifest.faultProtocol !== undefined &&
+    manifest.faultProtocol !== "desktop-product-faults-v1"
+  )
+    throw new Error("Unrecognized fault protocol");
   {
     if (
       JSON.stringify(Object.keys(manifest.fixtureSha256).sort()) !==
@@ -121,8 +132,35 @@ for (const supplied of values.round) {
       )
         throw new Error("Modified task prompt");
       if (
+        task === "D02" &&
+        manifest.faultProtocol !== "desktop-product-faults-v1"
+      )
+        throw new Error("D02 requires the versioned mock fixture protocol");
+      const overlays =
+        task === "D02" ? (manifest.taskFixtureSha256?.D02 ?? {}) : {};
+      if (task === "D02") {
+        const overlayUrl = new URL(
+          "../../../evals/fixtures/desktop-product/protocols/faults-v1/D02/",
+          import.meta.url,
+        );
+        const names = await inventory(fileURLToPath(overlayUrl));
+        if (
+          JSON.stringify(Object.keys(overlays).sort()) !== JSON.stringify(names)
+        )
+          throw new Error("Modified fault fixture inventory");
+        for (const name of names)
+          if (
+            createHash("sha256")
+              .update(await readFile(new URL(name, overlayUrl)))
+              .digest("hex") !== overlays[name]
+          )
+            throw new Error("Modified fault fixture hash");
+      }
+      const expected = { ...manifest.fixtureSha256, ...overlays };
+      expectedByTask[task] = expected;
+      if (
         JSON.stringify(await inventory(join(directory, "workspace"))) !==
-        JSON.stringify(originalFiles)
+        JSON.stringify(Object.keys(expected).sort())
       )
         throw new Error("Workspace has extra or missing files");
       for (const [name, expected] of Object.entries(manifest.fixtureSha256)) {
@@ -141,12 +179,33 @@ for (const supplied of values.round) {
         )
           throw new Error(`Modified seed: ${task}/${name}`);
       }
+      for (const [name, expectedHash] of Object.entries(overlays))
+        if (
+          createHash("sha256")
+            .update(await readFile(join(directory, "workspace", name)))
+            .digest("hex") !== expectedHash
+        )
+          throw new Error(`Modified task overlay: ${task}/${name}`);
       plans.push({
         task,
-        modelSteps: pilotScenario(
-          task,
-          task === "F02" ? values["cancel-stage"] : undefined,
-        ).limits.maxSteps,
+        faultProtocol: manifest.faultProtocol ?? null,
+        taskFixtureSha256: overlays,
+        providerMode: values.fixture
+          ? "local-scripted"
+          : task === "D03"
+            ? "none"
+            : "external",
+        credentialAccess:
+          task === "D03" || values.fixture
+            ? "none"
+            : "only with --live after validation",
+        modelSteps:
+          task === "D03"
+            ? 0
+            : pilotScenario(
+                task,
+                task === "F02" ? values["cancel-stage"] : undefined,
+              ).limits.maxSteps,
         toolCalls: pilotScenario(
           task,
           task === "F02" ? values["cancel-stage"] : undefined,
@@ -180,7 +239,10 @@ for (const supplied of values.round) {
             model: manifest.primaryModel,
             tasks: plans,
             fixtureFiles: Object.keys(manifest.fixtureSha256),
-            externalDestination: "DeepSeek API",
+            externalDestination:
+              values.fixture || tasks.every((task) => task === "D03")
+                ? null
+                : "DeepSeek API",
             externalCallsMade: 0,
             approval: "awaiting explicit confirmation",
             fullBaselineComplete: false,
@@ -200,13 +262,15 @@ for (const supplied of values.round) {
   for (const task of tasks) {
     const directory = join(round, task);
     const workspace = join(directory, "workspace");
-    for (const [name, expected] of Object.entries(manifest.fixtureSha256)) {
+    for (const [name, expected] of Object.entries(expectedByTask[task])) {
       const actual = createHash("sha256")
         .update(await readFile(join(workspace, name)))
         .digest("hex");
       if (actual !== expected)
         throw new Error(`Modified seed: ${task}/${name}`);
     }
+    if (task !== "D03" && !values.fixture && !key)
+      key = new AuthenticationManager().requireApiKey("deepseek").apiKey;
     const home = join(directory, "runtime-home");
     await mkdir(home, { mode: 0o700 }); // A prior attempt is retained, never overwritten or silently retried.
     const limits = pilotScenario(
@@ -229,11 +293,12 @@ for (const supplied of values.round) {
     );
     Object.assign(env, {
       CI: "true",
-      DEEPSEEK_API_KEY: key,
+      ...(task !== "D03" && !values.fixture ? { DEEPSEEK_API_KEY: key } : {}),
       FORGE_HOME: home,
       FORGE_PRODUCT_LIVE_HOME: home,
       FORGE_PRODUCT_LIVE_WORKSPACE: workspace,
       FORGE_PRODUCT_LIVE_TASK: task,
+      FORGE_PRODUCT_LIVE_FIXTURE: values.fixture ? "1" : "0",
       FORGE_PRODUCT_LIVE_OPT_IN: "1",
       FORGE_PRODUCT_LIVE_FINALIZATION_INPUT: finalizationInput,
       FORGE_PRODUCT_LIVE_LOCALE: locale,
@@ -244,7 +309,7 @@ for (const supplied of values.round) {
         values["recover-summary"] && ["E01", "F03"].includes(task) ? "1" : "0",
     });
     console.log(
-      `Round ${manifest.round} / ${task}: starting real provider run; max steps ${limits.maxSteps}`,
+      `Round ${manifest.round} / ${task}: starting ${task === "D03" ? "zero-call admission" : values.fixture ? "local scripted fixture" : "real provider run"}; max steps ${limits.maxSteps}`,
     );
     const child = spawn(
       require("electron"),
@@ -254,7 +319,11 @@ for (const supplied of values.round) {
     const log = [];
     for (const stream of [child.stdout, child.stderr])
       stream.on("data", (chunk) => {
-        log.push(chunk.toString().split(key).join("[redacted]"));
+        log.push(
+          key
+            ? chunk.toString().split(key).join("[redacted]")
+            : chunk.toString(),
+        );
       });
     const timer = setTimeout(
       () => child.kill(),
@@ -263,11 +332,15 @@ for (const supplied of values.round) {
         : 200_000,
     );
     let code;
+    let launchError;
     try {
       code = await new Promise((resolveExit, reject) => {
         child.once("error", reject);
         child.once("exit", resolveExit);
       });
+    } catch (cause) {
+      code = null;
+      launchError = String(cause);
     } finally {
       clearTimeout(timer);
       await writeFile(join(directory, "desktop.log"), log.join(""), {
@@ -275,6 +348,9 @@ for (const supplied of values.round) {
       });
     }
     if (code !== 0) {
+      const forensic = await collectAttemptEvidence(home, directory).catch(
+        (error) => ({ error: String(error) }),
+      );
       const retained = await readFile(
         join(directory, "pilot-result.json"),
         "utf8",
@@ -285,14 +361,37 @@ for (const supplied of values.round) {
       failedAssessment.status = retained
         ? "executed_contract_failed"
         : "infrastructure_failed";
-      failedAssessment.evidence = retained
+      const evidenceCandidates = retained
         ? [
             "pilot-result.json",
             "events.json",
             "desktop.png",
             "attempt-failure.json",
           ]
-        : ["attempt-failure.json", "desktop.log"];
+        : [
+            "attempt-failure.json",
+            "desktop.log",
+            "attempt-records.json",
+            "observed-events.json",
+            "control-failure.json",
+          ];
+      failedAssessment.evidence = [
+        "attempt-failure.json",
+        ...(
+          await Promise.all(
+            evidenceCandidates
+              .filter((name) => name !== "attempt-failure.json")
+              .map(async (name) =>
+                (await stat(join(directory, name)).then(
+                  () => true,
+                  () => false,
+                ))
+                  ? name
+                  : null,
+              ),
+          )
+        ).filter(Boolean),
+      ];
       await writeFile(
         join(directory, "assessment.json"),
         JSON.stringify(failedAssessment, null, 2) + "\n",
@@ -304,9 +403,11 @@ for (const supplied of values.round) {
           {
             sourceRevision,
             exitCode: code,
+            launchError,
             limits,
             status: retained ? "contract_failed" : "failed_to_record",
-            externalProviderConfigured: true,
+            externalProviderConfigured: task !== "D03" && !values.fixture,
+            forensic,
             actualExternalCalls:
               "HTTP attempts are not established by logical steps",
             recordedLogicalModelSteps: retained?.completion?.modelSteps ?? null,
@@ -323,6 +424,19 @@ for (const supplied of values.round) {
     const result = JSON.parse(
       await readFile(join(directory, "pilot-result.json"), "utf8"),
     );
+    if (task === "D03") {
+      const assessment = JSON.parse(
+        await readFile(join(directory, "assessment.json"), "utf8"),
+      );
+      assessment.status = "executed_admission_checked";
+      assessment.evidence = ["pilot-result.json", "desktop.png"];
+      await writeFile(
+        join(directory, "assessment.json"),
+        JSON.stringify(assessment, null, 2) + "\n",
+        { mode: 0o600 },
+      );
+      continue;
+    }
     const finalizationEvents = [];
     for (const entry of await readdir(join(home, "runs"), {
       withFileTypes: true,
@@ -350,7 +464,7 @@ for (const supplied of values.round) {
       { flag: "wx", mode: 0o600 },
     );
     let independent = { status: "not_applicable" };
-    if (/^E0[1-6]$/.test(task))
+    if (/^E0[1-6]$/.test(task) || task === "D02")
       independent = await checkProductEdit(task, workspace, home);
     await writeFile(
       join(directory, "independent-check.json"),

@@ -1588,6 +1588,38 @@ rollback metadata are copied into the private persistent backup directory;
 deterministic checks, root checks and docs checks passed. The paid matrix remains
 stopped, and V02/V03/A01/C01/Q01/P01 are not complete.
 
+## Versioned fault protocol and interruption evidence (2026-10-27)
+
+The frozen v1 seed remains unchanged. An opt-in `desktop-product-faults-v1`
+protocol adds only D02's outdated mock, current implementation and two meaningful
+assertions; per-task overlay inventories/hashes validate before credential access.
+D02 may edit only the mock and run its exact test command. D06 now explicitly
+triggers the existing failing fixture command, rather than asking the model to
+infer Desktop rendering from fixture source.
+
+D03 runs credential-free admission through the rendered composer/settings link,
+asserting no new session/run/provider trace and preserved draft. Its planned paid
+model budget is zero. D05 appends a declared external marker immediately before
+its first write approval; the expected stale rewrite, later complete reread and
+preserved external content are checked separately. That host mutation is recorded
+and does not masquerade as an agent edit or permission grant.
+
+`--fixture` is restricted to D02/D03/D05/D06. D02/D05/D06 use a loopback scripted
+provider through the actual Desktop path; reports mark it as a fixture, never
+DeepSeek quality evidence. Matrix subsets report unselected rows explicitly and
+retain all 48 task rows. Default coverage is now 21 IDs/44 lanes; F04/F05/F06
+remain unwired. A full gate still fails closed. Source/prompt/seed/model changes
+must not be merged into old paid records.
+
+On host exceptions the pilot saves separate observed events, control decisions,
+errors and a best-effort screenshot without replacing any original report. On
+nonzero exit the launcher inventories raw journals/traces read-only, with hashes,
+observed model starts and malformed/oversized trace disclosure. It does not
+reconcile unfinished summaries, infer completion or claim HTTP/billing counts.
+Original files are never overwritten; forced kill and spawn failure remain
+failure paths, not successful test results. Protocol execution evidence follows
+separately; unit/preflight checks are not live model results.
+
 ## 1. Goal and invariants
 
 Complete the native-engine investigation → approval → execution → verification →

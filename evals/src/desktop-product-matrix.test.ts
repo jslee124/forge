@@ -25,16 +25,9 @@ it("prepares 48 honest task rows, pins both stages and refuses an incomplete ful
     const plan = JSON.parse(
       await readFile(join(output, "matrix-plan.json"), "utf8"),
     );
-    expect(plan.lanes).toHaveLength(38);
-    expect(plan.maxLogicalModelSteps).toBe(206);
-    expect(Object.keys(plan.missing)).toEqual([
-      "D02",
-      "D03",
-      "D05",
-      "F04",
-      "F05",
-      "F06",
-    ]);
+    expect(plan.lanes).toHaveLength(44);
+    expect(plan.maxLogicalModelSteps).toBe(230);
+    expect(Object.keys(plan.missing)).toEqual(["F04", "F05", "F06"]);
     const report = JSON.parse(
       await readFile(join(output, "matrix-results.json"), "utf8"),
     );
@@ -44,12 +37,12 @@ it("prepares 48 honest task rows, pins both stages and refuses an incomplete ful
       report.rows.filter(
         (r: { status: string }) => r.status === "not_run_missing_protocol",
       ),
-    ).toHaveLength(12);
+    ).toHaveLength(6);
     expect(report.recordedLogicalModelSteps).toBe(0);
     expect(
       plan.lanes.filter((l: { task: string }) => l.task === "F02"),
     ).toHaveLength(4);
-    await expect(run("--live")).rejects.toThrow("six missing task protocols");
+    await expect(run("--live")).rejects.toThrow("three missing task protocols");
     for (const lane of plan.lanes)
       await expect(
         stat(join(lane.directory, lane.task, "runtime-home")),

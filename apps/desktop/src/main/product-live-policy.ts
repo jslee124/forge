@@ -9,7 +9,10 @@ export function allowPilotApproval(
   cancelStage?: string,
 ): boolean {
   if (
-    !(/^E0[1-6]$/.test(task) || ["D01", "D06", "F02"].includes(task)) ||
+    !(
+      /^E0[1-6]$/.test(task) ||
+      ["D01", "D02", "D05", "D06", "F02"].includes(task)
+    ) ||
     !approval.descriptor
   )
     return false;
@@ -21,11 +24,13 @@ export function allowPilotApproval(
       cwd?: unknown;
     };
     if (approval.descriptor.effect === "write")
-      return (
-        /^E0[1-6]$/.test(task) &&
-        (input.path === "workflow.mjs" ||
-          (task === "E06" && input.path === "main.mjs"))
-      );
+      return task === "D02"
+        ? input.path === "mock.mjs"
+        : task === "D05"
+          ? input.path === "workflow.mjs"
+          : /^E0[1-6]$/.test(task) &&
+            (input.path === "workflow.mjs" ||
+              (task === "E06" && input.path === "main.mjs"));
     if (approval.descriptor.effect !== "process") return false;
     if (task === "F02")
       return (
@@ -43,7 +48,7 @@ export function allowPilotApproval(
       Array.isArray(input.args) &&
       input.args.length === 2 &&
       input.args[0] === "--test" &&
-      input.args[1] === "fixture.test.mjs"
+      input.args[1] === (task === "D02" ? "mock.test.mjs" : "fixture.test.mjs")
     );
   } catch {
     return false;

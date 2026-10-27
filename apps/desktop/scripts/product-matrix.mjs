@@ -19,9 +19,11 @@ const { values } = parseArgs({
   options: {
     prepare: { type: "boolean" },
     live: { type: "boolean" },
+    fixture: { type: "boolean" },
     report: { type: "boolean" },
     output: { type: "string" },
     "supported-only": { type: "boolean" },
+    task: { type: "string", multiple: true },
   },
   strict: true,
 });
@@ -35,9 +37,6 @@ if (
 const output = resolve(values.output);
 const corpus = await loadDesktopProductCorpus();
 const unavailable = {
-  D02: "Frozen v1 seed has no mock/implementation mismatch specimen. A versioned fixture is required before scoring.",
-  D03: "Missing-model admission exists in UI acceptance, but this matrix has no task-specific no-credential lane. Existing local tests are not substituted.",
-  D05: "External-edit-after-read trigger and stale-baseline observation not wired into the real Desktop matrix.",
   F04: "Large-output/10000-fragment injection and control-reachability probe not wired into this matrix.",
   F05: "Crash-after-tool-start, relaunch and no-replay probe not wired into this matrix.",
   F06: "Journal-write failure injection and side-effect audit not wired into this matrix.",
@@ -50,6 +49,10 @@ const files = [
   "apps/desktop/scripts/product-live.mjs",
   "apps/desktop/scripts/product-matrix.mjs",
   "evals/scripts/desktop-product-assertions.mjs",
+  "evals/scripts/desktop-product-attempt.mjs",
+  "evals/fixtures/desktop-product/protocols/faults-v1/D02/mock.mjs",
+  "evals/fixtures/desktop-product/protocols/faults-v1/D02/mock-implementation.mjs",
+  "evals/fixtures/desktop-product/protocols/faults-v1/D02/mock.test.mjs",
   "evals/fixtures/desktop-product/manifest.json",
 ];
 const hashes = async () =>
@@ -76,12 +79,22 @@ if (values.prepare) {
   const lanes = [];
   for (const round of [1, 2]) {
     const directory = join(output, `round-${round}`);
-    await prepareDesktopProductRound(directory, round);
+    await prepareDesktopProductRound(
+      directory,
+      round,
+      "desktop-product-faults-v1",
+    );
     const command = join(output, `round-${round}-command`);
     await mkdir(command, { mode: 0o700 });
     await cp(join(directory, "round.json"), join(command, "round.json"));
     await cp(join(directory, "F02"), join(command, "F02"), { recursive: true });
-    for (const task of PILOT_TASKS) {
+    const tasks = values.task ?? PILOT_TASKS;
+    if (
+      new Set(tasks).size !== tasks.length ||
+      tasks.some((task) => !PILOT_TASKS.includes(task))
+    )
+      throw new Error("Invalid matrix task subset");
+    for (const task of tasks) {
       for (const stage of task === "F02" ? ["model", "command"] : [undefined]) {
         const scenario = pilotScenario(task, stage);
         lanes.push({
@@ -103,21 +116,33 @@ if (values.prepare) {
     locale: "zh-CN",
     finalizationInput: "continuation",
     wholeTaskRetries: 0,
-    externalDestination: "DeepSeek API",
+    externalDestination:
+      values.fixture || lanes.every((l) => l.task === "D03")
+        ? null
+        : "DeepSeek API",
     maxLogicalModelSteps: lanes.reduce(
-      (n, l) => n + l.scenario.limits.maxSteps,
+      (n, l) => n + (l.task === "D03" ? 0 : l.scenario.limits.maxSteps),
       0,
     ),
     maxWallClockMsPerLane: 200000,
     stimulusDisclosure:
       "Original prompt plus exact per-lane scenario supplement. Supplemented fault probes are not unchanged-prompt baseline.",
     missing: unavailable,
+    faultProtocol: "desktop-product-faults-v1",
+    selectedTasks: values.task ?? PILOT_TASKS,
+    providerMode: values.fixture ? "local-scripted" : "external",
+    maxPaidLogicalModelSteps: values.fixture
+      ? 0
+      : lanes.reduce(
+          (n, l) => n + (l.task === "D03" ? 0 : l.scenario.limits.maxSteps),
+          0,
+        ),
     lanes,
     fullBaselineComplete: false,
   };
   await save("matrix-plan.json", plan);
   console.log(
-    `Prepared 48 task rows / ${lanes.length} supported lanes; 6 missing task protocols per round; zero model calls.`,
+    `Prepared 48 task rows / ${lanes.length} supported lanes; 3 missing task protocols per round; zero model calls.`,
   );
 }
 const plan = JSON.parse(
@@ -140,6 +165,8 @@ async function report() {
           evidence: directory,
           assessment: await read("assessment.json"),
           completion: result?.completion ?? null,
+          admission: result?.admission ?? null,
+          forensic: await read("attempt-records.json"),
           checks: result?.checks ?? null,
           independent: await read("independent-check.json"),
           attemptFailure: await read("attempt-failure.json"),
@@ -151,9 +178,11 @@ async function report() {
         critical: task.critical,
         status: plan.missing[task.id]
           ? "not_run_missing_protocol"
-          : lanes.every((l) => l.completion)
-            ? "executed_needs_semantic_review"
-            : "not_run_or_infrastructure_failure",
+          : lanes.length === 0
+            ? "not_selected"
+            : lanes.every((l) => l.completion || l.admission?.blocked)
+              ? "executed_needs_semantic_review"
+              : "not_run_or_infrastructure_failure",
         missingProtocol: plan.missing[task.id] ?? null,
         lanes,
       });
@@ -161,10 +190,16 @@ async function report() {
   const result = {
     sourceRevision: plan.sourceRevision,
     model: plan.model,
+    providerMode: plan.providerMode,
     rows,
     recordedLogicalModelSteps: rows
       .flatMap((r) => r.lanes)
-      .reduce((n, l) => n + (l.completion?.modelSteps ?? 0), 0),
+      .reduce(
+        (n, l) =>
+          n +
+          (l.completion?.modelSteps ?? l.forensic?.modelStartsObserved ?? 0),
+        0,
+      ),
     wholeTaskRetries: 0,
     fullBaselineComplete: false,
     independentUserTrial: false,
@@ -175,7 +210,7 @@ async function report() {
 if (values.live) {
   if (!values["supported-only"])
     throw new Error(
-      "Full baseline blocked by six missing task protocols; use explicit --supported-only for the disclosed partial matrix",
+      "Full baseline blocked by three missing task protocols; use explicit --supported-only for the disclosed partial matrix",
     );
   if (
     (await revision()) !== plan.sourceRevision ||
@@ -192,6 +227,7 @@ if (values.live) {
       "--task",
       lane.task,
       ...(lane.stage ? ["--cancel-stage", lane.stage] : []),
+      ...(plan.providerMode === "local-scripted" ? ["--fixture"] : []),
     ];
     await promisify(execFile)(process.execPath, args, { cwd: desktop });
   }
@@ -211,6 +247,7 @@ if (values.live) {
       "--task",
       lane.task,
       ...(lane.stage ? ["--cancel-stage", lane.stage] : []),
+      ...(plan.providerMode === "local-scripted" ? ["--fixture"] : []),
     ];
     console.log(
       `START round=${lane.round} task=${lane.task} stage=${lane.stage ?? "none"}`,
@@ -247,12 +284,12 @@ if (values.live) {
     );
     const current = row.lanes.find((l) => l.stage === (lane.stage ?? null));
     if (
-      !current.completion ||
+      !(current.completion || current.admission?.blocked) ||
       ["configuration_error", "disconnected"].includes(
-        current.completion.reason,
+        current.completion?.reason,
       ) ||
       ["provider-unavailable", "provider-rate-limited"].includes(
-        current.completion.message,
+        current.completion?.message,
       )
     )
       throw new Error(

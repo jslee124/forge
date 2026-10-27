@@ -6,6 +6,12 @@ import { promisify } from "node:util";
 // Independent behavioral probes live outside model-visible workspaces. They are
 // bounded examples, not proof over every input or an OS execution sandbox.
 const probes = {
+  D02: `
+    const {actualTool}=await import(new URL('mock-implementation.mjs',mainUrl));
+    const {mockTool}=await import(new URL('mock.mjs',mainUrl));
+    check(()=>assert.deepEqual(actualTool(),{value:'ok'}));
+    check(()=>assert.deepEqual(mockTool(),actualTool()));
+  `,
   E01: `
     for (const value of ['1','8080','65535']) check(()=>assert.equal(w.parsePort(value),Number(value)));
     for (const value of ['0','65536','1.5','1e2','+80','-1','Infinity','NaN','',' ',' 80','80 ','0x50','65535.0',null,undefined,1,[],{}]) check(()=>assert.throws(()=>w.parsePort(value)));

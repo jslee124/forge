@@ -198,3 +198,44 @@ it.each(["Q01", "Q03", "Q04", "D04"])(
     ).toBe(false);
   },
 );
+
+it("bounds the new mock and stale-rewrite protocols to exact paths and test commands", () => {
+  expect(
+    allowPilotApproval("D02", approval("write", { path: "mock.mjs" })),
+  ).toBe(true);
+  for (const path of [
+    "mock.test.mjs",
+    "mock-implementation.mjs",
+    "workflow.mjs",
+    "../mock.mjs",
+  ])
+    expect(allowPilotApproval("D02", approval("write", { path }))).toBe(false);
+  expect(
+    allowPilotApproval(
+      "D02",
+      approval("process", {
+        program: "node",
+        args: ["--test", "mock.test.mjs"],
+      }),
+    ),
+  ).toBe(true);
+  expect(
+    allowPilotApproval(
+      "D02",
+      approval("process", {
+        program: "node",
+        args: ["--test", "fixture.test.mjs"],
+      }),
+    ),
+  ).toBe(false);
+  expect(
+    allowPilotApproval("D05", approval("write", { path: "workflow.mjs" })),
+  ).toBe(true);
+  expect(
+    allowPilotApproval("D05", approval("write", { path: "fixture.test.mjs" })),
+  ).toBe(false);
+  expect(
+    allowPilotApproval("D03", approval("write", { path: "workflow.mjs" })),
+  ).toBe(false);
+  expect(pilotScenario("D06").supplement).toContain("fixture.test.mjs");
+});

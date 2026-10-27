@@ -60,10 +60,12 @@ export async function loadDesktopProductCorpus() {
 export async function prepareDesktopProductRound(
   destination: string,
   round: 1 | 2,
+  faultProtocol?: "desktop-product-faults-v1",
 ) {
   const corpus = await loadDesktopProductCorpus();
   await mkdir(destination, { recursive: false, mode: 0o700 });
   const hashes: Record<string, string> = {};
+  const taskFixtureSha256: Record<string, Record<string, string>> = {};
   async function copySeed(source: string, target: string, relative = "") {
     await mkdir(target, { mode: 0o700 });
     for (const entry of await readdir(source, { withFileTypes: true })) {
@@ -86,6 +88,19 @@ export async function prepareDesktopProductRound(
     const directory = join(destination, task.id);
     await mkdir(directory, { mode: 0o700 });
     await copySeed(join(root, "seed"), join(directory, "workspace"));
+    if (faultProtocol && task.id === "D02") {
+      const overlay = join(root, "protocols/faults-v1/D02");
+      const extra: Record<string, string> = {};
+      for (const entry of await readdir(overlay, { withFileTypes: true })) {
+        if (!entry.isFile()) throw new Error("unexpected-protocol-entry");
+        const bytes = await readFile(join(overlay, entry.name));
+        await writeFile(join(directory, "workspace", entry.name), bytes, {
+          flag: "wx",
+        });
+        extra[entry.name] = createHash("sha256").update(bytes).digest("hex");
+      }
+      taskFixtureSha256[task.id] = extra;
+    }
     await writeFile(
       join(directory, "assessment.json"),
       `${JSON.stringify({ ...task, status: "not_run", evidence: [], rubric: corpus.rubric }, null, 2)}\n`,
@@ -97,6 +112,7 @@ export async function prepareDesktopProductRound(
     round,
     primaryModel: corpus.primaryModel,
     fixtureSha256: hashes,
+    ...(faultProtocol ? { faultProtocol, taskFixtureSha256 } : {}),
     liveBaselineStatus: "not_run",
     contractTestsAreNotLiveBaseline: true,
   };

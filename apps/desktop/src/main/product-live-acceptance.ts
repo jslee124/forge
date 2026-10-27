@@ -3,8 +3,10 @@ import { lstat, readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { BrowserWindow } from "electron";
 import type { RunEvent } from "../shared/run-protocol.js";
+import { acceptanceProvider } from "./acceptance-provider.js";
 import type { AgentProcess } from "./agent-process.js";
 import type { FileService } from "./file-service.js";
+import { savePilotFailure } from "./product-attempt-evidence.js";
 import {
   type PilotCancellation,
   pilotFaultChecks,
@@ -14,12 +16,57 @@ import { runPilotSummaryRecovery } from "./product-live-recovery.js";
 import {
   CANCEL_FINISHED,
   CANCEL_STARTED,
+  EXTERNAL_EDIT_MARKER,
   PILOT_TASKS,
   pilotScenario,
 } from "./product-live-scenarios.js";
 
 /** Real provider pilot via the same renderer, preflight, Agent and run journal as normal Desktop. */
 export async function runProductLivePilot(
+  window: BrowserWindow,
+  agent: AgentProcess,
+  files: FileService,
+) {
+  const task = process.env["FORGE_PRODUCT_LIVE_TASK"];
+  const local = process.env["FORGE_PRODUCT_LIVE_FIXTURE"] === "1";
+  if (!local || task === "D03") return runPilot(window, agent, files);
+  if (!["D02", "D05", "D06"].includes(task ?? ""))
+    throw new Error("Unsupported local fault fixture");
+  const home = process.env["FORGE_PRODUCT_LIVE_HOME"];
+  if (
+    !home ||
+    home !== process.env["FORGE_HOME"] ||
+    process.env["FORGE_PRODUCT_LIVE_OPT_IN"] !== "1"
+  )
+    throw new Error("Fixture requires explicit isolated opt-in");
+  const provider = await acceptanceProvider();
+  provider.setMode(`fault-${task}` as "fault-D02" | "fault-D05" | "fault-D06");
+  try {
+    const config = JSON.parse(
+      await readFile(join(home, "config.json"), "utf8"),
+    );
+    await writeFile(
+      join(home, "config.json"),
+      JSON.stringify({
+        ...config,
+        model: { engine: "forge", provider: "p4-fault", id: "scripted" },
+        providers: {
+          "p4-fault": {
+            api: "openai-completions",
+            baseUrl: provider.url,
+            auth: { type: "none" },
+            models: [{ id: "scripted" }],
+          },
+        },
+      }),
+      { mode: 0o600 },
+    );
+    return await runPilot(window, agent, files);
+  } finally {
+    await provider.close();
+  }
+}
+async function runPilot(
   window: BrowserWindow,
   agent: AgentProcess,
   files: FileService,
@@ -114,6 +161,69 @@ export async function runProductLivePilot(
   await until(`document.documentElement.lang === ${JSON.stringify(locale)}`);
   await js("document.querySelector('.studio-back').click()");
   await until("document.querySelector('.live-composer textarea')");
+  if (task === "D03") {
+    const prior = await agent.management.request({ type: "state" });
+    await js(
+      `(()=>{const e=document.querySelector('.live-composer textarea');Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(e,${JSON.stringify(submittedPrompt)});e.dispatchEvent(new Event('input',{bubbles:true}));})()`,
+    );
+    await until(
+      "!document.querySelector('.studio-composer-footer > button:last-child').disabled",
+    );
+    await js(
+      "document.querySelector('.studio-composer-footer > button:last-child').click()",
+    );
+    await until("document.querySelector('[data-testid=setup-required]')");
+    const current = await agent.management.request({ type: "state" });
+    const traces = await readdir(join(home, "runs")).catch(
+      (error: NodeJS.ErrnoException) => {
+        if (error.code !== "ENOENT") throw error;
+        return [];
+      },
+    );
+    const checks = {
+      admissionBlocked: true,
+      noSessionCreated: current.sessions.length === prior.sessions.length,
+      noRunCreated: !current.runHistory?.selected,
+      noProviderTrace: traces.length === 0,
+      draftPreserved: await js(
+        `document.querySelector('.live-composer textarea').value===${JSON.stringify(submittedPrompt)}`,
+      ),
+    };
+    await js(
+      "document.querySelector('[data-testid=setup-required] button').click()",
+    );
+    await until("document.querySelector('#settings-credentials')");
+    await writeFile(
+      join(directory, "desktop.png"),
+      (await window.webContents.capturePage()).toPNG(),
+      { flag: "wx" },
+    );
+    await writeFile(
+      join(directory, "pilot-result.json"),
+      JSON.stringify(
+        {
+          schemaVersion: 1,
+          task,
+          scenario,
+          originalPrompt: assessment.prompt,
+          submittedPrompt,
+          admission: { blocked: true, settingsReachable: true },
+          completion: null,
+          checks,
+          providerCalls: 0,
+          modelInvoked: false,
+          uiRendered: true,
+          userTrial: false,
+        },
+        null,
+        2,
+      ) + "\n",
+      { flag: "wx", mode: 0o600 },
+    );
+    if (Object.values(checks).some((value) => !value))
+      throw new Error("Missing-model admission contract failed");
+    return;
+  }
   const events: RunEvent[] = [];
   const decisions: {
     approvalId: string;
@@ -125,6 +235,9 @@ export async function runProductLivePilot(
   const controlErrors: string[] = [];
   const cancellation: PilotCancellation | undefined =
     task === "F02" ? { stage: cancelStage as "model" | "command" } : undefined;
+  let externalEdit:
+    | { actionId?: string; beforeSha256: string; afterSha256: string }
+    | undefined;
   let stopScheduled = false;
   const scheduleStop = () => {
     if (stopScheduled || !cancellation) return;
@@ -197,6 +310,22 @@ export async function runProductLivePilot(
       });
       controlJobs.push(
         (async () => {
+          if (
+            task === "D05" &&
+            allow &&
+            approval.descriptor?.effect === "write" &&
+            !externalEdit
+          ) {
+            const path = join(workspace, "workflow.mjs");
+            const content = await readFile(path, "utf8");
+            const changed = `${content}\n${EXTERNAL_EDIT_MARKER}\n`;
+            externalEdit = {
+              actionId: approval.descriptor.actionId,
+              beforeSha256: createHash("sha256").update(content).digest("hex"),
+              afterSha256: createHash("sha256").update(changed).digest("hex"),
+            };
+            await writeFile(path, changed);
+          }
           const selector = `.run-approval footer button:${allow ? "last" : "first"}-of-type`;
           await until(
             `document.querySelector(${JSON.stringify(selector)}) && !document.querySelector(${JSON.stringify(selector)}).disabled`,
@@ -331,18 +460,24 @@ export async function runProductLivePilot(
       originalPrompt: assessment.prompt,
       submittedPrompt,
       cancellation,
+      externalEdit,
       recorded: current.runHistory?.selected,
       controlErrors,
       finalizationInput: finalizationInput,
       observedAt: new Date().toISOString(),
       providerCalls:
-        "real external DeepSeek API; count bounded by recorded model steps",
-      model: {
-        engine: "forge",
-        provider: "deepseek",
-        id: "deepseek-flash",
-        reasoningEffort: "high",
-      },
+        process.env["FORGE_PRODUCT_LIVE_FIXTURE"] === "1"
+          ? "local scripted transport; no external model"
+          : "real external DeepSeek API; count bounded by recorded model steps",
+      model:
+        process.env["FORGE_PRODUCT_LIVE_FIXTURE"] === "1"
+          ? { engine: "forge", provider: "p4-fault", id: "scripted" }
+          : {
+              engine: "forge",
+              provider: "deepseek",
+              id: "deepseek-flash",
+              reasoningEffort: "high",
+            },
       completion,
       answer,
       decisions,
@@ -351,14 +486,59 @@ export async function runProductLivePilot(
       after,
       checks: {
         readOnlyPreserved:
-          task.startsWith("E") || cancellation?.stage === "command"
-            ? null
-            : changed.length === 0,
+          scenario.expectedWrites.length > 0 ? null : changed.length === 0,
         expectedEffectScope: changed.every((path) =>
           scenario.expectedWrites.includes(path),
         ),
         uiControlsSucceeded: controlErrors.length === 0,
         ...pilotFaultChecks(task, events, cancellation),
+        mockTestsPreserved:
+          task === "D02"
+            ? before["mock.test.mjs"] === after["mock.test.mjs"] &&
+              before["mock-implementation.mjs"] ===
+                after["mock-implementation.mjs"]
+            : null,
+        mockFailureThenSuccess:
+          task === "D02"
+            ? [1, 0].every((code) =>
+                events.some(
+                  (e) =>
+                    e.payload.type === "action" &&
+                    e.payload.action.facts?.kind === "command" &&
+                    e.payload.action.facts.exitCode === code,
+                ),
+              )
+            : null,
+        externalEditTriggered: task === "D05" ? Boolean(externalEdit) : null,
+        staleRewriteRejected:
+          task === "D05"
+            ? events.some(
+                (e) =>
+                  e.payload.type === "action" &&
+                  e.payload.action.actionId === externalEdit?.actionId &&
+                  e.payload.action.output &&
+                  (() => {
+                    try {
+                      return (
+                        JSON.parse(e.payload.action.output).error?.code ===
+                        "stale_file"
+                      );
+                    } catch {
+                      return false;
+                    }
+                  })(),
+              )
+            : null,
+        externalEditPreserved:
+          task === "D05"
+            ? (
+                await readFile(join(workspace, "workflow.mjs"), "utf8")
+              ).includes(EXTERNAL_EDIT_MARKER)
+            : null,
+        rereadAfterStale:
+          task === "D05"
+            ? await rereadAfterStale(home, externalEdit?.actionId)
+            : null,
         cancelledCommandEffectsUnknown:
           cancellation?.stage === "command"
             ? Boolean(
@@ -399,7 +579,7 @@ export async function runProductLivePilot(
       },
       rubricStatus: "needs_review",
       userTrial: false,
-      fixtureModel: false,
+      fixtureModel: process.env["FORGE_PRODUCT_LIVE_FIXTURE"] === "1",
       uiRendered: true,
     };
     await writeFile(
@@ -416,7 +596,7 @@ export async function runProductLivePilot(
       `Live pilot ${task}: ${completion?.type === "complete" ? completion.outcome : "unknown"}; evidence recorded`,
     );
     if (
-      ["D01", "F01", "F02"].includes(task) &&
+      ["D01", "D02", "D05", "D06", "F01", "F02"].includes(task) &&
       Object.values(report.checks).some((value) => value === false)
     )
       throw new Error(
@@ -439,6 +619,27 @@ export async function runProductLivePilot(
         hashes,
       });
     }
+  } catch (cause) {
+    const saved = await savePilotFailure(directory, {
+      task,
+      error: String(cause),
+      events,
+      decisions,
+      controlErrors,
+      cancellation,
+      externalEdit,
+    });
+    try {
+      await writeFile(
+        join(directory, "failure.png"),
+        (await window.webContents.capturePage()).toPNG(),
+        { flag: "wx" },
+      );
+    } catch {
+      /* The window itself may have disconnected; journal/host observations remain separate. */
+    }
+    console.error("Pilot failure observations", saved);
+    throw cause;
   } finally {
     stop();
     if (cancelTimer) clearTimeout(cancelTimer);
@@ -447,4 +648,39 @@ export async function runProductLivePilot(
   // No second attempt or implicit recovery; explicit pilot summary uses a separate record.
   if (!(await lstat(join(directory, "pilot-result.json"))).isFile())
     throw new Error("Missing pilot evidence");
+}
+
+async function rereadAfterStale(
+  home: string,
+  actionId?: string,
+): Promise<boolean> {
+  if (!actionId) return false;
+  for (const name of await readdir(join(home, "runs"))) {
+    if (!name.endsWith(".jsonl")) continue;
+    const records = (await readFile(join(home, "runs", name), "utf8"))
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line));
+    const rejected = records.findIndex(
+      (r) =>
+        r.event.type === "tool.failed" &&
+        r.event.call?.id === actionId &&
+        r.event.result?.error?.code === "stale_file",
+    );
+    if (
+      rejected >= 0 &&
+      records
+        .slice(rejected + 1)
+        .some(
+          (r) =>
+            r.event.type === "tool.completed" &&
+            r.event.call?.name === "read_file" &&
+            r.event.call.input?.path === "workflow.mjs" &&
+            r.event.result?.ok === true &&
+            r.event.result.output?.rewriteAvailable === true,
+        )
+    )
+      return true;
+  }
+  return false;
 }

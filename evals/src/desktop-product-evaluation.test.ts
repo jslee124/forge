@@ -36,3 +36,42 @@ it("freezes 24 independent cases and prepares two identical pending baseline rou
     await rm(root, { recursive: true, force: true });
   }
 });
+
+it("adds a versioned D02 specimen without changing the frozen v1 seed or other tasks", async () => {
+  const root = await mkdtemp(join(tmpdir(), "forge-fault-protocol-"));
+  try {
+    const original = await prepareDesktopProductRound(
+      join(root, "original"),
+      1,
+    );
+    const first = await prepareDesktopProductRound(
+      join(root, "first"),
+      1,
+      "desktop-product-faults-v1",
+    );
+    const second = await prepareDesktopProductRound(
+      join(root, "second"),
+      2,
+      "desktop-product-faults-v1",
+    );
+    expect(first.fixtureSha256).toEqual(original.fixtureSha256);
+    expect(first.taskFixtureSha256).toEqual(second.taskFixtureSha256);
+    expect(Object.keys(first.taskFixtureSha256 ?? {})).toEqual(["D02"]);
+    expect(Object.keys(first.taskFixtureSha256?.["D02"] ?? {}).sort()).toEqual([
+      "mock-implementation.mjs",
+      "mock.mjs",
+      "mock.test.mjs",
+    ]);
+    expect(
+      await readFile(join(root, "first/D02/workspace/mock.test.mjs"), "utf8"),
+    ).toContain("assert.deepEqual(mockTool(), actualTool())");
+    await expect(
+      readFile(join(root, "first/Q01/workspace/mock.mjs")),
+    ).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(
+      readFile(join(root, "original/D02/workspace/mock.mjs")),
+    ).rejects.toMatchObject({ code: "ENOENT" });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

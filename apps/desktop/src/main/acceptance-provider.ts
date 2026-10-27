@@ -4,6 +4,9 @@ import { CANCEL_COMMAND } from "./product-live-scenarios.js";
 /** Loopback-only scripted transport for development acceptance, never provider evidence. */
 export async function acceptanceProvider() {
   let mode:
+    | "fault-D02"
+    | "fault-D05"
+    | "fault-D06"
     | "cancel-command"
     | "approval"
     | "wait"
@@ -27,7 +30,7 @@ export async function acceptanceProvider() {
     const chunks: Buffer[] = [];
     for await (const chunk of request) chunks.push(Buffer.from(chunk));
     const input = JSON.parse(Buffer.concat(chunks).toString()) as {
-      messages?: { role: string }[];
+      messages?: { role: string; content?: string }[];
       tool_choice?: string;
       tools?: unknown[];
     };
@@ -67,6 +70,91 @@ export async function acceptanceProvider() {
         `data: ${JSON.stringify({ id: "p4-offline", object: "chat.completion.chunk", created: 1, model: "offline", choices: [{ index: 0, delta, finish_reason }] })}\n\n`,
       );
     send({ role: "assistant" });
+    if (["fault-D02", "fault-D05", "fault-D06"].includes(mode)) {
+      const results =
+        input.messages?.filter((message) => message.role === "tool") ?? [];
+      const count = results.length;
+      let operation: { name: string; input: unknown } | undefined;
+      if (mode === "fault-D02") {
+        if (count === 0 || count === 2)
+          operation = {
+            name: "run_command",
+            input: {
+              program: "node",
+              args: ["--test", "mock.test.mjs"],
+              cwd: ".",
+            },
+          };
+        if (count === 1)
+          operation = {
+            name: "edit_file",
+            input: {
+              operation: "replace",
+              path: "mock.mjs",
+              edits: [
+                { oldText: '() => "ok"', newText: '() => ({ value: "ok" })' },
+              ],
+            },
+          };
+      } else if (mode === "fault-D06") {
+        if (count === 0)
+          operation = {
+            name: "run_command",
+            input: {
+              program: "node",
+              args: ["--test", "fixture.test.mjs"],
+              cwd: ".",
+            },
+          };
+      } else {
+        if (count === 0 || count === 2)
+          operation = {
+            name: "read_file",
+            input: { path: "workflow.mjs", format: "raw" },
+          };
+        if (count === 1 || count === 3) {
+          const read = JSON.parse(results.at(-1)?.content ?? "{}").output;
+          if (!read?.sha256 || typeof read.content !== "string")
+            throw new Error("Missing raw read result in stale fixture");
+          operation = {
+            name: "edit_file",
+            input: {
+              operation: "rewrite",
+              path: "workflow.mjs",
+              expectedSha256: read.sha256,
+              content: read.content.replace(
+                "return Number(value);",
+                'if (value === "0") throw new Error("port zero"); return Number(value);',
+              ),
+            },
+          };
+        }
+      }
+      if (operation) {
+        send({
+          tool_calls: [
+            {
+              index: 0,
+              id: `fault-${count}`,
+              type: "function",
+              function: {
+                name: operation.name,
+                arguments: JSON.stringify(operation.input),
+              },
+            },
+          ],
+        });
+        send({}, "tool_calls");
+      } else {
+        send({
+          content:
+            "Local scripted fault fixture finished. Inspect recorded checks; this is not a model answer.",
+        });
+        send({}, "stop");
+      }
+      response.end("data: [DONE]\n\n");
+      return;
+    }
     if (mode === "cancel-command") {
       send({
         tool_calls: [
