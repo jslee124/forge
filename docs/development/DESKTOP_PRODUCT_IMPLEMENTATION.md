@@ -2463,3 +2463,21 @@ workspace tools and journal with 45 distinct local files, without external
 provider calls. It verifies completion at 46/45 and no forced tool-free response.
 This scripted case establishes transport/control behavior, not model quality,
 cost, or completion of the remaining real-task/user acceptance gates.
+
+### 13.1 Scoped verification
+
+Source `c3aacb8`: full suite 834 passed / 6 skipped; deterministic contracts 221
+passed; `check`, `check:docs`, and `package:verify` passed. Existing lint warnings
+remain. Development UI produced 111 result entries; the first new scenario used
+the wrong workspace management entry point, was rejected by the directory-picker
+boundary, and was corrected without weakening that boundary. Installed macOS
+arm64 `0.4.0-local.c3aacb8` produced 116 result entries, including completion at
+46 model steps / 45 tool calls using only the local scripted provider.
+
+The prior installed app and user data were backed up before replacement; all 85
+original Forge-home files retained their hashes after normal reopen, with history
+visible and an empty draft. Private local evidence is retained under
+`evals/artifacts/default-unlimited-c3aacb8/` (`verification.json`, installed
+`ui.json`, long-task screenshot and check logs). No paid/external provider calls
+were made. This does not establish real-model repair quality, VoiceOver/native
+IME acceptance, Windows/Intel coverage, signing or notarization.
