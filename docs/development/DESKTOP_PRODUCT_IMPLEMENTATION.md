@@ -18,6 +18,7 @@ development records, not a claim that every T00–T14 gate is complete.
 | V01 | Bounded round complete; semantics partial | Run E01 coding and F03 budget recovery through the real Desktop; preserve attempts, approvals, exact changes, independent boundary checks and raw answers. Review source facts versus explanation, draft preservation and read-only history. No whole-task retry to chase success. |
 | V04 | Bounded pilot and regression fix complete | D01/F01/F02 (model and command) used seven logical model steps at `806ceeb`. Original command-lane failure remains recorded; fix `b3ed5dd` passed deterministic projection replay and source `945582e` passed visible UI replay. These samples do not close V02 or V03. |
 | V05 | Matrix stopped; live cancellation fixed locally | `ec18064` produced 17 complete lane reports and one disconnected command-cancel attempt in round 1. Original failure retained; `d2fbf0e` corrects live validation and passed 114 installed local UI entries. Round 2/F03 and six missing protocols remain unexecuted; no post-fix paid rerun. |
+| V06 | Four protocol lanes verified twice; semantics partial | Source `50f8220`: D02/D03/D05/D06 mechanical checks passed in two fresh rounds. Six real tasks used 30 logical model steps; D03 made no model calls. Local scripted checks are separate. F04/F05/F06 remain unwired; prior matrix failures and unexecuted tasks stay unchanged. |
 | V02 / T00,T13 | Pending full gate | Score all 24 fixed tasks in two independent rounds with pinned model/config/seed and predeclared rubric. Existing partial diagnostic samples do not satisfy this gate. |
 | V03 / T13 | Pending | Five target users perform Q02/E01/F03 without developer coaching; record blockers and results. Agent-operated tests cannot substitute for independent users. |
 | A01 / T12 | Partial | Native IME candidate confirmation must not send early; verify actual VoiceOver stage/error/approval announcements and keyboard recovery. AX/composition simulations are supporting evidence only. |
@@ -1619,6 +1620,50 @@ reconcile unfinished summaries, infer completion or claim HTTP/billing counts.
 Original files are never overwritten; forced kill and spawn failure remain
 failure paths, not successful test results. Protocol execution evidence follows
 separately; unit/preflight checks are not live model results.
+
+## Versioned protocol execution results (2026-10-27)
+
+Source/build `50f8220` completed two fresh rounds of D02/D03/D05/D06 without
+whole-task retries. D02/D05/D06 produced six real DeepSeek Flash/high runs using
+30 recorded logical model steps (predeclared cap 36). D03 twice blocked admission
+without credential access or a model call: settings remained reachable, draft was
+retained, and no session/run/provider trace was created. HTTP attempts, provider
+retries and actual billing were not measured.
+
+Both D02 rounds observed test exit 1 before repair and exit 0 after repair; only
+the mock changed, implementation/assertions were preserved and independent probes
+passed. Both D05 rounds rejected the stale rewrite, then observed a complete
+reread and a successful edit retaining the host's external marker. Both D06 rounds
+actually ran the failing command and visibly captured exit 1 in the expanded
+Desktop delivery surface. D02 round 1 and both D05 runs retained their bounded
+partial/limit outcomes; mechanical success does not relabel those as completed.
+
+Semantic counterexamples remain: D02 round 1 contradicts itself about deep equality
+and `===`; D06 round 2 describes top-level `ok` as masking failure while establishing
+only a conditional downstream-consumer risk. The inspected UI separately displays
+exit 1, so that answer does not prove an existing masking defect. Per-task reviews
+are by the coding assistant, not independent target users.
+
+The separate two-round local scripted matrix passed all eight selected checks
+with 22 local steps and zero paid calls. Capture readiness was strengthened after
+reviewing a collapsed-detail screenshot; the final local and real screenshots
+visibly show the command outcome. A read-only forensic pass over the original
+`ec18064` failure observed one model start and preserved original journal/summary
+hashes, with its summary still running. No lost in-memory events or successful
+completion were fabricated.
+
+32 focused tests, 213 deterministic checks, root checks and documentation checks
+passed. Original execution roots are `/tmp/forge-protocol-live-50f8220`,
+`/tmp/forge-protocol-local-50f8220` and `/tmp/forge-protocol-forensic-50f8220`.
+Selected diagnostics are retained privately in the ignored local directory
+`evals/artifacts/product-protocol-50f8220/`; credential/profile/runtime trees were
+not copied. This is development evidence, not a public release artifact.
+
+V02 remains open: F04/F05/F06 still lack matrix hooks, and this scoped, supplemented
+protocol batch does not fill the previous matrix's unexecuted round/F03 or establish
+a full unchanged-prompt baseline. Next prioritize record-write failure, crash/reopen
+and large-output controls before a newly pinned remaining/full run. Existing
+installed product build `d2fbf0e` was not replaced for these evaluator-only changes.
 
 ## 1. Goal and invariants
 
