@@ -114,6 +114,9 @@ describe("read-only tools", () => {
       ),
     ).toMatchObject({ ok: true });
     expect(await readTextFile(path.join(root, relative), "utf8")).toBe("after");
+    expect(
+      await readFile({ path: `${directory}/../README.md` }, context),
+    ).toMatchObject({ ok: true, output: { path: "README.md" } });
     await symlink(outside, path.join(root, directory, " external link "));
     for (const requested of [
       `${directory}/../../outside.txt`,

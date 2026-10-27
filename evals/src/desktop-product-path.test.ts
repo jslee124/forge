@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, win32 } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { expect, it } from "vitest";
@@ -111,6 +111,37 @@ it("discloses a read-only path regression overlay while retaining independent re
     await run(["--test", "path.test.mjs"], workspace);
     expect((await checkProductEdit("E04", workspace, root)).status).toBe(
       "passed",
+    );
+    // Rejecting all '..' components is stricter than the containment contract.
+    expect(
+      win32.relative(
+        "C:\\workspace",
+        win32.resolve("C:\\workspace", "a\\..\\secret"),
+      ),
+    ).toBe("secret");
+    expect(
+      win32.relative(
+        "C:\\workspace",
+        win32.resolve("C:\\workspace", "a\\..\\..\\secret"),
+      ),
+    ).toBe("..\\secret");
+    expect(
+      (await checkProductEdit("E04", workspace, root, "edit-probes-v2")).status,
+    ).toBe("failed");
+    const contained = `if (typeof value !== 'string' || /^[a-z]:|^[\\\\/]/i.test(value)) throw new Error('invalid path'); let depth=0; for(const part of value.split(/[\\\\/]/)){ if(part === '..') { if(--depth < 0) throw new Error('escape'); } else if(part !== '' && part !== '.') depth++; } return value;`;
+    await writeFile(
+      sourcePath,
+      seed.replace('return value.trim().split(" ")[0];', contained),
+    );
+    expect(
+      await checkProductEdit("E04", workspace, root, "edit-probes-v2"),
+    ).toMatchObject({
+      status: "passed",
+      assertions: 14,
+      probeVersion: "edit-probes-v2",
+    });
+    expect((await checkProductEdit("E04", workspace, root)).status).toBe(
+      "failed",
     );
     expect(await readFile(testPath, "utf8")).toBe(testBefore);
     // Restore the original exercise, then prove modified public tests fail preflight.

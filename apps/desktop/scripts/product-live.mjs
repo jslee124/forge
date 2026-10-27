@@ -523,7 +523,14 @@ for (const supplied of values.round) {
     );
     let independent = { status: "not_applicable" };
     if (/^E0[1-6]$/.test(task) || task === "D02")
-      independent = await checkProductEdit(task, workspace, home);
+      independent = await checkProductEdit(
+        task,
+        workspace,
+        home,
+        manifest.faultProtocol === "desktop-product-faults-v2"
+          ? "edit-probes-v2"
+          : "edit-probes-v1",
+      );
     await writeFile(
       join(directory, "independent-check.json"),
       JSON.stringify(independent, null, 2) + "\n",

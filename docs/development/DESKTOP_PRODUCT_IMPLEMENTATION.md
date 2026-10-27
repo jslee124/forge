@@ -37,9 +37,39 @@ The live launcher now resolves the app and git cwd from its own location. An
 initial root-cwd launch failure is retained separately at
 `/tmp/forge-quality-d6fee80/`, with zero discovered model-start records. The actual
 baseline is `/tmp/forge-quality-current-d6fee80/`. No failed attempt was overwritten.
-Next bounded sampling is one original E04 and one v2-assisted E04, each capped at
-six steps, with no automatic retry. Results remain pending until executed and
-reviewed; known answer-accuracy and full product acceptance gates remain open.
+The declared one original E04 and one v2-assisted E04 diagnostic both executed at
+`69947ec`, each using six model steps, without automatic retry. The original
+case edited only `workflow.mjs` but kept `trim()`; seven of the twelve v1 probe
+assertions still failed and verification attempts were denied. Its result remains
+partial/limit_reached. The assisted case preserved the public tests, changed only
+`workflow.mjs`, and its recorded exact test command exited 1 before the edit and
+0 afterward. It also remained partial/limit_reached, not completed.
+
+The initial assisted report retained two verifier failures: the new command
+checker compared an unquoted display string with the actual canonical quoted
+arguments, and the historical v1 independent probe rejected `a\..\secret`.
+The latter is contained after Windows path normalization, consistent with the
+host's existing containment check; it does not escape the workspace. This
+adjudication follows the declared workspace-containment requirement, not a
+stricter blanket ban on parent components. Native tool regression also accepts
+contained `directory/../README.md` while continuing to reject actual escapes.
+
+`edit-probes-v1` remains available and is still the default for old protocols.
+Opt-in faults-v2 now selects `edit-probes-v2`, which adds positive contained
+POSIX/Windows cases and replaces the erroneous rejection with a genuine
+`a\..\..\secret` escape. Public tests and the frozen seed are unchanged.
+A blanket-parent-rejection reference passes the old probe but fails the new
+contained-path positives; an unsafe superficial repair still fails independent
+checks. The command checker now matches the exact quoted identity emitted by
+`projectActionEvent`, requires ordered observed failure then success, and rejects
+unrelated commands, missing observations and reversed order. It does not infer
+verification from prose or parse arbitrary display commands.
+
+Original scores, events and snapshots are immutable. A separately named,
+provider-free reassessment of the existing outputs will record the new probe
+and checker hashes rather than overwrite those results. The original task
+failure, answer-quality limits, unchanged-prompt full baseline and independent
+user/platform/release gates remain open; this is not causal accuracy evidence.
 
 ## Matrix planning on a clean CI checkout (2026-10-27)
 

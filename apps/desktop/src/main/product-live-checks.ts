@@ -1,4 +1,30 @@
 import type { RunEvent } from "../shared/run-protocol.js";
+
+export function recordedCommandFailureThenSuccess(
+  events: readonly RunEvent[],
+  program: string,
+  args: readonly string[],
+): boolean {
+  const command = [program, ...args.map((arg) => JSON.stringify(arg))].join(
+    " ",
+  );
+  const exits = events.flatMap((event) => {
+    if (event.payload.type !== "action") return [];
+    const action = event.payload.action;
+    const facts = action.facts;
+    return action.tool === "run_command" &&
+      action.status === "succeeded" &&
+      facts?.kind === "command" &&
+      facts.command === command &&
+      !facts.timedOut &&
+      facts.signal === null &&
+      facts.exitCode !== null
+      ? [facts.exitCode]
+      : [];
+  });
+  const failed = exits.findIndex((code) => code !== 0);
+  return failed >= 0 && exits.slice(failed + 1).includes(0);
+}
 export interface PilotCancellation {
   stage: "model" | "command";
   sequence?: number;

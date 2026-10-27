@@ -1,6 +1,10 @@
+import { projectActionEvent } from "@forge/application";
 import { expect, it } from "vitest";
 import type { RunEvent, RunPayload } from "../shared/run-protocol.js";
-import { pilotFaultChecks } from "./product-live-checks.js";
+import {
+  pilotFaultChecks,
+  recordedCommandFailureThenSuccess,
+} from "./product-live-checks.js";
 
 const event = (sequence: number, payload: RunPayload): RunEvent => ({
   type: "run-event",
@@ -22,6 +26,56 @@ const action = (
     type: "action",
     action: { actionId: `a${sequence}`, step, status, tool, input: "{}" },
   });
+
+it("matches quoted command facts and requires ordered observed failure then success", () => {
+  const args = ["--test", "path.test.mjs"];
+  const command = (sequence: number, exitCode: number, commandArgs = args) => {
+    const projected = projectActionEvent({
+      type: "tool.completed",
+      step: sequence,
+      call: { id: `a${sequence}`, name: "run_command", input: {} },
+      result: {
+        ok: true,
+        truncated: false,
+        output: {
+          program: "node",
+          args: commandArgs,
+          cwd: ".",
+          exitCode,
+          signal: null,
+          timedOut: false,
+          stdout: "",
+          stderr: "",
+        },
+      },
+    });
+    if (!projected) throw new Error("Missing projected command");
+    return event(sequence, { type: "action", action: projected });
+  };
+  const failed = command(1, 1),
+    passed = command(2, 0);
+  expect(
+    recordedCommandFailureThenSuccess([failed, passed], "node", args),
+  ).toBe(true);
+  expect(
+    recordedCommandFailureThenSuccess([passed, failed], "node", args),
+  ).toBe(false);
+  expect(recordedCommandFailureThenSuccess([passed], "node", args)).toBe(false);
+  expect(
+    recordedCommandFailureThenSuccess(
+      [failed, command(2, 0, ["--test", "fixture.test.mjs"])],
+      "node",
+      args,
+    ),
+  ).toBe(false);
+  expect(
+    recordedCommandFailureThenSuccess(
+      [action(1, 1, "denied"), passed],
+      "node",
+      args,
+    ),
+  ).toBe(false);
+});
 it("does not count an unexercised denial or cancellation as passing", () => {
   expect(pilotFaultChecks("F01", []).denialObserved).toBe(false);
   expect(pilotFaultChecks("F01", []).deniedCommandNeverStarted).toBe(false);

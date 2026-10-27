@@ -57,9 +57,26 @@ const probes = {
     for(const name of ['workflow.mjs','main.mjs'])check(()=>assert.doesNotMatch(awaitedFiles[name],/\\brequestId\\b/));
   `,
 };
-export async function checkProductEdit(task, workspace, home) {
+export async function checkProductEdit(
+  task,
+  workspace,
+  home,
+  probeVersion = "edit-probes-v1",
+) {
+  if (!["edit-probes-v1", "edit-probes-v2"].includes(probeVersion))
+    throw new Error("Unknown independent edit probe version");
   if (!Object.hasOwn(probes, task))
     throw new Error("No independent edit probe");
+  // v1 rejected a contained a\\..\\secret path despite the workspace-containment
+  // contract. Keep it for historical replay; v2 tests actual root escapes and
+  // also requires contained normalization to preserve the original path value.
+  const probe =
+    task === "E04" && probeVersion === "edit-probes-v2"
+      ? `
+    for(const value of ${JSON.stringify(["file.txt", "dir with spaces/file name.txt", " leading/file ", "a/../file.txt", "a\\..\\secret"])}) check(()=>assert.equal(w.relativePath(value),value));
+    for(const value of ${JSON.stringify(["../secret", "a/../../secret", "/absolute", "C:\\x", "a\\..\\..\\secret", "\\\\server\\share", null, undefined, 1])}) check(()=>assert.throws(()=>w.relativePath(value)));
+  `
+      : probes[task];
   const prelude = `
     import assert from 'node:assert/strict';
     import {readFile} from 'node:fs/promises';
@@ -70,8 +87,8 @@ export async function checkProductEdit(task, workspace, home) {
     let assertions=0;const failures=[];
     function check(fn){assertions++;try{fn()}catch(error){failures.push({assertion:assertions,message:String(error.message).slice(0,1000)})}}
     async function checkAsync(fn){assertions++;try{await fn()}catch(error){failures.push({assertion:assertions,message:String(error.message).slice(0,1000)})}}
-    try{${probes[task]}}catch(error){failures.push({stage:'probe',message:String(error.message).slice(0,1000)})}
-    console.log(JSON.stringify({status:failures.length?'failed':'passed',assertions,failures,scope:'bounded independent behavioral probes'}));
+    try{${probe}}catch(error){failures.push({stage:'probe',message:String(error.message).slice(0,1000)})}
+    console.log(JSON.stringify({status:failures.length?'failed':'passed',assertions,failures,probeVersion:${JSON.stringify(probeVersion)},scope:'bounded independent behavioral probes'}));
   `;
   try {
     const { stdout } = await promisify(execFile)(
@@ -89,6 +106,7 @@ export async function checkProductEdit(task, workspace, home) {
     return {
       status: "failed",
       assertions: null,
+      probeVersion,
       failures: [
         {
           stage: "process",

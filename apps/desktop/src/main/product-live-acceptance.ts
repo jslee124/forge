@@ -10,6 +10,7 @@ import { savePilotFailure } from "./product-attempt-evidence.js";
 import {
   type PilotCancellation,
   pilotFaultChecks,
+  recordedCommandFailureThenSuccess,
 } from "./product-live-checks.js";
 import { allowPilotApproval } from "./product-live-policy.js";
 import { runPilotSummaryRecovery } from "./product-live-recovery.js";
@@ -522,18 +523,10 @@ async function runPilot(
             : null,
         pathFailureThenSuccess:
           task === "E04" && faultProtocol === "desktop-product-faults-v2"
-            ? (() => {
-                const exits = events.flatMap((event) => {
-                  if (event.payload.type !== "action") return [];
-                  const facts = event.payload.action.facts;
-                  return facts?.kind === "command" &&
-                    facts.command === "node --test path.test.mjs"
-                    ? [facts.exitCode]
-                    : [];
-                });
-                const failed = exits.findIndex((code) => code === 1);
-                return failed >= 0 && exits.slice(failed + 1).includes(0);
-              })()
+            ? recordedCommandFailureThenSuccess(events, "node", [
+                "--test",
+                "path.test.mjs",
+              ])
             : null,
         ...pilotFaultChecks(task, events, cancellation),
         mockTestsPreserved:
