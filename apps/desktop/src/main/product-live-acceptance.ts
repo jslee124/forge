@@ -21,6 +21,7 @@ import {
   EXTERNAL_EDIT_MARKER,
   PILOT_TASKS,
   pilotScenario,
+  usesAutonomousRegression,
 } from "./product-live-scenarios.js";
 import {
   autonomousRegressionChecks,
@@ -332,8 +333,7 @@ async function runPilot(
       controlJobs.push(
         (async () => {
           if (
-            task === "E04" &&
-            faultProtocol === "desktop-product-faults-v3" &&
+            usesAutonomousRegression(task, faultProtocol) &&
             allow &&
             approval.descriptor?.effect === "process"
           ) {
@@ -539,7 +539,7 @@ async function runPilot(
           scenario.expectedWrites.includes(path),
         ),
         uiControlsSucceeded: controlErrors.length === 0,
-        ...(task === "E04" && faultProtocol === "desktop-product-faults-v3"
+        ...(usesAutonomousRegression(task, faultProtocol)
           ? {
               ...autonomousRegressionChecks(
                 events,

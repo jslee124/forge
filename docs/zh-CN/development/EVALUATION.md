@@ -135,7 +135,7 @@ node apps/desktop/scripts/product-live.mjs --check --task E01 --task F03 --final
 
 ### 产品默认配置修复试跑
 
-桌面 opt-in 启动器 `apps/desktop/scripts/product-live.mjs` 对 E01/E04/D05
+桌面 opt-in 启动器 `apps/desktop/scripts/product-live.mjs` 对 E01/E02/E04/E05/D05
 支持 `--product-defaults`，`--check` 和 `--live` 必须使用同一标志。隔离配置
 不写入总次数限额，使用当前产品默认值，替代场景原有六步限制。计划和结果记录
 可空限额及执行配置；有界协议和 F03 不变。faults-v3 E04 仅替换六步预算文案，
@@ -145,3 +145,15 @@ node apps/desktop/scripts/product-live.mjs --check --task E01 --task F03 --final
 总次数限制或金额预算。超时应记为失败而非完成。仍要求全新种子、不自动重试
 整个任务、独立行为检查及源码审查。外部调用须事先获得用户授权；`--check`
 不读取凭据、不调用 provider。三个抽样任务不能替代 24 项两轮和独立用户验收。
+
+### 新任务回归契约诊断
+
+opt-in `desktop-product-faults-v4` 允许 E02/E05 自行创建 `regression.test.mjs`，
+仅修改 `workflow.mjs`；只批准工作目录内准确的 `node --test regression.test.mjs`
+命令。种子不变，不提供断言、参考实现或契约映射模板；其他任务／协议保留原有
+权限。沿用命令执行前文件哈希观察、红绿过程和独立行为检查；机械闭环不代表正确。
+
+指导对比应事先冻结两个新任务，每个源码版本各执行一次全新尝试，使用
+`--product-defaults`、相同模型、提示、权限与十分钟实验截止。保留四次结果，
+不为追求成功重试。分别审查断言依据、行为保持、退出码和运行状态；少量非确定性
+样本不能证明因果改进或整体成功率。`--check` 不读取凭据、不调用 provider。

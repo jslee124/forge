@@ -1,6 +1,9 @@
 import type { RunPayload } from "../shared/run-protocol.js";
 
-import { CANCEL_COMMAND } from "./product-live-scenarios.js";
+import {
+  CANCEL_COMMAND,
+  usesAutonomousRegression,
+} from "./product-live-scenarios.js";
 
 /** Deliberately narrow pilot policy; approval observations never authorize arbitrary processes. */
 export function allowPilotApproval(
@@ -31,8 +34,7 @@ export function allowPilotApproval(
           ? input.path === "workflow.mjs"
           : /^E0[1-6]$/.test(task) &&
             (input.path === "workflow.mjs" ||
-              (task === "E04" &&
-                faultProtocol === "desktop-product-faults-v3" &&
+              (usesAutonomousRegression(task, faultProtocol) &&
                 input.path === "regression.test.mjs") ||
               (task === "E06" && input.path === "main.mjs"));
     if (approval.descriptor.effect !== "process") return false;
@@ -55,7 +57,7 @@ export function allowPilotApproval(
       input.args[1] ===
         (task === "D02"
           ? "mock.test.mjs"
-          : task === "E04" && faultProtocol === "desktop-product-faults-v3"
+          : usesAutonomousRegression(task, faultProtocol)
             ? "regression.test.mjs"
             : task === "E04" && faultProtocol === "desktop-product-faults-v2"
               ? "path.test.mjs"

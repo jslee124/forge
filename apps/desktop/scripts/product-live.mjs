@@ -129,6 +129,7 @@ for (const supplied of values.round) {
       "desktop-product-faults-v1",
       "desktop-product-faults-v2",
       "desktop-product-faults-v3",
+      "desktop-product-faults-v4",
     ].includes(manifest.faultProtocol)
   )
     throw new Error("Unrecognized fault protocol");
@@ -549,9 +550,11 @@ for (const supplied of values.round) {
         task,
         workspace,
         home,
-        ["desktop-product-faults-v2", "desktop-product-faults-v3"].includes(
-          manifest.faultProtocol,
-        )
+        [
+          "desktop-product-faults-v2",
+          "desktop-product-faults-v3",
+          "desktop-product-faults-v4",
+        ].includes(manifest.faultProtocol)
           ? "edit-probes-v2"
           : "edit-probes-v1",
       );

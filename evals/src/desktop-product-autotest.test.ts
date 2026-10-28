@@ -130,3 +130,119 @@ it("prepares autonomous regression diagnostics without supplying tests or access
     await rm(root, { recursive: true, force: true });
   }
 });
+
+it.each([
+  {
+    task: "E02",
+    name: "theme",
+    next: "let busy = false;",
+    replacement:
+      'export function theme(user) { return { theme: "system" }; }\n',
+    assertion: 'assert.equal(w.theme({}).theme,"system")',
+  },
+  {
+    task: "E05",
+    name: "propagate",
+    next: "export function dispatch",
+    replacement:
+      "export async function propagate(action) { try { await action(); } catch(error) { throw error; } }\n",
+    assertion:
+      'await assert.rejects(()=>w.propagate(async()=>{throw new Error("expected")}))',
+  },
+])(
+  "rejects a narrow red/green regression that misses $task preservation requirements",
+  async ({ task, name, next, replacement, assertion }) => {
+    const root = await mkdtemp(join(tmpdir(), "forge-heldout-contract-"));
+    try {
+      const workspace = join(root, "workspace");
+      await cp(
+        fileURLToPath(
+          new URL("../fixtures/desktop-product/seed/", import.meta.url),
+        ),
+        workspace,
+        { recursive: true },
+      );
+      const source = join(workspace, "workflow.mjs");
+      const original = await readFile(source, "utf8");
+      const declaration =
+        name === "propagate"
+          ? "export async function propagate"
+          : "export function theme";
+      const regression = join(workspace, "regression.test.mjs");
+      await writeFile(
+        regression,
+        `import assert from 'node:assert/strict'; import * as w from './workflow.mjs'; ${assertion};`,
+      );
+      const run = () =>
+        promisify(execFile)(process.execPath, ["--test", regression], {
+          cwd: workspace,
+          timeout: 10000,
+        });
+      await expect(run()).rejects.toThrow();
+      await writeFile(
+        source,
+        original.slice(0, original.indexOf(declaration)) +
+          replacement +
+          original.slice(original.indexOf(next)),
+      );
+      await run();
+      expect(
+        await checkProductEdit(task, workspace, root, "edit-probes-v2"),
+      ).toMatchObject({ status: "failed" });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  },
+);
+
+it("prepares new task regression pilots without tests, caps, credentials or provider calls", async () => {
+  const root = await mkdtemp(join(tmpdir(), "forge-heldout-prepare-"));
+  try {
+    const round = join(root, "round");
+    await prepareDesktopProductRound(round, 1, "desktop-product-faults-v4");
+    const script = fileURLToPath(
+      new URL("../../apps/desktop/scripts/product-live.mjs", import.meta.url),
+    );
+    await promisify(execFile)(
+      process.execPath,
+      [
+        script,
+        "--check",
+        "--product-defaults",
+        "--round",
+        round,
+        "--task",
+        "E02",
+        "--task",
+        "E05",
+      ],
+      {
+        env: {
+          PATH: process.env["PATH"] ?? "",
+          HOME: root,
+          FORGE_HOME: join(root, "no-credentials"),
+        },
+      },
+    );
+    const plan = JSON.parse(
+      await readFile(join(round, "pilot-plan.json"), "utf8"),
+    );
+    expect(plan.externalCallsMade).toBe(0);
+    for (const task of plan.tasks) {
+      expect(task).toMatchObject({
+        modelSteps: null,
+        toolCalls: null,
+        executionProfile: "product-defaults",
+        scenario: { expectedWrites: ["workflow.mjs", "regression.test.mjs"] },
+      });
+      await expect(
+        readFile(join(round, task.task, "workspace/regression.test.mjs")),
+      ).rejects.toMatchObject({ code: "ENOENT" });
+      await expect(
+        readFile(join(round, task.task, "runtime-home/config.json")),
+      ).rejects.toMatchObject({ code: "ENOENT" });
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

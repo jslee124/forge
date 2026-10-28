@@ -381,3 +381,70 @@ it("keeps product-default diagnostics uncapped without changing bounded or fault
     "Unknown pilot execution profile",
   );
 });
+
+it.each(["E02", "E05"])(
+  "allows %s autonomous tests only in faults-v4 with exact scoped actions",
+  (task) => {
+    const protocol = "desktop-product-faults-v4";
+    expect(
+      pilotScenario(task, undefined, protocol, "product-defaults"),
+    ).toMatchObject({
+      limits: { maxSteps: null, maxToolCalls: null },
+      expectedWrites: ["workflow.mjs", "regression.test.mjs"],
+    });
+    expect(
+      allowPilotApproval(
+        task,
+        approval("write", { path: "regression.test.mjs" }),
+        undefined,
+        protocol,
+      ),
+    ).toBe(true);
+    expect(
+      allowPilotApproval(
+        task,
+        approval("process", {
+          program: "node",
+          args: ["--test", "regression.test.mjs"],
+          cwd: ".",
+        }),
+        undefined,
+        protocol,
+      ),
+    ).toBe(true);
+    for (const old of [undefined, "desktop-product-faults-v3"])
+      expect(
+        allowPilotApproval(
+          task,
+          approval("write", { path: "regression.test.mjs" }),
+          undefined,
+          old,
+        ),
+      ).toBe(false);
+    for (const input of [
+      { program: "node", args: ["-e", "code"] },
+      { program: "node", args: ["--test", "regression.test.mjs"], cwd: ".." },
+    ])
+      expect(
+        allowPilotApproval(
+          task,
+          approval("process", input),
+          undefined,
+          protocol,
+        ),
+      ).toBe(false);
+    for (const path of [
+      "fixture.test.mjs",
+      "../regression.test.mjs",
+      "other.mjs",
+    ])
+      expect(
+        allowPilotApproval(
+          task,
+          approval("write", { path }),
+          undefined,
+          protocol,
+        ),
+      ).toBe(false);
+  },
+);

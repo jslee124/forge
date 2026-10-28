@@ -244,7 +244,7 @@ port assertions, source links, unknown outcomes and preserved draft separately.
 ### Product-default repair pilot
 
 The opt-in Desktop launcher `apps/desktop/scripts/product-live.mjs` accepts
-`--product-defaults` for E01/E04/D05 only. Both `--check` and `--live` must use
+`--product-defaults` for E01/E02/E04/E05/D05 only. Both `--check` and `--live` must use
 the flag. The isolated config omits total limits, using current product defaults
 instead of the bounded six-step scenario. Plans and results record nullable
 limits and the execution profile; bounded protocols and F03 are unchanged.
@@ -258,3 +258,21 @@ no automatic whole-task retries, independent behavioral probes and source review
 remain required. External calls require prior user authorization; `--check`
 does not access credentials or call providers. Three sampled tasks cannot close
 the 24-task/two-round or independent-user product gate.
+
+### Held-out regression-contract diagnostic
+
+Opt-in `desktop-product-faults-v4` permits E02/E05 to create their own
+`regression.test.mjs` and edit only `workflow.mjs`. Only the exact cwd-local
+`node --test regression.test.mjs` process is approved. The seed is unchanged; no
+assertions, reference implementation or contract-map template is supplied.
+Other tasks/protocols keep their existing authority. Pre-command source/test
+hashes, red/green observations and separate independent probes use the existing
+observer; a mechanical regression cycle does not establish task correctness.
+
+For a guidance comparison, freeze two new tasks and run one fresh attempt per
+task at each source version, with `--product-defaults`, the same model, prompts,
+permissions and 10-minute experiment deadline. Retain all four attempts without
+retrying to chase success. Review assertion relevance and preserved behavior,
+not only exit codes or a completed runtime outcome. Such small nondeterministic
+samples cannot establish a causal improvement or overall success rate. `--check`
+validates the fixture and declares the plan without credentials/provider calls.
