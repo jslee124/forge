@@ -19,8 +19,9 @@ it.each(["direct", "reserve-final-step"] as const)(
     const cwd = await mkdtemp(path.join(tmpdir(), "forge-scope-"));
     try {
       const requests: ModelRequest[] = [];
+      const prompt = "请用 English 回答：解释从请求到工具的调用链。";
       const code = await runTask(
-        "Explain the request-to-tool path",
+        prompt,
         {},
         {
           cwd,
@@ -52,7 +53,10 @@ it.each(["direct", "reserve-final-step"] as const)(
       expect(code).toBe(0);
       expect(requests).toHaveLength(1);
       const instructions = requests[0]?.instructions ?? "";
-      expect(requests[0]?.prompt).toBe("Explain the request-to-tool path");
+      expect(requests[0]?.prompt).toBe(prompt);
+      expect(instructions).toContain(
+        "current user's explicit response-language request selects English",
+      );
       expect(instructions).toContain(
         "latest direct user's explicitly requested response language",
       );

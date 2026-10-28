@@ -295,3 +295,16 @@ directory is rejected before credential access. Human review checks language,
 literal preservation and requested format separately from runtime completion.
 HTTP attempts/retries and billing are not inferred from logical response counts.
 These one-turn samples are not real Desktop coding-task or Codex acceptance.
+
+The native policy also derives a narrow language hint from unambiguous English
+or Chinese reply-language prefixes in the current user prompt. Quoted/code/log
+text, negative directives, multiple recognized directives and alternative
+languages do not select this hint. Unsupported phrasing/languages keep general
+model guidance; this is not a complete natural-language intent parser or an
+automatic translation guarantee. Reviewed recovery-summary locale is unchanged.
+
+Use repeatable `--case` selections for a fresh targeted plan, for example
+`--case explicit-en --case quoted-en`. The quoted case asks in Chinese about a
+`Respond in English` log entry. Case-specific assembled-policy hashes are pinned.
+Initial failed answers stay in their original directory; any paid follow-up is
+a separately disclosed, explicitly authorized attempt, not an automatic retry.

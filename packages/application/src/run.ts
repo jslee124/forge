@@ -58,7 +58,6 @@ import {
   NATIVE_CHANGE_INSTRUCTIONS,
   NATIVE_INVESTIGATION_INSTRUCTIONS,
   NATIVE_REGRESSION_INSTRUCTIONS,
-  NATIVE_RESPONSE_INSTRUCTIONS,
 } from "./investigation-instructions.js";
 import {
   type CreateForgeModelAdapterOptions,
@@ -66,6 +65,7 @@ import {
 } from "./model-adapter.js";
 import type { AskOptions, WritableOutput } from "./options.js";
 import { parseThinkingMode } from "./options.js";
+import { nativeResponseInstructions } from "./response-language.js";
 export interface RunDependencies {
   /** Host-only snapshot pinned after a reviewed recovery plan; never accepted from model context. */
   readonly configurationSnapshot?: Awaited<ReturnType<typeof loadForgeConfig>>;
@@ -231,7 +231,7 @@ export async function runTask(
             NATIVE_REGRESSION_INSTRUCTIONS,
           ]
         : []),
-      NATIVE_RESPONSE_INSTRUCTIONS,
+      nativeResponseInstructions(prompt),
     ]
       .filter((value) => value !== "")
       .join("\n\n");

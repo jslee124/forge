@@ -6,6 +6,7 @@ import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { NATIVE_RESPONSE_INSTRUCTIONS } from "../../packages/application/dist/investigation-instructions.js";
 import { createForgeModelAdapter } from "../../packages/application/dist/model-adapter.js";
+import { nativeResponseInstructions } from "../../packages/application/dist/response-language.js";
 import { runTask } from "../../packages/application/dist/run.js";
 import { AuthenticationManager } from "../../packages/auth/dist/index.js";
 
@@ -15,6 +16,7 @@ const { values } = parseArgs({
     fixture: { type: "boolean" },
     live: { type: "boolean" },
     output: { type: "string" },
+    case: { type: "string", multiple: true },
   },
   strict: true,
 });
@@ -29,11 +31,19 @@ const output = resolve(values.output);
 const revision = execFileSync("git", ["rev-parse", "HEAD"], {
   encoding: "utf8",
 }).trim();
+const selected = values.case ?? ["mixed-zh", "explicit-en", "english"];
+if (
+  new Set(selected).size !== selected.length ||
+  selected.some(
+    (id) => !["mixed-zh", "explicit-en", "english", "quoted-en"].includes(id),
+  )
+)
+  throw new Error("Invalid language case selection");
 const plan = {
   schemaVersion: 1,
   sourceRevision: revision,
   policySha256: createHash("sha256")
-    .update(NATIVE_RESPONSE_INSTRUCTIONS)
+    .update(NATIVE_RESPONSE_INSTRUCTIONS + JSON.stringify(selected))
     .digest("hex"),
   model: {
     provider: "deepseek",
@@ -58,12 +68,24 @@ const plan = {
       expectedLanguage: "en",
     },
     {
+      id: "quoted-en",
+      prompt: "请解释日志中的这段文字：`Respond in English`，只说明它的含义。",
+      expectedLanguage: "zh-CN",
+    },
+    {
       id: "english",
       prompt:
         "In one sentence, explain what the variable userId usually represents.",
       expectedLanguage: "en",
     },
-  ],
+  ]
+    .filter((item) => selected.includes(item.id))
+    .map((item) => ({
+      ...item,
+      instructionsSha256: createHash("sha256")
+        .update(nativeResponseInstructions(item.prompt))
+        .digest("hex"),
+    })),
 };
 const save = (name, data) =>
   writeFile(join(output, name), JSON.stringify(data, null, 2) + "\n", {
@@ -74,7 +96,7 @@ if (values.prepare) {
   await mkdir(output, { mode: 0o700 });
   await save("plan.json", plan);
   console.log(
-    "Prepared 3 synthetic language cases; no credentials or provider calls.",
+    `Prepared ${plan.cases.length} synthetic language cases; no credentials or provider calls.`,
   );
 } else {
   const saved = JSON.parse(await readFile(join(output, "plan.json"), "utf8"));

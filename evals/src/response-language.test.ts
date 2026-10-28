@@ -53,6 +53,34 @@ it("prepares and runs isolated single-response language fixtures without credent
       expect(row.requests).toHaveLength(1);
       expect(row.requests[0]).toMatchObject({ prompt: item.prompt, tools: [] });
     }
+    const subset = join(root, "subset");
+    await promisify(execFile)(
+      process.execPath,
+      [
+        script,
+        "--prepare",
+        "--output",
+        subset,
+        "--case",
+        "explicit-en",
+        "--case",
+        "quoted-en",
+      ],
+      {
+        env: {
+          PATH: process.env["PATH"] ?? "",
+          HOME: root,
+          FORGE_HOME: join(root, "no-credentials"),
+        },
+      },
+    );
+    const subsetPlan = JSON.parse(
+      await readFile(join(subset, "plan.json"), "utf8"),
+    );
+    expect(subsetPlan.cases.map((item: { id: string }) => item.id)).toEqual([
+      "explicit-en",
+      "quoted-en",
+    ]);
     // A retained attempt cannot silently become a paid rerun.
     await expect(run("--live")).rejects.toThrow("EEXIST");
   } finally {
