@@ -276,3 +276,22 @@ retrying to chase success. Review assertion relevance and preserved behavior,
 not only exit codes or a completed runtime outcome. Such small nondeterministic
 samples cannot establish a causal improvement or overall success rate. `--check`
 validates the fixture and declares the plan without credentials/provider calls.
+
+### Native response-language diagnostic
+
+`evals/scripts/response-language.mjs` offers `--prepare`, `--fixture`, and opt-in
+`--live`, with a fresh `--output` directory. Three fixed synthetic prompts cover
+Chinese with English identifiers, an explicit English reply requested in Chinese,
+and an English request. Preparation pins source, policy hash, prompts and model
+without credentials or provider calls. Fixture results are scripted plumbing
+evidence, never language-compliance measurements.
+
+The shared `runTask` path is used with one model response per case. The diagnostic
+adapter removes all tool definitions, requests `toolChoice=none`, and rejects
+tool-call events before execution; no business workspace or history is supplied.
+Live mode reads credentials only after input checks and explicit opt-in, retains
+each result and stops on failure without whole-case retries. Reusing an attempted
+directory is rejected before credential access. Human review checks language,
+literal preservation and requested format separately from runtime completion.
+HTTP attempts/retries and billing are not inferred from logical response counts.
+These one-turn samples are not real Desktop coding-task or Codex acceptance.

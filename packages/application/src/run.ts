@@ -58,6 +58,7 @@ import {
   NATIVE_CHANGE_INSTRUCTIONS,
   NATIVE_INVESTIGATION_INSTRUCTIONS,
   NATIVE_REGRESSION_INSTRUCTIONS,
+  NATIVE_RESPONSE_INSTRUCTIONS,
 } from "./investigation-instructions.js";
 import {
   type CreateForgeModelAdapterOptions,
@@ -230,6 +231,7 @@ export async function runTask(
             NATIVE_REGRESSION_INSTRUCTIONS,
           ]
         : []),
+      NATIVE_RESPONSE_INSTRUCTIONS,
     ]
       .filter((value) => value !== "")
       .join("\n\n");

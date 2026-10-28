@@ -52,6 +52,14 @@ it.each(["direct", "reserve-final-step"] as const)(
       expect(code).toBe(0);
       expect(requests).toHaveLength(1);
       const instructions = requests[0]?.instructions ?? "";
+      expect(requests[0]?.prompt).toBe("Explain the request-to-tool path");
+      expect(instructions).toContain(
+        "latest direct user's explicitly requested response language",
+      );
+      expect(instructions).toContain("progress updates and the final answer");
+      expect(instructions).toContain(
+        "explicit user translation, modification and format requests still apply",
+      );
       if (completionPolicy === "reserve-final-step") {
         expect(instructions).toContain(
           "Forge product documentation describes the host product",
