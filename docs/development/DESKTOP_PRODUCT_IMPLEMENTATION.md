@@ -7,6 +7,50 @@ contract and task list, not shipped behavior. New filenames, types, fields, and
 configuration below are proposed; section 2 separately identifies existing code.
 Resolve PRD/implementation disagreements in both documents before implementing.
 
+## Bounded regression repair acceptance (2026-10-28)
+
+After `3e29f31` was pushed to the existing feature branch, the user-authorized
+next increment adds opt-in faults-v5 E01/E03 regression permissions and the
+`--repair-acceptance` profile. Each task has 16 model steps / 32 tools and a
+300-second deadline, with a 330-second launcher watchdog. Existing product
+runtime/policies, frozen seeds, original task prompts and earlier protocols are
+unchanged. A procedural supplement authorizes only `workflow.mjs` and the
+model-created `regression.test.mjs`, plus exact test commands; E01 can separately
+run the original read-only fixture test. No assertions or solution are supplied.
+The profile rejects other tasks/protocols, conflicting defaults and bundled
+summary recovery before credentials. The legacy E01 scope field now follows the
+declared scenario writes, allowing the newly authorized test without widening
+older scopes. Local counterexamples confirm narrow green tests can still miss
+port boundaries or failure-state recovery; independent probes remain required.
+
+One fresh real Desktop attempt per task executed, without a whole-task retry:
+
+| Task | Steps / tools | Authored regression and independent checks |
+| --- | --- | --- |
+| E01 port validation | 8 / 9 | Ten authored tests: original 3 pass / 7 fail (assertion failures), final 10/10 pass with unchanged test bytes. Original fixture tests 2/2 pass; independent probes 22/22 pass. |
+| E03 duplicate submission | 8 / 9 | Four authored tests: original 2 pass / 2 fail (duplicate pending versus rejected), final 4/4 pass with unchanged test bytes. Independent concurrency/failure-recovery probes 4/4 pass. |
+
+Both runtime outcomes were completed, with scoped task passes after separate
+source/answer review. Roots matched canonical fixture directories; original tests,
+unrelated files and source outside the target functions retained their bytes.
+Both final screenshots were inspected; observed progress/final answers were
+Chinese but remain verbose. Selected evidence contained no DeepSeek key. Seven
+extra host-only port observations are retained separately and do not rewrite the
+22-case independent report or become model-executed verification.
+
+Total: 16 logical model steps / 18 tools. HTTP attempts/retries and billing were
+not measured. The changed permissions/procedure and budget do not establish a
+causal improvement over the old six-step attempt, nor an overall success rate.
+E04, the full two-round corpus, independent users, accessibility/platform and
+release gates remain open; Telegram stays deferred. Sources measured over
+`3e29f31`, original attempts, hashes and separate assistant review are private at
+`evals/artifacts/repair-acceptance-v5-20261028-3e29f31/`.
+
+Validation: 868 active tests passed / 6 skipped; 221 deterministic checks, root/
+docs checks and desktop build passed. The command-profile guard forbids bundling
+an extra summary so its watchdog cannot cut that separate operation short.
+No installed app replacement or release publication is implied.
+
 ## Validation-input correction before push (2026-10-28)
 
 Private source snapshots were accidentally included by broad test globs. A newer
@@ -499,6 +543,7 @@ development records, not a claim that every T00–T14 gate is complete.
 | V14 | Pilot boundary fixed locally; new isolated execution blocked | Two repository-nested E04 attempts are invalidated separately; launcher preflight now rejects ancestor Git roots before credential access across all selected rounds. Fresh outside-repository E04 and 50 bounded matrix lanes passed preflight; new paid execution did not start because automatic permission review timed out twice. |
 | V15 | Isolated E04 rounds executed; quality failed | Explicit user confirmation resolved the prior timeout. Two fresh outside-repository faults-v3 rounds used 16 steps / 18 tools; both retained authored red/green tests but failed 7/14 independent checks. Roots/scope and original files were verified; no broader paid matrix or task retry. |
 | V16 | Small cross-scenario check executed; full gate open | Q02/E01/D01, both F02 stages and F03 plus reviewed summary used 20 logical steps / 22 tools; F05 was local scripted. Critical stop/history checks passed; E01 passed 22 independent probes but remained partial under the six-step diagnostic/test-write restriction. No E04 retry or full matrix. |
+| V17 | Versioned E01/E03 repair acceptance executed; scoped passes | Faults-v5 / repair-acceptance adds bounded authored tests with narrow permissions. One real attempt each used 16 steps / 18 tools total; authored red/green and independent 22/22 plus 4/4 probes passed, original tests/unrelated code preserved. Broader gates and answer concision remain open. |
 | V02 / T00,T13 | Pending full gate | Score all 24 fixed tasks in two independent rounds with pinned model/config/seed and predeclared rubric. Existing partial diagnostic samples do not satisfy this gate. |
 | V03 / T13 | Pending | Five target users perform Q02/E01/F03 without developer coaching; record blockers and results. Agent-operated tests cannot substitute for independent users. |
 | A01 / T12 | Partial | Native IME candidate confirmation must not send early; verify actual VoiceOver stage/error/approval announcements and keyboard recovery. AX/composition simulations are supporting evidence only. |

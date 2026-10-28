@@ -258,6 +258,36 @@ plus whether that model step started. A source run finishing early does not test
 the reserved projection. Check command exit/verification, edit scope, independent
 port assertions, source links, unknown outcomes and preserved draft separately.
 
+### Bounded repair acceptance
+
+Opt-in `desktop-product-faults-v5` adds model-authored regression tests for E01
+(port validation) and E03 (duplicate submission and recovery). Prepare a fresh
+round with that protocol, then use the direct Desktop launcher:
+
+```bash
+node apps/desktop/scripts/product-live.mjs --check --repair-acceptance --round /tmp/fresh-repair-round --task E01 --task E03
+```
+
+After prior user authorization for external calls, `--live` uses the same inputs
+and flag. The profile has explicit ceilings of 16 model steps / 32 tool calls and
+a 300-second host deadline per task (330-second launcher watchdog). This bounds
+an experiment, not the monetary bill. It cannot combine with `--product-defaults`
+and rejects other tasks or protocols before credentials. This profile does not
+accept `--recover-summary`; request a summary as a separate reviewed operation.
+The matrix launcher
+still prepares bounded six-step diagnostics; it does not select this profile.
+
+Only `workflow.mjs` and a model-created `regression.test.mjs` may be written.
+Only the exact cwd-local `node --test regression.test.mjs` command is approved;
+E01 additionally permits the separate original `node --test fixture.test.mjs`.
+Original tests remain read-only. The frozen seed and original task prompts are
+unchanged; no assertions or reference solution are provided. The supplemented
+procedure/permissions make this a new protocol, not an unchanged baseline retry.
+Require observed relevant red/green assertions with preserved test bytes,
+independent behavioral probes and separate source/answer review. Keep the old
+six-step E01 attempt partial, without rewriting its result. Product policies,
+runtime guidance and previous protocols are unchanged.
+
 ### Product-default repair pilot
 
 The opt-in Desktop launcher `apps/desktop/scripts/product-live.mjs` accepts

@@ -133,6 +133,23 @@ it("prepares autonomous regression diagnostics without supplying tests or access
 
 it.each([
   {
+    task: "E01",
+    name: "parsePort",
+    next: "export function theme",
+    replacement:
+      'export function parsePort(value) { if(value === "0") throw new Error("zero"); return Number(value); }\n',
+    assertion: 'assert.throws(()=>w.parsePort("0"))',
+  },
+  {
+    task: "E03",
+    name: "submit",
+    next: "export function relativePath",
+    replacement:
+      "export async function submit(send) { if(busy) return; busy=true; await send(); busy=false; }\n",
+    assertion:
+      "let calls=0,release; const gate=new Promise(resolve=>{release=resolve}); const first=w.submit(async()=>{calls++;await gate}); await w.submit(async()=>{calls++}); release(); await first; assert.equal(calls,1)",
+  },
+  {
     task: "E02",
     name: "theme",
     next: "let busy = false;",
@@ -164,10 +181,9 @@ it.each([
       );
       const source = join(workspace, "workflow.mjs");
       const original = await readFile(source, "utf8");
-      const declaration =
-        name === "propagate"
-          ? "export async function propagate"
-          : "export function theme";
+      const declaration = ["propagate", "submit"].includes(name)
+        ? `export async function ${name}`
+        : `export function ${name}`;
       const regression = join(workspace, "regression.test.mjs");
       await writeFile(
         regression,
@@ -242,6 +258,145 @@ it("prepares new task regression pilots without tests, caps, credentials or prov
         readFile(join(round, task.task, "runtime-home/config.json")),
       ).rejects.toMatchObject({ code: "ENOENT" });
     }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+it("prepares bounded E01/E03 repair acceptance with no supplied assertions or credentials", async () => {
+  const root = await mkdtemp(join(tmpdir(), "forge-repair-acceptance-"));
+  const script = fileURLToPath(
+    new URL("../../apps/desktop/scripts/product-live.mjs", import.meta.url),
+  );
+  const run = (...args: string[]) =>
+    promisify(execFile)(process.execPath, [script, ...args], {
+      env: {
+        PATH: process.env["PATH"] ?? "",
+        HOME: root,
+        FORGE_HOME: join(root, "no-credentials"),
+      },
+    });
+  try {
+    const original = join(root, "original"),
+      round = join(root, "acceptance");
+    const seed = await prepareDesktopProductRound(original, 1);
+    const prepared = await prepareDesktopProductRound(
+      round,
+      1,
+      "desktop-product-faults-v5",
+    );
+    expect(prepared.fixtureSha256).toEqual(seed.fixtureSha256);
+    expect(Object.keys(prepared.taskFixtureSha256 ?? {})).toEqual(["D02"]);
+    await run(
+      "--check",
+      "--repair-acceptance",
+      "--round",
+      round,
+      "--task",
+      "E01",
+      "--task",
+      "E03",
+    );
+    const plan = JSON.parse(
+      await readFile(join(round, "pilot-plan.json"), "utf8"),
+    );
+    expect(plan.externalCallsMade).toBe(0);
+    expect(plan.tasks).toHaveLength(2);
+    const matrixScript = fileURLToPath(
+      new URL("../../apps/desktop/scripts/product-matrix.mjs", import.meta.url),
+    );
+    const matrix = join(root, "matrix");
+    await promisify(execFile)(
+      process.execPath,
+      [
+        matrixScript,
+        "--prepare",
+        "--output",
+        matrix,
+        "--task",
+        "E01",
+        "--task",
+        "E03",
+        "--fault-protocol",
+        "desktop-product-faults-v5",
+      ],
+      {
+        env: {
+          PATH: process.env["PATH"] ?? "",
+          HOME: root,
+          FORGE_HOME: join(root, "no-credentials"),
+        },
+      },
+    );
+    const matrixPlan = JSON.parse(
+      await readFile(join(matrix, "matrix-plan.json"), "utf8"),
+    );
+    expect(matrixPlan.lanes).toHaveLength(4);
+    expect(matrixPlan.maxPaidLogicalModelSteps).toBe(24);
+    expect(
+      matrixPlan.lanes.every(
+        (lane: {
+          scenario: { limits: { maxSteps: number; maxToolCalls: number } };
+        }) =>
+          lane.scenario.limits.maxSteps === 6 &&
+          lane.scenario.limits.maxToolCalls === 16,
+      ),
+    ).toBe(true);
+    for (const task of plan.tasks) {
+      expect(task).toMatchObject({
+        executionProfile: "repair-acceptance",
+        modelSteps: 16,
+        toolCalls: 32,
+        wallClockMs: 300000,
+        faultProtocol: "desktop-product-faults-v5",
+        scenario: { expectedWrites: ["workflow.mjs", "regression.test.mjs"] },
+      });
+      for (const file of [
+        "workspace/regression.test.mjs",
+        "runtime-home/config.json",
+      ])
+        await expect(
+          readFile(join(round, task.task, file)),
+        ).rejects.toMatchObject({ code: "ENOENT" });
+    }
+    await expect(
+      run(
+        "--live",
+        "--repair-acceptance",
+        "--round",
+        original,
+        "--task",
+        "E01",
+      ),
+    ).rejects.toThrow("requires faults-v5");
+    await expect(
+      run(
+        "--check",
+        "--repair-acceptance",
+        "--product-defaults",
+        "--round",
+        round,
+        "--task",
+        "E01",
+      ),
+    ).rejects.toThrow("Choose only one");
+    await expect(
+      run(
+        "--check",
+        "--repair-acceptance",
+        "--recover-summary",
+        "--round",
+        round,
+        "--task",
+        "E01",
+      ),
+    ).rejects.toThrow("request summary separately");
+    await expect(
+      run("--check", "--repair-acceptance", "--round", round, "--task", "Q02"),
+    ).rejects.toThrow("only supports E01/E03");
+    await expect(
+      readFile(join(original, "E01/runtime-home/config.json")),
+    ).rejects.toMatchObject({ code: "ENOENT" });
   } finally {
     await rm(root, { recursive: true, force: true });
   }

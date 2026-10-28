@@ -434,7 +434,11 @@ async function runPilot(
       new Promise((_, reject) => {
         deadline = setTimeout(
           () => reject(new Error("Pilot wall-clock limit")),
-          profile === "product-defaults" ? 600_000 : 175_000,
+          profile === "product-defaults"
+            ? 600_000
+            : profile === "repair-acceptance"
+              ? 300_000
+              : 175_000,
         );
       }),
     ]);
@@ -626,7 +630,7 @@ async function runPilot(
             : null,
         portEditScope:
           task === "E01"
-            ? changed.every((path) => path === "workflow.mjs")
+            ? changed.every((path) => scenario.expectedWrites.includes(path))
             : null,
         requestPathReferences:
           task === "Q02"

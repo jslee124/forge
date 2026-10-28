@@ -146,6 +146,28 @@ node apps/desktop/scripts/product-live.mjs --check --task E01 --task F03 --final
 和对应模型步骤是否开始。原运行提前结束不算测到预留投影。分别核对命令
 退出/验证、修改范围、独立端口断言、来源关联、未知结果及草稿保留。
 
+### 有预算的修复验收
+
+显式 opt-in 的 `desktop-product-faults-v5` 为 E01（端口校验）和 E03（重复提交及
+失败后恢复）增加模型自编回归测试。使用该协议准备全新轮次后，通过直接启动器运行：
+
+```bash
+node apps/desktop/scripts/product-live.mjs --check --repair-acceptance --round /tmp/fresh-repair-round --task E01 --task E03
+```
+
+获得外部调用授权后，`--live` 使用相同输入和标志。每项最多 16 个模型步骤／32 次
+工具调用、300 秒宿主截止及 330 秒启动器 watchdog；这是实验限制，不是金额上限。
+不可与 `--product-defaults` 混用，其他任务或协议会在读取凭据前被拒绝。
+此配置不接受 `--recover-summary`；需要总结时另行发起经审核的独立操作。
+矩阵启动器仍准备六步有预算诊断，不会自动选择此配置。
+
+只允许写 `workflow.mjs` 和模型自行创建的 `regression.test.mjs`；只批准当前目录
+中精确的 `node --test regression.test.mjs` 命令，E01 另允许单独执行原有
+`node --test fixture.test.mjs`。原有测试只读。冻结种子和原始题目不变，不提供
+断言或参考实现；补充的流程与权限使其成为新协议，不能当作不变基线的重试。
+必须检查相关的红绿断言、测试字节保持、独立行为检查及单独的源码／回答复核。
+保留原六步 E01 的部分结果，不改写其评分。产品权限、runtime 指导及旧协议不变。
+
 ### 产品默认配置修复试跑
 
 桌面 opt-in 启动器 `apps/desktop/scripts/product-live.mjs` 对 E01/E02/E04/E05/D05

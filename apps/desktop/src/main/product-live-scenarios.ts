@@ -36,7 +36,9 @@ export function usesAutonomousRegression(
 ): boolean {
   return (
     (task === "E04" && protocol === "desktop-product-faults-v3") ||
-    (["E02", "E05"].includes(task) && protocol === "desktop-product-faults-v4")
+    (["E02", "E05"].includes(task) &&
+      protocol === "desktop-product-faults-v4") ||
+    (["E01", "E03"].includes(task) && protocol === "desktop-product-faults-v5")
   );
 }
 export function pilotScenario(
@@ -45,8 +47,14 @@ export function pilotScenario(
   faultProtocol?: string,
   profile = "bounded",
 ) {
-  if (!["bounded", "product-defaults"].includes(profile))
+  if (!["bounded", "product-defaults", "repair-acceptance"].includes(profile))
     throw new Error("Unknown pilot execution profile");
+  if (profile === "repair-acceptance") {
+    if (!["E01", "E03"].includes(task))
+      throw new Error("Repair acceptance only supports E01/E03");
+    if (faultProtocol !== "desktop-product-faults-v5")
+      throw new Error("Repair acceptance requires faults-v5");
+  }
   if (
     profile === "product-defaults" &&
     !["E01", "E02", "E04", "E05", "D05"].includes(task)
@@ -59,6 +67,7 @@ export function pilotScenario(
       "desktop-product-faults-v2",
       "desktop-product-faults-v3",
       "desktop-product-faults-v4",
+      "desktop-product-faults-v5",
     ].includes(faultProtocol)
   )
     throw new Error("Unknown fault protocol");
@@ -74,8 +83,10 @@ export function pilotScenario(
     );
   const supplement =
     usesAutonomousRegression(task, faultProtocol) &&
-    faultProtocol === "desktop-product-faults-v4"
-      ? '本次是 faults-v4 自主回归诊断，种子不变，不提供测试内容。允许你自行创建 regression.test.mjs，并修改 workflow.mjs；原有测试和其他文件必须保持不变。请根据用户要求自行设计针对性断言，在修改实现前运行 program="node", args=["--test","regression.test.mjs"], cwd="." 确认失败，再保留相同测试修复实现，运行同一命令验证。只有上述两个文件可写、上述命令可执行，禁止修改断言来掩盖实现缺陷；审批限制保持有效。'
+    ["desktop-product-faults-v4", "desktop-product-faults-v5"].includes(
+      faultProtocol ?? "",
+    )
+      ? `本次是 ${faultProtocol === "desktop-product-faults-v5" ? "faults-v5" : "faults-v4"} 自主回归诊断，种子不变，不提供测试内容。允许你自行创建 regression.test.mjs，并修改 workflow.mjs；原有测试和其他文件必须保持不变。请根据用户要求自行设计针对性断言，在修改实现前运行 program="node", args=["--test","regression.test.mjs"], cwd="." 确认失败，再保留相同测试修复实现，运行同一命令验证。只有上述两个文件可写、上述命令可执行，禁止修改断言来掩盖实现缺陷；审批限制保持有效。${task === "E01" && faultProtocol === "desktop-product-faults-v5" ? ' 另允许单独运行原有只读测试 program="node", args=["--test","fixture.test.mjs"], cwd="."；不得修改该文件。' : ""}`
       : task === "E04" && faultProtocol === "desktop-product-faults-v3"
         ? '本次是 faults-v3 自主回归诊断，种子不变，不提供测试内容。允许你自行创建 regression.test.mjs，并修改 workflow.mjs；原有测试和其他文件必须保持不变。请根据用户要求自行设计针对性断言，在修改实现前运行 program="node", args=["--test","regression.test.mjs"], cwd="." 确认失败，再保留相同测试修复实现，运行同一命令验证。只有上述两个文件可写、上述命令可执行，禁止修改断言来掩盖实现缺陷；审批限制与六步预算保持有效。'
         : task === "E04" && faultProtocol === "desktop-product-faults-v2"
@@ -99,26 +110,28 @@ export function pilotScenario(
     limits:
       profile === "product-defaults"
         ? { maxSteps: null, maxToolCalls: null }
-        : {
-            maxSteps: localOnly
-              ? 2
-              : task === "D03"
-                ? 1
-                : task === "F03" || cancelStage === "model"
-                  ? 2
+        : profile === "repair-acceptance"
+          ? { maxSteps: 16, maxToolCalls: 32 }
+          : {
+              maxSteps: localOnly
+                ? 2
+                : task === "D03"
+                  ? 1
+                  : task === "F03" || cancelStage === "model"
+                    ? 2
+                    : cancelStage === "command"
+                      ? 3
+                      : 6,
+              maxToolCalls: localOnly
+                ? 2
+                : cancelStage === "model"
+                  ? 1
                   : cancelStage === "command"
-                    ? 3
-                    : 6,
-            maxToolCalls: localOnly
-              ? 2
-              : cancelStage === "model"
-                ? 1
-                : cancelStage === "command"
-                  ? 2
-                  : task.startsWith("E")
-                    ? 16
-                    : 8,
-          },
+                    ? 2
+                    : task.startsWith("E")
+                      ? 16
+                      : 8,
+            },
     supplement:
       profile === "product-defaults"
         ? supplement.replace(

@@ -43,6 +43,7 @@ if (
     "desktop-product-faults-v2",
     "desktop-product-faults-v3",
     "desktop-product-faults-v4",
+    "desktop-product-faults-v5",
   ].includes(faultProtocol)
 )
   throw new Error("Unknown fault protocol");

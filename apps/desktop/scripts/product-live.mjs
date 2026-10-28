@@ -28,6 +28,7 @@ const { values } = parseArgs({
     locale: { type: "string" },
     "cancel-stage": { type: "string" },
     "product-defaults": { type: "boolean" },
+    "repair-acceptance": { type: "boolean" },
   },
   strict: true,
 });
@@ -37,7 +38,7 @@ if (
   !values.round?.length
 )
   throw new Error(
-    "Usage: --check|--live --round <prepared-round-directory> [--round <directory>] [--task <supported-task-id>] [--finalization-input continuation|evidence] [--recover-summary] [--locale en|zh-CN] [--cancel-stage model|command] [--product-defaults]",
+    "Usage: --check|--live --round <prepared-round-directory> [--round <directory>] [--task <supported-task-id>] [--finalization-input continuation|evidence] [--recover-summary] [--locale en|zh-CN] [--cancel-stage model|command] [--product-defaults|--repair-acceptance]",
   );
 const tasks = values.task ?? ["Q02", "E01", "F03"];
 if (
@@ -47,13 +48,23 @@ if (
   throw new Error(
     `Pilot tasks must be unique members of ${PILOT_TASKS.join(", ")}`,
   );
-const profile = values["product-defaults"] ? "product-defaults" : "bounded";
+if (values["product-defaults"] && values["repair-acceptance"])
+  throw new Error("Choose only one pilot execution profile");
+if (values["repair-acceptance"] && values["recover-summary"])
+  throw new Error(
+    "Repair acceptance measures one repair only; request summary separately",
+  );
+const profile = values["repair-acceptance"]
+  ? "repair-acceptance"
+  : values["product-defaults"]
+    ? "product-defaults"
+    : "bounded";
 for (const task of tasks)
   pilotScenario(
     task,
     task === "F02" ? values["cancel-stage"] : undefined,
     undefined,
-    profile,
+    profile === "repair-acceptance" ? "bounded" : profile,
   );
 if (values["cancel-stage"] && !tasks.includes("F02"))
   throw new Error("--cancel-stage requires F02");
@@ -142,6 +153,7 @@ for (const supplied of values.round) {
       "desktop-product-faults-v2",
       "desktop-product-faults-v3",
       "desktop-product-faults-v4",
+      "desktop-product-faults-v5",
     ].includes(manifest.faultProtocol)
   )
     throw new Error("Unrecognized fault protocol");
@@ -262,9 +274,11 @@ for (const supplied of values.round) {
         wallClockMs:
           profile === "product-defaults"
             ? 600000
-            : task === "F05"
-              ? 400000
-              : 175000,
+            : profile === "repair-acceptance"
+              ? 300000
+              : task === "F05"
+                ? 400000
+                : 175000,
         processPhases:
           task === "F05" ? ["crash", "read-only-reopen"] : ["execution"],
         status: "not_run",
@@ -403,9 +417,11 @@ for (const { round, manifest, expectedByTask } of preparedRounds) {
         () => child.kill(),
         profile === "product-defaults"
           ? 630000
-          : values["recover-summary"] && ["E01", "F03"].includes(task)
-            ? 290000
-            : 200000,
+          : profile === "repair-acceptance"
+            ? 330000
+            : values["recover-summary"] && ["E01", "F03"].includes(task)
+              ? 290000
+              : 200000,
       );
       try {
         return {
@@ -576,6 +592,7 @@ for (const { round, manifest, expectedByTask } of preparedRounds) {
           "desktop-product-faults-v2",
           "desktop-product-faults-v3",
           "desktop-product-faults-v4",
+          "desktop-product-faults-v5",
         ].includes(manifest.faultProtocol)
           ? "edit-probes-v2"
           : "edit-probes-v1",

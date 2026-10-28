@@ -3,6 +3,115 @@ import type { RunPayload } from "../shared/run-protocol.js";
 import { allowPilotApproval } from "./product-live-policy.js";
 import { CANCEL_COMMAND, pilotScenario } from "./product-live-scenarios.js";
 
+it.each(["E01", "E03"])(
+  "supports an explicitly bounded regression acceptance profile for %s",
+  (task) => {
+    const protocol = "desktop-product-faults-v5";
+    expect(
+      pilotScenario(task, undefined, protocol, "repair-acceptance"),
+    ).toMatchObject({
+      limits: { maxSteps: 16, maxToolCalls: 32 },
+      expectedWrites: ["workflow.mjs", "regression.test.mjs"],
+    });
+    for (const path of ["workflow.mjs", "regression.test.mjs"])
+      expect(
+        allowPilotApproval(
+          task,
+          approval("write", { path }),
+          undefined,
+          protocol,
+        ),
+      ).toBe(true);
+    for (const file of [
+      "regression.test.mjs",
+      ...(task === "E01" ? ["fixture.test.mjs"] : []),
+    ])
+      expect(
+        allowPilotApproval(
+          task,
+          approval("process", {
+            program: "node",
+            args: ["--test", file],
+            cwd: ".",
+          }),
+          undefined,
+          protocol,
+        ),
+      ).toBe(true);
+    for (const path of [
+      "fixture.test.mjs",
+      "../regression.test.mjs",
+      "other.test.mjs",
+    ])
+      expect(
+        allowPilotApproval(
+          task,
+          approval("write", { path }),
+          undefined,
+          protocol,
+        ),
+      ).toBe(false);
+    for (const input of [
+      { program: "node", args: ["-e", "code"], cwd: "." },
+      { program: "node", args: ["--test", "regression.test.mjs"], cwd: ".." },
+      { program: "node", args: ["--test", "other.test.mjs"], cwd: "." },
+    ])
+      expect(
+        allowPilotApproval(
+          task,
+          approval("process", input),
+          undefined,
+          protocol,
+        ),
+      ).toBe(false);
+    for (const old of [
+      undefined,
+      "desktop-product-faults-v1",
+      "desktop-product-faults-v4",
+    ])
+      expect(
+        allowPilotApproval(
+          task,
+          approval("write", { path: "regression.test.mjs" }),
+          undefined,
+          old,
+        ),
+      ).toBe(false);
+    expect(() =>
+      pilotScenario(
+        task,
+        undefined,
+        "desktop-product-faults-v4",
+        "repair-acceptance",
+      ),
+    ).toThrow("requires faults-v5");
+  },
+);
+
+it("does not expand the repair acceptance profile to other tasks or protocols", () => {
+  for (const task of ["E02", "E04", "E05", "F03", "Q02"])
+    expect(() =>
+      pilotScenario(
+        task,
+        undefined,
+        "desktop-product-faults-v5",
+        "repair-acceptance",
+      ),
+    ).toThrow("only supports E01/E03");
+  expect(pilotScenario("E01").limits).toEqual({
+    maxSteps: 6,
+    maxToolCalls: 16,
+  });
+  expect(
+    allowPilotApproval(
+      "E04",
+      approval("write", { path: "regression.test.mjs" }),
+      undefined,
+      "desktop-product-faults-v5",
+    ),
+  ).toBe(false);
+});
+
 const approval = (
   effect: "write" | "process",
   input: unknown,

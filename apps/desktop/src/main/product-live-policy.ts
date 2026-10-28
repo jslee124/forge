@@ -48,20 +48,27 @@ export function allowPilotApproval(
         input.args[0] === "-e" &&
         input.args[1] === CANCEL_COMMAND
       );
+    if (
+      input.program !== "node" ||
+      (input.cwd !== undefined && input.cwd !== ".") ||
+      !Array.isArray(input.args) ||
+      input.args.length !== 2 ||
+      input.args[0] !== "--test"
+    )
+      return false;
+    const expectedTest =
+      task === "D02"
+        ? "mock.test.mjs"
+        : usesAutonomousRegression(task, faultProtocol)
+          ? "regression.test.mjs"
+          : task === "E04" && faultProtocol === "desktop-product-faults-v2"
+            ? "path.test.mjs"
+            : "fixture.test.mjs";
     return (
-      input.program === "node" &&
-      (input.cwd === undefined || input.cwd === ".") &&
-      Array.isArray(input.args) &&
-      input.args.length === 2 &&
-      input.args[0] === "--test" &&
-      input.args[1] ===
-        (task === "D02"
-          ? "mock.test.mjs"
-          : usesAutonomousRegression(task, faultProtocol)
-            ? "regression.test.mjs"
-            : task === "E04" && faultProtocol === "desktop-product-faults-v2"
-              ? "path.test.mjs"
-              : "fixture.test.mjs")
+      input.args[1] === expectedTest ||
+      (task === "E01" &&
+        faultProtocol === "desktop-product-faults-v5" &&
+        input.args[1] === "fixture.test.mjs")
     );
   } catch {
     return false;
