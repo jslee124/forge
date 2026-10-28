@@ -7,6 +7,61 @@ contract and task list, not shipped behavior. New filenames, types, fields, and
 configuration below are proposed; section 2 separately identifies existing code.
 Resolve PRD/implementation disagreements in both documents before implementing.
 
+## Requirement-to-check mapping comparison (2026-10-28)
+
+Shared native repair guidance at `f6f09b2` now asks for a brief requirement →
+expected behavior → check mapping before tests. Expectations must come from the
+request/applicable specification, not presumed intent of the defective code.
+Requested preservation and relevant success/failure behavior should have
+discriminating checks; consequential unspecified semantics are disclosed instead
+of silently normalized. Completion is checked back against that mapping. This
+is model guidance, not a semantic verifier or additional authority.
+
+`70fd951` adds faults-v4 E02/E05 with model-authored tests and the existing exact
+file/command allowlist, preserving previous protocols. Two local counterexamples
+prove a narrow red/green test can still drop saved options or lose a successful
+return value; independent behavioral probes reject those repairs. No reference
+assertions or mapping template is supplied to the model.
+
+With explicit user consent to four DeepSeek task attempts on synthetic workspaces, each
+task ran once at baseline `70fd951` and once at `f6f09b2`, on fresh seeds, the same
+model/profile/prompt/permissions, and no total count cap or whole-task retry.
+
+| Task | Baseline steps / tools | Guided steps / tools | Independent checks |
+| --- | --- | --- | --- |
+| E02 default theme / saved options | 8 / 14 | 9 / 12 | Both passed 15 checks and an observed red/green cycle. |
+| E05 async failure propagation | 11 / 14 | 9 / 13 | Both passed 3 checks and an observed red/green cycle. |
+
+Total: 37 logical model steps / 53 tool calls; HTTP attempts/retries and billing
+were not measured. Both versions already passed these two tasks; no success-rate
+or causal efficiency gain is established. Guided E05 presented a map before
+tests and covered deferred rejection plus falsy/undefined success values. Guided
+E02 disclosed own-undefined-key semantics not covered by the fixed probes, but
+answered in English despite the Chinese request. This language inconsistency,
+verbosity and previous E04 path failure remain open. Tests, original files and
+source outside the target functions were preserved in all four attempts.
+
+Private evidence: `evals/artifacts/regression-contract-f6f09b2/`, containing both
+versions' original artifacts, source snapshots and a separate assistant review.
+Only the two guided final screenshots were visually inspected; this is not an
+independent-user trial. Full suite: 840 passed / 6 skipped; deterministic
+contracts: 221 passed; root and documentation checks passed. Broader product,
+accessibility and platform/release gates remain open.
+
+Installed macOS arm64 build `0.4.0-local.f6f09b2` was backed up, replaced and
+reopened normally. All 116 local scripted UI entries passed, including the
+46-model-step / 45-tool progressing task; original history remained visible and
+all 85 original Forge-home files retained their hashes. Backup:
+`~/Library/Application Support/Forge Backups/2026-10-28-f6f09b2/`. This is an
+unsigned local build, not a platform/signing/notarization release claim.
+
+CLI `package:verify` built the package but could not complete clean dependency
+installation: the official npm registry repeatedly returned HTTP 503. The first
+retrying install was stopped, and one bounded no-retry attempt failed with E503
+for `@ai-sdk/deepseek`. Both logs are retained; package verification is not marked
+passed and publication is not proposed. This network limitation is separate from
+the passing desktop installation and task checks.
+
 ## Product-default repair pilot (2026-10-28)
 
 Source/development build `045b941` adds an opt-in product-default execution
@@ -274,6 +329,7 @@ development records, not a claim that every T00–T14 gate is complete.
 | V09 | Focused repair diagnostic; original case still fails | `69947ec` adds bounded repair guidance and faults-v2 public path tests. `6cbdf94` preserves v1 and corrects containment/command scoring; the assisted artifact passes 14 v2 checks, while both original-prompt samples still fail. Three real samples used 18 steps; reassessment made no provider calls. |
 | V10 | Model-authored regression path observed; repair loop pending | Two `2cb26da` faults-v3 E04 samples wrote their own tests and observed relevant failures, but neither repaired the source within six steps. Assertion errors remain. Early model-step guidance is locally tested only; the default twelve-step configuration has not been sampled here. |
 | V11 | Product-default pilot complete; quality partial | `045b941`: E01/D05 scoped checks passed; E04 completed its own red/green loop but failed 7/14 independent checks. Three attempts used 26 steps/32 tools with no total caps or retry; requirements-derived tests and broader quality acceptance remain open. |
+| V12 | Mapping guidance locally/live verified; quality gate open | `70fd951`/`f6f09b2`: both E02/E05 samples pass fixed probes and red/green observations. Four attempts total 37 steps/53 tools. No measured success-rate gain; E04 failure, language consistency and broader product gates remain open. |
 | V02 / T00,T13 | Pending full gate | Score all 24 fixed tasks in two independent rounds with pinned model/config/seed and predeclared rubric. Existing partial diagnostic samples do not satisfy this gate. |
 | V03 / T13 | Pending | Five target users perform Q02/E01/F03 without developer coaching; record blockers and results. Agent-operated tests cannot substitute for independent users. |
 | A01 / T12 | Partial | Native IME candidate confirmation must not send early; verify actual VoiceOver stage/error/approval announcements and keyboard recovery. AX/composition simulations are supporting evidence only. |

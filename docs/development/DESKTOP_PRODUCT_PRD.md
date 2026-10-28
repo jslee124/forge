@@ -173,6 +173,15 @@ effective limits (including no fixed cap) and authorization rules. Summarization
 does not override denial, cancellation, or process disconnection. See the
 [2026-10-28 implementation and verification](DESKTOP_PRODUCT_IMPLEMENTATION.md#13-optional-native-task-ceilings-2026-10-28).
 
+### 5.4 Repair verification
+
+For nontrivial authorized fixes, map the requested behavior and preservation
+constraints to expected outcomes and meaningful checks before testing. Separate
+observed legacy behavior from a specified requirement; disclose consequential
+ambiguities. Report reproduced failure, passing verification and remaining
+requirements separately. Model guidance and self-authored tests are supporting
+evidence; a red/green loop alone cannot establish goal correctness.
+
 ## 6. Visual and interaction constraints
 
 Reuse existing muted themes, fonts, icons, and design variables. Prioritize
