@@ -1,11 +1,116 @@
 import { execFile } from "node:child_process";
-import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  stat,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { expect, it } from "vitest";
 import { prepareDesktopProductRound } from "./desktop-product-evaluation.js";
+
+it("rejects a fixture under an ancestor Git root before credentials or execution", async () => {
+  const root = await mkdtemp(join(tmpdir(), "forge-pilot-ancestor-"));
+  const round = join(root, "round");
+  const script = fileURLToPath(
+    new URL("../../apps/desktop/scripts/product-live.mjs", import.meta.url),
+  );
+  const run = (mode: string, directory = round) =>
+    promisify(execFile)(
+      process.execPath,
+      [
+        script,
+        mode,
+        "--round",
+        directory,
+        "--task",
+        "E04",
+        "--product-defaults",
+      ],
+      {
+        env: {
+          PATH: process.env["PATH"] ?? "",
+          HOME: root,
+          FORGE_HOME: join(root, "no-credentials"),
+        },
+      },
+    );
+  try {
+    await prepareDesktopProductRound(round, 1, "desktop-product-faults-v3");
+    await mkdir(join(root, ".git"));
+    // A symlink to the round must not hide its actual ancestor workspace.
+    const alias = join(root, "round-alias");
+    await symlink(
+      round,
+      alias,
+      process.platform === "win32" ? "junction" : "dir",
+    );
+    for (const mode of ["--check", "--live"])
+      for (const directory of [round, alias])
+        await expect(run(mode, directory)).rejects.toMatchObject({
+          stderr: expect.stringContaining(
+            "Pilot workspace root differs from fixture directory",
+          ),
+        });
+    for (const name of ["pilot-plan.json", "E04/runtime-home"])
+      await expect(stat(join(round, name))).rejects.toMatchObject({
+        code: "ENOENT",
+      });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+it("checks later round boundaries before accessing credentials for an earlier valid round", async () => {
+  const root = await mkdtemp(join(tmpdir(), "forge-pilot-batch-boundary-"));
+  const first = join(root, "first");
+  const nested = join(root, "repository", "second");
+  const script = fileURLToPath(
+    new URL("../../apps/desktop/scripts/product-live.mjs", import.meta.url),
+  );
+  try {
+    await mkdir(join(root, "repository", ".git"), { recursive: true });
+    await prepareDesktopProductRound(first, 1);
+    await prepareDesktopProductRound(nested, 2);
+    await expect(
+      promisify(execFile)(
+        process.execPath,
+        [
+          script,
+          "--live",
+          "--round",
+          first,
+          "--round",
+          nested,
+          "--task",
+          "E04",
+        ],
+        {
+          env: {
+            PATH: process.env["PATH"] ?? "",
+            HOME: root,
+            FORGE_HOME: join(root, "no-credentials"),
+          },
+        },
+      ),
+    ).rejects.toMatchObject({
+      stderr: expect.stringContaining(
+        "Pilot workspace root differs from fixture directory",
+      ),
+    });
+    await expect(
+      stat(join(first, "E04", "runtime-home")),
+    ).rejects.toMatchObject({ code: "ENOENT" });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
 
 it("checks the frozen pilot without credentials or live calls, and refuses extra workspace data", async () => {
   const root = await mkdtemp(join(tmpdir(), "forge-product-pilot-check-"));

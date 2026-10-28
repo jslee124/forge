@@ -6,6 +6,10 @@
 
 Forge 将 runtime 正确性与 live model 质量分开测量。默认套件不发起付费模型请求；脚本化模型和 fake transport 验证循环、审批、工具、恢复、限制、trace 和上下文行为。显式 opt-in 的 live trial 才测量 provider 是否能完成真实仓库任务。
 
+`evals/artifacts/` 中的私有产物和源码快照属于证据，不是当前测试输入。
+TypeScript 测试类型检查与 Vitest 发现会排除此目录，并保留正常依赖排除规则；
+应完整保留快照，不执行它们，也不为让检查通过而删除证据。
+
 ## 任务
 
 规范 fixture 是 `fixtures/validation-bug`。它要求 Agent 阅读实现、调用方和测试，修复 `parsePort` 对输入校验过于宽松的问题，运行 `pnpm test`，并以与实际 diff/测试结果一致的总结结束。每次 trial 都从全新的临时 workspace 开始；grader 在 Agent 停止后于外部运行，模型不能修改 grader 或隐藏测试。
@@ -117,6 +121,15 @@ prepare/check/fixture 不读取凭据、不访问提供商。live 总计最多�
 可靠性或用户成功率。
 
 ## 实验证据收尾与审核后总结
+
+Desktop 试跑目录必须位于所有祖先 Git 仓库之外，通常放在 `/tmp`。Forge 会将
+仓库内的工作目录解析到所属 Git 根目录；仅隔离 `FORGE_HOME` 无法隔离工具边界、
+项目配置和仓库指令。不要给冻结 fixture 添加 Git 标记来掩盖根目录不匹配。
+`product-live.mjs` 在读取任何凭据前，为所有选中任务和轮次解析应用实际使用的
+规范工作区身份，`--check` 和本地 fixture 也执行此检查；每个任务执行前再检查一次。
+若根目录与 fixture 目录不同则拒绝启动，并在检查计划中记录工作区身份。
+这属于预检，不能隔离检查后发生的外部文件系统变化。受污染的尝试应保留原始文件，
+另存失效说明，不能改写原始记录或升级为基线通过。
 
 真实桌面试跑支持 --finalization-input continuation|evidence，默认仍为
 continuation，只有隔离试跑的显式宿主覆盖才能选 evidence。为不同模式/轮次

@@ -8,6 +8,11 @@ Forge separates deterministic runtime correctness from live-model capability.
 The default test suite never makes a paid request. Live DeepSeek trials are a
 separate, explicit operation whose failures remain part of the report.
 
+Private outputs and source snapshots under `evals/artifacts/` are evidence, not
+current test inputs. TypeScript test checking and Vitest discovery exclude that
+directory while retaining their normal dependency exclusions; keep snapshots
+intact instead of executing them or deleting them to make validation pass.
+
 ## Tasks
 
 Versioned manifests live under `evals/tasks/`. Every trial starts from a fresh
@@ -222,6 +227,18 @@ validity. Requested/returned model labels do not prove distinct backend weights,
 and two samples per cell do not establish general model reliability or user success.
 
 ## Experimental evidence finalization and reviewed summary
+
+Prepare Desktop pilot rounds outside any ancestor Git repository, normally under
+`/tmp`. Forge resolves a nested working directory to its enclosing Git workspace;
+an isolated `FORGE_HOME` alone does not isolate that workspace, project settings
+or repository instructions. Do not add a Git marker to a frozen fixture to hide
+this mismatch. `product-live.mjs` resolves the application's canonical workspace
+identity for every selected task/round before any credential read, including
+`--check` and local fixtures, and checks again before each execution. It rejects
+a root different from the fixture directory and records the identity in the
+check plan. This is a preflight check, not filesystem isolation against later
+external changes. Retain contaminated attempts with a separate invalidation
+record; do not turn them into baseline passes or overwrite their raw artifacts.
 
 The real Desktop pilot accepts `--finalization-input continuation|evidence`;
 default remains continuation. Only the isolated pilot's explicit host override

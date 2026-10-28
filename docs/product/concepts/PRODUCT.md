@@ -92,7 +92,7 @@ A narrow, reliable workflow is more valuable than many incomplete features.
 
 ## Shipped product surface
 
-The v0.3.4 release includes:
+CLI 0.4.0 includes these established capabilities:
 
 - A TypeScript command-line interface
 - A multi-line interactive terminal UI with slash-command discovery,
@@ -121,6 +121,13 @@ The v0.3.4 release includes:
 - A canonical fixture task, deterministic recovery scenario, and reproducible
   release evaluation
 
+The separate [Desktop preview](../operations/DESKTOP.md) provides a graphical
+workbench with Native Forge and Codex engines, saved tasks, file and document
+previews, reviewable changes, approvals, cancellation and installer downloads.
+Its preview status and platform/release validation are separate from the CLI.
+The current [desktop productization work](../../development/DESKTOP_PRODUCT_IMPLEMENTATION.md#remaining-acceptance-work-2026-10-27)
+still has open real-task, user, accessibility and release gates.
+
 ## Historical v0.1 baseline
 
 Forge v0.1 established the concrete release gates in [v0.1 Acceptance and
@@ -140,7 +147,6 @@ end to end:
 
 ## Current limitations
 
-- Graphical or IDE interfaces
 - Remote execution
 - Persistent semantic memory
 - Retrieval-augmented generation

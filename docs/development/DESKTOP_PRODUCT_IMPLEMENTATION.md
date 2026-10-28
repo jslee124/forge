@@ -7,6 +7,124 @@ contract and task list, not shipped behavior. New filenames, types, fields, and
 configuration below are proposed; section 2 separately identifies existing code.
 Resolve PRD/implementation disagreements in both documents before implementing.
 
+## Validation-input correction before push (2026-10-28)
+
+Private source snapshots were accidentally included by broad test globs. A newer
+partial snapshot caused unresolved imports during test type checking; the older
+response-language snapshot contributed 19 duplicate test cases to earlier full
+suite counts. `tsconfig.test.json` and Vitest now exclude `evals/artifacts/`,
+preserving dependency exclusions and the archived evidence. Discovery and file
+listing confirm active core, pilot and response-language tests remain included.
+Current active suite: 862 passed / 6 skipped; root and docs checks passed. Older
+raw logs/counts are retained as recorded, not relabeled as current-source totals.
+
+## Small cross-scenario check (2026-10-28)
+
+The user authorized a small check of the other main flows, with Telegram and E04
+retries deferred. Fresh outside-repository inputs used the existing bounded
+faults-v1 protocol: six external execution lanes plus a separately reviewed
+one-step summary, capped at 26 logical model steps in total, and one local
+scripted crash/reopen lane. Each lane ran once; no task retry or full matrix.
+
+| Scenario | Observed result | Acceptance scope |
+| --- | --- | --- |
+| Q02 call-path explanation | Completed in 5 steps / 6 tools; identified missing UI-to-main wiring. | Call-path scope passed; wording about async returns was imprecise and the answer verbose. A separate host probe confirms promise adoption rather than promise identity. |
+| E01 port repair | Source passed all 22 independent checks and both original tests; run stopped at 6 steps / 9 tools. | Artifact scoped pass; runtime remains partial. The diagnostic policy denied a new test file. This does not establish product-default completion or a product policy defect. |
+| D01 failure diagnosis | Actual test exit 1, correct port-zero assertion/root cause, no edits; 4 steps / 5 tools. | Scoped diagnosis passed. |
+| F02 output cancellation | One logical model step / zero tools; cancellation completed 33 ms after request. | Model-output stop checks passed in this sample. |
+| F02 command cancellation | One step / one tool; cancellation completed 24 ms after request; owned PID exited. | Command-stop checks passed; delayed finish marker remained absent after the batch. Cancellation does not imply rollback. |
+| F03 budget and reviewed summary | Source stopped partial after 2 steps / 1 tool; summary used one step / zero tools. | All eight review/source-link/draft/history checks passed. Summary itself retains the existing conservative `limit_reached/tool_call_limit` classification; it is not promoted to task success. |
+| F05 crash and reopen | Local scripted fault; retained request/history, interrupted state, no restored grants or replay. | All 13 local control checks passed; no external-model evidence for this lane. |
+
+Total external-configured logical activity: 20 model steps / 22 tools, including
+the summary. HTTP attempts/retries and billing were not measured. Session roots
+matched their canonical fixture directories; no outside-fixture tool requests
+were observed. Selected evidence was scanned without finding the DeepSeek key.
+Three captures were inspected (E01 result, F03 summary, F05 reopened history).
+These samples do not establish an aggregate success rate, the two-round baseline,
+independent users, native IME/VoiceOver or other-platform acceptance.
+
+Next work is to prepare a separate repair-acceptance profile with explicit,
+meaningful regression-test permissions and a disclosed budget, preserving this
+bounded attempt. Do not weaken product approvals or infer default-run failure
+from its six-step stop. Answer concision and plain-language recovery summaries
+remain presentation follow-ups. No runtime guidance was changed merely to
+convert these samples to passes. Raw evidence, the frozen plan, source diff and
+separate assistant review are in
+`evals/artifacts/broad-scenarios-20261028-be6cd9b/`.
+
+## Explicitly authorized isolated E04 retest (2026-10-28)
+
+After the user explicitly confirmed credential access, Electron launch and two
+paid synthetic-workspace attempts, the prepared outside-repository faults-v3
+E04 rounds ran once each, with product-default count limits and a 600-second
+experiment deadline. The earlier permission-review timeout was resolved; no
+additional task retry or broader paid matrix was run.
+
+| Round | Model steps / tools | Model-authored regression | Independent result |
+| --- | --- | --- | --- |
+| 1 | 8 / 9 | Same six tests went from exit 1 to exit 0. | Failed 7/14 checks. |
+| 2 | 8 / 9 | Same five tests went from exit 1 to exit 0. | Failed 7/14 checks. |
+
+Both repairs changed only `relativePath` to `return value.trim()`. They retained
+incorrect edge-whitespace removal and omitted traversal/absolute-path rejection.
+Round 1 even asserted that absolute POSIX and Windows paths should be accepted.
+Both models treated the workspace condition as a restriction on their edits,
+rather than a target-function acceptance condition. Both runtime outcomes were
+completed; both tasks fail the existing independent behavioral contract. First
+round progress also used English before the Chinese final answer. These samples
+do not establish an overall success rate or a causal guidance improvement.
+
+Persisted session roots and working directories matched their canonical fixture
+directories. Observed tool requests stayed inside them; original tests, unrelated
+files and source outside the target function retained their bytes. Authored test bytes were
+preserved across the observed red/green commands. Both final screenshots were
+inspected, and the selected evidence scan found no DeepSeek key. These checks do
+not establish OS isolation or independent-user acceptance. Total: 16 logical
+model steps / 18 tool calls; HTTP attempts/retries and billing were not measured.
+
+Raw results, code/tests, journals, screenshots, hashes and separate assistant
+review are retained under
+`evals/artifacts/product-acceptance-20261028-be6cd9b/isolated-confirmed/`.
+No model-visible fixtures, prompts, independent checks or product runtime
+guidance were changed for these attempts. E04 quality, full V02/V03, manual
+accessibility, platform and release gates remain open; Telegram stays deferred.
+
+## Pilot workspace-boundary correction (2026-10-28)
+
+Two new E04 attempts at `be6cd9b` were prepared inside the Forge repository by
+mistake. Standard Git-root resolution expanded their effective workspace to the
+repository root; the second attempt listed ancestor fixture directories and read
+`../assessment.json`. Both attempts are invalid as isolated acceptance evidence.
+Their original results remain intact: 24 logical model steps / 39 tool calls;
+independent probes failed 7/14 and 3/14 checks, respectively. The second also
+changed its regression test after editing the implementation. Neither is a pass;
+HTTP attempts/retries and billing were not measured.
+
+The launcher now validates the application's canonical workspace identity for
+every selected task and round before credential access, rejects an ancestor Git
+root, records the checked identity, and checks again before each task. New tests
+reproduce the original missing check, cover symlinked inputs and reject a later
+invalid round before executing an earlier valid one. This fixes evaluation
+preflight; it does not change product Git-root semantics or add an OS sandbox.
+
+Local verification: 881 tests passed / 6 skipped, 221 deterministic checks passed,
+root/docs checks and CLI packed installation passed. Desktop build and 109 local
+scripted UI result entries passed; approval and recovery captures were inspected.
+No installed application was replaced. Product-definition help now acknowledges
+the existing Desktop preview, with bilingual packaged resources synchronized.
+
+Two fresh outside-repository E04 inputs and all 50 bounded matrix lanes (24 tasks
+in two rounds, including both F02 stages) passed preflight without credential
+access or model calls. New isolated E04 execution did not start: automatic
+permission review timed out twice. This does not establish model safety or
+quality; V02/V03 and manual accessibility/platform/release gates remain open.
+Telegram work is deferred by user request. Private raw artifacts, invalidation
+and local verification are in
+`evals/artifacts/product-acceptance-20261028-be6cd9b/`; fresh inputs remain under
+`/tmp/forge-product-acceptance-20261028-isolated/` and
+`/tmp/forge-product-matrix-20261028-be6cd9b/`.
+
 ## Native response-language follow-up (2026-10-28)
 
 `9c73703` adds a shared native response policy: honor the current user's explicit
@@ -378,6 +496,9 @@ development records, not a claim that every T00–T14 gate is complete.
 | V11 | Product-default pilot complete; quality partial | `045b941`: E01/D05 scoped checks passed; E04 completed its own red/green loop but failed 7/14 independent checks. Three attempts used 26 steps/32 tools with no total caps or retry; requirements-derived tests and broader quality acceptance remain open. |
 | V12 | Mapping guidance locally/live verified; quality gate open | `70fd951`/`f6f09b2`: both E02/E05 samples pass fixed probes and red/green observations. Four attempts total 37 steps/53 tools. No measured success-rate gain; E04 failure, language consistency and broader product gates remain open. |
 | V13 | Native language policy/prefix samples verified; broad gate open | `9c73703` retained one failed explicit-English sample; `f4d7df7` passed two separately authorized targeted cases. Five one-response/zero-tool samples are not coding-task or Codex language acceptance. Current package verification passed after registry recovery. |
+| V14 | Pilot boundary fixed locally; new isolated execution blocked | Two repository-nested E04 attempts are invalidated separately; launcher preflight now rejects ancestor Git roots before credential access across all selected rounds. Fresh outside-repository E04 and 50 bounded matrix lanes passed preflight; new paid execution did not start because automatic permission review timed out twice. |
+| V15 | Isolated E04 rounds executed; quality failed | Explicit user confirmation resolved the prior timeout. Two fresh outside-repository faults-v3 rounds used 16 steps / 18 tools; both retained authored red/green tests but failed 7/14 independent checks. Roots/scope and original files were verified; no broader paid matrix or task retry. |
+| V16 | Small cross-scenario check executed; full gate open | Q02/E01/D01, both F02 stages and F03 plus reviewed summary used 20 logical steps / 22 tools; F05 was local scripted. Critical stop/history checks passed; E01 passed 22 independent probes but remained partial under the six-step diagnostic/test-write restriction. No E04 retry or full matrix. |
 | V02 / T00,T13 | Pending full gate | Score all 24 fixed tasks in two independent rounds with pinned model/config/seed and predeclared rubric. Existing partial diagnostic samples do not satisfy this gate. |
 | V03 / T13 | Pending | Five target users perform Q02/E01/F03 without developer coaching; record blockers and results. Agent-operated tests cannot substitute for independent users. |
 | A01 / T12 | Partial | Native IME candidate confirmation must not send early; verify actual VoiceOver stage/error/approval announcements and keyboard recovery. AX/composition simulations are supporting evidence only. |

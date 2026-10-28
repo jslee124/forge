@@ -60,7 +60,7 @@ Forge 可以使用成熟库消除偶然复杂度，但核心运行时概念必�
 
 ## 已发布产品能力
 
-v0.3.4 包括：
+CLI 0.4.0 包括以下已有能力：
 
 - TypeScript CLI 和多行交互式终端。
 - 斜杠命令发现、workspace 文件引用和可读的 diff 审查。
@@ -81,13 +81,19 @@ v0.3.4 包括：
 - 版本化产品文档、portable Skill 与受信任本地 plugin。
 - runtime/tool 自动化测试、规范 fixture、确定性恢复场景和可复现发布评测。
 
+独立的桌面预览版提供图形工作台，包括 Native Forge
+和 Codex 引擎、保存的任务、文件与文档预览、变更审查、审批、取消及安装器下载。
+其预览状态、平台和发布验证与 CLI 分开记录。当前的
+桌面产品化工作
+仍有真实任务、用户、无障碍和发布验收尚未完成。
+
 ## 历史 v0.1 基线
 
 详细 gate 见历史 v0.1 验收与评测。一次完整仓库任务至少要：读取多个相关文件、进行定向修改、运行自动验证、证明失败恢复、在成功或限制后停止、拒绝 workspace 外文件操作、生成与真实行为一致的 trace 和总结。
 
 ## 当前限制
 
-当前不提供图形/IDE 界面、远程执行、持久语义记忆、RAG、内置 MCP server
+当前不提供远程执行、持久语义记忆、RAG、内置 MCP server
 发现、第三方 plugin 安装器、自动 commit/push/PR、生产级 OS sandbox，以及
 原生 Anthropic Messages/Gemini protocol。Plugin-declared subagent 是有界、
 host-managed 且不可递归的能力，不是通用多 Agent 编排。

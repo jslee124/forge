@@ -9,6 +9,7 @@ import { desktopProductOverlayDirectory } from "../../../evals/dist/desktop-prod
 import { checkProductEdit } from "../../../evals/scripts/desktop-product-assertions.mjs";
 import { collectAttemptEvidence } from "../../../evals/scripts/desktop-product-attempt.mjs";
 import { AuthenticationManager } from "../../../packages/auth/dist/index.js";
+import { resolveForgeWorkspace } from "../../../packages/config/dist/index.js";
 import {
   CONTROL_TASKS,
   PILOT_TASKS,
@@ -106,6 +107,17 @@ const originalFiles = await inventory(
 const sourceRevision = (
   await promisify(execFile)("git", ["rev-parse", "HEAD"], { cwd: desktopRoot })
 ).stdout.trim();
+async function isolatedWorkspace(directory) {
+  // Resolve the same canonical identity as the application, without loading
+  // provider configuration or credentials. A lexical path check misses Git roots.
+  const identity = await resolveForgeWorkspace(directory);
+  if (identity.workspaceRoot !== identity.workingDirectory)
+    throw new Error(
+      "Pilot workspace root differs from fixture directory; prepare outside an ancestor Git repository",
+    );
+  return identity;
+}
+const preparedRounds = [];
 for (const supplied of values.round) {
   const round = resolve(supplied);
   const manifest = JSON.parse(
@@ -142,6 +154,10 @@ for (const supplied of values.round) {
     const plans = [];
     for (const task of tasks) {
       const directory = join(round, task);
+      // A fixture nested in a repository inherits that repository's tool root,
+      // configuration and instructions. Validate the effective boundary before
+      // accessing credentials, including in --check and local fixture mode.
+      const identity = await isolatedWorkspace(join(directory, "workspace"));
       const assessment = JSON.parse(
         await readFile(join(directory, "assessment.json"), "utf8"),
       );
@@ -242,6 +258,7 @@ for (const supplied of values.round) {
           profile,
         ),
         executionProfile: profile,
+        workspaceIdentity: identity,
         wallClockMs:
           profile === "product-defaults"
             ? 600000
@@ -294,10 +311,15 @@ for (const supplied of values.round) {
       continue;
     }
   }
+  preparedRounds.push({ round, manifest, expectedByTask });
+}
+// Validate every requested round before the first credential read or task run.
+for (const { round, manifest, expectedByTask } of preparedRounds) {
   const results = [];
   for (const task of tasks) {
     const directory = join(round, task);
     const workspace = join(directory, "workspace");
+    await isolatedWorkspace(workspace);
     for (const [name, expected] of Object.entries(expectedByTask[task])) {
       const actual = createHash("sha256")
         .update(await readFile(join(workspace, name)))

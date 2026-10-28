@@ -1,4 +1,4 @@
-import { defineConfig } from "vitest/config";
+import { configDefaults, defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
@@ -11,5 +11,6 @@ export default defineConfig({
       "packages/**/*.test.ts",
       "evals/**/*.test.ts",
     ],
+    exclude: [...configDefaults.exclude, "evals/artifacts/**"],
   },
 });
