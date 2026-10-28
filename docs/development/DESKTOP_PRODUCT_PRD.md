@@ -123,7 +123,7 @@ R identifiers connect implementation tasks, tests, and product acceptance.
 | R04 | Correct approval lifecycle | Bind to run/action; reject duplicate, expired, and cancelled decisions; preserve individual requests |
 | R05 | Readable activity | One tool call per item; merge continuous reasoning; counts represent operations rather than chunks; show truncation and missing data |
 | R06 | Efficient investigation tools | Line-range reads and contextual search avoid process calls for ordinary partial reads while preserving boundaries and limits |
-| R07 | Bounded convergence | End investigation near budget limits, reserve a chance to summarize, and never exceed hard limits through hidden calls |
+| R07 | Controlled convergence | Respect explicit limits and reserve finalization within them; stop evidenced no-progress loops without imposing default total-count ceilings |
 | R08 | Specific termination | Preserve completion, cancellation, terminal denial, model/tool/context budgets, provider/tool/storage failures |
 | R09 | Actionable recovery | Offer summarize/continue/edit-retry only when supported; link new runs; never silently replay effects |
 | R10 | Usable conversation | Enter sends, Shift+Enter inserts newline, IME does not submit; submitted text and next draft are separate; failed input can be recovered |
@@ -159,13 +159,19 @@ cost and usage remain unknown.
 
 ### 5.3 Budget and recovery
 
-Keep existing hard limits. Within the native engine's total budget, reserve one
-tool-free finalization opportunity. If the budget is too small or the model lacks
-support, explain the limit and use a deterministic execution-facts summary.
-Budget-triggered summaries remain partial results rather than successful tasks.
-Facts remain available if network or context limits prevent model summarization.
-Show additional budget and authorization rules before continuing. Summarization
-does not override denial, cancellation, or process disconnection.
+Ordinary native tasks have no default total model-step or tool-call ceiling.
+Explicit numeric limits remain hard limits; reserve a tool-free finalization
+opportunity within them. Preserve cancellation, command timeouts, context/output
+bounds and conservative no-progress guards. Ordinary failed tests do not alone
+establish a loop. Uncapped execution is not a monetary spending cap.
+
+If an explicit limit is too small or the model lacks finalization support, explain
+it and use a deterministic execution-facts summary. Limit/no-progress summaries
+remain partial results rather than successful tasks. Facts remain available if
+network or context limits prevent model summarization. Before continuing, show
+effective limits (including no fixed cap) and authorization rules. Summarization
+does not override denial, cancellation, or process disconnection. See the
+[2026-10-28 implementation and verification](DESKTOP_PRODUCT_IMPLEMENTATION.md#13-optional-native-task-ceilings-2026-10-28).
 
 ## 6. Visual and interaction constraints
 

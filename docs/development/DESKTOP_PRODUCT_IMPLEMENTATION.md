@@ -2,10 +2,44 @@
 
 [简体中文](../zh-CN/development/DESKTOP_PRODUCT_IMPLEMENTATION.md) · [PRD](DESKTOP_PRODUCT_PRD.md) · [Roadmap](ROADMAP.md) · [Documentation index](../README.md)
 
-Updated: 2026-10-27. Status: core product flows implemented incrementally; full product acceptance remains pending. This is a layered development
+Updated: 2026-10-28. Status: core product flows implemented incrementally; full product acceptance remains pending. This is a layered development
 contract and task list, not shipped behavior. New filenames, types, fields, and
 configuration below are proposed; section 2 separately identifies existing code.
 Resolve PRD/implementation disagreements in both documents before implementing.
+
+## Product-default repair pilot (2026-10-28)
+
+Source/development build `045b941` adds an opt-in product-default execution
+profile for E01/E04/D05. Fresh isolated configs omit limits; original bounded
+profiles remain intact. The user explicitly authorized transmitting these three
+synthetic workspaces and derived outputs to DeepSeek and making paid calls.
+Each task ran once with a 600-second host deadline / 630-second launcher watchdog;
+no whole-task retry, deadline, or extra paid diagnostic occurred.
+
+| Task | Model steps / tools | Observed result and assessment |
+| --- | --- | --- |
+| E04 | 11 / 14 | Five model-authored tests went red to green with identical test bytes, but 7/14 independent checks failed. The repair wrongly retained trim and omitted path-escape rejection; goal failed despite a completed run and mechanical regression cycle. |
+| E01 | 8 / 11 | Existing two tests and 22 independent behavioral checks passed. Attempts to edit tests/run inline code were denied; answer disclosed verification limits. Scoped pass only. |
+| D05 | 7 / 7 | Stale rewrite rejected; reread and successful retry preserved the external marker. Inline verification was denied and disclosed; host independently ran the existing two tests afterward (passed), separate from agent evidence. Scoped conflict-control pass only. |
+
+Total: 26 recorded logical model steps, 32 tool calls; HTTP attempts/retries and
+billing were not measured. Original files, tests and source outside target
+functions were retained; the three final screenshots were inspected by the
+assistant. All three runtime outcomes were completed; E04 remains a task-level
+failure. Two scoped positive samples are not a product success-rate estimate.
+All runs exceed the older six-step diagnostic but stay below the former twelve-step
+product default, so no causal improvement from removing that twelve-step limit
+is established. Requirements-derived assertions and independent quality review
+remain the next gap; no more default guidance or approval expansion is justified
+solely by this sample.
+
+Private evidence: `evals/artifacts/default-repairs-045b941/`, including original
+reports, events, redacted records, workspaces, source snapshots and assistant
+review. No user configuration/credentials/Chromium data is copied. Full tests
+835 passed / 6 skipped, deterministic contracts 221 passed; root and doc checks
+passed. The 24-task/two-round, independent-user, accessibility and release gates
+remain open. Installed app unchanged. The PRD's R07/section 5.3 now match optional
+count ceilings and current recovery semantics.
 
 ## Model-authored regression diagnostic (2026-10-27)
 
@@ -239,6 +273,7 @@ development records, not a claim that every T00–T14 gate is complete.
 | V08 | Retained task discovery locally verified | `893b3d7`: canonical-empty sessions use saved request titles; explicit record entry replaces the welcome. Two isolated F05 rounds and 114 installed UI entries pass; no automatic replay or restored authority. |
 | V09 | Focused repair diagnostic; original case still fails | `69947ec` adds bounded repair guidance and faults-v2 public path tests. `6cbdf94` preserves v1 and corrects containment/command scoring; the assisted artifact passes 14 v2 checks, while both original-prompt samples still fail. Three real samples used 18 steps; reassessment made no provider calls. |
 | V10 | Model-authored regression path observed; repair loop pending | Two `2cb26da` faults-v3 E04 samples wrote their own tests and observed relevant failures, but neither repaired the source within six steps. Assertion errors remain. Early model-step guidance is locally tested only; the default twelve-step configuration has not been sampled here. |
+| V11 | Product-default pilot complete; quality partial | `045b941`: E01/D05 scoped checks passed; E04 completed its own red/green loop but failed 7/14 independent checks. Three attempts used 26 steps/32 tools with no total caps or retry; requirements-derived tests and broader quality acceptance remain open. |
 | V02 / T00,T13 | Pending full gate | Score all 24 fixed tasks in two independent rounds with pinned model/config/seed and predeclared rubric. Existing partial diagnostic samples do not satisfy this gate. |
 | V03 / T13 | Pending | Five target users perform Q02/E01/F03 without developer coaching; record blockers and results. Agent-operated tests cannot substitute for independent users. |
 | A01 / T12 | Partial | Native IME candidate confirmation must not send early; verify actual VoiceOver stage/error/approval announcements and keyboard recovery. AX/composition simulations are supporting evidence only. |
