@@ -104,7 +104,8 @@ async function runPilot(
     process.env["FORGE_PRODUCT_LIVE_OPT_IN"] !== "1"
   )
     throw new Error("Live pilot requires explicit isolated inputs and opt-in");
-  const scenario = pilotScenario(task, cancelStage, faultProtocol);
+  const profile = process.env["FORGE_PRODUCT_LIVE_PROFILE"] ?? "bounded";
+  const scenario = pilotScenario(task, cancelStage, faultProtocol, profile);
   const directory = join(workspace, "..");
   const assessment = JSON.parse(
     await readFile(join(directory, "assessment.json"), "utf8"),
@@ -433,7 +434,7 @@ async function runPilot(
       new Promise((_, reject) => {
         deadline = setTimeout(
           () => reject(new Error("Pilot wall-clock limit")),
-          175_000,
+          profile === "product-defaults" ? 600_000 : 175_000,
         );
       }),
     ]);
@@ -501,6 +502,7 @@ async function runPilot(
       schemaVersion: 1,
       task,
       scenario,
+      executionProfile: profile,
       originalPrompt: assessment.prompt,
       submittedPrompt,
       cancellation,
@@ -514,7 +516,7 @@ async function runPilot(
       providerCalls:
         process.env["FORGE_PRODUCT_LIVE_FIXTURE"] === "1"
           ? "local scripted transport; no external model"
-          : "real external DeepSeek API; count bounded by recorded model steps",
+          : "real external DeepSeek API; logical steps recorded, HTTP attempts/retries and billing not measured",
       model:
         process.env["FORGE_PRODUCT_LIVE_FIXTURE"] === "1"
           ? { engine: "forge", provider: "p4-fault", id: "scripted" }

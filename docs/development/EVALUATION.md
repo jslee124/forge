@@ -240,3 +240,21 @@ summary screenshots are separate, and projection-observation records trace inten
 plus whether that model step started. A source run finishing early does not test
 the reserved projection. Check command exit/verification, edit scope, independent
 port assertions, source links, unknown outcomes and preserved draft separately.
+
+### Product-default repair pilot
+
+The opt-in Desktop launcher `apps/desktop/scripts/product-live.mjs` accepts
+`--product-defaults` for E01/E04/D05 only. Both `--check` and `--live` must use
+the flag. The isolated config omits total limits, using current product defaults
+instead of the bounded six-step scenario. Plans and results record nullable
+limits and the execution profile; bounded protocols and F03 are unchanged.
+For faults-v3 E04 only the six-step wording is replaced; the regression-first
+procedure and exact command/file approval scope remain unchanged.
+
+A 600-second host experiment deadline and 630-second launcher watchdog bound
+each attempt; these are test controls, not production total-count limits or a
+monetary budget. Record interruption as failure, not completion. Fresh seeds,
+no automatic whole-task retries, independent behavioral probes and source review
+remain required. External calls require prior user authorization; `--check`
+does not access credentials or call providers. Three sampled tasks cannot close
+the 24-task/two-round or independent-user product gate.

@@ -26,6 +26,7 @@ const { values } = parseArgs({
     "recover-summary": { type: "boolean" },
     locale: { type: "string" },
     "cancel-stage": { type: "string" },
+    "product-defaults": { type: "boolean" },
   },
   strict: true,
 });
@@ -35,7 +36,7 @@ if (
   !values.round?.length
 )
   throw new Error(
-    "Usage: --check|--live --round <prepared-round-directory> [--round <directory>] [--task <supported-task-id>] [--finalization-input continuation|evidence] [--recover-summary] [--locale en|zh-CN] [--cancel-stage model|command]",
+    "Usage: --check|--live --round <prepared-round-directory> [--round <directory>] [--task <supported-task-id>] [--finalization-input continuation|evidence] [--recover-summary] [--locale en|zh-CN] [--cancel-stage model|command] [--product-defaults]",
   );
 const tasks = values.task ?? ["Q02", "E01", "F03"];
 if (
@@ -45,8 +46,14 @@ if (
   throw new Error(
     `Pilot tasks must be unique members of ${PILOT_TASKS.join(", ")}`,
   );
+const profile = values["product-defaults"] ? "product-defaults" : "bounded";
 for (const task of tasks)
-  pilotScenario(task, task === "F02" ? values["cancel-stage"] : undefined);
+  pilotScenario(
+    task,
+    task === "F02" ? values["cancel-stage"] : undefined,
+    undefined,
+    profile,
+  );
 if (values["cancel-stage"] && !tasks.includes("F02"))
   throw new Error("--cancel-stage requires F02");
 if (
@@ -219,18 +226,27 @@ for (const supplied of values.round) {
                 task,
                 task === "F02" ? values["cancel-stage"] : undefined,
                 manifest.faultProtocol,
+                profile,
               ).limits.maxSteps,
         toolCalls: pilotScenario(
           task,
           task === "F02" ? values["cancel-stage"] : undefined,
           manifest.faultProtocol,
+          profile,
         ).limits.maxToolCalls,
         scenario: pilotScenario(
           task,
           task === "F02" ? values["cancel-stage"] : undefined,
           manifest.faultProtocol,
+          profile,
         ),
-        wallClockMs: task === "F05" ? 400000 : 175000,
+        executionProfile: profile,
+        wallClockMs:
+          profile === "product-defaults"
+            ? 600000
+            : task === "F05"
+              ? 400000
+              : 175000,
         processPhases:
           task === "F05" ? ["crash", "read-only-reopen"] : ["execution"],
         status: "not_run",
@@ -296,13 +312,14 @@ for (const supplied of values.round) {
       task,
       task === "F02" ? values["cancel-stage"] : undefined,
       manifest.faultProtocol,
+      profile,
     ).limits;
     await writeFile(
       join(home, "config.json"),
       JSON.stringify({
         schemaVersion: 1,
         model: manifest.primaryModel,
-        limits,
+        ...(profile === "product-defaults" ? {} : { limits }),
       }),
       { mode: 0o600, flag: "wx" },
     );
@@ -325,6 +342,7 @@ for (const supplied of values.round) {
         : {}),
       FORGE_PRODUCT_LIVE_FIXTURE: usesLocalFixture(task) ? "1" : "0",
       FORGE_PRODUCT_LIVE_OPT_IN: "1",
+      FORGE_PRODUCT_LIVE_PROFILE: profile,
       FORGE_PRODUCT_LIVE_FINALIZATION_INPUT: finalizationInput,
       FORGE_PRODUCT_LIVE_LOCALE: locale,
       ...(task === "F02"
@@ -334,7 +352,7 @@ for (const supplied of values.round) {
         values["recover-summary"] && ["E01", "F03"].includes(task) ? "1" : "0",
     });
     console.log(
-      `Round ${manifest.round} / ${task}: starting ${task === "D03" ? "zero-call admission" : usesLocalFixture(task) ? "local scripted fixture" : "real provider run"}; max steps ${limits.maxSteps}`,
+      `Round ${manifest.round} / ${task} (${profile}): starting ${task === "D03" ? "zero-call admission" : usesLocalFixture(task) ? "local scripted fixture" : "real provider run"}; max steps ${limits.maxSteps}`,
     );
     const log = [];
     async function launchDesktop(phase) {
@@ -360,9 +378,11 @@ for (const supplied of values.round) {
         );
       const timer = setTimeout(
         () => child.kill(),
-        values["recover-summary"] && ["E01", "F03"].includes(task)
-          ? 290000
-          : 200000,
+        profile === "product-defaults"
+          ? 630000
+          : values["recover-summary"] && ["E01", "F03"].includes(task)
+            ? 290000
+            : 200000,
       );
       try {
         return {
@@ -569,6 +589,7 @@ for (const supplied of values.round) {
       checks: result.checks,
       independent,
       limits,
+      executionProfile: profile,
       sourceRevision,
       assessment: "needs_review",
     });

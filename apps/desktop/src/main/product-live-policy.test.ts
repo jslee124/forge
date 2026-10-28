@@ -354,3 +354,30 @@ it("permits only a dedicated model-authored test in the autonomous protocol", ()
     expectedWrites: ["workflow.mjs", "regression.test.mjs"],
   });
 });
+
+it("keeps product-default diagnostics uncapped without changing bounded or fault profiles", () => {
+  for (const task of ["E01", "E04", "D05"]) {
+    const scenario = pilotScenario(
+      task,
+      undefined,
+      "desktop-product-faults-v3",
+      "product-defaults",
+    );
+    expect(scenario.limits).toEqual({ maxSteps: null, maxToolCalls: null });
+    expect(scenario.expectedWrites).toEqual(
+      pilotScenario(task, undefined, "desktop-product-faults-v3")
+        .expectedWrites,
+    );
+    expect(scenario.supplement).not.toContain("六步预算");
+  }
+  expect(pilotScenario("E04").limits).toEqual({
+    maxSteps: 6,
+    maxToolCalls: 16,
+  });
+  expect(() =>
+    pilotScenario("F03", undefined, undefined, "product-defaults"),
+  ).toThrow("only supports");
+  expect(() => pilotScenario("E01", undefined, undefined, "other")).toThrow(
+    "Unknown pilot execution profile",
+  );
+});

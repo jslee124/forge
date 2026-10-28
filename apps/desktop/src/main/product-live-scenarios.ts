@@ -34,7 +34,12 @@ export function pilotScenario(
   task: string,
   cancelStage?: string,
   faultProtocol?: string,
+  profile = "bounded",
 ) {
+  if (!["bounded", "product-defaults"].includes(profile))
+    throw new Error("Unknown pilot execution profile");
+  if (profile === "product-defaults" && !["E01", "E04", "D05"].includes(task))
+    throw new Error("Product-default pilot only supports E01/E04/D05");
   if (
     faultProtocol !== undefined &&
     ![
@@ -75,27 +80,36 @@ export function pilotScenario(
   const localOnly = (CONTROL_TASKS as readonly string[]).includes(task);
   return {
     localOnly,
-    limits: {
-      maxSteps: localOnly
-        ? 2
-        : task === "D03"
-          ? 1
-          : task === "F03" || cancelStage === "model"
-            ? 2
-            : cancelStage === "command"
-              ? 3
-              : 6,
-      maxToolCalls: localOnly
-        ? 2
-        : cancelStage === "model"
-          ? 1
-          : cancelStage === "command"
-            ? 2
-            : task.startsWith("E")
-              ? 16
-              : 8,
-    },
-    supplement,
+    limits:
+      profile === "product-defaults"
+        ? { maxSteps: null, maxToolCalls: null }
+        : {
+            maxSteps: localOnly
+              ? 2
+              : task === "D03"
+                ? 1
+                : task === "F03" || cancelStage === "model"
+                  ? 2
+                  : cancelStage === "command"
+                    ? 3
+                    : 6,
+            maxToolCalls: localOnly
+              ? 2
+              : cancelStage === "model"
+                ? 1
+                : cancelStage === "command"
+                  ? 2
+                  : task.startsWith("E")
+                    ? 16
+                    : 8,
+          },
+    supplement:
+      profile === "product-defaults"
+        ? supplement.replace(
+            "审批限制与六步预算保持有效",
+            "审批限制保持有效，本轮使用产品默认的不设固定总次数上限配置",
+          )
+        : supplement,
     ...(task === "F02" ? { cancelStage } : {}),
     expectedWrites:
       task === "E04" && faultProtocol === "desktop-product-faults-v3"
