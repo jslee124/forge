@@ -7,6 +7,53 @@ contract and task list, not shipped behavior. New filenames, types, fields, and
 configuration below are proposed; section 2 separately identifies existing code.
 Resolve PRD/implementation disagreements in both documents before implementing.
 
+## Native response-language follow-up (2026-10-28)
+
+`9c73703` adds a shared native response policy: honor the current user's explicit
+reply language; otherwise follow the request/conversation language. English code
+and identifiers, repository text and historical/quoted output do not select the
+prose language. Literal evidence remains exact; user translation/modification/
+format instructions still apply. Both direct and reserved application paths
+receive it; reviewed recovery-summary locale is unchanged. Codex is not covered.
+
+Three explicitly authorized, isolated one-response DeepSeek questions exposed a
+remaining failure: Chinese with an English identifier and a plain English request
+matched expectations, but a Chinese request explicitly asking for English still
+received Chinese. The captured request confirms the policy was present; generic
+guidance alone did not resolve that sample. Original results remain unchanged.
+
+`f4d7df7` conservatively recognizes English/Chinese direct reply-language prefixes
+from the current prompt and adds a separate language hint. Quoted/code/log text,
+negative requests, recognized conflicts/alternatives and unsupported phrasing
+do not automatically select it. This is a narrow parser plus model guidance,
+not complete semantic interpretation or a translation/compliance guarantee.
+After separate user approval, the explicit-English question passed on a fresh
+attempt; a Chinese question quoting `Respond in English` stayed Chinese and kept
+the quoted literal. Review of log-origin assertions/verbosity is outside this
+language check. No previous coding-task language failure was re-executed.
+
+The diagnostic uses shared `runTask`, strips tool definitions at the adapter
+boundary, requests toolChoice none and blocks tool events before execution. Each
+of five recorded cases used one logical model response and zero tools. No business
+workspace/history/configuration was supplied; HTTP attempts/retries and billing
+are not measured. The targeted follow-up is an explicitly authorized new attempt,
+not a hidden retry or a rewrite of the first failure. Private evidence and source
+snapshots: `evals/artifacts/response-language-f4d7df7/`.
+
+Validation: 860 full tests passed / 6 skipped, 221 deterministic checks passed;
+root/docs checks passed. Current CLI package verification passed after the prior
+npm 503 recovered; no registry substitution or publication occurred. Broader
+24-task/two-round quality, independent users, native IME/VoiceOver and platform/
+release gates remain open.
+
+Installed local macOS arm64 `0.4.0-local.f4d7df7` was backed up and replaced after
+confirming no active task/draft. All 116 isolated scripted UI entries passed,
+including 46 model steps / 45 tools with progressing evidence. Normal reopen
+showed original history and an empty draft; all 85 original Forge-home files
+retained their hashes. Backup: `~/Library/Application Support/Forge Backups/2026-10-28-f4d7df7/`.
+This unsigned local build does not establish signing/notarization or other
+platform acceptance; the UI fixture is separate from real-model language evidence.
+
 ## Requirement-to-check mapping comparison (2026-10-28)
 
 Shared native repair guidance at `f6f09b2` now asks for a brief requirement →
@@ -330,6 +377,7 @@ development records, not a claim that every T00–T14 gate is complete.
 | V10 | Model-authored regression path observed; repair loop pending | Two `2cb26da` faults-v3 E04 samples wrote their own tests and observed relevant failures, but neither repaired the source within six steps. Assertion errors remain. Early model-step guidance is locally tested only; the default twelve-step configuration has not been sampled here. |
 | V11 | Product-default pilot complete; quality partial | `045b941`: E01/D05 scoped checks passed; E04 completed its own red/green loop but failed 7/14 independent checks. Three attempts used 26 steps/32 tools with no total caps or retry; requirements-derived tests and broader quality acceptance remain open. |
 | V12 | Mapping guidance locally/live verified; quality gate open | `70fd951`/`f6f09b2`: both E02/E05 samples pass fixed probes and red/green observations. Four attempts total 37 steps/53 tools. No measured success-rate gain; E04 failure, language consistency and broader product gates remain open. |
+| V13 | Native language policy/prefix samples verified; broad gate open | `9c73703` retained one failed explicit-English sample; `f4d7df7` passed two separately authorized targeted cases. Five one-response/zero-tool samples are not coding-task or Codex language acceptance. Current package verification passed after registry recovery. |
 | V02 / T00,T13 | Pending full gate | Score all 24 fixed tasks in two independent rounds with pinned model/config/seed and predeclared rubric. Existing partial diagnostic samples do not satisfy this gate. |
 | V03 / T13 | Pending | Five target users perform Q02/E01/F03 without developer coaching; record blockers and results. Agent-operated tests cannot substitute for independent users. |
 | A01 / T12 | Partial | Native IME candidate confirmation must not send early; verify actual VoiceOver stage/error/approval announcements and keyboard recovery. AX/composition simulations are supporting evidence only. |

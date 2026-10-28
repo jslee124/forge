@@ -182,6 +182,16 @@ ambiguities. Report reproduced failure, passing verification and remaining
 requirements separately. Model guidance and self-authored tests are supporting
 evidence; a red/green loop alone cannot establish goal correctness.
 
+### 5.5 Native response language
+
+Native progress and answers should honor the user's explicit reply-language
+request, otherwise follow the current request/conversation language. Mixed code,
+identifiers, quoted logs and repository/tool text must not silently change it.
+Preserve literal evidence while honoring explicit translation/format requests.
+Reviewed summary language remains an independent user choice. General guidance
+and narrow English/Chinese prefix recognition are not universal compliance
+evidence; record real samples and failed language outcomes separately.
+
 ## 6. Visual and interaction constraints
 
 Reuse existing muted themes, fonts, icons, and design variables. Prioritize
