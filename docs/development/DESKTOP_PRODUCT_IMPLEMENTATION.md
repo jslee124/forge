@@ -7,6 +7,64 @@ contract and task list, not shipped behavior. New filenames, types, fields, and
 configuration below are proposed; section 2 separately identifies existing code.
 Resolve PRD/implementation disagreements in both documents before implementing.
 
+## Full acceptance attempt stopped at a critical protocol failure (2026-10-30)
+
+After explicit authorization for synthetic fixture data and up to 570 paid
+logical steps with variable cost, the frozen `9b1dae2` / `full-acceptance-v1`
+matrix executed 46/50 lanes, representing 44/48 task rows. Round 1 executed all
+24 tasks; round 2 stopped at F02 command cancellation, leaving F03–F06 unrun.
+There were no whole-task retries or replacement attempts.
+
+The second-round model added braces to the supplied inline command. The exact
+allowlist rejected that changed string before process start; no PID marker or
+stop request existed. Thus this is a failed exact-command protocol and an
+unexercised command-cancellation case, not evidence that a running process failed
+to respond to stop. The model disclosed the rewrite and denial. The critical
+failure correctly stopped the batch; permissions and rubric were not relaxed.
+
+Both E04 attempts produced `return value.trim()`: authored tests went green but
+7/14 independent checks failed, including valid surrounding filename spaces and
+absolute/traversal inputs. Actual Forge file/tool scope remained enforced. In
+both rounds, E01/E02/E03/E05/E06 independently passed 22/15/4/3/6 checks, and D02
+passed two. These bounded probes are not universal correctness evidence.
+
+| Assistant source/evidence review | Round 1 | Round 2 |
+| --- | --- | --- |
+| Provisionally meets rubric; human review pending | 19 | 16 |
+| Narrative facts need adjudication | 4 | 2 |
+| Failed | 1 | 2 |
+| Not run | 0 | 4 |
+
+This is assistant review, not independent human sign-off or an official pass
+rate. Narrative flags include unsupported file-coverage/call-site claims,
+Promise-identity wording and an incorrect empty-string boundary description.
+Long answers, mixed-language progress and redundant denied verification requests
+remain observations; no new length threshold was imposed after results.
+
+External execution used 223 logical steps / 335 tool calls. The matrix recorded
+226 steps including local scripted controls; its budget ledger reserved 568/570,
+which is not actual usage or money. Completed usage events recorded 1,512,550
+input tokens (1,365,887 cached) and 81,341 output tokens. At the
+[official prices](https://api-docs.deepseek.com/quick_start/pricing/), recorded
+usage estimates are $0.074902 off-peak / $0.149803 peak; this run fell off-peak.
+Two cancelled requests lack complete usage, and HTTP attempts/retries and the
+provider bill were not independently measured. These are not invoiced totals or
+a monetary cap. The model alias was pinned; internal provider weights were not
+independently verified.
+
+Private selected raw evidence, source/build snapshots, screenshots, per-task
+review and hash inventory are retained under
+`evals/artifacts/full-acceptance-20261030-9b1dae2/`. All frozen input hashes
+matched before archival; a credential-pattern scan of selected artifacts found
+zero candidate files (not a proof that every sensitive string is absent).
+Chromium profiles/caches and credential stores were excluded from the archive.
+
+V02 remains unmet because the second round stopped and human semantic review is
+pending. V03/A01/C01/Q01/P01 also remain open; Telegram stays deferred. Next work
+should separate fixed-command cancellation control from model copying ability,
+and reconcile path requirements with authored assertions in a new frozen plan.
+Do not resume this paid batch, weaken the allowlist or replace its failed rows.
+
 ## Full acceptance execution wiring (2026-10-30)
 
 The offline planner was committed as `924736e` and pushed before the next
@@ -563,7 +621,7 @@ development records, not a claim that every T00–T14 gate is complete.
 | V15 | Isolated E04 rounds executed; quality failed | Explicit user confirmation resolved the prior timeout. Two fresh outside-repository faults-v3 rounds used 16 steps / 18 tools; both retained authored red/green tests but failed 7/14 independent checks. Roots/scope and original files were verified; no broader paid matrix or task retry. |
 | V16 | Small cross-scenario check executed; full gate open | Q02/E01/D01, both F02 stages and F03 plus reviewed summary used 20 logical steps / 22 tools; F05 was local scripted. Critical stop/history checks passed; E01 passed 22 independent probes but remained partial under the six-step diagnostic/test-write restriction. No E04 retry or full matrix. |
 | V17 | Versioned E01/E03 repair acceptance executed; scoped passes | Faults-v5 / repair-acceptance adds bounded authored tests with narrow permissions. One real attempt each used 16 steps / 18 tools total; authored red/green and independent 22/22 plus 4/4 probes passed, original tests/unrelated code preserved. Broader gates and answer concision remain open. |
-| V02 / T00,T13 | Pending full gate | Score all 24 fixed tasks in two independent rounds with pinned model/config/seed and predeclared rubric. Existing partial diagnostic samples do not satisfy this gate. |
+| V02 / T00,T13 | Attempted; critical stop, full gate unmet | Frozen 9b1dae2 executed 46/50 lanes (44/48 task rows). Round 2 F02 command was rewritten and denied before start; F03–F06 unrun. Both E04 attempts failed 7/14 independent checks. Preserve rows, no retry; human review pending. |
 | V03 / T13 | Pending | Five target users perform Q02/E01/F03 without developer coaching; record blockers and results. Agent-operated tests cannot substitute for independent users. |
 | A01 / T12 | Partial | Native IME candidate confirmation must not send early; verify actual VoiceOver stage/error/approval announcements and keyboard recovery. AX/composition simulations are supporting evidence only. |
 | C01 / T01–T04,T13 | Partial | Refresh CLI/gateway/Codex compatibility and platform-specific install/interrupt evidence. Current arm64 local install is verified separately; Windows/Intel/other macOS versions and real Codex coverage remain limited. |

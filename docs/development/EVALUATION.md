@@ -59,8 +59,9 @@ The launcher validates all lanes and source/build/seed hashes before credentials
 reserves each lane's full step ceiling in `matrix-budget.json` before launch,
 and retains reservations after failure. An existing ledger prevents automatic
 resume/retry; critical, provider, infrastructure and source-drift failures stop
-the batch. Reporting remains available after a stop. No full paid batch was run
-to validate this wiring; local tests and build checks are separate evidence.
+the batch. Reporting remains available after a stop. Wiring validation used local
+tests and build checks. The later paid attempt and its critical stop are recorded
+in the [implementation record](DESKTOP_PRODUCT_IMPLEMENTATION.md#full-acceptance-attempt-stopped-at-a-critical-protocol-failure-2026-10-30).
 
 Fresh source/build freezing and semantic review remain necessary. Do not combine
 old diagnostic results into the denominator. Every dimension of the manifest
