@@ -13,6 +13,38 @@ current test inputs. TypeScript test checking and Vitest discovery exclude that
 directory while retaining their normal dependency exclusions; keep snapshots
 intact instead of executing them or deleting them to make validation pass.
 
+## Full Desktop acceptance planning
+
+Generate an offline proposal before preparing paid workspaces:
+
+```bash
+node apps/desktop/scripts/product-acceptance-plan.mjs --output /tmp/forge-acceptance-plan.json
+```
+
+The destination must be new. This planner reads no credentials, makes no model
+calls, and rejects execution flags. It records model, prompts, supplements,
+permitted writes, seed/protocol/source/build hashes and a pending human rubric
+for 48 task rows in two rounds. F02 has two stages, yielding 50 execution lanes.
+The proposal fixes ordinary tasks at 16 steps / 32 tools, with existing specific
+limits for fault controls. E01/E03 use faults-v5, E02/E05 v4, E04 v3; other tasks
+use v5. Both rounds use the same declared per-task conditions. These supplemented
+tasks are a scoped acceptance protocol, not an unchanged-prompt/default baseline.
+
+The ceiling is 570 paid logical steps and 15,620 seconds (about 4h20m) of serial
+launcher allowances. These are proposed bounds, not measured duration or a money
+cap. Token usage, provider retry behavior and current pricing need separate
+accounting before paid execution. No price estimate is inferred from step count.
+
+`executionReady` stays false: the old matrix still uses its bounded profile and
+cannot execute this proposal. Budget/deadline and per-lane profile wiring,
+fresh source/build freezing, monetary controls and semantic evidence requirements
+remain explicit blockers. Do not feed the proposal into the old matrix or combine
+old diagnostic results into its denominator. Every dimension of the manifest
+rubric needs evidence and human review; both F02 stages count as one task. Gates
+remain at least 22/24 per round with all critical cases passing, and a separate
+12/15 independent-user gate. Telegram, manual accessibility, other platforms and
+release publication remain separate.
+
 ## Tasks
 
 Versioned manifests live under `evals/tasks/`. Every trial starts from a fresh
