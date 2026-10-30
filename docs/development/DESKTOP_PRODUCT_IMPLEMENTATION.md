@@ -2,10 +2,29 @@
 
 [简体中文](../zh-CN/development/DESKTOP_PRODUCT_IMPLEMENTATION.md) · [PRD](DESKTOP_PRODUCT_PRD.md) · [Roadmap](ROADMAP.md) · [Documentation index](../README.md)
 
-Updated: 2026-10-28. Status: core product flows implemented incrementally; full product acceptance remains pending. This is a layered development
+Updated: 2026-10-30. Status: core product flows implemented incrementally; full product acceptance remains pending. This is a layered development
 contract and task list, not shipped behavior. New filenames, types, fields, and
 configuration below are proposed; section 2 separately identifies existing code.
 Resolve PRD/implementation disagreements in both documents before implementing.
+
+## Full acceptance execution wiring (2026-10-30)
+
+The offline planner was committed as `924736e` and pushed before the next
+increment. `full-acceptance-v1` now pins ordinary tasks to 16 steps / 32 tools
+and their existing per-task regression protocols, while preserving dedicated
+fault budgets and approval scopes. The opt-in matrix prepares both rounds,
+checks every lane before credentials, detects source/build/seed drift and
+requires an explicit paid-step quota plus variable-cost acknowledgement.
+Reservations survive failure; an existing budget ledger blocks automatic retry.
+See the [evaluation guide](EVALUATION.md#full-desktop-acceptance-planning) for
+commands and the distinction between a step ceiling and a monetary cap.
+
+Local validation: 871 tests passed with six opt-in skips, 221 deterministic
+checks, root check, documentation check and Desktop build passed. Additional
+focused checks cover rejection before credentials and retention of an existing
+budget ledger without starting Electron. No paid batch or new installed-app
+acceptance was performed. V02/V03/A01/C01/Q01/P01 remain open; Telegram stays
+deferred. Execution wiring does not establish model quality or release readiness.
 
 ## Bounded regression repair acceptance (2026-10-28)
 

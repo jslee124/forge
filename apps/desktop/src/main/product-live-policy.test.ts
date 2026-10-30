@@ -1,7 +1,59 @@
 import { expect, it } from "vitest";
 import type { RunPayload } from "../shared/run-protocol.js";
 import { allowPilotApproval } from "./product-live-policy.js";
-import { CANCEL_COMMAND, pilotScenario } from "./product-live-scenarios.js";
+import {
+  acceptanceProtocol,
+  CANCEL_COMMAND,
+  PILOT_TASKS,
+  pilotDeadlines,
+  pilotScenario,
+} from "./product-live-scenarios.js";
+
+it("pins the full acceptance profiles without widening task permissions or fault budgets", () => {
+  for (const task of PILOT_TASKS) {
+    for (const stage of task === "F02" ? ["model", "command"] : [undefined]) {
+      const protocol = acceptanceProtocol(task);
+      const baseline = pilotScenario(task, stage, protocol);
+      const actual = pilotScenario(task, stage, protocol, "full-acceptance-v1");
+      expect(actual.expectedWrites).toEqual(baseline.expectedWrites);
+      const special =
+        baseline.localOnly || ["D03", "F01", "F02", "F03"].includes(task);
+      expect(actual.limits).toEqual(
+        special ? baseline.limits : { maxSteps: 16, maxToolCalls: 32 },
+      );
+      expect(
+        pilotDeadlines(task, "full-acceptance-v1").launcherMs *
+          (task === "F05" ? 2 : 1),
+      ).toBeGreaterThanOrEqual(
+        pilotDeadlines(task, "full-acceptance-v1").hostMs,
+      );
+      expect(() =>
+        pilotScenario(
+          task,
+          stage,
+          "desktop-product-faults-v1",
+          "full-acceptance-v1",
+        ),
+      ).toThrow("pinned per-task protocol");
+    }
+  }
+  expect(
+    pilotScenario(
+      "E04",
+      undefined,
+      acceptanceProtocol("E04"),
+      "full-acceptance-v1",
+    ).supplement,
+  ).not.toContain("六步预算");
+  expect(pilotDeadlines("E04", "bounded")).toEqual({
+    hostMs: 175000,
+    launcherMs: 200000,
+  });
+  expect(pilotDeadlines("E01", "repair-acceptance")).toEqual({
+    hostMs: 300000,
+    launcherMs: 330000,
+  });
+});
 
 it.each(["E01", "E03"])(
   "supports an explicitly bounded regression acceptance profile for %s",

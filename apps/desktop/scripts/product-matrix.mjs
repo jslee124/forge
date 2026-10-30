@@ -1,5 +1,5 @@
 import { execFile, spawn } from "node:child_process";
-import { cp, mkdir, readFile, writeFile } from "node:fs/promises";
+import { cp, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs, promisify } from "node:util";
@@ -8,7 +8,9 @@ import {
   prepareDesktopProductRound,
 } from "../../../evals/dist/desktop-product-evaluation.js";
 import {
+  acceptanceProtocol,
   PILOT_TASKS,
+  pilotDeadlines,
   pilotScenario,
 } from "../src/main/product-live-scenarios.ts";
 import { snapshotMatrixInputs } from "./product-matrix-inputs.mjs";
@@ -25,6 +27,9 @@ const { values } = parseArgs({
     "supported-only": { type: "boolean" },
     task: { type: "string", multiple: true },
     "fault-protocol": { type: "string" },
+    acceptance: { type: "boolean" },
+    "max-paid-steps": { type: "string" },
+    "acknowledge-variable-cost": { type: "boolean" },
   },
   strict: true,
 });
@@ -36,6 +41,15 @@ if (
     "Usage: --prepare|--live|--report --output <matrix-directory> [--supported-only]",
   );
 const output = resolve(values.output);
+if (values.acceptance && !values.prepare)
+  throw new Error("Set --acceptance only when preparing a fresh matrix");
+if (values.acceptance && values["fault-protocol"])
+  throw new Error("Acceptance pins its protocol per task");
+if (
+  (values["max-paid-steps"] || values["acknowledge-variable-cost"]) &&
+  !values.live
+)
+  throw new Error("Spending controls apply only to --live");
 const faultProtocol = values["fault-protocol"] ?? "desktop-product-faults-v1";
 if (
   ![
@@ -61,6 +75,7 @@ const files = [
   "apps/desktop/src/main/product-control-stream.ts",
   "apps/desktop/src/main/product-live-scenarios.ts",
   "apps/desktop/src/main/product-live-policy.ts",
+  "apps/desktop/src/main/product-live-acceptance.ts",
   "apps/desktop/src/main/product-regression-checks.ts",
   "apps/desktop/scripts/product-live.mjs",
   "apps/desktop/scripts/product-matrix.mjs",
@@ -73,6 +88,20 @@ const files = [
   "evals/fixtures/desktop-product/protocols/faults-v2/E04/path.test.mjs",
   "evals/fixtures/desktop-product/manifest.json",
 ];
+// Include every seed and protocol file, not only the manifest or injected tests.
+async function collectInputs(directory) {
+  for (const entry of (
+    await readdir(join(root, directory), { withFileTypes: true })
+  ).sort((a, b) => a.name.localeCompare(b.name))) {
+    const name = `${directory}/${entry.name}`;
+    if (entry.isDirectory()) await collectInputs(name);
+    else if (entry.isFile()) {
+      if (!files.includes(name)) files.push(name);
+    } else throw new Error(`Unsupported fixture entry: ${name}`);
+  }
+}
+await collectInputs("evals/fixtures/desktop-product/seed");
+await collectInputs("evals/fixtures/desktop-product/protocols");
 const snapshot = () => snapshotMatrixInputs(root, files, buildFiles);
 const hashes = async () => (await snapshot()).sha256;
 const revision = async () =>
@@ -84,29 +113,50 @@ const save = async (name, value) =>
     mode: 0o600,
   });
 if (values.prepare) {
+  const tasks = values.task ?? PILOT_TASKS;
+  if (
+    new Set(tasks).size !== tasks.length ||
+    tasks.some((task) => !PILOT_TASKS.includes(task))
+  )
+    throw new Error("Invalid matrix task subset");
   await mkdir(output, { mode: 0o700 });
   const lanes = [];
   for (const round of [1, 2]) {
-    const directory = join(output, `round-${round}`);
-    await prepareDesktopProductRound(directory, round, faultProtocol);
+    const protocols = values.acceptance
+      ? [...new Set(tasks.map(acceptanceProtocol))]
+      : [faultProtocol];
+    const directories = {};
+    for (const protocol of protocols) {
+      const directory = join(
+        output,
+        values.acceptance ? `round-${round}-${protocol}` : `round-${round}`,
+      );
+      await prepareDesktopProductRound(directory, round, protocol);
+      directories[protocol] = directory;
+    }
+    const directory =
+      directories[
+        values.acceptance ? acceptanceProtocol("F02") : faultProtocol
+      ] ?? directories[protocols[0]];
     const command = join(output, `round-${round}-command`);
     await mkdir(command, { mode: 0o700 });
     await cp(join(directory, "round.json"), join(command, "round.json"));
     await cp(join(directory, "F02"), join(command, "F02"), { recursive: true });
-    const tasks = values.task ?? PILOT_TASKS;
-    if (
-      new Set(tasks).size !== tasks.length ||
-      tasks.some((task) => !PILOT_TASKS.includes(task))
-    )
-      throw new Error("Invalid matrix task subset");
     for (const task of tasks) {
       for (const stage of task === "F02" ? ["model", "command"] : [undefined]) {
-        const scenario = pilotScenario(task, stage, faultProtocol);
+        const protocol = values.acceptance
+          ? acceptanceProtocol(task)
+          : faultProtocol;
+        const profile = values.acceptance ? "full-acceptance-v1" : "bounded";
+        const scenario = pilotScenario(task, stage, protocol, profile);
         lanes.push({
           round,
           task,
           ...(stage ? { stage } : {}),
-          directory: stage === "command" ? command : directory,
+          directory: stage === "command" ? command : directories[protocol],
+          profile,
+          faultProtocol: protocol,
+          deadlines: pilotDeadlines(task, profile),
           scenario,
         });
       }
@@ -132,13 +182,21 @@ if (values.prepare) {
       (n, l) => n + (l.task === "D03" ? 0 : l.scenario.limits.maxSteps),
       0,
     ),
-    maxWallClockMsPerLane: lanes.some((l) => l.task === "F05")
-      ? 400000
-      : 200000,
+    maxWallClockMsPerLane: Math.max(
+      ...lanes.map(
+        (lane) => lane.deadlines.launcherMs * (lane.task === "F05" ? 2 : 1),
+      ),
+    ),
+    maxSerialLauncherMs: lanes.reduce(
+      (n, lane) =>
+        n + lane.deadlines.launcherMs * (lane.task === "F05" ? 2 : 1),
+      0,
+    ),
     stimulusDisclosure:
       "Original prompt plus exact per-lane scenario supplement. Supplemented fault probes are not unchanged-prompt baseline.",
     missing: unavailable,
     faultProtocol,
+    acceptanceProfile: values.acceptance ? "full-acceptance-v1" : null,
     selectedTasks: values.task ?? PILOT_TASKS,
     providerMode:
       values.fixture ||
@@ -239,10 +297,90 @@ async function report() {
   return result;
 }
 if (values.live) {
+  if (
+    plan.lanes.some((lane) => lane.profile === "full-acceptance-v1") !==
+    (plan.acceptanceProfile === "full-acceptance-v1")
+  )
+    throw new Error("Modified acceptance profile declaration");
+  if (values.task || values["fault-protocol"])
+    throw new Error(
+      "Live execution uses the frozen plan; task overrides are forbidden",
+    );
   if (!values["supported-only"])
     throw new Error(
       "Live execution requires --supported-only; task execution does not establish full semantic baseline acceptance",
     );
+  const paidCeiling =
+    plan.providerMode === "local-scripted"
+      ? 0
+      : plan.lanes.reduce(
+          (n, lane) =>
+            n +
+            (lane.task === "D03" || lane.scenario.localOnly
+              ? 0
+              : lane.scenario.limits.maxSteps),
+          0,
+        );
+  let paidBudget;
+  if (plan.acceptanceProfile === "full-acceptance-v1") {
+    const input = values["max-paid-steps"] ?? "";
+    paidBudget = Number(input);
+    if (
+      !/^\d+$/.test(input) ||
+      !Number.isSafeInteger(paidBudget) ||
+      paidBudget < paidCeiling ||
+      paidBudget > 570
+    )
+      throw new Error(
+        `Acceptance requires --max-paid-steps covering the frozen ${paidCeiling} step ceiling (maximum 570); no credentials read`,
+      );
+    if (paidCeiling > 0 && !values["acknowledge-variable-cost"])
+      throw new Error(
+        "Acceptance requires --acknowledge-variable-cost: step quotas are not currency caps; no credentials read",
+      );
+    if (
+      plan.wholeTaskRetries !== 0 ||
+      plan.maxPaidLogicalModelSteps !== paidCeiling
+    )
+      throw new Error("Modified acceptance budget");
+    for (const lane of plan.lanes) {
+      const canonical = pilotScenario(
+        lane.task,
+        lane.stage,
+        acceptanceProtocol(lane.task),
+        "full-acceptance-v1",
+      );
+      const expectedDirectory = join(
+        output,
+        lane.stage === "command"
+          ? `round-${lane.round}-command`
+          : `round-${lane.round}-${acceptanceProtocol(lane.task)}`,
+      );
+      if (
+        ![1, 2].includes(lane.round) ||
+        lane.directory !== expectedDirectory ||
+        lane.profile !== "full-acceptance-v1" ||
+        lane.faultProtocol !== acceptanceProtocol(lane.task) ||
+        JSON.stringify(lane.scenario) !== JSON.stringify(canonical)
+      )
+        throw new Error("Modified acceptance lane");
+    }
+    const expectedIds = [1, 2].flatMap((round) =>
+      plan.selectedTasks.flatMap((task) =>
+        (task === "F02" ? ["model", "command"] : [undefined]).map(
+          (stage) => `${round}:${task}:${stage ?? ""}`,
+        ),
+      ),
+    );
+    const actualIds = plan.lanes.map(
+      (lane) => `${lane.round}:${lane.task}:${lane.stage ?? ""}`,
+    );
+    if (
+      new Set(plan.selectedTasks).size !== plan.selectedTasks.length ||
+      JSON.stringify(expectedIds) !== JSON.stringify(actualIds)
+    )
+      throw new Error("Modified acceptance lane inventory");
+  }
   const inputs = await snapshot();
   if (plan.missingBuildArtifacts?.length || inputs.missingBuildArtifacts.length)
     throw new Error(
@@ -263,11 +401,25 @@ if (values.live) {
       "--task",
       lane.task,
       ...(lane.stage ? ["--cancel-stage", lane.stage] : []),
+      ...(lane.profile === "full-acceptance-v1" ? ["--full-acceptance"] : []),
       ...(plan.providerMode === "local-scripted" ? ["--fixture"] : []),
     ];
     await promisify(execFile)(process.execPath, args, { cwd: desktop });
   }
   const attempts = [];
+  // Persist reservations before launching. A crash consumes the reservation;
+  // existing ledger prevents silent resume/retry of a partially executed batch.
+  const ledger = {
+    maxPaidSteps: paidBudget ?? paidCeiling,
+    reservedPaidSteps: 0,
+    reservations: [],
+  };
+  if (plan.acceptanceProfile)
+    await writeFile(
+      join(output, "matrix-budget.json"),
+      JSON.stringify(ledger, null, 2) + "\n",
+      { flag: "wx", mode: 0o600 },
+    );
   for (const lane of plan.lanes) {
     if (
       (await revision()) !== plan.sourceRevision ||
@@ -275,6 +427,24 @@ if (values.live) {
     )
       throw new Error("Source/build drift during matrix");
     const directory = join(lane.directory, lane.task);
+    if (plan.acceptanceProfile) {
+      const reserve =
+        plan.providerMode === "local-scripted" ||
+        lane.task === "D03" ||
+        lane.scenario.localOnly
+          ? 0
+          : lane.scenario.limits.maxSteps;
+      if (ledger.reservedPaidSteps + reserve > ledger.maxPaidSteps)
+        throw new Error("Paid step quota exhausted before launch");
+      ledger.reservedPaidSteps += reserve;
+      ledger.reservations.push({
+        round: lane.round,
+        task: lane.task,
+        stage: lane.stage ?? null,
+        steps: reserve,
+      });
+      await save("matrix-budget.json", ledger);
+    }
     const args = [
       "scripts/product-live.mjs",
       "--live",
@@ -283,6 +453,7 @@ if (values.live) {
       "--task",
       lane.task,
       ...(lane.stage ? ["--cancel-stage", lane.stage] : []),
+      ...(lane.profile === "full-acceptance-v1" ? ["--full-acceptance"] : []),
       ...(plan.providerMode === "local-scripted" ? ["--fixture"] : []),
     ];
     console.log(

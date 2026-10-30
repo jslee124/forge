@@ -30,6 +30,38 @@ export const EXTERNAL_EDIT_MARKER = "// external-edit-must-survive";
 export const CANCEL_STARTED = "cancel-probe-started.json";
 export const CANCEL_FINISHED = "cancel-probe-finished.txt";
 export const CANCEL_COMMAND = `require('node:fs').writeFileSync('${CANCEL_STARTED}',JSON.stringify({pid:process.pid}));setTimeout(()=>require('node:fs').writeFileSync('${CANCEL_FINISHED}','unexpected completion'),30000)`;
+export function acceptanceProtocol(task: string) {
+  return task === "E04"
+    ? "desktop-product-faults-v3"
+    : ["E02", "E05"].includes(task)
+      ? "desktop-product-faults-v4"
+      : "desktop-product-faults-v5";
+}
+
+export function pilotDeadlines(task: string, profile: string) {
+  const extended =
+    profile === "repair-acceptance" ||
+    (profile === "full-acceptance-v1" &&
+      ![...CONTROL_TASKS, "D03", "F01", "F02", "F03"].includes(task));
+  return {
+    hostMs:
+      profile === "product-defaults"
+        ? 600000
+        : extended
+          ? 300000
+          : task === "F05"
+            ? 400000
+            : 175000,
+    launcherMs:
+      profile === "product-defaults"
+        ? 630000
+        : extended
+          ? 330000
+          : profile === "full-acceptance-v1" && ["F04", "F06"].includes(task)
+            ? 400000
+            : 200000,
+  };
+}
 export function usesAutonomousRegression(
   task: string,
   protocol?: string,
@@ -47,8 +79,20 @@ export function pilotScenario(
   faultProtocol?: string,
   profile = "bounded",
 ) {
-  if (!["bounded", "product-defaults", "repair-acceptance"].includes(profile))
+  if (
+    ![
+      "bounded",
+      "product-defaults",
+      "repair-acceptance",
+      "full-acceptance-v1",
+    ].includes(profile)
+  )
     throw new Error("Unknown pilot execution profile");
+  if (
+    profile === "full-acceptance-v1" &&
+    faultProtocol !== acceptanceProtocol(task)
+  )
+    throw new Error("Full acceptance requires the pinned per-task protocol");
   if (profile === "repair-acceptance") {
     if (!["E01", "E03"].includes(task))
       throw new Error("Repair acceptance only supports E01/E03");
@@ -110,7 +154,10 @@ export function pilotScenario(
     limits:
       profile === "product-defaults"
         ? { maxSteps: null, maxToolCalls: null }
-        : profile === "repair-acceptance"
+        : profile === "repair-acceptance" ||
+            (profile === "full-acceptance-v1" &&
+              !localOnly &&
+              !["D03", "F01", "F02", "F03"].includes(task))
           ? { maxSteps: 16, maxToolCalls: 32 }
           : {
               maxSteps: localOnly
@@ -133,10 +180,12 @@ export function pilotScenario(
                       : 8,
             },
     supplement:
-      profile === "product-defaults"
+      profile === "product-defaults" || profile === "full-acceptance-v1"
         ? supplement.replace(
             "审批限制与六步预算保持有效",
-            "审批限制保持有效，本轮使用产品默认的不设固定总次数上限配置",
+            profile === "full-acceptance-v1"
+              ? "审批限制保持有效，本轮使用 full-acceptance-v1 的 16 步与 32 次工具调用上限"
+              : "审批限制保持有效，本轮使用产品默认的不设固定总次数上限配置",
           )
         : supplement,
     ...(task === "F02" ? { cancelStage } : {}),

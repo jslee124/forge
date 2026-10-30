@@ -13,6 +13,7 @@ import { resolveForgeWorkspace } from "../../../packages/config/dist/index.js";
 import {
   CONTROL_TASKS,
   PILOT_TASKS,
+  pilotDeadlines,
   pilotScenario,
 } from "../src/main/product-live-scenarios.ts";
 
@@ -29,6 +30,7 @@ const { values } = parseArgs({
     "cancel-stage": { type: "string" },
     "product-defaults": { type: "boolean" },
     "repair-acceptance": { type: "boolean" },
+    "full-acceptance": { type: "boolean" },
   },
   strict: true,
 });
@@ -38,7 +40,7 @@ if (
   !values.round?.length
 )
   throw new Error(
-    "Usage: --check|--live --round <prepared-round-directory> [--round <directory>] [--task <supported-task-id>] [--finalization-input continuation|evidence] [--recover-summary] [--locale en|zh-CN] [--cancel-stage model|command] [--product-defaults|--repair-acceptance]",
+    "Usage: --check|--live --round <prepared-round-directory> [--round <directory>] [--task <supported-task-id>] [--finalization-input continuation|evidence] [--recover-summary] [--locale en|zh-CN] [--cancel-stage model|command] [--product-defaults|--repair-acceptance|--full-acceptance]",
   );
 const tasks = values.task ?? ["Q02", "E01", "F03"];
 if (
@@ -48,23 +50,36 @@ if (
   throw new Error(
     `Pilot tasks must be unique members of ${PILOT_TASKS.join(", ")}`,
   );
-if (values["product-defaults"] && values["repair-acceptance"])
+if (
+  [
+    values["product-defaults"],
+    values["repair-acceptance"],
+    values["full-acceptance"],
+  ].filter(Boolean).length > 1
+)
   throw new Error("Choose only one pilot execution profile");
-if (values["repair-acceptance"] && values["recover-summary"])
+if (
+  (values["repair-acceptance"] || values["full-acceptance"]) &&
+  values["recover-summary"]
+)
   throw new Error(
     "Repair acceptance measures one repair only; request summary separately",
   );
-const profile = values["repair-acceptance"]
-  ? "repair-acceptance"
-  : values["product-defaults"]
-    ? "product-defaults"
-    : "bounded";
+const profile = values["full-acceptance"]
+  ? "full-acceptance-v1"
+  : values["repair-acceptance"]
+    ? "repair-acceptance"
+    : values["product-defaults"]
+      ? "product-defaults"
+      : "bounded";
 for (const task of tasks)
   pilotScenario(
     task,
     task === "F02" ? values["cancel-stage"] : undefined,
     undefined,
-    profile === "repair-acceptance" ? "bounded" : profile,
+    ["repair-acceptance", "full-acceptance-v1"].includes(profile)
+      ? "bounded"
+      : profile,
   );
 if (values["cancel-stage"] && !tasks.includes("F02"))
   throw new Error("--cancel-stage requires F02");
@@ -271,14 +286,7 @@ for (const supplied of values.round) {
         ),
         executionProfile: profile,
         workspaceIdentity: identity,
-        wallClockMs:
-          profile === "product-defaults"
-            ? 600000
-            : profile === "repair-acceptance"
-              ? 300000
-              : task === "F05"
-                ? 400000
-                : 175000,
+        wallClockMs: pilotDeadlines(task, profile).hostMs,
         processPhases:
           task === "F05" ? ["crash", "read-only-reopen"] : ["execution"],
         status: "not_run",
@@ -415,13 +423,11 @@ for (const { round, manifest, expectedByTask } of preparedRounds) {
         );
       const timer = setTimeout(
         () => child.kill(),
-        profile === "product-defaults"
-          ? 630000
-          : profile === "repair-acceptance"
-            ? 330000
-            : values["recover-summary"] && ["E01", "F03"].includes(task)
-              ? 290000
-              : 200000,
+        profile !== "product-defaults" &&
+          values["recover-summary"] &&
+          ["E01", "F03"].includes(task)
+          ? 290000
+          : pilotDeadlines(task, profile).launcherMs,
       );
       try {
         return {

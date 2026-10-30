@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -51,7 +51,8 @@ it("prepares a complete offline proposal without implying execution or monetary 
       plan.lanes.find((lane: { task: string }) => lane.task === "E04"),
     ).toMatchObject({
       protocol: "desktop-product-faults-v3",
-      requiresBudgetWiring: true,
+      requiresBudgetWiring: false,
+      currentProfile: "full-acceptance-v1",
       expectedWrites: ["workflow.mjs", "regression.test.mjs"],
       proposedLimits: { maxSteps: 16, maxToolCalls: 32 },
     });
@@ -80,6 +81,130 @@ it("prepares a complete offline proposal without implying execution or monetary 
     await expect(
       run("--live", "--output", join(directory, "live.json")),
     ).rejects.toThrow();
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+it("freezes two acceptance rounds and rejects missing quota, cost acknowledgement and tampered lanes before credentials", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "forge-acceptance-matrix-"));
+  const script = fileURLToPath(
+    new URL("../../apps/desktop/scripts/product-matrix.mjs", import.meta.url),
+  );
+  const output = join(directory, "matrix");
+  const run = (...args: string[]) =>
+    promisify(execFile)(process.execPath, [script, ...args], {
+      env: {
+        PATH: process.env["PATH"] ?? "",
+        HOME: directory,
+        FORGE_HOME: join(directory, "no-auth"),
+      },
+    });
+  try {
+    await run("--prepare", "--acceptance", "--output", output);
+    const planPath = join(output, "matrix-plan.json");
+    const original = await readFile(planPath, "utf8");
+    const plan = JSON.parse(original);
+    expect(plan).toMatchObject({
+      acceptanceProfile: "full-acceptance-v1",
+      maxPaidLogicalModelSteps: 570,
+      maxSerialLauncherMs: 15620000,
+      fullBaselineComplete: false,
+    });
+    expect(plan.lanes).toHaveLength(50);
+    for (const task of ["E01", "E02", "E03", "E04", "E05"]) {
+      const lane = plan.lanes.find(
+        (entry: { task: string }) => entry.task === task,
+      );
+      expect(lane.scenario).toMatchObject({
+        expectedWrites: ["workflow.mjs", "regression.test.mjs"],
+        limits: { maxSteps: 16, maxToolCalls: 32 },
+      });
+      const liveScript = fileURLToPath(
+        new URL("../../apps/desktop/scripts/product-live.mjs", import.meta.url),
+      );
+      await promisify(execFile)(process.execPath, [
+        liveScript,
+        "--check",
+        "--full-acceptance",
+        "--round",
+        lane.directory,
+        "--task",
+        task,
+      ]);
+      const preflight = JSON.parse(
+        await readFile(join(lane.directory, "pilot-plan.json"), "utf8"),
+      );
+      expect(preflight.externalCallsMade).toBe(0);
+      expect(preflight.tasks[0]).toMatchObject({
+        executionProfile: "full-acceptance-v1",
+        modelSteps: 16,
+        wallClockMs: 300000,
+      });
+    }
+    const liveArgs = ["--live", "--supported-only", "--output", output];
+    for (const invalid of [undefined, "1", "571", "NaN", "2.5", "-1"]) {
+      await expect(
+        run(...liveArgs, ...(invalid ? ["--max-paid-steps", invalid] : [])),
+      ).rejects.toThrow("--max-paid-steps");
+    }
+    await expect(run(...liveArgs, "--max-paid-steps", "570")).rejects.toThrow(
+      "--acknowledge-variable-cost",
+    );
+    plan.lanes[0].scenario.expectedWrites.push("outside.mjs");
+    await writeFile(planPath, JSON.stringify(plan));
+    await expect(
+      run(
+        ...liveArgs,
+        "--max-paid-steps",
+        "570",
+        "--acknowledge-variable-cost",
+      ),
+    ).rejects.toThrow("Modified acceptance lane");
+    await writeFile(planPath, original);
+    // Seed hashes participate in drift checks even though the corpus revision is unchanged.
+    const drifted = JSON.parse(original);
+    drifted.sha256["evals/fixtures/desktop-product/seed/workflow.mjs"] =
+      "0".repeat(64);
+    await writeFile(planPath, JSON.stringify(drifted));
+    await expect(
+      run(
+        ...liveArgs,
+        "--max-paid-steps",
+        "570",
+        "--acknowledge-variable-cost",
+      ),
+    ).rejects.toThrow(/Source\/build drift|Desktop build missing/);
+    expect(
+      JSON.parse(await readFile(join(output, "matrix-results.json"), "utf8"))
+        .recordedLogicalModelSteps,
+    ).toBe(0);
+    // Existing reservations block a zero-call batch before Electron can start.
+    const localOutput = join(directory, "local-matrix");
+    await run(
+      "--prepare",
+      "--acceptance",
+      "--output",
+      localOutput,
+      "--task",
+      "D03",
+    );
+    const budgetPath = join(localOutput, "matrix-budget.json");
+    await writeFile(budgetPath, "existing reservation\n");
+    await expect(
+      run(
+        "--live",
+        "--supported-only",
+        "--output",
+        localOutput,
+        "--max-paid-steps",
+        "0",
+      ),
+    ).rejects.toThrow(/EEXIST|Desktop build missing/);
+    expect(await readFile(budgetPath, "utf8")).toBe("existing reservation\n");
+    await expect(
+      readFile(join(localOutput, "matrix-attempts.json")),
+    ).rejects.toMatchObject({ code: "ENOENT" });
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

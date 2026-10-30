@@ -20,6 +20,7 @@ import {
   CONTROL_TASKS,
   EXTERNAL_EDIT_MARKER,
   PILOT_TASKS,
+  pilotDeadlines,
   pilotScenario,
   usesAutonomousRegression,
 } from "./product-live-scenarios.js";
@@ -434,11 +435,7 @@ async function runPilot(
       new Promise((_, reject) => {
         deadline = setTimeout(
           () => reject(new Error("Pilot wall-clock limit")),
-          profile === "product-defaults"
-            ? 600_000
-            : profile === "repair-acceptance"
-              ? 300_000
-              : 175_000,
+          pilotDeadlines(task, profile).hostMs,
         );
       }),
     ]);

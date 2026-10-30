@@ -3,7 +3,11 @@ import { readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs, promisify } from "node:util";
-import { pilotScenario } from "../src/main/product-live-scenarios.ts";
+import {
+  acceptanceProtocol,
+  pilotDeadlines,
+  pilotScenario,
+} from "../src/main/product-live-scenarios.ts";
 import { snapshotMatrixInputs } from "./product-matrix-inputs.mjs";
 
 // Offline proposal only. Never imports the live launcher or credential manager.
@@ -49,21 +53,10 @@ for (const round of [1, 2]) {
     for (const stage of task.id === "F02"
       ? ["model", "command"]
       : [undefined]) {
-      const protocol =
-        task.id === "E04"
-          ? "desktop-product-faults-v3"
-          : ["E02", "E05"].includes(task.id)
-            ? "desktop-product-faults-v4"
-            : "desktop-product-faults-v5";
-      const profile = ["E01", "E03"].includes(task.id)
-        ? "repair-acceptance"
-        : "bounded";
+      const protocol = acceptanceProtocol(task.id);
+      const profile = "full-acceptance-v1";
       const current = pilotScenario(task.id, stage, protocol, profile);
-      const ordinary =
-        !current.localOnly && !["D03", "F01", "F02", "F03"].includes(task.id);
-      const limits = ordinary
-        ? { maxSteps: 16, maxToolCalls: 32 }
-        : current.limits;
+      const limits = current.limits;
       const paidSteps =
         current.localOnly || task.id === "D03" ? 0 : limits.maxSteps;
       lanes.push({
@@ -78,11 +71,9 @@ for (const round of [1, 2]) {
         requiresBudgetWiring:
           JSON.stringify(limits) !== JSON.stringify(current.limits),
         maxPaidLogicalSteps: paidSteps,
-        proposedLauncherDeadlineMs: current.localOnly
-          ? 400000
-          : ordinary
-            ? 330000
-            : 200000,
+        proposedLauncherDeadlineMs:
+          pilotDeadlines(task.id, profile).launcherMs *
+          (task.id === "F05" ? 2 : 1),
         stimulus: { prompt: task.prompt, supplement: current.supplement },
         expectedWrites: current.expectedWrites,
         assertion: task.assertion,
@@ -148,10 +139,9 @@ const plan = {
       "All five rubric dimensions require evidence and human review; completed or green authored tests alone never establish success. Both F02 stages must pass for one task pass.",
   },
   blockers: [
-    "Wire the proposed 16/32 limits and deadlines into a versioned profile without broadening path/command permissions.",
-    "Wire the matrix to preserve per-lane profiles/protocols and validate all lanes before credentials; do not run this proposal through the old bounded matrix.",
+    "Prepare a fresh matrix with --acceptance; this offline proposal is not an executable matrix or approval to spend.",
     "Freeze clean source/build/fixture hashes and fresh isolated workspaces before execution; invalidate the proposal after changes.",
-    "Agree a paid batch scope and monetary control using current pricing, token/retry limits or provider-side spending controls before paid execution.",
+    "Set --max-paid-steps for the frozen batch and explicitly acknowledge variable cost before paid execution. This quota is not a currency cap; a hard monetary limit requires provider-side controls.",
     "Freeze semantic review evidence requirements before execution; preserve failures and stop on critical, provider, infrastructure or source-drift errors without whole-task retry.",
   ],
   exclusions: [
