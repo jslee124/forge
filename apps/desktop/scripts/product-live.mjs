@@ -30,6 +30,7 @@ const { values } = parseArgs({
     "cancel-stage": { type: "string" },
     "product-defaults": { type: "boolean" },
     "repair-acceptance": { type: "boolean" },
+    "contract-acceptance": { type: "boolean" },
     "full-acceptance": { type: "boolean" },
   },
   strict: true,
@@ -40,7 +41,7 @@ if (
   !values.round?.length
 )
   throw new Error(
-    "Usage: --check|--live --round <prepared-round-directory> [--round <directory>] [--task <supported-task-id>] [--finalization-input continuation|evidence] [--recover-summary] [--locale en|zh-CN] [--cancel-stage model|command] [--product-defaults|--repair-acceptance|--full-acceptance]",
+    "Usage: --check|--live --round <prepared-round-directory> [--round <directory>] [--task <supported-task-id>] [--finalization-input continuation|evidence] [--recover-summary] [--locale en|zh-CN] [--cancel-stage model|command] [--product-defaults|--repair-acceptance|--full-acceptance|--contract-acceptance]",
   );
 const tasks = values.task ?? ["Q02", "E01", "F03"];
 if (
@@ -55,29 +56,36 @@ if (
     values["product-defaults"],
     values["repair-acceptance"],
     values["full-acceptance"],
+    values["contract-acceptance"],
   ].filter(Boolean).length > 1
 )
   throw new Error("Choose only one pilot execution profile");
 if (
-  (values["repair-acceptance"] || values["full-acceptance"]) &&
+  (values["repair-acceptance"] ||
+    values["full-acceptance"] ||
+    values["contract-acceptance"]) &&
   values["recover-summary"]
 )
   throw new Error(
     "Repair acceptance measures one repair only; request summary separately",
   );
-const profile = values["full-acceptance"]
-  ? "full-acceptance-v1"
-  : values["repair-acceptance"]
-    ? "repair-acceptance"
-    : values["product-defaults"]
-      ? "product-defaults"
-      : "bounded";
+const profile = values["contract-acceptance"]
+  ? "contract-acceptance"
+  : values["full-acceptance"]
+    ? "full-acceptance-v1"
+    : values["repair-acceptance"]
+      ? "repair-acceptance"
+      : values["product-defaults"]
+        ? "product-defaults"
+        : "bounded";
 for (const task of tasks)
   pilotScenario(
     task,
     task === "F02" ? values["cancel-stage"] : undefined,
     undefined,
-    ["repair-acceptance", "full-acceptance-v1"].includes(profile)
+    ["repair-acceptance", "full-acceptance-v1", "contract-acceptance"].includes(
+      profile,
+    )
       ? "bounded"
       : profile,
   );
@@ -86,12 +94,18 @@ if (values["cancel-stage"] && !tasks.includes("F02"))
 if (
   values.fixture &&
   tasks.some(
-    (task) => !["D02", "D03", "D05", "D06", ...CONTROL_TASKS].includes(task),
+    (task) =>
+      !(task === "F02" && profile === "contract-acceptance") &&
+      !["D02", "D03", "D05", "D06", ...CONTROL_TASKS].includes(task),
   )
 )
   throw new Error("Unsupported local fault fixture task");
 const usesLocalFixture = (task) =>
-  Boolean(values.fixture || CONTROL_TASKS.includes(task));
+  Boolean(
+    values.fixture ||
+      CONTROL_TASKS.includes(task) ||
+      (profile === "contract-acceptance" && task === "F02"),
+  );
 const finalizationInput = values["finalization-input"] ?? "continuation";
 if (!["continuation", "evidence"].includes(finalizationInput))
   throw new Error("Invalid finalization input");
@@ -169,6 +183,7 @@ for (const supplied of values.round) {
       "desktop-product-faults-v3",
       "desktop-product-faults-v4",
       "desktop-product-faults-v5",
+      "desktop-product-faults-v6",
     ].includes(manifest.faultProtocol)
   )
     throw new Error("Unrecognized fault protocol");
@@ -599,6 +614,7 @@ for (const { round, manifest, expectedByTask } of preparedRounds) {
           "desktop-product-faults-v3",
           "desktop-product-faults-v4",
           "desktop-product-faults-v5",
+          "desktop-product-faults-v6",
         ].includes(manifest.faultProtocol)
           ? "edit-probes-v2"
           : "edit-probes-v1",

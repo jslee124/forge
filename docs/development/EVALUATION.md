@@ -70,6 +70,38 @@ remain at least 22/24 per round with all critical cases passing, and a separate
 12/15 independent-user gate. Telegram, manual accessibility, other platforms and
 release publication remain separate.
 
+## Explicit path contract and local cancellation controls
+
+`desktop-product-faults-v6` with `--contract-acceptance` is a new scoped E04/F02
+protocol. It does not replace the old corpus, failed attempts or full matrix.
+E04 publicly specifies exact preservation of valid path strings, including
+surrounding filename spaces; lexical containment across slash/backslash segments;
+and rejection of root escapes, absolute/drive/UNC paths and non-string inputs.
+It provides no assertions or reference code. The existing external
+`edit-probes-v2` grader stays unchanged: the old trim-only patch still fails,
+while a host-only contract witness passes all 14 probes. This does not prove a
+real model can repair the function under the clarified contract. It also does
+not establish filesystem/symlink containment or change product permissions.
+
+F02 in this profile automatically uses a loopback scripted provider, even without
+`--fixture`, and never reads provider credentials. It supplies the fixed command
+through the normal renderer/IPC/runtime/approval/tool path. The exact allowlist
+still rejects rewritten commands; old live protocols retain model-copying behavior.
+Model-stage streaming and command-stage cancellation run in separate fresh rounds:
+
+```bash
+pnpm build
+node evals/dist/desktop-product-prepare.js --output /tmp/forge-local-cancel-model --round 1 --fault-protocol desktop-product-faults-v6
+node evals/dist/desktop-product-prepare.js --output /tmp/forge-local-cancel-command --round 1 --fault-protocol desktop-product-faults-v6
+node apps/desktop/scripts/product-live.mjs --live --fixture --contract-acceptance --round /tmp/forge-local-cancel-model --task F02 --cancel-stage model
+node apps/desktop/scripts/product-live.mjs --live --fixture --contract-acceptance --round /tmp/forge-local-cancel-command --task F02 --cancel-stage command
+```
+
+Use fresh outside-repository directories and a current Desktop build. E04 can be
+preflighted using `--check --contract-acceptance --task E04`; E04 `--live` still
+calls the external model and is a separate authorized measurement. Do not use
+the old full-matrix acceptance flag to mix this new protocol into earlier rounds.
+
 ## Tasks
 
 Versioned manifests live under `evals/tasks/`. Every trial starts from a fresh

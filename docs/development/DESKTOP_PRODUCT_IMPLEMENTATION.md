@@ -7,6 +7,38 @@ contract and task list, not shipped behavior. New filenames, types, fields, and
 configuration below are proposed; section 2 separately identifies existing code.
 Resolve PRD/implementation disagreements in both documents before implementing.
 
+## Contract clarification and local cancellation controls (2026-10-30)
+
+New faults-v6 / `contract-acceptance` covers only E04/F02. E04 now discloses the
+path-value preservation and lexical containment contract before model work,
+without supplying tests or a solution. Its existing independent grader is
+unchanged: a host-only contract witness passes 14/14; the old trim-only patch
+still fails. No new live E04 attempt was made, and old failures remain failures.
+
+F02 uses the existing local scripted provider for both streaming and the fixed
+command, through the real renderer/IPC/runtime/approval/tool path. It requires
+no credential or external model and preserves exact command approval. A test
+keeps the brace rewrite from the failed paid round denied under both old and
+new protocols. The old full-matrix profile remains pinned to its old protocols;
+new controls do not replace or rescore those rows.
+
+Two fresh local rounds each exercised model and command cancellation. All four
+passed, with stop-request-to-completion intervals 24/58 ms and 106/98 ms.
+Both command PIDs exited; delayed completion markers remained absent; unknown
+effects stayed labeled. A command-stage screenshot was visually reviewed.
+These are development-window controls, not live model compliance, installed-app
+acceptance or universal timing guarantees. There were zero external calls.
+
+Validation: 873 local tests passed, six opt-in skips; 221 deterministic checks,
+root check and Desktop build passed. The full-suite run initially hit an existing
+multi-subprocess integration test's five-second timeout under concurrent build/
+test load. That integration test now has a 30-second test-harness timeout; product
+budgets/deadlines are unchanged. The rerun passed. Evidence is retained privately
+under `evals/artifacts/contract-controls-v6-20261030/`. See the
+[evaluation guide](EVALUATION.md#explicit-path-contract-and-local-cancellation-controls)
+for reproducible preparation and commands. V02 and the other product gates stay open;
+Telegram remains deferred.
+
 ## Full acceptance attempt stopped at a critical protocol failure (2026-10-30)
 
 After explicit authorization for synthetic fixture data and up to 570 paid

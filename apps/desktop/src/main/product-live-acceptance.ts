@@ -45,7 +45,7 @@ export async function runProductLivePilot(
   }
   const local = process.env["FORGE_PRODUCT_LIVE_FIXTURE"] === "1";
   if (!local || task === "D03") return runPilot(window, agent, files);
-  if (!["D02", "D05", "D06"].includes(task ?? ""))
+  if (!["D02", "D05", "D06", "F02"].includes(task ?? ""))
     throw new Error("Unsupported local fault fixture");
   const home = process.env["FORGE_PRODUCT_LIVE_HOME"];
   if (
@@ -54,8 +54,23 @@ export async function runProductLivePilot(
     process.env["FORGE_PRODUCT_LIVE_OPT_IN"] !== "1"
   )
     throw new Error("Fixture requires explicit isolated opt-in");
+  if (
+    task === "F02" &&
+    (process.env["FORGE_PRODUCT_LIVE_FAULT_PROTOCOL"] !==
+      "desktop-product-faults-v6" ||
+      process.env["FORGE_PRODUCT_LIVE_PROFILE"] !== "contract-acceptance")
+  )
+    throw new Error(
+      "Local cancellation requires the versioned contract profile",
+    );
   const provider = await acceptanceProvider();
-  provider.setMode(`fault-${task}` as "fault-D02" | "fault-D05" | "fault-D06");
+  provider.setMode(
+    task === "F02"
+      ? process.env["FORGE_PRODUCT_LIVE_CANCEL_STAGE"] === "command"
+        ? "cancel-command"
+        : "wait"
+      : (`fault-${task}` as "fault-D02" | "fault-D05" | "fault-D06"),
+  );
   try {
     const config = JSON.parse(
       await readFile(join(home, "config.json"), "utf8"),

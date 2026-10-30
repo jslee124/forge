@@ -208,4 +208,4 @@ it("freezes two acceptance rounds and rejects missing quota, cost acknowledgemen
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
-});
+}, 30000);

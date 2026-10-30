@@ -30,6 +30,9 @@ export const EXTERNAL_EDIT_MARKER = "// external-edit-must-survive";
 export const CANCEL_STARTED = "cancel-probe-started.json";
 export const CANCEL_FINISHED = "cancel-probe-finished.txt";
 export const CANCEL_COMMAND = `require('node:fs').writeFileSync('${CANCEL_STARTED}',JSON.stringify({pid:process.pid}));setTimeout(()=>require('node:fs').writeFileSync('${CANCEL_FINISHED}','unexpected completion'),30000)`;
+// Public behavior contract, not test assertions or a reference implementation.
+export const PATH_CONTRACT_V6 =
+  "路径契约（faults-v6）：输入必须是字符串，表示工作空间内的相对路径；合法路径必须逐字返回，包括文件名首尾空格、内部空格和分隔符，不得 trim、切分或规范化返回值。检查范围时同时识别 / 与反斜杠分隔符：允许内部 .. 抵消前面的普通路径段，但任何前缀上溯超过根必须拒绝。拒绝 POSIX 根路径、Windows 盘符路径、UNC 路径及非字符串输入。只做路径值的词法检查，不声称处理真实文件系统的符号链接或替代宿主安全检查。请自行编写能区分完整实现与只删除 split 的回归断言。";
 export function acceptanceProtocol(task: string) {
   return task === "E04"
     ? "desktop-product-faults-v3"
@@ -41,6 +44,7 @@ export function acceptanceProtocol(task: string) {
 export function pilotDeadlines(task: string, profile: string) {
   const extended =
     profile === "repair-acceptance" ||
+    (profile === "contract-acceptance" && task === "E04") ||
     (profile === "full-acceptance-v1" &&
       ![...CONTROL_TASKS, "D03", "F01", "F02", "F03"].includes(task));
   return {
@@ -67,7 +71,10 @@ export function usesAutonomousRegression(
   protocol?: string,
 ): boolean {
   return (
-    (task === "E04" && protocol === "desktop-product-faults-v3") ||
+    (task === "E04" &&
+      ["desktop-product-faults-v3", "desktop-product-faults-v6"].includes(
+        protocol ?? "",
+      )) ||
     (["E02", "E05"].includes(task) &&
       protocol === "desktop-product-faults-v4") ||
     (["E01", "E03"].includes(task) && protocol === "desktop-product-faults-v5")
@@ -85,9 +92,18 @@ export function pilotScenario(
       "product-defaults",
       "repair-acceptance",
       "full-acceptance-v1",
+      "contract-acceptance",
     ].includes(profile)
   )
     throw new Error("Unknown pilot execution profile");
+  if (
+    (profile === "contract-acceptance" ||
+      faultProtocol === "desktop-product-faults-v6") &&
+    (profile !== "contract-acceptance" ||
+      faultProtocol !== "desktop-product-faults-v6" ||
+      !["E04", "F02"].includes(task))
+  )
+    throw new Error("Contract acceptance requires faults-v6 and E04/F02");
   if (
     profile === "full-acceptance-v1" &&
     faultProtocol !== acceptanceProtocol(task)
@@ -112,6 +128,7 @@ export function pilotScenario(
       "desktop-product-faults-v3",
       "desktop-product-faults-v4",
       "desktop-product-faults-v5",
+      "desktop-product-faults-v6",
     ].includes(faultProtocol)
   )
     throw new Error("Unknown fault protocol");
@@ -125,7 +142,7 @@ export function pilotScenario(
     throw new Error(
       "F02 requires --cancel-stage model|command; other tasks cannot set it",
     );
-  const supplement =
+  const legacySupplement =
     usesAutonomousRegression(task, faultProtocol) &&
     ["desktop-product-faults-v4", "desktop-product-faults-v5"].includes(
       faultProtocol ?? "",
@@ -148,36 +165,45 @@ export function pilotScenario(
                     : task === "F02"
                       ? `本轮只验证命令阶段的停止。请直接调用 run_command，program="node", args=${JSON.stringify(["-e", CANCEL_COMMAND])}, cwd="."，不改写脚本、不调用其他工具。脚本只在当前测试目录记录自身 PID 并等待，操作者将在启动后点击停止。`
                       : "";
-  const localOnly = (CONTROL_TASKS as readonly string[]).includes(task);
+  const supplement =
+    faultProtocol === "desktop-product-faults-v6" && task === "E04"
+      ? `${PATH_CONTRACT_V6} 仅允许修改 workflow.mjs 并新建 regression.test.mjs；不得修改原有测试或其他文件。先在未改实现上运行 program="node", args=["--test","regression.test.mjs"], cwd="."，确认目标断言失败，再保留同一测试修复并运行同一命令。预算16步/32工具，不提供断言或答案。`
+      : legacySupplement;
+  const localOnly =
+    (faultProtocol === "desktop-product-faults-v6" && task === "F02") ||
+    (CONTROL_TASKS as readonly string[]).includes(task);
   return {
     localOnly,
     limits:
       profile === "product-defaults"
         ? { maxSteps: null, maxToolCalls: null }
         : profile === "repair-acceptance" ||
+            (profile === "contract-acceptance" && task === "E04") ||
             (profile === "full-acceptance-v1" &&
               !localOnly &&
               !["D03", "F01", "F02", "F03"].includes(task))
           ? { maxSteps: 16, maxToolCalls: 32 }
           : {
-              maxSteps: localOnly
-                ? 2
-                : task === "D03"
-                  ? 1
-                  : task === "F03" || cancelStage === "model"
-                    ? 2
+              maxSteps:
+                localOnly && task !== "F02"
+                  ? 2
+                  : task === "D03"
+                    ? 1
+                    : task === "F03" || cancelStage === "model"
+                      ? 2
+                      : cancelStage === "command"
+                        ? 3
+                        : 6,
+              maxToolCalls:
+                localOnly && task !== "F02"
+                  ? 2
+                  : cancelStage === "model"
+                    ? 1
                     : cancelStage === "command"
-                      ? 3
-                      : 6,
-              maxToolCalls: localOnly
-                ? 2
-                : cancelStage === "model"
-                  ? 1
-                  : cancelStage === "command"
-                    ? 2
-                    : task.startsWith("E")
-                      ? 16
-                      : 8,
+                      ? 2
+                      : task.startsWith("E")
+                        ? 16
+                        : 8,
             },
     supplement:
       profile === "product-defaults" || profile === "full-acceptance-v1"

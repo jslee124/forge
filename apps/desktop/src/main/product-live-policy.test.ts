@@ -274,6 +274,27 @@ it("keeps fault probes on their declared command, stage and path", () => {
     cwd: ".",
   });
   expect(allowPilotApproval("F02", cancel, "command")).toBe(true);
+  // Preserve rejection of the exact rewrite observed in the failed paid round.
+  const rewritten = CANCEL_COMMAND.replace(
+    "()=>require",
+    "()=>{require",
+  ).replace("),30000)", ")},30000)");
+  for (const protocol of [
+    "desktop-product-faults-v5",
+    "desktop-product-faults-v6",
+  ])
+    expect(
+      allowPilotApproval(
+        "F02",
+        approval("process", {
+          program: "node",
+          args: ["-e", rewritten],
+          cwd: ".",
+        }),
+        "command",
+        protocol,
+      ),
+    ).toBe(false);
   expect(allowPilotApproval("F02", cancel, "model")).toBe(false);
   expect(
     allowPilotApproval(

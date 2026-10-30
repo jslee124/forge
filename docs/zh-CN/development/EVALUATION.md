@@ -54,6 +54,31 @@ node apps/desktop/scripts/product-matrix.mjs --prepare --acceptance --output /tm
 门槛仍为每轮至少 22/24 且所有关键项通过；独立用户测试另需达到 12/15。
 Telegram、手工无障碍检查、其他平台安装和发布继续独立处理。
 
+## 明确路径契约与本地取消控制
+
+`desktop-product-faults-v6` 配合 `--contract-acceptance` 是新增的 E04／F02 局部协议，
+不替换旧题目、失败记录或完整矩阵。E04 公开明确：合法路径逐字保留，包括文件名首尾空格；
+同时识别正反斜杠做词法范围检查；拒绝越过根、绝对／盘符／UNC 路径及非字符串输入。
+不提供断言或参考代码。原有外部 `edit-probes-v2` 评分器未改：旧 trim-only 修复仍失败，
+宿主侧参考实现通过同一组 14 项检查。这不证明真实模型已经能按新版契约修好，也不证明
+文件系统／符号链接安全，更不改变产品权限。
+
+此配置的 F02 即使不传 `--fixture` 也自动使用本地 loopback 脚本化服务，不读取模型凭证。
+固定命令仍经过真实 renderer／IPC／runtime／审批／工具链。严格白名单继续拒绝改写命令；
+旧 live 协议仍保留模型复制命令的测量。模型流式输出和命令取消分别使用独立的新目录：
+
+```bash
+pnpm build
+node evals/dist/desktop-product-prepare.js --output /tmp/forge-local-cancel-model --round 1 --fault-protocol desktop-product-faults-v6
+node evals/dist/desktop-product-prepare.js --output /tmp/forge-local-cancel-command --round 1 --fault-protocol desktop-product-faults-v6
+node apps/desktop/scripts/product-live.mjs --live --fixture --contract-acceptance --round /tmp/forge-local-cancel-model --task F02 --cancel-stage model
+node apps/desktop/scripts/product-live.mjs --live --fixture --contract-acceptance --round /tmp/forge-local-cancel-command --task F02 --cancel-stage command
+```
+
+目录须新建且在仓库外，并使用最新 Desktop 构建。E04 可用 `--check --contract-acceptance
+--task E04` 做预检；E04 的 `--live` 仍调用外部模型，属于另行授权的新测量。
+不要通过旧完整矩阵参数把新协议混入旧轮次。
+
 ## 任务
 
 规范 fixture 是 `fixtures/validation-bug`。它要求 Agent 阅读实现、调用方和测试，修复 `parsePort` 对输入校验过于宽松的问题，运行 `pnpm test`，并以与实际 diff/测试结果一致的总结结束。每次 trial 都从全新的临时 workspace 开始；grader 在 Agent 停止后于外部运行，模型不能修改 grader 或隐藏测试。
