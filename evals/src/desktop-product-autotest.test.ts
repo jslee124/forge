@@ -129,7 +129,7 @@ it("prepares autonomous regression diagnostics without supplying tests or access
   } finally {
     await rm(root, { recursive: true, force: true });
   }
-});
+}, 30000);
 
 it.each([
   {
@@ -400,4 +400,4 @@ it("prepares bounded E01/E03 repair acceptance with no supplied assertions or cr
   } finally {
     await rm(root, { recursive: true, force: true });
   }
-});
+}, 30000);

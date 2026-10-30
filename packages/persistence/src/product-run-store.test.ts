@@ -36,6 +36,33 @@ afterEach(async () => {
     await rm(root, { recursive: true, force: true });
 });
 describe("private product run records", () => {
+  it.each(["summary", "index"])(
+    "rejects a symlinked %s even when its target contains valid record data",
+    async (kind) => {
+      const f = await fixture();
+      await f.store.create({
+        sessionId: "session",
+        runId: "run",
+        engine: "native",
+        prompt: "links",
+      });
+      const source =
+        kind === "summary"
+          ? join(f.path(), "summary.json")
+          : join(f.home, "run-records", "session", "index.jsonl");
+      const bytes = await readFile(source);
+      const target = join(f.home, "outside-record");
+      await writeFile(target, bytes);
+      await rm(source);
+      await symlink(target, source);
+      await expect(
+        kind === "summary"
+          ? f.store.read("session", "run")
+          : f.store.list("session"),
+      ).rejects.toBeInstanceOf(ProductRunStorageError);
+      expect(await readFile(target)).toEqual(bytes);
+    },
+  );
   it("saves redacted ordered facts privately and never reopens an existing run", async () => {
     const f = await fixture();
     const writer = await f.store.create({

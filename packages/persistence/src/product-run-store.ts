@@ -73,8 +73,40 @@ export class FileProductRunStore {
     )
       throw new ProductRunStorageError();
   }
+  async #openRegular(file: string, flags: number, allowMissing = false) {
+    // O_NOFOLLOW is unavailable on Windows. Check the directory entry as well
+    // as the opened handle before reading or writing any user-controlled file.
+    const checkEntry = async () => {
+      const metadata = await lstat(file);
+      if (
+        !metadata.isFile() ||
+        metadata.isSymbolicLink() ||
+        (await realpath(file)) !== file
+      )
+        throw new ProductRunStorageError();
+      return metadata;
+    };
+    await checkEntry().catch((error) => {
+      if (!allowMissing || !missing(error)) throw error;
+    });
+    const handle = await open(file, flags | noFollow, 0o600);
+    try {
+      const entry = await checkEntry();
+      const opened = await handle.stat();
+      if (
+        !opened.isFile() ||
+        opened.dev !== entry.dev ||
+        opened.ino !== entry.ino
+      )
+        throw new ProductRunStorageError();
+      return handle;
+    } catch (error) {
+      await handle.close();
+      throw error;
+    }
+  }
   async #read(file: string, max: number): Promise<string> {
-    const handle = await open(file, constants.O_RDONLY | noFollow);
+    const handle = await this.#openRegular(file, constants.O_RDONLY);
     try {
       const metadata = await handle.stat();
       if (!metadata.isFile() || metadata.size > max)
@@ -138,10 +170,10 @@ export class FileProductRunStore {
   }
   async #append(directory: string, name: string, line: string, max: number) {
     await this.#assertDirectory(directory);
-    const handle = await open(
+    const handle = await this.#openRegular(
       join(directory, name),
-      constants.O_WRONLY | constants.O_APPEND | constants.O_CREAT | noFollow,
-      0o600,
+      constants.O_WRONLY | constants.O_APPEND | constants.O_CREAT,
+      true,
     );
     try {
       const metadata = await handle.stat();
@@ -220,9 +252,9 @@ export class FileProductRunStore {
     let indexAvailable = false;
     try {
       const directory = await this.#directory([sessionId], false);
-      const handle = await open(
+      const handle = await this.#openRegular(
         join(directory, "index.jsonl"),
-        constants.O_RDONLY | noFollow,
+        constants.O_RDONLY,
       );
       indexAvailable = true;
       let entries: { runId: string; start: number }[];

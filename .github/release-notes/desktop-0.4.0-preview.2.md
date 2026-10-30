@@ -6,7 +6,8 @@ This is a candidate description, not a publication or completed platform accepta
 
 本预览版重点完善任务过程、审批、停止、结果与恢复界面，以及带行号的局部读取和搜索。
 运行记录保留已执行操作、失败验证与影响未知状态；重新打开任务不会自动重放旧操作或批准。
-修复实验性证据总结模式的日志兼容问题，避免写入的总结事件无法重新读取。
+修复实验性证据总结模式的日志兼容问题，避免写入的总结事件无法重新读取；同时修复 Windows
+缺少 O_NOFOLLOW 时的记录文件校验，拒绝符号链接记录，并在存储故障时停止后续审批和工具操作。
 
 默认不设置固定的模型步骤／工具总调用次数上限；需要控制调用规模时，请在配置中设置
 `limits.maxSteps` 与 `limits.maxToolCalls`。审批和路径限制仍然有效，但不是操作系统沙箱，
@@ -24,7 +25,8 @@ Telegram 工作暂缓；本次不新增网关或手机控制能力。桌面版�
 This preview improves task progress, approvals, cancellation, outcomes and reviewed recovery,
 with numbered partial file reads and scoped search. Run records distinguish executed effects,
 failed verification and unknown effects; reopening a task does not replay old actions or approvals.
-It also fixes reading trace events from experimental evidence-summary finalization.
+It also fixes reading trace events from experimental evidence-summary finalization and rejects symlinked
+record files on Windows without O_NOFOLLOW, stopping approvals and tool effects on storage failure.
 
 Model-step and total tool-call counts have no fixed default cap. Configure `limits.maxSteps` and
 `limits.maxToolCalls` when you need finite allowances. Approval and path controls remain effective,
