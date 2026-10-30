@@ -7,6 +7,34 @@ contract and task list, not shipped behavior. New filenames, types, fields, and
 configuration below are proposed; section 2 separately identifies existing code.
 Resolve PRD/implementation disagreements in both documents before implementing.
 
+## One live path-contract measurement passed (2026-10-30)
+
+One authorized E04 attempt at clean source `66b2539`, faults-v6 /
+`contract-acceptance`, used DeepSeek flash / high with the clarified public
+contract and no supplied assertions or reference implementation. It completed
+in 8 model steps / 10 tool calls, about 43.7 seconds, without retry.
+
+The model authored 57 tests: 35 failed against the original source and 22 already
+passed; after repair the identical test file passed 57/57. All recorded red/green,
+test-byte preservation, original-test preservation and effect-scope checks passed.
+The unchanged independent `edit-probes-v2` grader passed 14/14. Source inspection
+confirmed unrelated functions unchanged, valid path strings returned verbatim and
+lexical rejection of root escapes, absolute/drive/UNC paths and non-string inputs.
+The result screenshot and authored assertions were reviewed. Empty-string
+rejection was disclosed as a choice outside the explicit contract; no filesystem
+or symlink guarantee is established. A test using a missing path alone cannot
+prove absence of filesystem access; source inspection supports that claim here.
+
+Completed usage events reported 114,372 input tokens (96,768 cached) and 7,505
+output tokens; the provider bill was not independently checked. Private evidence,
+measured source/build snapshots and per-task review are retained under
+`evals/artifacts/path-contract-v6-live-20261030-66b2539/`.
+
+This is one scoped success after changing the disclosed contract, not a general
+success rate or causal improvement result. Old failed E04 samples and the stopped
+full matrix remain unchanged. V02, human review/user trials, accessibility,
+platform and release gates remain open; Telegram stays deferred.
+
 ## Contract clarification and local cancellation controls (2026-10-30)
 
 New faults-v6 / `contract-acceptance` covers only E04/F02. E04 now discloses the
