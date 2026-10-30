@@ -505,6 +505,7 @@ export const runEventSchema = z.discriminatedUnion("type", [
       type: z.literal("run.finalizing"),
       step: z.number().int().positive(),
       reason: z.enum(["model_step_limit", "tool_call_limit", "no_progress"]),
+      inputMode: z.literal("evidence").optional(),
     })
     .strict(),
   z

@@ -37,6 +37,31 @@ async function forgeHome(): Promise<string> {
   return directory;
 }
 
+it("round-trips finalization traces with the optional host evidence projection", async () => {
+  const home = await forgeHome();
+  const runId = randomUUID();
+  const writer = new JsonlTraceWriter({ forgeHome: home, runId });
+  const events: RunEvent[] = [
+    { type: "run.finalizing", step: 2, reason: "model_step_limit" },
+    {
+      type: "run.finalizing",
+      step: 3,
+      reason: "no_progress",
+      inputMode: "evidence",
+    },
+  ];
+  for (const event of events) await writer.append(event);
+  expect(
+    (await new FileTraceStore(home).read(runId)).map((row) => row.event),
+  ).toEqual(events);
+  expect(
+    runEventSchema.safeParse({ ...events[1], inputMode: "other" }).success,
+  ).toBe(false);
+  expect(
+    runEventSchema.safeParse({ ...events[1], restoredApproval: true }).success,
+  ).toBe(false);
+});
+
 describe("persistent sessions", () => {
   it("redacts provider keys, bearer tokens, JWTs, and secret fields", () => {
     const apiKey = "sk-test_123456789";
