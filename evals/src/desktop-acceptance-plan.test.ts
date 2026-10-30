@@ -209,3 +209,99 @@ it("freezes two acceptance rounds and rejects missing quota, cost acknowledgemen
     await rm(directory, { recursive: true, force: true });
   }
 }, 30000);
+
+it("prepares v2 as a separate full matrix with clarified paths, local cancellation and pending review", async () => {
+  const root = await mkdtemp(join(tmpdir(), "forge-full-v2-"));
+  const script = fileURLToPath(
+    new URL("../../apps/desktop/scripts/product-matrix.mjs", import.meta.url),
+  );
+  const output = join(root, "matrix");
+  const run = (...args: string[]) =>
+    promisify(execFile)(process.execPath, [script, ...args], {
+      env: {
+        PATH: process.env["PATH"] ?? "",
+        HOME: root,
+        FORGE_HOME: join(root, "no-auth"),
+      },
+    });
+  try {
+    await run("--prepare", "--acceptance-v2", "--output", output);
+    const path = join(output, "matrix-plan.json");
+    const plan = JSON.parse(await readFile(path, "utf8"));
+    expect(plan).toMatchObject({
+      acceptanceProfile: "full-acceptance-v2",
+      maxPaidLogicalModelSteps: 560,
+      fullBaselineComplete: false,
+    });
+    expect(plan.lanes).toHaveLength(50);
+    expect(
+      plan.lanes.filter((l: { task: string }) =>
+        ["E04", "F02"].includes(l.task),
+      ),
+    ).toHaveLength(6);
+    for (const lane of plan.lanes.filter((l: { task: string }) =>
+      ["E04", "F02"].includes(l.task),
+    )) {
+      expect(lane).toMatchObject({
+        faultProtocol: "desktop-product-faults-v6",
+        profile: "contract-acceptance",
+        scenario: { localOnly: lane.task === "F02" },
+      });
+      const live = fileURLToPath(
+        new URL("../../apps/desktop/scripts/product-live.mjs", import.meta.url),
+      );
+      await promisify(execFile)(process.execPath, [
+        live,
+        "--check",
+        "--contract-acceptance",
+        "--round",
+        lane.directory,
+        "--task",
+        lane.task,
+        ...(lane.stage ? ["--cancel-stage", lane.stage] : []),
+      ]);
+      const check = JSON.parse(
+        await readFile(join(lane.directory, "pilot-plan.json"), "utf8"),
+      );
+      expect(check.externalCallsMade).toBe(0);
+      if (lane.task === "F02") expect(check.externalDestination).toBeNull();
+    }
+    const review = JSON.parse(
+      await readFile(join(output, "matrix-review.json"), "utf8"),
+    );
+    expect(review.rows).toHaveLength(48);
+    expect(review.independentHumanReviewComplete).toBe(false);
+    expect(
+      review.rows.every(
+        (row: { outcome: string }) => row.outcome === "pending",
+      ),
+    ).toBe(true);
+    const args = ["--live", "--supported-only", "--output", output];
+    await expect(run(...args, "--max-paid-steps", "559")).rejects.toThrow(
+      "--max-paid-steps",
+    );
+    await expect(run(...args, "--max-paid-steps", "561")).rejects.toThrow(
+      "maximum 560",
+    );
+    await expect(run(...args, "--max-paid-steps", "560")).rejects.toThrow(
+      "--acknowledge-variable-cost",
+    );
+    const lane = plan.lanes.find((l: { task: string }) => l.task === "F02");
+    lane.faultProtocol = "desktop-product-faults-v5";
+    await writeFile(path, JSON.stringify(plan));
+    await expect(
+      run(...args, "--max-paid-steps", "560", "--acknowledge-variable-cost"),
+    ).rejects.toThrow("Modified acceptance lane");
+    await expect(
+      run(
+        "--prepare",
+        "--acceptance",
+        "--acceptance-v2",
+        "--output",
+        join(root, "invalid"),
+      ),
+    ).rejects.toThrow("Choose one");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+}, 30000);

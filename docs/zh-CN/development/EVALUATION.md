@@ -79,6 +79,29 @@ node apps/desktop/scripts/product-live.mjs --live --fixture --contract-acceptanc
 --task E04` 做预检；E04 的 `--live` 仍调用外部模型，属于另行授权的新测量。
 不要通过旧完整矩阵参数把新协议混入旧轮次。
 
+## 完整验收 v2 的准备与复核
+
+新建矩阵，不续跑已停止的 v1 批次：
+
+```bash
+pnpm desktop:build
+node apps/desktop/scripts/product-acceptance-plan.mjs --acceptance-v2 --output /tmp/forge-v2-proposal.json
+node apps/desktop/scripts/product-matrix.mjs --prepare --acceptance-v2 --output /tmp/forge-v2-matrix
+```
+
+两个准备命令均为零调用。v2 仍为每轮 24 项、两轮 50 条通道；E04／F02 使用
+faults-v6／contract-acceptance，F02 为本地脚本化取消控制，其余任务保留 v1 的逐任务条件。
+付费逻辑步骤上限为 560（v1 仍为 570），不是金额硬上限。正式执行仍需冻结批次步骤额度
+和浮动费用确认，先校验全部通道再读取凭证；关键项、基础设施／provider 或源码／构建漂移
+触发停止，无自动重试。v1／v2 参数互斥，旧结果不升级、不混入新轮次。
+
+准备时还生成 `matrix-review.json`：48 行待复核任务，每行包含五个 rubric 维度、证据、
+理由和审核人字段。逐项核对局部读取的完整性断言、静态调用点、Promise 采纳与同一性、
+无依据的安全判断、补丁实际边界与文字描述。这是源码审核要求，不是关键词自动评分，
+也未新增回答长度门槛。填写模板不会自动关闭门槛：矩阵报告保持 `fullBaselineComplete:
+false`，独立人工签核和用户测试另行记录。每轮至少 22/24 且所有关键项通过的要求不变。
+v2 的本地 F02 通过衡量运行时取消，不证明真实模型复制命令的可靠性，报告必须保留此区别。
+
 ## 任务
 
 规范 fixture 是 `fixtures/validation-bug`。它要求 Agent 阅读实现、调用方和测试，修复 `parsePort` 对输入校验过于宽松的问题，运行 `pnpm test`，并以与实际 diff/测试结果一致的总结结束。每次 trial 都从全新的临时 workspace 开始；grader 在 Agent 停止后于外部运行，模型不能修改 grader 或隐藏测试。

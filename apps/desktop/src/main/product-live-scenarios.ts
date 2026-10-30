@@ -232,3 +232,25 @@ export function pilotScenario(
                 : [],
   };
 }
+
+/** Orchestration version only: reuse unchanged task profiles, never migrate old evidence. */
+export function acceptanceLane(
+  task: string,
+  stage?: string,
+  version = "full-acceptance-v1",
+) {
+  if (!["full-acceptance-v1", "full-acceptance-v2"].includes(version))
+    throw new Error("Unknown acceptance version");
+  const clarified =
+    version === "full-acceptance-v2" && ["E04", "F02"].includes(task);
+  const profile = clarified ? "contract-acceptance" : "full-acceptance-v1";
+  const faultProtocol = clarified
+    ? "desktop-product-faults-v6"
+    : acceptanceProtocol(task);
+  return {
+    profile,
+    faultProtocol,
+    deadlines: pilotDeadlines(task, profile),
+    scenario: pilotScenario(task, stage, faultProtocol, profile),
+  };
+}

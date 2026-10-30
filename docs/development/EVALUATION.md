@@ -102,6 +102,36 @@ preflighted using `--check --contract-acceptance --task E04`; E04 `--live` still
 calls the external model and is a separate authorized measurement. Do not use
 the old full-matrix acceptance flag to mix this new protocol into earlier rounds.
 
+## Full acceptance v2 preparation and review
+
+Use a fresh matrix rather than resuming the stopped v1 batch:
+
+```bash
+pnpm desktop:build
+node apps/desktop/scripts/product-acceptance-plan.mjs --acceptance-v2 --output /tmp/forge-v2-proposal.json
+node apps/desktop/scripts/product-matrix.mjs --prepare --acceptance-v2 --output /tmp/forge-v2-matrix
+```
+
+Both preparation commands make zero calls. V2 keeps 24 tasks per round and 50
+lanes across two rounds. E04/F02 use faults-v6 / contract-acceptance; F02 is local
+scripted cancellation control. Other tasks keep their v1 per-task conditions.
+The paid logical-step ceiling is 560 (v1 remains 570); this is not a money cap.
+Live execution still requires the frozen batch's step quota and variable-cost
+acknowledgement, validates all lanes before credentials and stops on critical,
+infrastructure/provider or source/build drift errors, without retry. V1 and v2
+flags are mutually exclusive; old evidence is never upgraded or combined.
+
+Preparation also writes `matrix-review.json`: 48 pending task rows, each with
+five rubric dimensions, evidence/reason fields and reviewer identity. Check
+partial-read claims, static call sites, Promise adoption versus identity,
+unsupported security conclusions, and claimed input boundaries against actual
+patches. These are source-review requirements, not keyword-based auto-scoring or
+new answer-length thresholds. A filled template does not automatically close the
+gate: matrix reports retain `fullBaselineComplete: false`, and independent human
+review/user trials remain separate. The 22/24-per-round and all-critical gates
+are unchanged. A local F02 pass measures runtime cancellation, not live model
+copying reliability; keep that distinction in any reported v2 result.
+
 ## Tasks
 
 Versioned manifests live under `evals/tasks/`. Every trial starts from a fresh

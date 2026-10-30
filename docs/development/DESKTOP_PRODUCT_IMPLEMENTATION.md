@@ -7,6 +7,45 @@ contract and task list, not shipped behavior. New filenames, types, fields, and
 configuration below are proposed; section 2 separately identifies existing code.
 Resolve PRD/implementation disagreements in both documents before implementing.
 
+## V2 acceptance preparation and remaining-work triage (2026-10-30)
+
+`--acceptance-v2` prepares a fresh full-acceptance-v2 matrix: E04/F02 use the
+existing faults-v6 contract profile, while all other tasks keep their previous
+per-task conditions. Both rounds have the same task-specific configuration.
+F02 is now local runtime cancellation control, separately identified from old
+model-mediated command-copying evidence. This is a changed measurement protocol,
+not a retrospective pass for v1. V1 preparation and its 570-step ceiling remain
+available; v2 has 560 paid logical steps and the same 48 rows / 50 lanes.
+
+The remaining-work audit separates the observed causes:
+
+| Evidence/problem | Classification and next action |
+| --- | --- |
+| E04 path contract | Protocol clarified; one live v6 pass recorded. Still needs fresh same-configuration rounds for the full gate. |
+| F02 altered inline command | Model-copying/protocol failure, not evidence of a running-process cancellation defect. Local controls passed; v2 uses those controls without relaxing approval. |
+| R1 Q01 full-file claim after partial read | Narrative review: compare coverage claims with actual read/search scope. |
+| R1 Q05 nonexistent `toC()` reference | Narrative review: remove unsupported symbol claims from a human-approved assessment, without altering the raw answer. |
+| R1 E05 Promise identity wording | Narrative review: distinguish async settlement adoption from object identity. |
+| R1 D04 unauthorized-capability inference | Narrative review: a fixture name mismatch alone does not establish host authorization behavior. |
+| R2 Q05 missing `handle` caller claim | Narrative review: compare the claim with `main.mjs:2`; the answer itself quotes that call. |
+| R2 D05 empty-string behavior claim | Narrative review: the generated zero guard rejects empty input after Number conversion, contrary to its answer. |
+| R2 F03–F06 unrun | Retain as unrun; v2 gets fresh independent workspaces, not a resume/replacement of v1. |
+
+These records do not justify an unmeasured core-runtime fix. No runtime or
+production policy was changed for this increment. Instead, preparation writes
+48 pending review rows with five rubric dimensions, evidence/reason fields and
+reviewer identity; source-factuality checks are declared before execution.
+No keyword-based semantic scoring or automatic human sign-off is introduced.
+The 22/24-per-round and all-critical gates remain unchanged.
+
+Validation: 874 tests passed with six opt-in skips, 221 deterministic checks,
+root check and Desktop build passed. V2 planning, scoped E04/F02 preflights,
+quota/cost guards and tampered-lane rejection were tested without credentials or
+provider calls. See the [evaluation guide](EVALUATION.md#full-acceptance-v2-preparation-and-review)
+for commands. This completes local preparation, not V02 execution or human
+sign-off. User trials, accessibility, platform and release work remain pending;
+Telegram is deferred. No new paid batch was started.
+
 ## One live path-contract measurement passed (2026-10-30)
 
 One authorized E04 attempt at clean source `66b2539`, faults-v6 /

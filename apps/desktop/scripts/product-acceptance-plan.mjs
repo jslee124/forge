@@ -4,20 +4,22 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs, promisify } from "node:util";
 import {
-  acceptanceProtocol,
+  acceptanceLane,
   pilotDeadlines,
-  pilotScenario,
 } from "../src/main/product-live-scenarios.ts";
 import { snapshotMatrixInputs } from "./product-matrix-inputs.mjs";
 
 // Offline proposal only. Never imports the live launcher or credential manager.
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const { values } = parseArgs({
-  options: { output: { type: "string" } },
+  options: { output: { type: "string" }, "acceptance-v2": { type: "boolean" } },
   strict: true,
 });
 if (!values.output)
   throw new Error("Usage: --output <new-plan.json>; offline only");
+const version = values["acceptance-v2"]
+  ? "full-acceptance-v2"
+  : "full-acceptance-v1";
 const manifest = "evals/fixtures/desktop-product/manifest.json";
 const corpus = JSON.parse(await readFile(join(root, manifest), "utf8"));
 const files = [
@@ -53,9 +55,10 @@ for (const round of [1, 2]) {
     for (const stage of task.id === "F02"
       ? ["model", "command"]
       : [undefined]) {
-      const protocol = acceptanceProtocol(task.id);
-      const profile = "full-acceptance-v1";
-      const current = pilotScenario(task.id, stage, protocol, profile);
+      const lane = acceptanceLane(task.id, stage, version);
+      const protocol = lane.faultProtocol;
+      const profile = lane.profile;
+      const current = lane.scenario;
       const limits = current.limits;
       const paidSteps =
         current.localOnly || task.id === "D03" ? 0 : limits.maxSteps;
@@ -94,6 +97,7 @@ for (const round of [1, 2]) {
 const plan = {
   schemaVersion: 1,
   kind: "desktop-acceptance-proposal",
+  acceptanceProfile: version,
   preparedAt: new Date().toISOString(),
   sourceRevision: (
     await promisify(execFile)("git", ["rev-parse", "HEAD"], { cwd: root })
@@ -139,7 +143,7 @@ const plan = {
       "All five rubric dimensions require evidence and human review; completed or green authored tests alone never establish success. Both F02 stages must pass for one task pass.",
   },
   blockers: [
-    "Prepare a fresh matrix with --acceptance; this offline proposal is not an executable matrix or approval to spend.",
+    `Prepare a fresh matrix with ${values["acceptance-v2"] ? "--acceptance-v2" : "--acceptance"}; this offline proposal is not an executable matrix or approval to spend.`,
     "Freeze clean source/build/fixture hashes and fresh isolated workspaces before execution; invalidate the proposal after changes.",
     "Set --max-paid-steps for the frozen batch and explicitly acknowledge variable cost before paid execution. This quota is not a currency cap; a hard monetary limit requires provider-side controls.",
     "Freeze semantic review evidence requirements before execution; preserve failures and stop on critical, provider, infrastructure or source-drift errors without whole-task retry.",
