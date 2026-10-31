@@ -1,0 +1,84 @@
+{
+  "tag": "desktop-0.4.0-preview.2",
+  "release": "https://github.com/jslee124/forge/releases/tag/desktop-0.4.0-preview.2",
+  "releaseId": 429844456,
+  "publishedAt": "2026-10-31T09:40:16Z",
+  "draft": false,
+  "prerelease": true,
+  "bodyMatches": true,
+  "downloadedAssetChecks": "passed",
+  "assets": [
+    {
+      "name": "SHA256SUMS",
+      "size": 284,
+      "sha256": "22f59cbe4efeba061e2d0bb437fa6cba591ccbddd092c010564b76eeb7c84290",
+      "remoteDigest": "sha256:22f59cbe4efeba061e2d0bb437fa6cba591ccbddd092c010564b76eeb7c84290",
+      "publicDownload": "https://github.com/jslee124/forge/releases/download/desktop-0.4.0-preview.2/SHA256SUMS"
+    },
+    {
+      "name": "desktop-build.json",
+      "size": 738,
+      "sha256": "003128bf8c35d1fcdda2330f15a68f65a81fd29ed99837357d9513e08b926080",
+      "remoteDigest": "sha256:003128bf8c35d1fcdda2330f15a68f65a81fd29ed99837357d9513e08b926080",
+      "publicDownload": "https://github.com/jslee124/forge/releases/download/desktop-0.4.0-preview.2/desktop-build.json"
+    },
+    {
+      "name": "forge-desktop-0.4.0-arm64.dmg",
+      "size": 167133889,
+      "sha256": "278211ae7f432277a66ce6f37c817c175bc1ba7c7ab3d0747714a22cab158316",
+      "remoteDigest": "sha256:278211ae7f432277a66ce6f37c817c175bc1ba7c7ab3d0747714a22cab158316",
+      "publicDownload": "https://github.com/jslee124/forge/releases/download/desktop-0.4.0-preview.2/forge-desktop-0.4.0-arm64.dmg"
+    },
+    {
+      "name": "forge-desktop-0.4.0-x64.dmg",
+      "size": 170934143,
+      "sha256": "64c4fac95ec4cbb7c967095a8113a66f3d89cbc71a64b58edaee09c781ebfcf1",
+      "remoteDigest": "sha256:64c4fac95ec4cbb7c967095a8113a66f3d89cbc71a64b58edaee09c781ebfcf1",
+      "publicDownload": "https://github.com/jslee124/forge/releases/download/desktop-0.4.0-preview.2/forge-desktop-0.4.0-x64.dmg"
+    },
+    {
+      "name": "forge-desktop-0.4.0-x64.exe",
+      "size": 140757690,
+      "sha256": "0775d164ab44df0820a7e02e5d2885aadf041022709c900df3b9a9a8b1550efd",
+      "remoteDigest": "sha256:0775d164ab44df0820a7e02e5d2885aadf041022709c900df3b9a9a8b1550efd",
+      "publicDownload": "https://github.com/jslee124/forge/releases/download/desktop-0.4.0-preview.2/forge-desktop-0.4.0-x64.exe"
+    }
+  ],
+  "sourceCommit": "f1b8a7489bc2c7266b35a9d67de00b7b76f97a3b",
+  "annotatedTagObject": "da96ce1e6bb45c0de45af1597f9050250101dbb2",
+  "sourceCi": {
+    "runId": 41189244124,
+    "url": "https://github.com/jslee124/forge/actions/runs/41189244124",
+    "conclusion": "success",
+    "headSha": "f1b8a7489bc2c7266b35a9d67de00b7b76f97a3b"
+  },
+  "mainCi": {
+    "runId": 41189226422,
+    "conclusion": "success"
+  },
+  "releasePreparationPr": 10,
+  "releasePreparationPrCi": {
+    "runId": 41188781435,
+    "conclusion": "success"
+  },
+  "stableLatestBefore": "v0.4.0",
+  "stableLatestAfter": "v0.4.0",
+  "downloadedDmgSmoke": {
+    "asset": "forge-desktop-0.4.0-arm64.dmg",
+    "embeddedVersion": "0.4.0-preview.2",
+    "smokeExitCode": 0,
+    "readOnlyMount": true,
+    "imageDetached": true,
+    "isolatedHome": true,
+    "existingInstallationReplaced": false
+  },
+  "signing": "unsigned",
+  "notarization": "not performed",
+  "limits": [
+    "CI Windows x64 NSIS install/start/uninstall; no real Windows provider login or Windows ARM64 acceptance",
+    "macOS arm64/x64 built; host smoke and downloaded Apple Silicon DMG copy/start verified, no Intel hardware/macOS 13 claim",
+    "No Gatekeeper/SmartScreen, signing/notarization, full IME or VoiceOver acceptance",
+    "Full two-round product acceptance and independent user trials remain open",
+    "No paid live-provider tests in this release workflow; Telegram work deferred"
+  ]
+}

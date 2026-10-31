@@ -4,7 +4,7 @@
 
 ## 准备阶段
 
-尚未公开发布。本记录区分已合并应用的检查、新的不可变标签打包，以及公开下载核验。
+已公开发布为预览版，公开下载检查通过。本记录区分已合并应用的检查、新的不可变标签打包，以及公开下载核验。
 
 - 应用合并：PR #9，main `7caf490`；候选源码 `da55e29`。
 - 候选源码 CI：[41052172854](https://github.com/jslee124/forge/actions/runs/41052172854) 通过，覆盖 Windows x64 打包、打包启动、NSIS 安装／启动／卸载，以及 macOS arm64/x64 打包与 runner 上启动。
@@ -20,6 +20,14 @@
 准确标签的 CI 需以该身份重新生成 Windows x64 与 macOS arm64/x64 产物，完成发布检查、
 安装与启动检查，汇总 EXE、两个 DMG 并核对 SHA-256。上传文件名、大小及可用的远端摘要
 与五个预期文件一致前，保持为非公开草稿。
+
+## 发布与公开下载核验（2026-10-31）
+
+- [desktop-0.4.0-preview.2](https://github.com/jslee124/forge/releases/tag/desktop-0.4.0-preview.2) 于 2026-10-31T09:40:16Z 发布，为非草稿预览版；稳定 Latest 仍为 `v0.4.0`。
+- 不可变源码：`f1b8a7489bc2c7266b35a9d67de00b7b76f97a3b`。PR #10 在 [PR CI](https://github.com/jslee124/forge/actions/runs/41188781435) 通过后合并；[准确 main CI](https://github.com/jslee124/forge/actions/runs/41189226422) 通过。
+- [标签发布 CI](https://github.com/jslee124/forge/actions/runs/41189244124) 五个 job 均通过，覆盖发布检查、Windows x64 打包与 NSIS 安装／启动／卸载、macOS arm64/x64 打包及 runner 启动、不可变源码核验、产物汇总和草稿上传校验。
+- 五个公开文件均已独立下载；文件名、字节大小、SHA-256、平台／版本清单、GitHub 摘要和双语正文全部一致。完整已审阅数据见 [publication.json](publication.json)。
+- 公开 Apple Silicon DMG 已只读挂载，复制到隔离临时目录并使用隔离 home 启动；打包启动检查退出码为 0，内嵌版本为 `0.4.0-preview.2`，镜像已卸载。没有替换现有应用；这不代表 Gatekeeper／隔离属性验收。
 
 ## 验证边界
 
