@@ -12,5 +12,6 @@
     "apps/**/*.test.tsx",
     "packages/**/*.test.ts",
     "evals/**/*.test.ts"
-  ]
+  ],
+  "exclude": ["**/node_modules/**", "evals/artifacts/**"]
 }

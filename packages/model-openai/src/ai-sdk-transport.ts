@@ -69,6 +69,7 @@ export class AiSdkOpenAITransport implements OpenAITransport {
         ...(request.instructions ? { instructions: request.instructions } : {}),
         messages,
         abortSignal: signal,
+        ...(request.toolChoice ? { toolChoice: request.toolChoice } : {}),
         onError: () => undefined,
         ...(request.tools?.length
           ? { tools: toAiSdkTools(request.tools) }
@@ -200,6 +201,11 @@ function buildMessages(request: OpenAITransportRequest): ModelMessage[] {
       })),
     });
   }
+  // A fresh answer-stage message interrupts tool-planning continuation without
+  // discarding its evidence or exposing any additional executable capability.
+  if (request.toolChoice === "none" && request.responseDirective)
+    messages.push({ role: "user", content: request.responseDirective });
+
   return messages;
 }
 

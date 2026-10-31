@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
-
 import {
   ForgeConfigError,
   loadForgeConfig,
@@ -56,12 +55,22 @@ import {
 } from "@forge/tools";
 import { resolveImageInputs } from "./image-input.js";
 import {
+  NATIVE_CHANGE_INSTRUCTIONS,
+  NATIVE_INVESTIGATION_INSTRUCTIONS,
+  NATIVE_REGRESSION_INSTRUCTIONS,
+} from "./investigation-instructions.js";
+import {
   type CreateForgeModelAdapterOptions,
   createForgeModelAdapter,
 } from "./model-adapter.js";
 import type { AskOptions, WritableOutput } from "./options.js";
 import { parseThinkingMode } from "./options.js";
+import { nativeResponseInstructions } from "./response-language.js";
 export interface RunDependencies {
+  /** Host-only snapshot pinned after a reviewed recovery plan; never accepted from model context. */
+  readonly configurationSnapshot?: Awaited<ReturnType<typeof loadForgeConfig>>;
+  readonly completionPolicy?: "direct" | "reserve-final-step";
+  readonly finalizationInput?: "continuation" | "evidence";
   readonly workspaceLease?: ExecutionLease;
   readonly perActionApproval?: boolean;
   readonly env: NodeJS.ProcessEnv;
@@ -118,11 +127,13 @@ export async function runTask(
 ): Promise<number> {
   let ownedLease: ExecutionLease | undefined;
   try {
-    const loaded = await loadForgeConfig({
-      cwd: dependencies.cwd,
-      env: dependencies.env,
-      cli: options,
-    });
+    const loaded =
+      dependencies.configurationSnapshot ??
+      (await loadForgeConfig({
+        cwd: dependencies.cwd,
+        env: dependencies.env,
+        cli: options,
+      }));
     if (dependencies.workspaceLease)
       await dependencies.workspaceLease.assertWorkspace(loaded.workspaceRoot);
     else ownedLease = await acquireWorkspaceLease(loaded.workspaceRoot);
@@ -213,6 +224,14 @@ export async function runTask(
       selectedSkillPrompt,
       pluginPrompt.prompt,
       activeContext.memory,
+      ...(dependencies.completionPolicy === "reserve-final-step"
+        ? [
+            NATIVE_INVESTIGATION_INSTRUCTIONS,
+            NATIVE_CHANGE_INSTRUCTIONS,
+            NATIVE_REGRESSION_INSTRUCTIONS,
+          ]
+        : []),
+      nativeResponseInstructions(prompt),
     ]
       .filter((value) => value !== "")
       .join("\n\n");
@@ -288,9 +307,9 @@ export async function runTask(
     ];
     validateSubagentToolSelections(pluginHost.subagents, childTools);
     const subagentBudget = {
-      remainingRuns: Math.min(4, loaded.config.limits.maxToolCalls),
-      remainingModelSteps: loaded.config.limits.maxSteps,
-      remainingToolCalls: loaded.config.limits.maxToolCalls,
+      remainingRuns: Math.min(4, loaded.config.limits.maxToolCalls ?? 4),
+      remainingModelSteps: loaded.config.limits.maxSteps ?? 16,
+      remainingToolCalls: loaded.config.limits.maxToolCalls ?? 32,
     };
     const runSubagent: PluginSubagentRunner = async (
       { subagent, task },
@@ -419,6 +438,12 @@ export async function runTask(
     );
     const result = await runAgent({
       runId,
+      ...(dependencies.completionPolicy
+        ? { completionPolicy: dependencies.completionPolicy }
+        : {}),
+      ...(dependencies.finalizationInput
+        ? { finalizationInput: dependencies.finalizationInput }
+        : {}),
       prompt,
       ...(images.length ? { images } : {}),
       context: {

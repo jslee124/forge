@@ -56,6 +56,7 @@ export type ToolErrorCode =
   | "not_directory"
   | "not_file"
   | "not_found"
+  | "not_text"
   | "outside_workspace"
   | "output_limit"
   | "process_error"

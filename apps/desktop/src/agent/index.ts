@@ -1,6 +1,7 @@
 import { configureHttpDispatcher } from "@forge/application";
 import { z } from "zod";
 import { managementCommandSchema } from "../shared/application-protocol.js";
+import { RUN_PROTOCOL_VERSION } from "../shared/run-protocol.js";
 import { DesktopApplication, desktopError } from "./application.js";
 import { RunService } from "./run-service.js";
 import { createAgentRequestHandler } from "./runtime.js";
@@ -14,7 +15,17 @@ if (!parentPort) {
 
 configureHttpDispatcher(process.env);
 
-const application = new DesktopApplication(process.env, process.cwd());
+const {
+  FORGE_PRODUCT_LIVE_OPT_IN: liveOptIn,
+  FORGE_PRODUCT_LIVE_FINALIZATION_INPUT: liveInput,
+} = process.env;
+const application = new DesktopApplication(
+  process.env,
+  process.cwd(),
+  liveOptIn === "1" && liveInput === "evidence"
+    ? { finalizationInput: "evidence" }
+    : {},
+);
 const runs = new RunService(
   (message) => parentPort.postMessage(message),
   application.execute,
@@ -48,6 +59,7 @@ parentPort.on("message", (event) => {
         if (
           runs.busy &&
           command.type !== "state" &&
+          command.type !== "browse-session" &&
           command.type !== "cancel-login"
         )
           throw new Error("busy");
@@ -66,4 +78,8 @@ parentPort.on("message", (event) => {
   runs.handle(event.data);
   void handleRequest(event.data);
 });
-parentPort.postMessage({ type: "ready", pid: process.pid });
+parentPort.postMessage({
+  type: "ready",
+  pid: process.pid,
+  runProtocolVersion: RUN_PROTOCOL_VERSION,
+});

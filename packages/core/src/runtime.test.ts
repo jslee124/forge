@@ -11,6 +11,7 @@ import type {
 } from "./index.js";
 import {
   exitCodeForRunStatus,
+  ModelProviderError,
   ReadOnlyPolicy,
   runAgent,
   runConversationMessages,
@@ -1115,4 +1116,25 @@ describe("native agent runtime", () => {
     expect(exitCodeForRunStatus("denied")).toBe(4);
     expect(exitCodeForRunStatus("cancelled")).toBe(130);
   });
+});
+
+it("preserves structured provider failure facts without copying the cause", async () => {
+  const error = new ModelProviderError("Rejected access", {
+    provider: "fixture",
+    statusCode: 401,
+    retryable: false,
+    cause: { secret: "not-a-fact" },
+  });
+  const result = await runAgent({
+    prompt: "fixture",
+    model: new ScriptedModel([error]),
+    tools: [],
+    policy: new ReadOnlyPolicy(),
+    toolContext,
+    signal: toolContext.signal,
+  });
+  expect(result.providerFailure).toEqual({ statusCode: 401, retryable: false });
+  expect(result.status).toBe("failed");
+  expect(result.toolCalls).toBe(0);
+  expect(JSON.stringify(result.providerFailure)).not.toContain("not-a-fact");
 });

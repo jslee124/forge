@@ -1,0 +1,39 @@
+diff --git a/dist/index.js b/dist/index.js
+index 23be48b539beffeff67db76e27bb438b1964c783..33227cdf98f2988ab0f191309a4da8c0285797dd 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -137,7 +137,7 @@ async function convertToDeepSeekChatMessages({
+   supportsStructuredOutputs = false
+ }) {
+   var _a;
+-  const isDeepSeekV4 = modelId.includes("deepseek-v4");
++  const isDeepSeekV4 = modelId.includes("deepseek-v4") || modelId === "deepseek-flash";
+   const messages = [];
+   const warnings = [];
+   if ((responseFormat == null ? void 0 : responseFormat.type) === "json") {
+diff --git a/dist/internal/index.js b/dist/internal/index.js
+index df5577f221872b48bca79ff75035e750c1f60b79..e6b45a7e30ba0b9bb45f6ca78ee3510b9e03356b 100644
+--- a/dist/internal/index.js
++++ b/dist/internal/index.js
+@@ -127,7 +127,7 @@ async function convertToDeepSeekChatMessages({
+   supportsStructuredOutputs = false
+ }) {
+   var _a;
+-  const isDeepSeekV4 = modelId.includes("deepseek-v4");
++  const isDeepSeekV4 = modelId.includes("deepseek-v4") || modelId === "deepseek-flash";
+   const messages = [];
+   const warnings = [];
+   if ((responseFormat == null ? void 0 : responseFormat.type) === "json") {
+diff --git a/src/chat/convert-to-deepseek-chat-messages.ts b/src/chat/convert-to-deepseek-chat-messages.ts
+index 8f4bf6530cdaf06542545f0e79f6b07df0d8a64d..f30dff564048db7e80acce5947a85ee0c96632c2 100644
+--- a/src/chat/convert-to-deepseek-chat-messages.ts
++++ b/src/chat/convert-to-deepseek-chat-messages.ts
+@@ -45,7 +45,7 @@ export async function convertToDeepSeekChatMessages({
+   messages: DeepSeekChatPrompt;
+   warnings: Array<SharedV4Warning>;
+ }> {
+-  const isDeepSeekV4 = modelId.includes('deepseek-v4');
++  const isDeepSeekV4 = modelId.includes('deepseek-v4') || modelId === 'deepseek-flash';
+   const messages: DeepSeekChatPrompt = [];
+   const warnings: Array<SharedV4Warning> = [];
+ 

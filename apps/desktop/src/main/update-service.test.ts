@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { updateCommandSchema } from "../shared/update-protocol.js";
 import {
   compareVersions,
+  desktopBuildIdentity,
   parseVersion,
   type Release,
   readChecksum,
@@ -445,4 +446,125 @@ it("rejects managed-directory symlink substitution before writing", async () => 
     "Unsafe",
   );
   expect(await readdir(outside)).toEqual([]);
+});
+
+describe("local development build updates", () => {
+  it.each(["0.4.0-local.adfbad2", "0.4.0-preview.1+local.adfbad2"])(
+    "requires explicit public replacement for %s even with saved startup preference",
+    async (version) => {
+      const f = await setup(undefined, version);
+      await f.service.close();
+      await writeFile(
+        join(f.root, "preferences.json"),
+        JSON.stringify({ channel: "preview", startup: true }),
+      );
+      const service = new UpdateService({
+        root: f.root,
+        version,
+        platform: "darwin",
+        arch: "arm64",
+        startupAllowed: true,
+        fetch: f.request,
+        openPath: f.openPath,
+      });
+      services.push(service);
+      await service.initialize();
+      expect(service.status).toMatchObject({
+        localBuild: true,
+        sourceRevision: "adfbad2",
+        startup: true,
+      });
+      service.start();
+      await service.command({
+        type: "preferences",
+        channel: "stable",
+        startup: true,
+      });
+      expect(f.request).not.toHaveBeenCalled();
+      expect((await service.command({ type: "check" })).error).toContain(
+        "Confirm public-version replacement",
+      );
+      expect((await service.command({ type: "download" })).phase).toBe(
+        "failed",
+      );
+      expect(f.request).not.toHaveBeenCalled();
+      // Explicit switch may show an older public core; it is not an upgrade claim.
+      await service.command({
+        type: "preferences",
+        channel: "preview",
+        startup: true,
+      });
+      const result = await service.command({
+        type: "check",
+        allowLocalReplacement: true,
+      });
+      expect(result).toMatchObject({
+        phase: "available",
+        target: "0.3.4-preview.2",
+        localBuild: true,
+      });
+      expect(f.request).toHaveBeenCalledTimes(2);
+      expect(f.openPath).not.toHaveBeenCalled();
+      const switched = await service.command({
+        type: "preferences",
+        channel: "stable",
+        startup: true,
+      });
+      expect(switched).toMatchObject({ phase: "unchecked", channel: "stable" });
+      expect(switched.target).toBeUndefined();
+      expect(f.request).toHaveBeenCalledTimes(2);
+      expect((await service.command({ type: "download" })).phase).toBe(
+        "failed",
+      );
+      expect(f.request).toHaveBeenCalledTimes(2);
+      await service.command({
+        type: "preferences",
+        channel: "preview",
+        startup: true,
+      });
+      expect(
+        JSON.parse(await readFile(join(f.root, "preferences.json"), "utf8")),
+      ).toEqual({ channel: "preview", startup: true });
+    },
+  );
+  it("keeps stable/preview ordering and excludes local release assets", () => {
+    expect(desktopBuildIdentity(null)).toEqual({ localBuild: false });
+    expect(desktopBuildIdentity("0.4.0+build.123")).toEqual({
+      localBuild: false,
+    });
+    expect(desktopBuildIdentity("0.4.0-preview.2")).toEqual({
+      localBuild: false,
+    });
+    expect(desktopBuildIdentity("0.4.0-local.test")).toEqual({
+      localBuild: true,
+    });
+    expect(
+      selectRelease(
+        [
+          release("9.0.0-local.adfbad2"),
+          release("0.3.4"),
+          release("0.3.4-preview.3"),
+        ],
+        null,
+        "stable",
+        "darwin",
+        "arm64",
+      )?.version,
+    ).toBe("0.3.4");
+    expect(
+      selectRelease([release("0.4.0")], "0.5.0", "stable", "darwin", "arm64"),
+    ).toBeUndefined();
+    expect(
+      updateCommandSchema.safeParse({
+        type: "check",
+        allowLocalReplacement: false,
+      }).success,
+    ).toBe(false);
+    expect(
+      updateCommandSchema.safeParse({
+        type: "download",
+        allowLocalReplacement: true,
+      }).success,
+    ).toBe(false);
+  });
 });

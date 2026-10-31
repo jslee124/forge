@@ -7,6 +7,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./product-run-schema": {
+      "types": "./dist/product-run-schema.d.ts",
+      "import": "./dist/product-run-schema.js"
     }
   },
   "files": [

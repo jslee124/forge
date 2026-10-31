@@ -17,3 +17,5 @@ overrides:
   'source-map-js@<1.2.2': 1.2.2
   'vitest>vite': 8.2.4
   '@vitest/mocker>vite': 8.2.4
+patchedDependencies:
+  '@ai-sdk/deepseek@3.0.35': patches/@ai-sdk__deepseek@3.0.35.patch

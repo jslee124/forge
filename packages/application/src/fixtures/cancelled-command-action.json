@@ -1,0 +1,13 @@
+{
+  "source": "806ceeb / real Desktop F02-command / 2026-10-27",
+  "scope": "Captured terminal action only; not a full run or replay of effects",
+  "action": {
+    "actionId": "call_00_yJNgjC107RjjeAJfFYpE5807",
+    "step": 1,
+    "tool": "run_command",
+    "status": "failed",
+    "input": "{\n  \"program\": \"node\",\n  \"args\": [\n    \"-e\",\n    \"require('node:fs').writeFileSync('cancel-probe-started.json',JSON.stringify({pid:process.pid}));setTimeout(()=>require('node:fs').writeFileSync('cancel-probe-finished.txt','unexpected completion'),30000)\"\n  ],\n  \"cwd\": \".\",\n  \"timeoutMs\": 180000\n}",
+    "output": "{\n  \"ok\": false,\n  \"error\": {\n    \"code\": \"cancelled\",\n    \"message\": \"The tool call was cancelled.\",\n    \"retryable\": false\n  }\n}",
+    "truncated": false
+  }
+}

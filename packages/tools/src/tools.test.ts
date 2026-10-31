@@ -86,6 +86,49 @@ describe("workspace resolution", () => {
 });
 
 describe("read-only tools", () => {
+  it("preserves meaningful path whitespace through create/read/edit and still rejects escapes", async () => {
+    const { root, outside, context } = await fixture();
+    const directory =
+      process.platform === "win32"
+        ? " folder with spaces"
+        : " folder with spaces ";
+    const name =
+      process.platform === "win32" ? " report file.txt" : " report file.txt ";
+    await mkdir(path.join(root, directory));
+    const relative = `${directory}/${name}`;
+    expect(
+      await createFile({ path: relative, content: "before" }, context),
+    ).toMatchObject({ ok: true, output: { path: relative } });
+    expect(await readFile({ path: relative }, context)).toMatchObject({
+      ok: true,
+      output: { path: relative, content: "before" },
+    });
+    expect(
+      await editFile(
+        {
+          operation: "replace",
+          path: relative,
+          edits: [{ oldText: "before", newText: "after" }],
+        },
+        context,
+      ),
+    ).toMatchObject({ ok: true });
+    expect(await readTextFile(path.join(root, relative), "utf8")).toBe("after");
+    expect(
+      await readFile({ path: `${directory}/../README.md` }, context),
+    ).toMatchObject({ ok: true, output: { path: "README.md" } });
+    await symlink(outside, path.join(root, directory, " external link "));
+    for (const requested of [
+      `${directory}/../../outside.txt`,
+      `${directory}/ external link `,
+    ])
+      expect(await readFile({ path: requested }, context)).toMatchObject({
+        ok: false,
+        error: { code: "outside_workspace" },
+      });
+    expect(await readTextFile(outside, "utf8")).toBe("secret\n");
+  });
+
   it("lists files deterministically without following symlinks", async () => {
     const { root, outside, context } = await fixture();
     await symlink(outside, path.join(root, "external-link"));
@@ -113,7 +156,7 @@ describe("read-only tools", () => {
 
     const result = await readFile({ path: "README.md" }, limitedContext);
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       ok: true,
       output: {
         path: "README.md",

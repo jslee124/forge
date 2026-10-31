@@ -19,6 +19,107 @@ const start = {
 const flush = () => new Promise((resolve) => setImmediate(resolve));
 
 describe("run transport", () => {
+  it("interrupts instead of hanging on a malformed event from the active run", async () => {
+    const channel = new RunChannel(() => undefined);
+    const events: RunEvent[] = [];
+    channel.subscribe((event) => events.push(event));
+    const pending = channel.request(start);
+    channel.receive({
+      type: "run-reply",
+      requestId: start.requestId,
+      ok: true,
+    });
+    await pending;
+    channel.receive({
+      type: "run-event",
+      schemaVersion: 1,
+      occurredAt: new Date().toISOString(),
+      sessionId: start.sessionId,
+      runId: start.runId,
+      requestId: start.requestId,
+      sequence: 1,
+      payload: { type: "text", text: "unsafe mixed protocol" },
+    });
+    expect(events).toHaveLength(1);
+    expect(events[0]?.payload).toEqual({
+      type: "complete",
+      outcome: "interrupted",
+    });
+  });
+  it("binds structured decisions to actions and emits the decision before completion", async () => {
+    const messages: (RunEvent | RunReply)[] = [];
+    let allowed: boolean | undefined;
+    const service = new RunService(
+      (message) => messages.push(message),
+      async (_, context) => {
+        allowed = await context.approve("Read file", {
+          actionId: "action1",
+          effect: "read",
+          resource: "note.txt",
+          preview: "read note.txt",
+          input: "{}",
+          riskFlags: [],
+        });
+      },
+    );
+    service.handle(start);
+    await flush();
+    const approve = {
+      type: "approve",
+      requestId: "bad",
+      sessionId: start.sessionId,
+      runId: start.runId,
+      approvalId: "approval-1",
+      actionId: "wrong",
+      allow: true,
+    };
+    service.handle(approve);
+    expect(messages.at(-1)).toMatchObject({ type: "run-reply", ok: false });
+    expect(allowed).toBeUndefined();
+    service.handle({ ...approve, requestId: "right", actionId: "action1" });
+    await flush();
+    expect(allowed).toBe(true);
+    const payloads = messages
+      .filter((message): message is RunEvent => message.type === "run-event")
+      .map((message) => message.payload.type);
+    expect(payloads).toEqual(["approval", "approval-resolved", "complete"]);
+    service.close();
+  });
+
+  it("coalesces reasoning before assigning sequence numbers and flushes terminal text", async () => {
+    const messages: (RunEvent | RunReply)[] = [];
+    const service = new RunService(
+      (message) => messages.push(message),
+      async (_, context) => {
+        for (let i = 0; i < 10_000; i++) context.detail("reasoning", ".", 1);
+        context.text("answer");
+        return {
+          outcome: "limit_reached",
+          reason: "model_step_limit",
+          modelSteps: 12,
+          toolCalls: 0,
+        };
+      },
+    );
+    service.handle(start);
+    await flush();
+    const events = messages.filter(
+      (message): message is RunEvent => message.type === "run-event",
+    );
+    expect(events.map((message) => message.sequence)).toEqual([1, 2, 3]);
+    expect(events[0]?.payload).toMatchObject({
+      type: "detail",
+      kind: "reasoning",
+      text: ".".repeat(10_000),
+    });
+    expect(events.at(-1)?.payload).toMatchObject({
+      outcome: "limit_reached",
+      reason: "model_step_limit",
+    });
+    for (const event of events) expect(parseRunEvent(event)).toBeDefined();
+    expect(parseRunEvent({ ...events[0], schemaVersion: 1 })).toBeUndefined();
+    service.close();
+  });
   it("rejects unknown, oversized, nonserializable and extra authority parameters", () => {
     for (const value of [
       null,
@@ -97,6 +198,8 @@ describe("run transport", () => {
     expect(await pending).toBe(true);
     const event: RunEvent = {
       type: "run-event",
+      schemaVersion: 2,
+      occurredAt: new Date().toISOString(),
       requestId: "req1",
       sessionId: "session1",
       runId: "run1",
@@ -181,4 +284,85 @@ describe("run transport", () => {
     await flush();
     expect(allowed).toBe(false);
   });
+});
+
+describe("recovery command boundary", () => {
+  it("accepts only a source link and opaque preparation token", () => {
+    const recovery = {
+      token: "review-token",
+      sourceRunId: "source-run",
+      kind: "retry",
+    };
+    expect(parseRunCommand({ ...start, recovery })).toMatchObject({ recovery });
+    for (const invalid of [
+      { ...recovery, kind: "replay" },
+      { ...recovery, token: "../unsafe" },
+      { ...recovery, permissionProfile: "workspace-write" },
+      { ...recovery, grants: ["allow"] },
+    ])
+      expect(parseRunCommand({ ...start, recovery: invalid })).toBeUndefined();
+  });
+});
+
+it("keeps the live channel connected for unknown command effects and accepts cancellation completion", async () => {
+  let faults = 0;
+  const channel = new RunChannel(
+    () => undefined,
+    () => {
+      faults++;
+    },
+  );
+  const events: RunEvent[] = [];
+  channel.subscribe((event) => events.push(event));
+  const pending = channel.request(start);
+  channel.receive({ type: "run-reply", requestId: start.requestId, ok: true });
+  expect(await pending).toBe(true);
+  const envelope = {
+    type: "run-event",
+    schemaVersion: 2,
+    occurredAt: new Date().toISOString(),
+    requestId: start.requestId,
+    sessionId: start.sessionId,
+    runId: start.runId,
+  };
+  const action = {
+    actionId: "cancelled-command",
+    step: 1,
+    tool: "run_command",
+    status: "unknown",
+    input: "{}",
+    output: JSON.stringify({
+      ok: false,
+      error: {
+        code: "cancelled",
+        message: "The tool call was cancelled.",
+        retryable: false,
+      },
+    }),
+  };
+  const update = {
+    ...envelope,
+    sequence: 1,
+    payload: { type: "action", action },
+  };
+  expect(parseRunEvent(update)).toBeDefined();
+  expect(
+    parseRunEvent({
+      ...update,
+      payload: { type: "action", action: { ...action, status: "invented" } },
+    }),
+  ).toBeUndefined();
+  channel.receive(update);
+  channel.receive({
+    ...envelope,
+    sequence: 2,
+    payload: { type: "complete", outcome: "cancelled", reason: "cancelled" },
+  });
+  expect(faults).toBe(0);
+  expect(events.map((event) => event.payload.type)).toEqual([
+    "action",
+    "complete",
+  ]);
+  expect(events.at(-1)?.payload).toMatchObject({ outcome: "cancelled" });
+  channel.disconnect();
 });

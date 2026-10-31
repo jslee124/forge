@@ -8,6 +8,130 @@ Forge separates deterministic runtime correctness from live-model capability.
 The default test suite never makes a paid request. Live DeepSeek trials are a
 separate, explicit operation whose failures remain part of the report.
 
+Private outputs and source snapshots under `evals/artifacts/` are evidence, not
+current test inputs. TypeScript test checking and Vitest discovery exclude that
+directory while retaining their normal dependency exclusions; keep snapshots
+intact instead of executing them or deleting them to make validation pass.
+
+## Full Desktop acceptance planning
+
+Generate an offline proposal before preparing paid workspaces:
+
+```bash
+node apps/desktop/scripts/product-acceptance-plan.mjs --output /tmp/forge-acceptance-plan.json
+```
+
+The destination must be new. This planner reads no credentials, makes no model
+calls, and rejects execution flags. It records model, prompts, supplements,
+permitted writes, seed/protocol/source/build hashes and a pending human rubric
+for 48 task rows in two rounds. F02 has two stages, yielding 50 execution lanes.
+The `full-acceptance-v1` profile fixes ordinary tasks at 16 steps / 32 tools, with existing specific
+limits for fault controls. E01/E03 use faults-v5, E02/E05 v4, E04 v3; other tasks
+use v5. Both rounds use the same declared per-task conditions. These supplemented
+tasks are a scoped acceptance protocol, not an unchanged-prompt/default baseline.
+
+The ceiling is 570 paid logical steps and 15,620 seconds (about 4h20m) of serial
+launcher allowances. These are proposed bounds, not measured duration or a money
+cap. Token usage, provider retry behavior and current pricing need separate
+accounting before paid execution. No price estimate is inferred from step count.
+
+The proposal remains `executionReady: false`: it is not a spend authorization or
+an executable workspace. Prepare a separate matrix with the new profile:
+
+```bash
+pnpm build
+node apps/desktop/scripts/product-matrix.mjs --prepare --acceptance --output /tmp/forge-acceptance-matrix
+```
+
+Preparation makes zero calls. The default matrix remains the original bounded
+diagnostic mode. Acceptance preparation pins each lane's profile, protocol and
+deadline. `product-live.mjs --check --full-acceptance` validates the prepared
+task without credentials. Ordinary tasks have a 300-second host deadline and a
+330-second launcher watchdog. F05 retains two process phases with a 200-second
+watchdog each; other fault/control deadlines remain separately declared.
+
+Paid matrix execution additionally requires `--max-paid-steps N` covering the
+selected batch's frozen ceiling (570 for all tasks, never more than 570) and
+`--acknowledge-variable-cost`. The latter explicitly acknowledges that step limits
+do not enforce a currency cap; a hard monetary cap requires provider-side controls.
+Do not treat these flags or a prepared file as evidence of user authorization.
+The launcher validates all lanes and source/build/seed hashes before credentials,
+reserves each lane's full step ceiling in `matrix-budget.json` before launch,
+and retains reservations after failure. An existing ledger prevents automatic
+resume/retry; critical, provider, infrastructure and source-drift failures stop
+the batch. Reporting remains available after a stop. Wiring validation used local
+tests and build checks. The later paid attempt and its critical stop are recorded
+in the [implementation record](DESKTOP_PRODUCT_IMPLEMENTATION.md#full-acceptance-attempt-stopped-at-a-critical-protocol-failure-2026-10-30).
+
+Fresh source/build freezing and semantic review remain necessary. Do not combine
+old diagnostic results into the denominator. Every dimension of the manifest
+rubric needs evidence and human review; both F02 stages count as one task. Gates
+remain at least 22/24 per round with all critical cases passing, and a separate
+12/15 independent-user gate. Telegram, manual accessibility, other platforms and
+release publication remain separate.
+
+## Explicit path contract and local cancellation controls
+
+`desktop-product-faults-v6` with `--contract-acceptance` is a new scoped E04/F02
+protocol. It does not replace the old corpus, failed attempts or full matrix.
+E04 publicly specifies exact preservation of valid path strings, including
+surrounding filename spaces; lexical containment across slash/backslash segments;
+and rejection of root escapes, absolute/drive/UNC paths and non-string inputs.
+It provides no assertions or reference code. The existing external
+`edit-probes-v2` grader stays unchanged: the old trim-only patch still fails,
+while a host-only contract witness passes all 14 probes. This does not prove a
+real model can repair the function under the clarified contract. It also does
+not establish filesystem/symlink containment or change product permissions.
+
+F02 in this profile automatically uses a loopback scripted provider, even without
+`--fixture`, and never reads provider credentials. It supplies the fixed command
+through the normal renderer/IPC/runtime/approval/tool path. The exact allowlist
+still rejects rewritten commands; old live protocols retain model-copying behavior.
+Model-stage streaming and command-stage cancellation run in separate fresh rounds:
+
+```bash
+pnpm build
+node evals/dist/desktop-product-prepare.js --output /tmp/forge-local-cancel-model --round 1 --fault-protocol desktop-product-faults-v6
+node evals/dist/desktop-product-prepare.js --output /tmp/forge-local-cancel-command --round 1 --fault-protocol desktop-product-faults-v6
+node apps/desktop/scripts/product-live.mjs --live --fixture --contract-acceptance --round /tmp/forge-local-cancel-model --task F02 --cancel-stage model
+node apps/desktop/scripts/product-live.mjs --live --fixture --contract-acceptance --round /tmp/forge-local-cancel-command --task F02 --cancel-stage command
+```
+
+Use fresh outside-repository directories and a current Desktop build. E04 can be
+preflighted using `--check --contract-acceptance --task E04`; E04 `--live` still
+calls the external model and is a separate authorized measurement. Do not use
+the old full-matrix acceptance flag to mix this new protocol into earlier rounds.
+
+## Full acceptance v2 preparation and review
+
+Use a fresh matrix rather than resuming the stopped v1 batch:
+
+```bash
+pnpm desktop:build
+node apps/desktop/scripts/product-acceptance-plan.mjs --acceptance-v2 --output /tmp/forge-v2-proposal.json
+node apps/desktop/scripts/product-matrix.mjs --prepare --acceptance-v2 --output /tmp/forge-v2-matrix
+```
+
+Both preparation commands make zero calls. V2 keeps 24 tasks per round and 50
+lanes across two rounds. E04/F02 use faults-v6 / contract-acceptance; F02 is local
+scripted cancellation control. Other tasks keep their v1 per-task conditions.
+The paid logical-step ceiling is 560 (v1 remains 570); this is not a money cap.
+Live execution still requires the frozen batch's step quota and variable-cost
+acknowledgement, validates all lanes before credentials and stops on critical,
+infrastructure/provider or source/build drift errors, without retry. V1 and v2
+flags are mutually exclusive; old evidence is never upgraded or combined.
+
+Preparation also writes `matrix-review.json`: 48 pending task rows, each with
+five rubric dimensions, evidence/reason fields and reviewer identity. Check
+partial-read claims, static call sites, Promise adoption versus identity,
+unsupported security conclusions, and claimed input boundaries against actual
+patches. These are source-review requirements, not keyword-based auto-scoring or
+new answer-length thresholds. A filled template does not automatically close the
+gate: matrix reports retain `fullBaselineComplete: false`, and independent human
+review/user trials remain separate. The 22/24-per-round and all-critical gates
+are unchanged. A local F02 pass measures runtime cancellation, not live model
+copying reliability; keep that distinction in any reported v2 result.
+
 ## Tasks
 
 Versioned manifests live under `evals/tasks/`. Every trial starts from a fresh
@@ -190,3 +314,163 @@ checkpoint validation, cancellation outcome recovery, repeated provider call
 IDs, non-restored approval state, and durable-size rejection.
 
 Resource evaluation is deterministic and offline by default. Scripted fixtures cover matching, non-matching, ambiguous, explicit, user-disabled, collision, repeated-load, over-budget, adversarial Skill, product-question, and unsupported-question cases. Metrics include selection precision and recall, unnecessary loads, catalog and loaded tokens, citation accuracy, latency, and task completion. Live-provider resource trials remain explicit opt-in.
+
+## Fixed-observation negative-evidence diagnostic
+
+The [comparison runner](../../evals/scripts/compare-negative-evidence.mjs) isolates
+requested model ID (deepseek-flash / deepseek-v4-pro) and context framing (paired
+tool history / the same observations in an untrusted evidence packet). Each of
+four cells has two samples in a predeclared counterbalanced order. It uses the
+frozen Q06 question, a depth-1 file listing and literal analytics search, reusing
+the native investigation instructions without rewriting them. This is synthetic
+history projection, not a replay of original provider requests or Desktop acceptance.
+
+```bash
+CI=true pnpm eval:negative-evidence --prepare --output /tmp/forge-negative-compare-new
+CI=true pnpm eval:negative-evidence --check --output /tmp/forge-negative-compare-new
+CI=true pnpm eval:negative-evidence --fixture --output /tmp/forge-negative-compare-new
+# Explicit opt-in paid diagnostic; no model configuration or installation is changed:
+CI=true pnpm eval:negative-evidence --live --output /tmp/forge-negative-compare-new
+```
+
+Prepare/check/fixture do not read credentials or contact providers. Live caps the
+batch at eight requests, one per sample, 4096 output tokens each and 90 seconds
+per request, with no tool executor, redirects or additional HTTP retries. Errors
+stop the batch, except invalid/incomplete model output, which is recorded for that cell
+while other predeclared independent cells continue. No failed cell is retried.
+Existing attempts are never overwritten. Changed input, script,
+policy, schema or source revision requires a fresh preparation. Request bodies,
+reported usage and answers are retained; authentication headers and generated
+reasoning text are not saved. Semantic review stays separate from stop/prose
+validity. Requested/returned model labels do not prove distinct backend weights,
+and two samples per cell do not establish general model reliability or user success.
+
+## Experimental evidence finalization and reviewed summary
+
+Prepare Desktop pilot rounds outside any ancestor Git repository, normally under
+`/tmp`. Forge resolves a nested working directory to its enclosing Git workspace;
+an isolated `FORGE_HOME` alone does not isolate that workspace, project settings
+or repository instructions. Do not add a Git marker to a frozen fixture to hide
+this mismatch. `product-live.mjs` resolves the application's canonical workspace
+identity for every selected task/round before any credential read, including
+`--check` and local fixtures, and checks again before each execution. It rejects
+a root different from the fixture directory and records the identity in the
+check plan. This is a preflight check, not filesystem isolation against later
+external changes. Retain contaminated attempts with a separate invalidation
+record; do not turn them into baseline passes or overwrite their raw artifacts.
+
+The real Desktop pilot accepts `--finalization-input continuation|evidence`;
+default remains continuation. Only the isolated pilot's explicit host override
+selects evidence input. Prepare fresh directories per mode/round, then use:
+
+```bash
+node apps/desktop/scripts/product-live.mjs --check --task E01 --task F03 --finalization-input evidence --recover-summary --round /tmp/fresh-evidence-round
+```
+
+Live execution of that same selection is explicit paid opt-in and must run from
+apps/desktop (as existing pilot commands require). `--recover-summary` adds a
+separate reviewed/confirmed one-step, zero-tool summary after each selected E01
+or F03 run; it does not change source task budgets or automatically recover the
+product. Original pilot-result/events stay immutable; recovery-result and review/
+summary screenshots are separate, and projection-observation records trace intent
+plus whether that model step started. A source run finishing early does not test
+the reserved projection. Check command exit/verification, edit scope, independent
+port assertions, source links, unknown outcomes and preserved draft separately.
+
+### Bounded repair acceptance
+
+Opt-in `desktop-product-faults-v5` adds model-authored regression tests for E01
+(port validation) and E03 (duplicate submission and recovery). Prepare a fresh
+round with that protocol, then use the direct Desktop launcher:
+
+```bash
+node apps/desktop/scripts/product-live.mjs --check --repair-acceptance --round /tmp/fresh-repair-round --task E01 --task E03
+```
+
+After prior user authorization for external calls, `--live` uses the same inputs
+and flag. The profile has explicit ceilings of 16 model steps / 32 tool calls and
+a 300-second host deadline per task (330-second launcher watchdog). This bounds
+an experiment, not the monetary bill. It cannot combine with `--product-defaults`
+and rejects other tasks or protocols before credentials. This profile does not
+accept `--recover-summary`; request a summary as a separate reviewed operation.
+The matrix launcher
+still prepares bounded six-step diagnostics; it does not select this profile.
+
+Only `workflow.mjs` and a model-created `regression.test.mjs` may be written.
+Only the exact cwd-local `node --test regression.test.mjs` command is approved;
+E01 additionally permits the separate original `node --test fixture.test.mjs`.
+Original tests remain read-only. The frozen seed and original task prompts are
+unchanged; no assertions or reference solution are provided. The supplemented
+procedure/permissions make this a new protocol, not an unchanged baseline retry.
+Require observed relevant red/green assertions with preserved test bytes,
+independent behavioral probes and separate source/answer review. Keep the old
+six-step E01 attempt partial, without rewriting its result. Product policies,
+runtime guidance and previous protocols are unchanged.
+
+### Product-default repair pilot
+
+The opt-in Desktop launcher `apps/desktop/scripts/product-live.mjs` accepts
+`--product-defaults` for E01/E02/E04/E05/D05 only. Both `--check` and `--live` must use
+the flag. The isolated config omits total limits, using current product defaults
+instead of the bounded six-step scenario. Plans and results record nullable
+limits and the execution profile; bounded protocols and F03 are unchanged.
+For faults-v3 E04 only the six-step wording is replaced; the regression-first
+procedure and exact command/file approval scope remain unchanged.
+
+A 600-second host experiment deadline and 630-second launcher watchdog bound
+each attempt; these are test controls, not production total-count limits or a
+monetary budget. Record interruption as failure, not completion. Fresh seeds,
+no automatic whole-task retries, independent behavioral probes and source review
+remain required. External calls require prior user authorization; `--check`
+does not access credentials or call providers. Three sampled tasks cannot close
+the 24-task/two-round or independent-user product gate.
+
+### Held-out regression-contract diagnostic
+
+Opt-in `desktop-product-faults-v4` permits E02/E05 to create their own
+`regression.test.mjs` and edit only `workflow.mjs`. Only the exact cwd-local
+`node --test regression.test.mjs` process is approved. The seed is unchanged; no
+assertions, reference implementation or contract-map template is supplied.
+Other tasks/protocols keep their existing authority. Pre-command source/test
+hashes, red/green observations and separate independent probes use the existing
+observer; a mechanical regression cycle does not establish task correctness.
+
+For a guidance comparison, freeze two new tasks and run one fresh attempt per
+task at each source version, with `--product-defaults`, the same model, prompts,
+permissions and 10-minute experiment deadline. Retain all four attempts without
+retrying to chase success. Review assertion relevance and preserved behavior,
+not only exit codes or a completed runtime outcome. Such small nondeterministic
+samples cannot establish a causal improvement or overall success rate. `--check`
+validates the fixture and declares the plan without credentials/provider calls.
+
+### Native response-language diagnostic
+
+`evals/scripts/response-language.mjs` offers `--prepare`, `--fixture`, and opt-in
+`--live`, with a fresh `--output` directory. Three fixed synthetic prompts cover
+Chinese with English identifiers, an explicit English reply requested in Chinese,
+and an English request. Preparation pins source, policy hash, prompts and model
+without credentials or provider calls. Fixture results are scripted plumbing
+evidence, never language-compliance measurements.
+
+The shared `runTask` path is used with one model response per case. The diagnostic
+adapter removes all tool definitions, requests `toolChoice=none`, and rejects
+tool-call events before execution; no business workspace or history is supplied.
+Live mode reads credentials only after input checks and explicit opt-in, retains
+each result and stops on failure without whole-case retries. Reusing an attempted
+directory is rejected before credential access. Human review checks language,
+literal preservation and requested format separately from runtime completion.
+HTTP attempts/retries and billing are not inferred from logical response counts.
+These one-turn samples are not real Desktop coding-task or Codex acceptance.
+
+The native policy also derives a narrow language hint from unambiguous English
+or Chinese reply-language prefixes in the current user prompt. Quoted/code/log
+text, negative directives, multiple recognized directives and alternative
+languages do not select this hint. Unsupported phrasing/languages keep general
+model guidance; this is not a complete natural-language intent parser or an
+automatic translation guarantee. Reviewed recovery-summary locale is unchanged.
+
+Use repeatable `--case` selections for a fresh targeted plan, for example
+`--case explicit-en --case quoted-en`. The quoted case asks in Chinese about a
+`Respond in English` log entry. Case-specific assembled-policy hashes are pinned.
+Initial failed answers stay in their original directory; any paid follow-up is
+a separately disclosed, explicitly authorized attempt, not an automatic retry.

@@ -139,8 +139,8 @@ pnpm forge plugins list
 ```
 
 `config show` prints the effective value and source for each public setting. A
-fresh configuration begins with the `safe` permission profile, 12 model steps,
-40 tool calls, a 60-second command timeout, trace persistence enabled, and
+fresh configuration begins with the `safe` permission profile, no fixed total
+model-step/tool-call ceiling, a 60-second command timeout, trace persistence enabled, and
 context mode `manual`.
 
 If the output is surprising, read [Configuration](CONFIGURATION.md) before

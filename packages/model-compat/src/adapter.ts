@@ -43,6 +43,7 @@ export function resolveReasoningWireValue(
 }
 
 export class CompatModelAdapter implements ModelAdapter {
+  readonly supportsToolChoiceNone = true;
   readonly context: ModelContextCapabilities;
   readonly promptCache = { mode: "unsupported" as const };
   readonly #options: CompatModelAdapterOptions;
@@ -98,6 +99,10 @@ export class CompatModelAdapter implements ModelAdapter {
         ...(request.instructions ? { instructions: request.instructions } : {}),
         ...(request.conversation ? { conversation: request.conversation } : {}),
         ...(request.tools ? { tools: request.tools } : {}),
+        ...(request.toolChoice ? { toolChoice: request.toolChoice } : {}),
+        ...(request.responseDirective
+          ? { responseDirective: request.responseDirective }
+          : {}),
         ...(request.continuation ? { continuation: request.continuation } : {}),
         ...(request.toolResults ? { toolResults: request.toolResults } : {}),
       },

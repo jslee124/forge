@@ -190,13 +190,15 @@ export async function budgetModelRequest(options: {
   const total = await capabilities.estimateRequestTokens(options.request);
   const usesContinuation = options.request.continuation !== undefined;
   const estimates: ContextTokenBreakdown = {
-    instructions: usesContinuation
-      ? 0
-      : conservativeTextTokens(options.request.instructions ?? ""),
-    currentRequest: usesContinuation
-      ? 0
-      : conservativeTextTokens(options.request.prompt) +
-        conservativeImageTokens(options.request.images),
+    // Current host instructions are sent independently of provider continuation.
+    // They can change between investigation and finalization requests.
+    instructions: conservativeTextTokens(options.request.instructions ?? ""),
+    currentRequest:
+      conservativeTextTokens(options.request.responseDirective ?? "") +
+      (usesContinuation
+        ? 0
+        : conservativeTextTokens(options.request.prompt) +
+          conservativeImageTokens(options.request.images)),
     toolSchemas: conservativeValueTokens(
       options.request.tools?.map((tool) => ({
         name: tool.name,
@@ -284,9 +286,8 @@ export function conservativeRequestEstimate(
 ): TokenEstimate {
   const usesContinuation = request.continuation !== undefined;
   const tokens =
-    (usesContinuation
-      ? 0
-      : conservativeTextTokens(request.instructions ?? "")) +
+    conservativeTextTokens(request.instructions ?? "") +
+    conservativeTextTokens(request.responseDirective ?? "") +
     (usesContinuation
       ? 0
       : conservativeTextTokens(request.prompt) +

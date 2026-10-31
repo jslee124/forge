@@ -16,6 +16,7 @@ import { join } from "node:path";
 import { z } from "zod";
 import type { UpdateCommand, UpdateStatus } from "../shared/update-protocol.js";
 import {
+  desktopBuildIdentity,
   parseVersion,
   type Release,
   readChecksum,
@@ -82,6 +83,7 @@ export class UpdateService {
   ) {
     this.status = {
       version: options.version,
+      ...desktopBuildIdentity(options.version),
       platform: options.platform,
       channel:
         options.version && parseVersion(options.version).pre.length
@@ -129,7 +131,11 @@ export class UpdateService {
     this.directory = await mkdtemp(join(this.options.root, "session-"));
   }
   start(): void {
-    if (this.options.startupAllowed && this.status.startup)
+    if (
+      this.options.startupAllowed &&
+      this.status.startup &&
+      !this.status.localBuild
+    )
       void this.command({ type: "check" });
   }
   async command(command: UpdateCommand): Promise<UpdateStatus> {
@@ -270,8 +276,31 @@ export class UpdateService {
         startup: command.startup,
       };
       if (!changed) return { ...this.status };
+      if (this.status.localBuild) {
+        this.candidate = undefined;
+        this.checksum = undefined;
+        this.verified = undefined;
+        this.status = {
+          ...this.status,
+          phase: "unchecked",
+          target: undefined,
+          notes: undefined,
+          retry: undefined,
+          error: undefined,
+          received: undefined,
+          total: undefined,
+        };
+        return { ...this.status };
+      }
     }
     if (command.type === "check" || command.type === "preferences") {
+      if (
+        this.status.localBuild &&
+        (command.type !== "check" || !command.allowLocalReplacement)
+      )
+        throw new Error(
+          "Confirm public-version replacement of this local build first",
+        );
       for (const name of await readdir(this.directory)) {
         if (/^forge-desktop-[0-9.]+-(arm64|x64)\.(dmg|exe)$/.test(name))
           await rm(join(this.directory, name), { force: true });
@@ -317,7 +346,7 @@ export class UpdateService {
         );
       const candidate = selectRelease(
         releases,
-        this.status.version,
+        this.status.localBuild ? null : this.status.version,
         this.status.channel,
         this.options.platform,
         this.options.arch,

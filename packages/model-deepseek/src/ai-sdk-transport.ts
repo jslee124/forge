@@ -73,6 +73,7 @@ export class AiSdkDeepSeekTransport implements DeepSeekTransport {
         ...(request.instructions ? { instructions: request.instructions } : {}),
         messages,
         abortSignal: signal,
+        ...(request.toolChoice ? { toolChoice: request.toolChoice } : {}),
         // Forge maps stream errors itself. The AI SDK default logs the raw
         // error (including a stack trace) before Forge can render it safely.
         onError: () => undefined,
@@ -245,6 +246,11 @@ function buildMessages(request: DeepSeekTransportRequest): ModelMessage[] {
       })),
     });
   }
+
+  // A fresh answer-stage message interrupts tool-planning continuation without
+  // discarding its evidence or exposing any additional executable capability.
+  if (request.toolChoice === "none" && request.responseDirective)
+    messages.push({ role: "user", content: request.responseDirective });
 
   return messages;
 }

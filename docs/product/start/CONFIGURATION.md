@@ -67,8 +67,8 @@ values keep their defaults.
   },
   "permissionProfile": "safe",
   "limits": {
-    "maxSteps": 12,
-    "maxToolCalls": 40,
+    "maxSteps": null,
+    "maxToolCalls": null,
     "commandTimeoutMs": 60000,
     "maxToolOutputBytes": 65536
   },
@@ -110,10 +110,21 @@ effort.
 | Field | Default | Valid range | Meaning |
 | --- | ---: | --- | --- |
 | `permissionProfile` | `safe` | `safe`, `workspace-write` | `safe` confirms the first write and every command. `workspace-write` auto-allows workspace file writes but still confirms commands, network tools, and delegated model runs. |
-| `limits.maxSteps` | `12` | Positive integer | Maximum model turns in one run. |
-| `limits.maxToolCalls` | `40` | Positive integer | Maximum proposed tool calls in one run. |
+| `limits.maxSteps` | `null` | Positive integer or `null` | Optional maximum native model turns in one run; `null` has no fixed total ceiling. |
+| `limits.maxToolCalls` | `null` | Positive integer or `null` | Optional maximum proposed tool calls; `null` has no fixed total ceiling. |
 | `limits.commandTimeoutMs` | `60000` | Positive integer | Upper bound applied to process-command duration. |
 | `limits.maxToolOutputBytes` | `65536` | Positive integer | Maximum retained output from one tool execution. |
+
+Normal native tasks have no default total step/tool-call ceiling. Command timeouts,
+output/context bounds, cancellation, unchanged-read detection and repeated identical
+nonretryable refusal/invalid-action detection still apply. An ordinary test failure
+is not itself a no-progress stop. Explicit numeric limits remain opt-in and are
+used by bounded evaluations; project configuration can tighten an uncapped task,
+but project `null` cannot relax a user limit. A user can explicitly override a
+saved count with `--max-steps unlimited` or `--max-tool-calls unlimited`.
+Uncapped execution can consume ongoing provider usage until completion or stop;
+these counters are not a measured monetary budget. The no-progress guard is
+conservative, not a detector for every possible loop.
 
 Forge does not implement a `full-access` profile. An approved child process is
 still not OS-sandboxed; see [Security model](../concepts/SECURITY_MODEL.md).

@@ -52,7 +52,13 @@ Forge 文档按“读者想完成什么”组织。第一次接触项目时无�
 
 | 记录 | 决策 |
 | --- | --- |
+| [ADR-0007](../decisions/0007-experimental-evidence-finalization.md) | 宿主显式选择证据收尾实验，保留记录与执行限制（英文） |
+| [ADR-0006](../decisions/0006-explicit-answer-stage-message.md) | 明确回答阶段，保留证据与既有运行限制（英文） |
 | [ADR-0001](../decisions/0001-gateway-single-owner-workspace.md) | 聊天网关只服务一个 owner 和一个 workspace（英文） |
+| [ADR-0002](../decisions/0002-desktop-run-presentation-contract.md) | 桌面运行展示保留语义，不恢复执行权限（英文） |
+| [ADR-0003](../decisions/0003-desktop-durable-run-records.md) | 桌面持久运行记录只读，不重放操作、不恢复审批（英文） |
+| [ADR-0005](../decisions/0005-reviewed-desktop-run-recovery.md) | 原生桌面先确认恢复范围，再创建重新校验权限的关联运行（英文） |
+| [ADR-0004](../decisions/0004-reserved-desktop-finalization.md) | 原生桌面在既有总预算内预留无工具总结步骤（英文） |
 
 ## 扩展 Forge
 
@@ -72,6 +78,8 @@ Forge 文档按“读者想完成什么”组织。第一次接触项目时无�
 | --- | --- |
 | [评测指南](development/EVALUATION.md) | 运行确定性证据与显式 opt-in live trials |
 | [路线图](development/ROADMAP.md) | 当前开发、已完成 milestone 摘要与后续方向 |
+| [Desktop 产品化 PRD](development/DESKTOP_PRODUCT_PRD.md) | 拟议产品范围、核心流程、需求与发布门槛 |
+| [Desktop 产品化实现方案](development/DESKTOP_PRODUCT_IMPLEMENTATION.md) | 拟议运行契约、持久化、工具、收敛、界面与有序任务 |
 | [聊天渠道 Intent](development/CHAT_CHANNELS_INTENT.md) | 拟定 0.4.0 目标、范围与产品决策 |
 | [聊天渠道 Spec](development/CHAT_CHANNELS_SPEC.md) | 拟定 Telegram 网关契约、安全、恢复与验收 |
 

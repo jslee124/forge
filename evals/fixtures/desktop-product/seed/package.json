@@ -1,0 +1,14 @@
+{
+  "name": "desktop-product-fixture",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test fixture.test.mjs"
+  },
+  "dependencies": {
+    "electron": "44.9.3",
+    "react": "19.2.8",
+    "@radix-ui/react-select": "2.2.6"
+  },
+  "main": "main.mjs"
+}

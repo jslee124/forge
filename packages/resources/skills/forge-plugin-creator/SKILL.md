@@ -1,6 +1,6 @@
 ---
 name: forge-plugin-creator
-description: Create, modify, validate, explain, or test Forge plugins, including manifests, capabilities, lifecycle, trust, loading, tools, commands, observers, prompt hooks, policy hooks, and project activation. 用于创建、修改、验证和解释 Forge 插件。
+description: Create, modify, validate or troubleshoot specifically Forge plugins and their plugin.json/API integration. Not for arbitrary workspace tools, functions, request call paths or generic manifests. 用于 Forge 插件及其 API 接入，不用于普通工作区工具、函数、请求调用链或通用清单调查。
 ---
 
 # Forge plugin creator
@@ -10,6 +10,12 @@ plugin: it is never imported or executed and grants no filesystem, process,
 network, model, or approval capability. A generated plugin is trusted
 in-process JavaScript with the local privileges of Forge, so activation and
 trust must remain explicit.
+
+The presence of a `tools/` directory, a function called `tool`, a command or a
+generic manifest does not establish that the workspace implements a Forge plugin.
+For a request to explain workspace code, inspect the relevant source first and
+follow only dependencies needed for the requested answer. Do not inspect Forge's
+plugin API or templates unless actual Forge plugin integration is in scope.
 
 ## Required inspection
 

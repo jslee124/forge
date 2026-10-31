@@ -5,6 +5,7 @@ import {
   readFile,
   realpath,
   rm,
+  symlink,
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -12,10 +13,11 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createPersistentInteractiveSession } from "@forge/application";
 import type { ModelAdapter, ModelRequest, ModelStreamEvent } from "@forge/core";
-import { acquireWorkspaceLease } from "@forge/persistence";
+import { acquireWorkspaceLease, FileProductRunStore } from "@forge/persistence";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { RunChannel } from "../main/run-channel.js";
-import type { RunEvent } from "../shared/run-protocol.js";
+import { desktopStateSchema } from "../shared/application-protocol.js";
+import type { RunCommand, RunEvent } from "../shared/run-protocol.js";
 import { DesktopApplication } from "./application.js";
 import { RunService } from "./run-service.js";
 
@@ -47,6 +49,7 @@ const call = (name: string, input: unknown): ModelStreamEvent => ({
 async function fixture(
   steps: ModelStreamEvent[][],
   beforeStream?: () => Promise<void>,
+  finalizationInput?: "continuation" | "evidence",
 ) {
   const cwd = await mkdtemp(join(tmpdir(), "forge-desktop-execute-"));
   roots.push(cwd);
@@ -58,9 +61,18 @@ async function fixture(
   };
   const requests: ModelRequest[] = [];
   const model: ModelAdapter = {
+    supportsToolChoiceNone: true,
     async *stream(request) {
       await beforeStream?.();
       requests.push(request);
+      if (request.toolChoice === "none") {
+        yield {
+          type: "text.delta",
+          text: "Partial fixture summary; investigation is unavailable.",
+        };
+        yield finish("stop");
+        return;
+      }
       yield* steps.shift() ?? [
         { type: "text.delta", text: "done" },
         finish("stop"),
@@ -68,6 +80,7 @@ async function fixture(
     },
   };
   const application = new DesktopApplication(env, cwd, {
+    ...(finalizationInput ? { finalizationInput } : {}),
     createAdapter: () => model,
   });
   await application.manage({ type: "workspace", cwd });
@@ -79,6 +92,8 @@ async function run(
   sessionId: string,
   decision: "allow" | "deny" | "cancel" = "allow",
   options: {
+    prompt?: string;
+    recovery?: Extract<RunCommand, { type: "start" }>["recovery"];
     permissionProfile?: "safe" | "workspace-write";
     model?: string;
     provider?: string;
@@ -104,43 +119,101 @@ async function run(
                 requestId: randomUUID(),
                 type: "approve",
                 approvalId: event.payload.approvalId,
+                ...(event.payload.descriptor
+                  ? { actionId: event.payload.descriptor.actionId }
+                  : {}),
                 allow: decision === "allow",
               },
         );
       if (event.payload.type === "complete") resolve(event);
     }),
   );
-  expect(
-    await channel.request({
-      ...identity,
-      type: "start",
-      prompt: "test",
-      engine: "native",
-      ...options,
-    }),
-  ).toBe(true);
+  const accepted = await channel.request({
+    ...identity,
+    type: "start",
+    prompt: "test",
+    engine: "native",
+    ...options,
+  });
   const final = await completed;
   service.close();
   channel.disconnect();
-  return { events, final };
+  return { events, final, accepted };
 }
 describe("desktop native execution", () => {
+  it("keeps a one-step answering-only summary partial and classifies its outcome separately", async () => {
+    const f = await fixture([
+      [call("read_file", { path: "note.txt" }), finish("tool-calls")],
+    ]);
+    await writeFile(join(f.cwd, "note.txt"), "source evidence");
+    await mkdir(f.env.FORGE_HOME, { recursive: true });
+    await writeFile(
+      join(f.env.FORGE_HOME, "config.json"),
+      JSON.stringify({ schemaVersion: 1, limits: { maxSteps: 1 } }),
+    );
+    const result = await run(f.application, f.sessionId);
+    expect(result.final.payload).toMatchObject({
+      type: "complete",
+      outcome: "limit_reached",
+      reason: "model_step_limit",
+      modelSteps: 1,
+      toolCalls: 0,
+      partial: true,
+    });
+    const state = await f.application.state();
+    expect(
+      state.messages.filter((message) => message.kind === "system-outcome"),
+    ).toMatchObject([{ outcome: "limit_reached" }]);
+    expect(
+      state.messages.some(
+        (message) =>
+          message.kind === "answer" &&
+          message.content.includes("[Forge run outcome"),
+      ),
+    ).toBe(false);
+    expect(state.messages.some((message) => !message.content.trim())).toBe(
+      false,
+    );
+    const saved = JSON.parse(
+      await readFile(
+        join(f.env.FORGE_HOME, "sessions", `${f.sessionId}.json`),
+        "utf8",
+      ),
+    );
+    expect(
+      saved.history.some(
+        (message: { role: string }) => message.role === "tool",
+      ),
+    ).toBe(false);
+    expect(
+      result.events.some(
+        (event) =>
+          event.payload.type === "action" &&
+          event.payload.action.status === "succeeded",
+      ),
+    ).toBe(false);
+    expect(f.requests[0]?.toolChoice).toBe("none");
+    expect(JSON.stringify(saved)).toContain("[Forge run outcome");
+    f.application.close();
+  });
   it("honors the shared workspace lease and resumes after its owner releases it", async () => {
     const f = await fixture([]);
     const lease = await acquireWorkspaceLease(f.cwd);
     try {
       const blocked = await run(f.application, f.sessionId);
-      expect(blocked.final.payload).toEqual({
+      expect(blocked.final.payload).toMatchObject({
         type: "complete",
         outcome: "failed",
       });
-      expect(JSON.stringify(blocked.events)).toContain("Workspace busy");
+      expect(JSON.stringify(blocked.events)).toContain("workspace-busy");
       expect(f.requests).toHaveLength(0);
     } finally {
       await lease.release();
     }
     try {
-      expect((await run(f.application, f.sessionId)).final.payload).toEqual({
+      expect(
+        (await run(f.application, f.sessionId)).final.payload,
+      ).toMatchObject({
         type: "complete",
         outcome: "completed",
       });
@@ -259,7 +332,7 @@ describe("desktop native execution", () => {
         prompt: "No configured provider",
       });
       const result = await run(app, state.sessionId);
-      expect(result.final.payload).toEqual({
+      expect(result.final.payload).toMatchObject({
         type: "complete",
         outcome: "failed",
       });
@@ -297,7 +370,7 @@ describe("desktop native execution", () => {
       [{ type: "text.delta", text: "done" }, finish("stop")],
     ]);
     const first = await run(f.application, f.sessionId);
-    expect(first.final.payload, JSON.stringify(first.events)).toEqual({
+    expect(first.final.payload, JSON.stringify(first.events)).toMatchObject({
       type: "complete",
       outcome: "completed",
     });
@@ -324,7 +397,7 @@ describe("desktop native execution", () => {
     });
     await restarted.manage({ type: "workspace", cwd: f.cwd });
     await restarted.manage({ type: "resume", sessionId: f.sessionId });
-    expect((await run(restarted, f.sessionId)).final.payload).toEqual({
+    expect((await run(restarted, f.sessionId)).final.payload).toMatchObject({
       type: "complete",
       outcome: "completed",
     });
@@ -345,7 +418,7 @@ describe("desktop native execution", () => {
       ]);
       const result = await run(f.application, f.sessionId, decision);
       await expect(readFile(join(f.cwd, "denied.txt"))).rejects.toThrow();
-      expect(result.final.payload).toEqual({
+      expect(result.final.payload).toMatchObject({
         type: "complete",
         outcome: decision === "cancel" ? "cancelled" : "completed",
       });
@@ -360,10 +433,12 @@ describe("desktop native execution", () => {
       join(f.env.FORGE_HOME, "sessions", `${f.sessionId}.desktop-lock`),
       "busy",
     );
-    expect((await run(f.application, f.sessionId)).final.payload).toEqual({
-      type: "complete",
-      outcome: "failed",
-    });
+    expect((await run(f.application, f.sessionId)).final.payload).toMatchObject(
+      {
+        type: "complete",
+        outcome: "failed",
+      },
+    );
     expect(await readFile(snapshot, "utf8")).toBe(before);
   });
   it("restores a persisted engine boundary without transferring tool history", async () => {
@@ -428,7 +503,7 @@ describe("desktop native execution", () => {
     const changed = `${await readFile(snapshot, "utf8")} `;
     await writeFile(snapshot, changed);
     const result = await run(f.application, f.sessionId);
-    expect(result.final.payload).toEqual({
+    expect(result.final.payload).toMatchObject({
       type: "complete",
       outcome: "failed",
     });
@@ -453,7 +528,7 @@ describe("desktop native execution", () => {
       ),
     ).toBe(true);
     expect(state.sessionId).toMatch(/^[a-f0-9-]+$/);
-    expect((await run(app, state.sessionId)).final.payload).toEqual({
+    expect((await run(app, state.sessionId)).final.payload).toMatchObject({
       type: "complete",
       outcome: "completed",
     });
@@ -734,4 +809,744 @@ it("reports an environment credential that remains after stored logout", async (
   } finally {
     app.close();
   }
+});
+
+describe("durable desktop history", () => {
+  it("admits only after the run and first session are discoverable, then restores read-only facts", async () => {
+    let checkAdmission: (() => Promise<void>) | undefined;
+    const f = await fixture(
+      [[call("read_file", { path: "note.txt" }), finish("tool-calls")]],
+      async () => {
+        await checkAdmission?.();
+      },
+    );
+    await writeFile(join(f.cwd, "note.txt"), "evidence");
+    const store = new FileProductRunStore(f.env.FORGE_HOME);
+    checkAdmission = async () => {
+      expect((await store.list(f.sessionId)).runs).toHaveLength(1);
+      expect(
+        JSON.parse(
+          await readFile(
+            join(f.env.FORGE_HOME, "sessions", `${f.sessionId}.json`),
+            "utf8",
+          ),
+        ).id,
+      ).toBe(f.sessionId);
+    };
+    const result = await run(f.application, f.sessionId);
+    expect(result.accepted).toBe(true);
+    expect(result.final.payload).toMatchObject({ outcome: "completed" });
+    f.application.close();
+    const reopened = new DesktopApplication(f.env, f.cwd);
+    const state = await reopened.manage({
+      type: "resume",
+      sessionId: f.sessionId,
+    });
+    const runId = state.runHistory?.runs[0]?.runId;
+    expect(runId).toBeTruthy();
+    const history = await reopened.manage({
+      type: "run-history",
+      runId: runId!,
+    });
+    expect(
+      history.runHistory?.selected?.activity.items.some(
+        (x) => x.action?.status === "succeeded",
+      ),
+    ).toBe(true);
+    expect(desktopStateSchema.safeParse(history).success).toBe(true);
+    expect(history.permissionGrants).toEqual([]);
+    expect(f.requests).toHaveLength(2);
+    reopened.close();
+  });
+  it("marks crashed tool effects unknown and pending decisions unresolved without executing them", async () => {
+    const f = await fixture([]);
+    await run(f.application, f.sessionId);
+    const store = new FileProductRunStore(f.env.FORGE_HOME);
+    const writer = await store.create({
+      sessionId: f.sessionId,
+      runId: "crashed",
+      engine: "native",
+      prompt: "crashed task",
+    });
+    await writer.record({
+      type: "action",
+      action: {
+        actionId: "tool",
+        tool: "run_command",
+        step: 1,
+        status: "running",
+        input: "{}",
+      },
+    });
+    await writer.record({
+      type: "approval",
+      approvalId: "pending",
+      description: "never resume this decision",
+    });
+    const state = await f.application.manage({
+      type: "run-history",
+      runId: "crashed",
+    });
+    expect(state.runHistory?.selected?.summary.completion?.outcome).toBe(
+      "interrupted",
+    );
+    expect(
+      state.runHistory?.selected?.activity.items.map(
+        (x) => x.action?.status ?? x.decision,
+      ),
+    ).toEqual(["unknown", "unresolved"]);
+    expect(f.requests).toHaveLength(1);
+    f.application.close();
+  });
+  it("stops before approval or tool effects when the journal becomes unwritable", async () => {
+    let sabotage: (() => Promise<void>) | undefined;
+    const f = await fixture(
+      [
+        [
+          call("run_command", {
+            program: process.execPath,
+            args: [
+              "-e",
+              "require('fs').writeFileSync('unexpected.txt','effect')",
+            ],
+          }),
+          finish("tool-calls"),
+        ],
+      ],
+      async () => {
+        await sabotage?.();
+      },
+    );
+    const target = join(f.cwd, "untouched.txt");
+    await writeFile(target, "untouched");
+    sabotage = async () => {
+      const runId = (
+        await new FileProductRunStore(f.env.FORGE_HOME).list(f.sessionId)
+      ).runs[0]!.runId;
+      const journal = join(
+        f.env.FORGE_HOME,
+        "run-records",
+        f.sessionId,
+        runId,
+        "events.jsonl",
+      );
+      await rm(journal, { force: true });
+      await symlink(target, journal);
+    };
+    const result = await run(f.application, f.sessionId);
+    expect(result.final.payload).toMatchObject({
+      outcome: "failed",
+      reason: "storage_error",
+    });
+    expect(result.events.some((x) => x.payload.type === "approval")).toBe(
+      false,
+    );
+    expect(
+      result.events.some(
+        (x) =>
+          x.payload.type === "action" && x.payload.action.status === "running",
+      ),
+    ).toBe(false);
+    await expect(readFile(join(f.cwd, "unexpected.txt"))).rejects.toThrow();
+    expect(await readFile(target, "utf8")).toBe("untouched");
+    f.application.close();
+  });
+});
+
+describe("reviewed run recovery", () => {
+  const selection = {
+    engine: "native",
+    provider: "deepseek",
+    model: "deepseek-flash",
+    effort: "high",
+  } as const;
+  async function prepare(
+    f: Awaited<ReturnType<typeof fixture>>,
+    sourceRunId: string,
+    kind: "summarize" | "continue" | "retry",
+    responseLocale?: "en" | "zh-CN",
+  ) {
+    const state = await f.application.manage({
+      type: "prepare-recovery",
+      ...(responseLocale ? { responseLocale } : {}),
+      sourceRunId,
+      kind,
+      selection,
+      permissionProfile: "safe",
+    });
+    const plan = state.recoveryPlan;
+    if (!plan) throw new Error("No recovery plan");
+    return plan;
+  }
+  it.each(["continuation", "evidence"] as const)(
+    "persists a linked %s summary without tools and rejects reused preparation tokens",
+    async (finalizationInput) => {
+      const f = await fixture([], undefined, finalizationInput);
+      const source = await run(f.application, f.sessionId);
+      const plan = await prepare(f, source.final.runId, "summarize", "zh-CN");
+      expect(plan).toMatchObject({
+        maxModelSteps: 1,
+        maxToolCalls: 0,
+        responseLocale: "zh-CN",
+        permissionProfile: "safe",
+      });
+      const options = {
+        prompt: plan.prompt,
+        model: plan.selection.model,
+        provider: plan.selection.provider,
+        reasoningEffort: plan.selection.effort ?? "high",
+        recovery: {
+          token: plan.token,
+          kind: plan.kind,
+          sourceRunId: plan.sourceRunId,
+        },
+      };
+      const summary = await run(f.application, f.sessionId, "allow", options);
+      expect(summary.final.payload).toMatchObject({
+        outcome: "limit_reached",
+        partial: true,
+        modelSteps: 1,
+        toolCalls: 0,
+        recovery: { sourceRunId: source.final.runId, kind: "summarize" },
+      });
+      expect(
+        summary.events.some(
+          (event) =>
+            event.payload.type === "approval" ||
+            event.payload.type === "action",
+        ),
+      ).toBe(false);
+      expect(f.requests).toHaveLength(2);
+      expect(f.requests[1]).toMatchObject({ tools: [], toolChoice: "none" });
+      expect(plan.prompt).toContain("请用简体中文总结");
+      expect(f.requests[1]?.instructions).toContain(
+        "Respond in Simplified Chinese",
+      );
+      if (finalizationInput === "evidence") {
+        expect(f.requests[1]?.prompt).toContain("run_evidence");
+        expect(f.requests[1]?.continuation).toBeUndefined();
+      }
+      const recorded = await new FileProductRunStore(f.env.FORGE_HOME).read(
+        f.sessionId,
+        summary.final.runId,
+      );
+      expect(recorded.summary.recovery).toEqual({
+        sourceRunId: source.final.runId,
+        kind: "summarize",
+      });
+      expect(
+        desktopStateSchema.safeParse(await f.application.state()).success,
+      ).toBe(true);
+      if (source.final.payload.type !== "complete")
+        throw new Error("Missing source completion");
+      const projected = (await f.application.state()).runHistory?.selected;
+      expect(projected?.recoverySource).toMatchObject({
+        sourceRunId: source.final.runId,
+        record: {
+          summary: {
+            runId: source.final.runId,
+            completion: { outcome: source.final.payload.outcome },
+          },
+        },
+      });
+      expect(projected?.recoverySource?.record?.summary.runId).not.toBe(
+        summary.final.runId,
+      );
+      const browsed = await f.application.manage({
+        type: "browse-session",
+        sessionId: f.sessionId,
+        runId: summary.final.runId,
+      });
+      expect(
+        browsed.browsedSession?.runHistory.selected?.recoverySource,
+      ).toEqual(projected?.recoverySource);
+      const sourceJournal = join(
+        f.env.FORGE_HOME,
+        "run-records",
+        f.sessionId,
+        source.final.runId,
+        "events.jsonl",
+      );
+      await rm(sourceJournal);
+      await mkdir(sourceJournal);
+      const missing = await f.application.manage({
+        type: "run-history",
+        runId: summary.final.runId,
+      });
+      expect(missing.runHistory?.selected?.summary.runId).toBe(
+        summary.final.runId,
+      );
+      expect(missing.runHistory?.selected?.recoverySource).toEqual({
+        sourceRunId: source.final.runId,
+      });
+      const replay = await run(f.application, f.sessionId, "allow", options);
+      expect(replay.accepted).toBe(false);
+      expect(f.requests).toHaveLength(2);
+      f.application.close();
+    },
+  );
+  it("rejects changed configuration before model admission", async () => {
+    const f = await fixture([]);
+    const source = await run(f.application, f.sessionId);
+    const plan = await prepare(f, source.final.runId, "continue");
+    await writeFile(
+      join(f.env.FORGE_HOME, "config.json"),
+      JSON.stringify({ schemaVersion: 1, limits: { maxSteps: 3 } }),
+    );
+    const result = await run(f.application, f.sessionId, "allow", {
+      prompt: plan.prompt,
+      model: selection.model,
+      provider: selection.provider,
+      reasoningEffort: selection.effort,
+      recovery: {
+        token: plan.token,
+        kind: plan.kind,
+        sourceRunId: plan.sourceRunId,
+      },
+    });
+    expect(result.accepted).toBe(false);
+    expect(result.final.payload).toMatchObject({ message: "recovery-stale" });
+    expect(f.requests).toHaveLength(1);
+    f.application.close();
+  });
+  it("rejects changed permissions and dismissed preparations without new provider calls", async () => {
+    const f = await fixture([]);
+    const source = await run(f.application, f.sessionId);
+    const plan = await prepare(f, source.final.runId, "continue");
+    const options = {
+      prompt: plan.prompt,
+      model: selection.model,
+      provider: selection.provider,
+      reasoningEffort: selection.effort,
+      recovery: {
+        token: plan.token,
+        kind: plan.kind,
+        sourceRunId: plan.sourceRunId,
+      },
+    };
+    const changed = await run(f.application, f.sessionId, "allow", {
+      ...options,
+      permissionProfile: "workspace-write",
+    });
+    expect(changed.accepted).toBe(false);
+    expect(changed.final.payload).toMatchObject({ message: "recovery-stale" });
+    await f.application.manage({ type: "dismiss-recovery" });
+    const dismissed = await run(f.application, f.sessionId, "allow", options);
+    expect(dismissed.accepted).toBe(false);
+    expect(f.requests).toHaveLength(1);
+    f.application.close();
+  });
+  it("continues with fresh approvals rather than replaying source permissions", async () => {
+    const command = () => [
+      call("run_command", { program: "pwd", args: [] }),
+      finish("tool-calls"),
+    ];
+    const f = await fixture([
+      command(),
+      [{ type: "text.delta", text: "first answer" }, finish("stop")],
+      command(),
+      [
+        { type: "text.delta", text: "denied operation, no new effect" },
+        finish("stop"),
+      ],
+    ]);
+    const source = await run(f.application, f.sessionId, "allow");
+    const plan = await prepare(f, source.final.runId, "continue");
+    const continued = await run(f.application, f.sessionId, "deny", {
+      prompt: plan.prompt,
+      model: selection.model,
+      provider: selection.provider,
+      reasoningEffort: selection.effort,
+      recovery: {
+        token: plan.token,
+        sourceRunId: plan.sourceRunId,
+        kind: plan.kind,
+      },
+    });
+    expect(
+      continued.events.filter((event) => event.payload.type === "approval"),
+    ).toHaveLength(1);
+    expect(
+      continued.events.some(
+        (event) =>
+          event.payload.type === "action" &&
+          event.payload.action.status === "succeeded",
+      ),
+    ).toBe(false);
+    expect(continued.final.runId).not.toBe(source.final.runId);
+    expect(f.requests[2]?.continuation).toBeUndefined();
+    f.application.close();
+  });
+  it("uses edited retry input in a new linked run without restoring continuation", async () => {
+    const f = await fixture([]);
+    const source = await run(f.application, f.sessionId);
+    const plan = await prepare(f, source.final.runId, "retry");
+    expect(plan.prompt).toBe("test");
+    expect(f.requests).toHaveLength(1);
+    const retry = await run(f.application, f.sessionId, "allow", {
+      prompt: "edited retry input",
+      model: selection.model,
+      provider: selection.provider,
+      reasoningEffort: selection.effort,
+      recovery: {
+        token: plan.token,
+        sourceRunId: plan.sourceRunId,
+        kind: plan.kind,
+      },
+    });
+    expect(retry.accepted).toBe(true);
+    expect(f.requests[1]?.prompt).toBe("edited retry input");
+    expect(f.requests[1]?.continuation).toBeUndefined();
+    expect(
+      (
+        await new FileProductRunStore(f.env.FORGE_HOME).read(
+          f.sessionId,
+          retry.final.runId,
+        )
+      ).summary.recovery?.kind,
+    ).toBe("retry");
+    f.application.close();
+  });
+});
+
+it("retains recorded writes and nonzero command results independently of current files", async () => {
+  const f = await fixture([
+    [
+      call("edit_file", {
+        operation: "create",
+        path: "delivery.txt",
+        content: "written by this run\n",
+      }),
+      finish("tool-calls"),
+    ],
+    [
+      call("run_command", { program: "node", args: ["-e", "process.exit(1)"] }),
+      finish("tool-calls"),
+    ],
+    [{ type: "text.delta", text: "All tests passed." }, finish("stop")],
+  ]);
+  const result = await run(f.application, f.sessionId);
+  expect(await readFile(join(f.cwd, "delivery.txt"), "utf8")).toContain(
+    "written by this run",
+  );
+  await writeFile(join(f.cwd, "delivery.txt"), "later unrelated edit");
+  const history = await f.application.manage({
+    type: "run-history",
+    runId: result.final.runId,
+  });
+  expect(history.runHistory?.selected?.delivery?.files[0]?.facts).toMatchObject(
+    { path: "delivery.txt", operation: "create" },
+  );
+  expect(
+    history.runHistory?.selected?.delivery?.files[0]?.facts.patch,
+  ).toContain("written by this run");
+  expect(
+    history.runHistory?.selected?.delivery?.commands[0]?.facts.exitCode,
+  ).toBe(1);
+  expect(f.requests).toHaveLength(3);
+  expect(desktopStateSchema.safeParse(history).success).toBe(true);
+  f.application.close();
+});
+
+it("browses snapshots during approval without switching the execution session or reconciling records", async () => {
+  const f = await fixture([
+    [{ type: "text.delta", text: "saved B answer" }, finish("stop")],
+    [call("run_command", { program: "pwd", args: [] }), finish("tool-calls")],
+    [{ type: "text.delta", text: "active A answer" }, finish("stop")],
+  ]);
+  await run(f.application, f.sessionId, "allow", { prompt: "saved B task" });
+  const b = f.sessionId;
+  const active = await f.application.manage({
+    type: "create",
+    prompt: "active A task",
+  });
+  const bPath = join(f.env.FORGE_HOME, "sessions", `${b}.json`);
+  const before = await readFile(bPath, "utf8");
+  let approvalResolve: (event: RunEvent) => void = () => {};
+  let completionResolve: (event: RunEvent) => void = () => {};
+  const approval = new Promise<RunEvent>((resolve) => {
+    approvalResolve = resolve;
+  });
+  const completed = new Promise<RunEvent>((resolve) => {
+    completionResolve = resolve;
+  });
+  const channel = new RunChannel((command) => service.handle(command));
+  const service = new RunService(
+    (event) => channel.receive(event),
+    f.application.execute,
+  );
+  channel.subscribe((event) => {
+    if (event.payload.type === "approval") approvalResolve(event);
+    if (event.payload.type === "complete") completionResolve(event);
+  });
+  const identity = {
+    sessionId: active.sessionId,
+    runId: randomUUID(),
+    requestId: randomUUID(),
+  };
+  try {
+    expect(
+      await channel.request({
+        ...identity,
+        type: "start",
+        engine: "native",
+        prompt: "active A task",
+      }),
+    ).toBe(true);
+    const pendingApproval = await approval;
+    const observed = await f.application.manage({
+      type: "browse-session",
+      sessionId: b,
+    });
+    expect(observed.sessionId).toBe(active.sessionId);
+    expect(observed.browsedSession?.sessionId).toBe(b);
+    expect(
+      observed.browsedSession?.messages.some((message) =>
+        message.content.includes("saved B answer"),
+      ),
+    ).toBe(true);
+    expect(await readFile(bPath, "utf8")).toBe(before);
+    expect((await f.application.state()).sessionId).toBe(active.sessionId);
+    const current = await f.application.manage({
+      type: "browse-session",
+      sessionId: active.sessionId,
+      runId: identity.runId,
+    });
+    expect(current.browsedSession?.runHistory.selected?.summary.state).toBe(
+      "running",
+    );
+    expect(
+      current.browsedSession?.runHistory.selected?.activity.items.some(
+        (item) => item.kind === "approval",
+      ),
+    ).toBe(true);
+    await expect(
+      f.application.manage({ type: "resume", sessionId: b }),
+    ).rejects.toThrow("busy");
+    expect(f.requests).toHaveLength(2);
+    if (pendingApproval.payload.type !== "approval")
+      throw new Error("Missing approval");
+    expect(
+      await channel.request({
+        ...identity,
+        type: "approve",
+        requestId: randomUUID(),
+        approvalId: pendingApproval.payload.approvalId,
+        ...(pendingApproval.payload.descriptor
+          ? { actionId: pendingApproval.payload.descriptor.actionId }
+          : {}),
+        allow: true,
+      }),
+    ).toBe(true);
+    expect((await completed).payload).toMatchObject({
+      type: "complete",
+      outcome: "completed",
+    });
+    expect((await f.application.state()).sessionId).toBe(active.sessionId);
+    expect(f.requests).toHaveLength(3);
+    expect(desktopStateSchema.safeParse(current).success).toBe(true);
+  } finally {
+    service.close();
+    f.application.close();
+  }
+});
+
+it("cancels a started command through live transport, persists unknown effects and remains usable", async () => {
+  const marker = "live-cancel-started.json";
+  const f = await fixture([
+    [
+      call("run_command", {
+        program: process.execPath,
+        args: [
+          "-e",
+          `require('node:fs').writeFileSync('${marker}',JSON.stringify({pid:process.pid}));setTimeout(()=>{},30000)`,
+        ],
+        cwd: ".",
+      }),
+      finish("tool-calls"),
+    ],
+  ]);
+  let faults = 0;
+  const channel = new RunChannel(
+    (command) => service.handle(command),
+    () => {
+      faults++;
+    },
+  );
+  const service = new RunService(
+    (message) => channel.receive(message),
+    f.application.execute,
+  );
+  const identity = {
+    sessionId: f.sessionId,
+    runId: randomUUID(),
+    requestId: randomUUID(),
+  };
+  const events: RunEvent[] = [];
+  let pid: number | undefined;
+  const jobs: Promise<void>[] = [];
+  let complete!: (event: RunEvent) => void;
+  const completed = new Promise<RunEvent>((resolve) => {
+    complete = resolve;
+  });
+  channel.subscribe((event) => {
+    events.push(event);
+    if (event.payload.type === "approval")
+      void channel.request({
+        ...identity,
+        type: "approve",
+        requestId: randomUUID(),
+        approvalId: event.payload.approvalId,
+        actionId: event.payload.descriptor?.actionId,
+        allow: true,
+      });
+    if (
+      event.payload.type === "action" &&
+      event.payload.action.status === "running"
+    )
+      jobs.push(
+        (async () => {
+          const deadline = Date.now() + 3000;
+          while (pid === undefined) {
+            try {
+              pid = JSON.parse(await readFile(join(f.cwd, marker), "utf8")).pid;
+            } catch (error) {
+              if (
+                (error as NodeJS.ErrnoException).code !== "ENOENT" ||
+                Date.now() > deadline
+              )
+                throw error;
+              await new Promise((resolve) => setTimeout(resolve, 10));
+            }
+          }
+          expect(
+            await channel.request({
+              ...identity,
+              type: "cancel",
+              requestId: randomUUID(),
+            }),
+          ).toBe(true);
+        })(),
+      );
+    if (event.payload.type === "complete") complete(event);
+  });
+  try {
+    expect(
+      await channel.request({
+        ...identity,
+        type: "start",
+        engine: "native",
+        prompt: "cancel started command",
+      }),
+    ).toBe(true);
+    expect((await completed).payload).toMatchObject({ outcome: "cancelled" });
+    await Promise.all(jobs);
+    await service.drain();
+    expect(faults).toBe(0);
+    expect(
+      events.some(
+        (e) =>
+          e.payload.type === "action" && e.payload.action.status === "unknown",
+      ),
+    ).toBe(true);
+    expect(pid).toBeTypeOf("number");
+    expect(() => process.kill(pid as number, 0)).toThrow(
+      expect.objectContaining({ code: "ESRCH" }),
+    );
+    const state = await f.application.manage({
+      type: "run-history",
+      runId: identity.runId,
+    });
+    expect(state.runHistory?.selected?.summary.completion?.outcome).toBe(
+      "cancelled",
+    );
+    expect(state.runHistory?.selected?.delivery?.unresolved).toEqual([
+      expect.objectContaining({ tool: "run_command", status: "unknown" }),
+    ]);
+    expect(desktopStateSchema.safeParse(state).success).toBe(true);
+    const next = await run(f.application, f.sessionId);
+    expect(next.accepted).toBe(true);
+    expect(next.final.payload).toMatchObject({ outcome: "completed" });
+    expect(f.requests).toHaveLength(2);
+  } finally {
+    service.close();
+    channel.disconnect();
+    f.application.close();
+  }
+});
+
+describe("retained admission navigation", () => {
+  it("uses the durable request for an empty session without reconciling or replaying it", async () => {
+    const f = await fixture([]);
+    const prepared = await createPersistentInteractiveSession({
+      cwd: f.cwd,
+      env: f.env,
+    });
+    await prepared.prepareRun("test");
+    await prepared.persistPreparedSession();
+    if (!prepared.sessionId)
+      throw new Error("Prepared session identity missing");
+    f.sessionId = prepared.sessionId;
+    const store = new FileProductRunStore(f.env.FORGE_HOME);
+    await store.create({
+      sessionId: f.sessionId,
+      runId: "admitted",
+      engine: "native",
+      prompt: "修复中文任务标题\n不要自动重跑",
+    });
+    const snapshot = join(f.env.FORGE_HOME, "sessions", `${f.sessionId}.json`);
+    const before = await readFile(snapshot, "utf8");
+    const reopened = new DesktopApplication(f.env, f.cwd);
+    const navigation = await reopened.state();
+    expect(
+      navigation.sessions.find((entry) => entry.id === f.sessionId)?.title,
+    ).toBe("修复中文任务标题");
+    const browse = await reopened.manage({
+      type: "browse-session",
+      sessionId: f.sessionId,
+    });
+    expect(browse.browsedSession?.title).toBe("修复中文任务标题");
+    expect(browse.browsedSession?.messages).toEqual([]);
+    expect((await store.read(f.sessionId, "admitted")).summary.state).toBe(
+      "running",
+    );
+    expect(await readFile(snapshot, "utf8")).toBe(before);
+    expect(f.requests).toHaveLength(0);
+    expect(navigation.permissionGrants).toEqual([]);
+    reopened.close();
+    f.application.close();
+  });
+  it("keeps canonical titles and tolerates a missing journal", async () => {
+    const f = await fixture([]);
+    const prepared = await createPersistentInteractiveSession({
+      cwd: f.cwd,
+      env: f.env,
+    });
+    await prepared.prepareRun("test");
+    await prepared.persistPreparedSession();
+    if (!prepared.sessionId)
+      throw new Error("Prepared session identity missing");
+    f.sessionId = prepared.sessionId;
+    expect(
+      (await f.application.state()).sessions.find(
+        (entry) => entry.id === f.sessionId,
+      )?.title,
+    ).toBe("Empty session");
+    await f.application.manage({ type: "resume", sessionId: f.sessionId });
+    await run(f.application, f.sessionId, "allow", {
+      prompt: "Canonical title",
+    });
+    await new FileProductRunStore(f.env.FORGE_HOME).create({
+      sessionId: f.sessionId,
+      runId: "later",
+      engine: "native",
+      prompt: "Do not replace the canonical title",
+    });
+    expect(
+      (await f.application.state()).sessions.find(
+        (entry) => entry.id === f.sessionId,
+      )?.title,
+    ).toBe("Canonical title");
+    f.application.close();
+  });
 });

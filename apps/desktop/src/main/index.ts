@@ -31,6 +31,7 @@ import {
   AGENT_PING_CHANNEL,
   RUN_COMMAND_CHANNEL,
   RUN_EVENT_CHANNEL,
+  UI_LOCALE_CHANNEL,
 } from "../shared/desktop-api.js";
 import {
   CHANGE_REVIEW_CHANNEL,
@@ -49,6 +50,7 @@ import { runInstallAcceptance } from "./install-acceptance.js";
 
 let agent: AgentProcess | undefined;
 let mainWindow: BrowserWindow | undefined;
+let uiLocale: "en" | "zh-CN" | undefined;
 let quitting = false;
 const files = new FileService();
 
@@ -106,7 +108,10 @@ async function createWindow(show = true): Promise<BrowserWindow> {
       ? { icon: join(import.meta.dirname, "../../build/icon.ico") }
       : {}),
     ...(process.platform === "darwin"
-      ? { titleBarStyle: "hiddenInset" as const }
+      ? {
+          titleBarStyle: "hiddenInset" as const,
+          trafficLightPosition: { x: 16, y: 24 },
+        }
       : {}),
     webPreferences: {
       preload: join(import.meta.dirname, "../preload/index.cjs"),
@@ -119,7 +124,7 @@ async function createWindow(show = true): Promise<BrowserWindow> {
   window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
   window.webContents.on("will-navigate", (event) => event.preventDefault());
   window.webContents.on("will-prevent-unload", (event) => {
-    const zh = app.getLocale().startsWith("zh");
+    const zh = (uiLocale ?? app.getLocale()).startsWith("zh");
     const choice = dialog.showMessageBoxSync(window, {
       type: "question",
       buttons: zh ? ["继续工作", "退出"] : ["Keep working", "Exit"],
@@ -147,6 +152,7 @@ async function shutdown(): Promise<void> {
   ipcMain.removeHandler(RUN_COMMAND_CHANNEL);
   for (const channel of [
     MANAGEMENT_CHANNEL,
+    UI_LOCALE_CHANNEL,
     CHOOSE_WORKSPACE_CHANNEL,
     OPEN_LOGIN_CHANNEL,
     OPEN_SOURCE_CHANNEL,
@@ -163,6 +169,25 @@ async function shutdown(): Promise<void> {
 }
 
 async function run(): Promise<void> {
+  if (
+    process.argv.includes("--desktop-acceptance") ||
+    process.argv.includes("--desktop-product-live")
+  ) {
+    const live = process.argv.includes("--desktop-product-live");
+    if (
+      live &&
+      (app.isPackaged || process.env["FORGE_PRODUCT_LIVE_OPT_IN"] !== "1")
+    )
+      throw new Error(
+        "Live pilot requires development build and explicit opt-in",
+      );
+    const isolated = live
+      ? process.env["FORGE_PRODUCT_LIVE_HOME"]
+      : process.env["FORGE_D12_UI_HOME"];
+    if (!isolated || isolated !== process.env["FORGE_HOME"])
+      throw new Error("Acceptance requires an isolated Chromium profile");
+    app.setPath("userData", join(isolated, "chromium"));
+  }
   await app.whenReady();
   // Main-process previews use the same packaged PDF.js data as the Agent process.
   // biome-ignore lint/complexity/useLiteralKeys: ProcessEnv is index-signature-only under strict TypeScript.
@@ -199,7 +224,7 @@ async function run(): Promise<void> {
         return updates?.status;
       explainingInstaller = true;
       try {
-        const zh = app.getLocale().startsWith("zh");
+        const zh = (uiLocale ?? app.getLocale()).startsWith("zh");
         const windows = process.platform === "win32";
         const choice = await dialog.showMessageBox(requireMainWindow(), {
           type: "info",
@@ -245,6 +270,11 @@ async function run(): Promise<void> {
     )
       return false;
     return agent?.runs.request(value) ?? false;
+  });
+  ipcMain.handle(UI_LOCALE_CHANNEL, (event, value: unknown) => {
+    assertMainSender(event);
+    if (value !== "en" && value !== "zh-CN") throw new Error("Invalid locale");
+    uiLocale = value;
   });
   ipcMain.handle(MANAGEMENT_CHANNEL, (event, value: unknown) => {
     if (
@@ -417,6 +447,17 @@ async function run(): Promise<void> {
       updates,
       join(app.getPath("temp"), "forge-update-ui"),
     );
+    window.destroy();
+    await shutdown();
+    app.exit(0);
+    return;
+  }
+  if (process.argv.includes("--desktop-product-live")) {
+    const window = await createWindow(false);
+    const { runProductLivePilot } = await import(
+      "./product-live-acceptance.js"
+    );
+    await runProductLivePilot(window, agent, files);
     window.destroy();
     await shutdown();
     app.exit(0);

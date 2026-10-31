@@ -3,7 +3,12 @@ import { z } from "zod";
 export const UPDATE_CHANNEL = "forge-desktop:update";
 export const updateCommandSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("status") }).strict(),
-  z.object({ type: z.literal("check") }).strict(),
+  z
+    .object({
+      type: z.literal("check"),
+      allowLocalReplacement: z.literal(true).optional(),
+    })
+    .strict(),
   z.object({ type: z.literal("download") }).strict(),
   z.object({ type: z.literal("cancel") }).strict(),
   z.object({ type: z.literal("open") }).strict(),
@@ -18,6 +23,8 @@ export const updateCommandSchema = z.discriminatedUnion("type", [
 export type UpdateCommand = z.infer<typeof updateCommandSchema>;
 export interface UpdateStatus {
   version: string | null;
+  localBuild?: boolean;
+  sourceRevision?: string;
   platform: "darwin" | "win32";
   channel: "stable" | "preview";
   startup: boolean;

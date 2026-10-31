@@ -5,12 +5,15 @@ import type {
   UpdateStatus,
 } from "../../shared/update-protocol.js";
 
+import { ConfirmationDialog } from "./confirmation-dialog.js";
+
 // Update preferences/status live outside agent/session state and never enter prompts.
 export function UpdateView({ compact = false }: { compact?: boolean }) {
   const { i18n } = useTranslation();
   const zh = i18n.language.startsWith("zh");
   const [status, setStatus] = useState<UpdateStatus>();
   const [error, setError] = useState("");
+  const [reviewLocal, setReviewLocal] = useState(false);
   async function command(value: UpdateCommand) {
     try {
       setError("");
@@ -48,8 +51,8 @@ export function UpdateView({ compact = false }: { compact?: boolean }) {
     ? {
         unchecked: "尚未检查",
         checking: "正在检查…",
-        current: "已是最新版本",
-        available: "发现新版本",
+        current: status.localBuild ? "未找到兼容的公开安装包" : "已是最新版本",
+        available: status.localBuild ? "可切换到公开版本" : "发现新版本",
         downloading: "正在下载…",
         verifying: "正在校验…",
         verified: "安装器已校验",
@@ -58,8 +61,12 @@ export function UpdateView({ compact = false }: { compact?: boolean }) {
     : {
         unchecked: "Not checked",
         checking: "Checking…",
-        current: "Up to date",
-        available: "Update available",
+        current: status.localBuild
+          ? "No compatible public installer found"
+          : "Up to date",
+        available: status.localBuild
+          ? "Public version available"
+          : "Update available",
         downloading: "Downloading…",
         verifying: "Verifying…",
         verified: "Installer verified",
@@ -83,8 +90,12 @@ export function UpdateView({ compact = false }: { compact?: boolean }) {
           ? "重试下载"
           : "Retry download"
         : zh
-          ? "下载更新"
-          : "Download update";
+          ? status.localBuild
+            ? "下载公开版本"
+            : "下载更新"
+          : status.localBuild
+            ? "Download public version"
+            : "Download update";
   const manual =
     status.platform === "win32"
       ? zh
@@ -156,6 +167,34 @@ export function UpdateView({ compact = false }: { compact?: boolean }) {
               : "Missing build identity; upgrade manually")}
         </code>
       </p>
+      {status.localBuild && (
+        <p data-testid="local-build-identity">
+          {zh ? "本地开发版" : "Local development build"}
+          {status.sourceRevision ? ` · ${status.sourceRevision}` : ""}。
+          {zh
+            ? "已暂停启动检查。公开版本可能不包含本地修改，安装会替换当前应用。"
+            : "Startup checks are paused. Public versions may omit local changes; installing one replaces this application."}
+        </p>
+      )}
+      {reviewLocal && (
+        <ConfirmationDialog
+          title={zh ? "切换到公开版本" : "Switch to a public version"}
+          busy={busy}
+          confirmLabel={zh ? "查看公开版本" : "View public versions"}
+          cancelLabel={zh ? "保留本地版本" : "Keep local build"}
+          onCancel={() => setReviewLocal(false)}
+          onConfirm={() => {
+            setReviewLocal(false);
+            void command({ type: "check", allowLocalReplacement: true });
+          }}
+        >
+          <p>
+            {zh
+              ? "将查询所选通道的公开版本。本地提交与公开版本不能按版本号判断新旧；后续安装会覆盖本地修改。此次确认只查询，不下载或安装。"
+              : "Look up the selected public channel. Version ordering does not establish whether a public build contains local commits; subsequent installation replaces local changes. This confirmation only checks, without downloading or installing."}
+          </p>
+        </ConfirmationDialog>
+      )}
       <label>
         {zh ? "更新通道" : "Channel"}{" "}
         <select
@@ -176,8 +215,8 @@ export function UpdateView({ compact = false }: { compact?: boolean }) {
       <label>
         <input
           type="checkbox"
-          disabled={busy}
-          checked={status.startup}
+          disabled={busy || status.localBuild}
+          checked={status.localBuild ? false : status.startup}
           onChange={(e) =>
             void command({
               type: "preferences",
@@ -217,7 +256,11 @@ export function UpdateView({ compact = false }: { compact?: boolean }) {
       <button
         type="button"
         disabled={busy}
-        onClick={() => void command({ type: "check" })}
+        onClick={() =>
+          status.localBuild
+            ? setReviewLocal(true)
+            : void command({ type: "check" })
+        }
       >
         {zh ? "检查更新" : "Check for updates"}
       </button>

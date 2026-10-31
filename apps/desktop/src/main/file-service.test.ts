@@ -34,6 +34,20 @@ async function fixture() {
 }
 
 describe("desktop file service", () => {
+  it("previews whitespace-bearing filenames without changing their identity or workspace boundary", async () => {
+    const f = await fixture();
+    const name =
+      process.platform === "win32" ? " report file.txt" : " report file.txt ";
+    await writeFile(join(f.workspace, name), "meaningful filename");
+    expect(await f.service.preview({ path: name })).toMatchObject({
+      document: { source: name, text: "meaningful filename" },
+    });
+    await writeFile(join(f.outside, name), "outside");
+    await expect(
+      f.service.preview({ path: `../outside/${name}` }),
+    ).rejects.toThrow("outside_workspace");
+  });
+
   it("reviews add, edit and delete against an ordinary-folder task baseline", async () => {
     const f = await fixture();
     await writeFile(join(f.workspace, "existing.txt"), "after\n");

@@ -54,8 +54,8 @@ built-in defaults
   },
   "permissionProfile": "safe",
   "limits": {
-    "maxSteps": 12,
-    "maxToolCalls": 40,
+    "maxSteps": null,
+    "maxToolCalls": null,
     "commandTimeoutMs": 60000,
     "maxToolOutputBytes": 65536
   },
@@ -92,10 +92,18 @@ built-in defaults
 | 字段 | 默认值 | 有效范围 | 含义 |
 | --- | ---: | --- | --- |
 | `permissionProfile` | `safe` | `safe`、`workspace-write` | `safe` 确认首次写入和每条命令；`workspace-write` 自动允许 workspace 文件写入，但命令、网络工具和委派模型运行仍需确认。 |
-| `limits.maxSteps` | `12` | 正整数 | 一次 run 最多 model turns。 |
-| `limits.maxToolCalls` | `40` | 正整数 | 一次 run 最多 proposed tool calls。 |
+| `limits.maxSteps` | `null` | 正整数或 `null` | 原生运行可选的模型调用总数上限；`null` 表示不设置固定总上限。 |
+| `limits.maxToolCalls` | `null` | 正整数或 `null` | 可选的工具调用总数上限；`null` 表示不设置固定总上限。 |
 | `limits.commandTimeoutMs` | `60000` | 正整数 | 进程命令 duration 上限。 |
 | `limits.maxToolOutputBytes` | `65536` | 正整数 | 单次工具执行最多保留的输出。 |
+
+普通原生任务默认不设置模型步骤／工具调用的固定总上限。命令超时、输出和上下文
+边界、取消、重复不变读取、反复相同且不可重试的拒绝／无效操作检测仍生效。
+正常测试失败本身不会触发无进展停止。显式数字仍可用于个人限额和有界评测；项目
+可为无上限任务收紧限额，但项目 `null` 不能放宽用户限额。用户可显式使用
+`--max-steps unlimited` 或 `--max-tool-calls unlimited` 覆盖已保存的次数限额。
+不设总上限意味着 provider 用量会随执行持续产生，直到任务结束或停止；这些计数
+不是已计量的费用预算。无进展检测保持保守，不能覆盖一切可能的循环。
 
 Forge 没有实现 `full-access` profile。获批子进程也没有 OS sandbox，详见[安全模型](../concepts/SECURITY_MODEL.md)。
 

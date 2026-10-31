@@ -1,3 +1,4 @@
+import { productRunHistorySchema } from "@forge/persistence/product-run-schema";
 import { z } from "zod";
 
 const id = z.string().regex(/^[a-zA-Z0-9_-]{1,128}$/);
@@ -31,7 +32,69 @@ export const selectionSchema = z
   .strict();
 export type ModelSelection = z.infer<typeof selectionSchema>;
 
+export const recoveryPlanSchema = z
+  .object({
+    token: id,
+    sessionId: id,
+    sourceRunId: id,
+    kind: z.enum(["summarize", "continue", "retry"]),
+    prompt: text,
+    responseLocale: z.enum(["en", "zh-CN"]).optional(),
+    selection: selectionSchema,
+    permissionProfile: z.enum(["safe", "workspace-write"]),
+    maxModelSteps: z.number().int().positive().nullable(),
+    maxToolCalls: z.number().int().nonnegative().nullable(),
+    incomplete: z.boolean(),
+  })
+  .strict();
+export type RecoveryPlan = z.infer<typeof recoveryPlanSchema>;
+export const readinessSchema = z
+  .object({
+    ready: z.boolean(),
+    issue: z
+      .enum([
+        "missing_credentials",
+        "invalid_configuration",
+        "codex_sign_in",
+        "codex_unavailable",
+      ])
+      .optional(),
+  })
+  .strict();
 export const managementCommandSchema = z.discriminatedUnion("type", [
+  z
+    .object({
+      type: z.literal("check-readiness"),
+      engine: z.enum(["native", "codex"]),
+      selection: selectionSchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("browse-session"),
+      sessionId: id,
+      runId: id.optional(),
+      before: z.number().int().nonnegative().optional(),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("prepare-recovery"),
+      responseLocale: z.enum(["en", "zh-CN"]).optional(),
+      sourceRunId: id,
+      kind: z.enum(["summarize", "continue", "retry"]),
+      selection: selectionSchema,
+      permissionProfile: z.enum(["safe", "workspace-write"]),
+    })
+    .strict(),
+  z.object({ type: z.literal("dismiss-recovery") }).strict(),
+  z
+    .object({
+      type: z.literal("run-history"),
+      runId: id.optional(),
+      before: z.number().int().nonnegative().optional(),
+    })
+    .strict(),
   z.object({ type: z.literal("state") }).strict(),
   z.object({ type: z.literal("management-status") }).strict(),
   z
@@ -99,8 +162,59 @@ export const managementCommandSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("cancel-login") }).strict(),
 ]);
 export type ManagementCommand = z.infer<typeof managementCommandSchema>;
+const sessionMessagesSchema = z
+  .array(
+    z.object({
+      id: z.string(),
+      role: z.enum(["user", "assistant"]),
+      kind: z
+        .enum(["user", "answer", "system-outcome", "system-fallback"])
+        .optional(),
+      runId: z.string().optional(),
+      outcome: z
+        .enum(["completed", "failed", "cancelled", "denied", "limit_reached"])
+        .optional(),
+      content: z.string().max(4_194_304),
+    }),
+  )
+  .max(10000);
+const selectedRunSchema = productRunHistorySchema.shape.selected.unwrap();
+export const desktopRunHistorySchema = productRunHistorySchema.extend({
+  selected: selectedRunSchema
+    .extend({
+      recoverySource: z
+        .object({
+          sourceRunId: id,
+          record: selectedRunSchema.optional(),
+        })
+        .strict()
+        .optional(),
+    })
+    .optional(),
+});
+export type RecoverySource = NonNullable<
+  NonNullable<
+    z.infer<typeof desktopRunHistorySchema>["selected"]
+  >["recoverySource"]
+>;
+export const browsedSessionSchema = z
+  .object({
+    sessionId: id,
+    cwd: text,
+    title: text,
+    messages: sessionMessagesSchema,
+    runHistory: desktopRunHistorySchema,
+    truncated: z.boolean(),
+  })
+  .strict();
+export type BrowsedSession = z.infer<typeof browsedSessionSchema>;
 export const desktopStateSchema = z
   .object({
+    readiness: readinessSchema.optional(),
+    automaticWorkspace: z.boolean().optional(),
+    runHistory: desktopRunHistorySchema.optional(),
+    browsedSession: browsedSessionSchema.optional(),
+    recoveryPlan: recoveryPlanSchema.optional(),
     management: z
       .object({
         providers: z.array(
@@ -156,15 +270,7 @@ export const desktopStateSchema = z
     sessions: z
       .array(z.object({ id, title: text, cwd: text.optional() }))
       .max(1000),
-    messages: z
-      .array(
-        z.object({
-          id: z.string(),
-          role: z.enum(["user", "assistant"]),
-          content: z.string().max(4_194_304),
-        }),
-      )
-      .max(10000),
+    messages: sessionMessagesSchema,
     context: text,
     contextUsage: z
       .object({ used: z.number().nonnegative(), total: z.number().positive() })

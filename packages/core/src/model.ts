@@ -283,6 +283,10 @@ export interface ModelRequest {
   readonly instructions?: string;
   readonly conversation?: readonly ModelConversationMessage[];
   readonly tools?: readonly ModelToolDefinition[];
+  readonly toolChoice?: "none";
+  /** Host-authored answer-stage message, appended after tool results only with none.
+   * This is not a human turn, persisted conversation or authorization. */
+  readonly responseDirective?: string;
   readonly continuation?: ModelContinuation;
   readonly toolResults?: readonly ModelToolResult[];
   readonly cacheControl?: {
@@ -339,6 +343,8 @@ export type ModelStreamEvent =
     };
 
 export interface ModelAdapter {
+  /** Transport can request tool-free output; runtime still blocks returned calls. */
+  readonly supportsToolChoiceNone?: boolean;
   readonly context?: ModelContextCapabilities;
   readonly promptCache?: PromptCacheCapabilities;
   stream(

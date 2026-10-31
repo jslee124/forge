@@ -13,6 +13,7 @@ import {
   type DesktopApi,
   RUN_COMMAND_CHANNEL,
   RUN_EVENT_CHANNEL,
+  UI_LOCALE_CHANNEL,
 } from "../shared/desktop-api.js";
 import {
   CHANGE_REVIEW_CHANNEL,
@@ -42,6 +43,8 @@ import {
 } from "../shared/update-protocol.js";
 
 const desktopApi: DesktopApi = Object.freeze({
+  setLocale: (locale: "en" | "zh-CN") =>
+    ipcRenderer.invoke(UI_LOCALE_CHANNEL, locale),
   platform: process.platform as DesktopApi["platform"],
   update: (command: UpdateCommand) =>
     ipcRenderer.invoke(UPDATE_CHANNEL, updateCommandSchema.parse(command)),

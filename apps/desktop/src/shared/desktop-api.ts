@@ -12,6 +12,7 @@ export interface AgentHealth {
 
 export interface DesktopApi extends FileApi {
   readonly platform: "darwin" | "win32" | "linux";
+  setLocale(locale: "en" | "zh-CN"): Promise<void>;
   update(command: UpdateCommand): Promise<UpdateStatus>;
   readonly versions: Readonly<{
     electron: string;
@@ -28,6 +29,7 @@ export interface DesktopApi extends FileApi {
   pingAgent(): Promise<AgentHealth>;
 }
 
+export const UI_LOCALE_CHANNEL = "forge-desktop:ui-locale";
 export const AGENT_PING_CHANNEL = "forge-desktop:agent-ping";
 
 export const RUN_COMMAND_CHANNEL = "forge-desktop:run-command";

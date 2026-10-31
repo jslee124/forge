@@ -21,11 +21,37 @@
     "README.md",
     "development/ROADMAP.md",
     "development/EVALUATION.md",
+    "development/DESKTOP_PRODUCT_PRD.md",
+    "development/DESKTOP_PRODUCT_IMPLEMENTATION.md",
     "development/CHAT_CHANNELS_INTENT.md",
     "development/CHAT_CHANNELS_SPEC.md"
   ],
   "instructions": ["product/AGENTS.md", "development/AGENTS.md"],
   "decisions": [
+    {
+      "path": "decisions/0007-experimental-evidence-finalization.md",
+      "status": "accepted"
+    },
+    {
+      "path": "decisions/0006-explicit-answer-stage-message.md",
+      "status": "accepted"
+    },
+    {
+      "path": "decisions/0005-reviewed-desktop-run-recovery.md",
+      "status": "accepted"
+    },
+    {
+      "path": "decisions/0004-reserved-desktop-finalization.md",
+      "status": "accepted"
+    },
+    {
+      "path": "decisions/0003-desktop-durable-run-records.md",
+      "status": "accepted"
+    },
+    {
+      "path": "decisions/0002-desktop-run-presentation-contract.md",
+      "status": "accepted"
+    },
     {
       "path": "decisions/0001-gateway-single-owner-workspace.md",
       "status": "accepted"

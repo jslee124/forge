@@ -1,4 +1,23 @@
+import type {
+  ProductActionUpdate,
+  ProductRunCompletion,
+} from "@forge/application";
+import {
+  productActionFactsSchema,
+  productRecoveryLinkSchema,
+} from "@forge/persistence/product-run-schema";
 import { z } from "zod";
+
+export const RUN_PROTOCOL_VERSION = 2;
+
+export interface ApprovalView {
+  readonly actionId: string;
+  readonly effect: "read" | "write" | "process" | "network" | "model";
+  readonly resource: string;
+  readonly preview: string;
+  readonly input: string;
+  readonly riskFlags: readonly string[];
+}
 
 /** Transport DTOs: credentials and process-local objects never cross this boundary. */
 export interface RunIdentity {
@@ -8,6 +27,11 @@ export interface RunIdentity {
 export type RunCommand = RunIdentity & { readonly requestId: string } & (
     | {
         readonly type: "start";
+        readonly recovery?: {
+          readonly token: string;
+          readonly sourceRunId: string;
+          readonly kind: "summarize" | "continue" | "retry";
+        };
         readonly prompt: string;
         readonly engine: "native" | "codex";
         readonly model?: string;
@@ -20,6 +44,7 @@ export type RunCommand = RunIdentity & { readonly requestId: string } & (
         readonly type: "approve";
         readonly approvalId: string;
         readonly allow: boolean;
+        readonly actionId?: string;
       }
   );
 export type RunPayload =
@@ -27,18 +52,31 @@ export type RunPayload =
       readonly type: "detail";
       readonly kind: "reasoning" | "tool" | "context" | "error" | "system";
       readonly text: string;
+      readonly step?: number;
+    }
+  | { readonly type: "action"; readonly action: ProductActionUpdate }
+  | {
+      readonly type: "phase";
+      readonly phase: "responding" | "executing" | "finalizing";
+    }
+  | {
+      readonly type: "approval-resolved";
+      readonly approvalId: string;
+      readonly allow: boolean;
     }
   | { readonly type: "text"; readonly text: string }
   | {
       readonly type: "approval";
       readonly approvalId: string;
       readonly description: string;
+      readonly descriptor?: ApprovalView;
     }
-  | {
+  | (ProductRunCompletion & {
       readonly type: "complete";
-      readonly outcome: "completed" | "cancelled" | "failed" | "interrupted";
-    };
+    });
 export type RunEvent = RunIdentity & {
+  readonly schemaVersion: 2;
+  readonly occurredAt: string;
   readonly type: "run-event";
   readonly requestId: string;
   readonly sequence: number;
@@ -68,8 +106,11 @@ type WireRecord = Record<string, unknown> &
       | "ok"
       | "provider"
       | "reasoningEffort"
+      | "actionId"
       | "model"
-      | "permissionProfile",
+      | "permissionProfile"
+      | "recovery"
+      | "token",
       unknown
     >
   >;
@@ -100,11 +141,18 @@ export function parseRunCommand(value: unknown): RunCommand | undefined {
       ...keys,
       "prompt",
       "engine",
+      ...(value.recovery === undefined ? [] : ["recovery"]),
       ...(value.model === undefined ? [] : ["model"]),
       ...(value.provider === undefined ? [] : ["provider"]),
       ...(value.reasoningEffort === undefined ? [] : ["reasoningEffort"]),
       ...(value.permissionProfile === undefined ? [] : ["permissionProfile"]),
     ]) &&
+    (value.recovery === undefined ||
+      (record(value.recovery) &&
+        id(value.recovery.token) &&
+        productRecoveryLinkSchema
+          .extend({ token: z.string().regex(/^[a-zA-Z0-9_-]{1,128}$/) })
+          .safeParse(value.recovery).success)) &&
     (value.model === undefined ||
       (typeof value.model === "string" &&
         value.model.length > 0 &&
@@ -138,8 +186,17 @@ export function parseRunCommand(value: unknown): RunCommand | undefined {
     return value as unknown as RunCommand;
   if (
     value.type === "approve" &&
-    exact(value, [...keys, "approvalId", "allow"]) &&
+    exact(value, [
+      ...keys,
+      "approvalId",
+      "allow",
+      ...(value.actionId === undefined ? [] : ["actionId"]),
+    ]) &&
     id(value.approvalId) &&
+    (value.actionId === undefined ||
+      (typeof value.actionId === "string" &&
+        value.actionId.length > 0 &&
+        value.actionId.length <= 1000)) &&
     typeof value.allow === "boolean"
   )
     return value as unknown as RunCommand;
@@ -155,7 +212,11 @@ export function parseRunEvent(value: unknown): RunEvent | undefined {
       "runId",
       "sequence",
       "payload",
+      "schemaVersion",
+      "occurredAt",
     ]) ||
+    value["schemaVersion"] !== RUN_PROTOCOL_VERSION ||
+    !z.iso.datetime().safeParse(value["occurredAt"]).success ||
     value.type !== "run-event" ||
     !id(value.requestId) ||
     !id(value.sessionId) ||
@@ -165,24 +226,9 @@ export function parseRunEvent(value: unknown): RunEvent | undefined {
     !record(value.payload)
   )
     return;
-  const p = value.payload;
-  if (detailSchema.safeParse(p).success) return value as unknown as RunEvent;
-  const valid =
-    (p.type === "text" &&
-      exact(p, ["type", "text"]) &&
-      typeof p.text === "string" &&
-      p.text.length <= 100_000) ||
-    (p.type === "approval" &&
-      exact(p, ["type", "approvalId", "description"]) &&
-      id(p.approvalId) &&
-      typeof p.description === "string" &&
-      p.description.length <= 100_000) ||
-    (p.type === "complete" &&
-      exact(p, ["type", "outcome"]) &&
-      ["completed", "cancelled", "failed", "interrupted"].includes(
-        String(p.outcome),
-      ));
-  return valid ? (value as unknown as RunEvent) : undefined;
+  return runPayloadSchema.safeParse(value.payload).success
+    ? (value as unknown as RunEvent)
+    : undefined;
 }
 export function parseRunReply(value: unknown): RunReply | undefined {
   if (
@@ -201,5 +247,114 @@ const detailSchema = z
     type: z.literal("detail"),
     kind: z.enum(["reasoning", "tool", "context", "error", "system"]),
     text: z.string().max(100_000),
+    step: z.number().int().positive().optional(),
   })
   .strict();
+
+export const approvalViewSchema = z
+  .object({
+    actionId: z.string().min(1).max(1000),
+    effect: z.enum(["read", "write", "process", "network", "model"]),
+    resource: z.string().max(16_384),
+    preview: z.string().max(64_000),
+    input: z.string().max(64_000),
+    riskFlags: z
+      .array(
+        z.enum([
+          "broad-external-effect",
+          "credential-sensitive",
+          "destructive",
+          "install",
+          "policy-designated",
+          "publish",
+        ]),
+      )
+      .max(16),
+  })
+  .strict();
+
+export const runPayloadSchema = z.discriminatedUnion("type", [
+  detailSchema,
+  z.object({ type: z.literal("text"), text: z.string().max(100_000) }).strict(),
+  z
+    .object({
+      type: z.literal("phase"),
+      phase: z.enum(["responding", "executing", "finalizing"]),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("action"),
+      action: z
+        .object({
+          actionId: z.string().min(1).max(1000),
+          step: z.number().int().positive(),
+          tool: z.string().min(1).max(1000),
+          status: z.enum([
+            "proposed",
+            "awaiting_approval",
+            "running",
+            "succeeded",
+            "failed",
+            "denied",
+            "unknown",
+          ]),
+          input: z.string().max(16_384),
+          output: z.string().max(16_384).optional(),
+          facts: productActionFactsSchema.optional(),
+          truncated: z.boolean().optional(),
+        })
+        .strict(),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("approval"),
+      approvalId: z.string().regex(/^[a-zA-Z0-9_-]{1,128}$/),
+      description: z.string().max(100_000),
+      descriptor: approvalViewSchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("approval-resolved"),
+      approvalId: z.string().regex(/^[a-zA-Z0-9_-]{1,128}$/),
+      allow: z.boolean(),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("complete"),
+      outcome: z.enum([
+        "completed",
+        "cancelled",
+        "failed",
+        "interrupted",
+        "limit_reached",
+        "denied",
+      ]),
+      reason: z
+        .enum([
+          "model_step_limit",
+          "tool_call_limit",
+          "no_progress",
+          "context_limit",
+          "configuration_error",
+          "workspace_conflict",
+          "storage_error",
+          "execution_error",
+          "permission_denied",
+          "cancelled",
+          "disconnected",
+        ])
+        .optional(),
+      message: z.string().max(100_000).optional(),
+      modelSteps: z.number().int().nonnegative().optional(),
+      toolCalls: z.number().int().nonnegative().optional(),
+      durationMs: z.number().nonnegative().optional(),
+      partial: z.boolean().optional(),
+      answerSource: z.literal("system-fallback").optional(),
+      recovery: productRecoveryLinkSchema.optional(),
+    })
+    .strict(),
+]);

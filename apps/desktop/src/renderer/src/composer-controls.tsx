@@ -1,4 +1,5 @@
 import { ArrowUp } from "@phosphor-icons/react/ArrowUp";
+import { Square } from "@phosphor-icons/react/Square";
 import { useTranslation } from "react-i18next";
 import type {
   DesktopState,
@@ -13,6 +14,7 @@ export function ComposerControls({
   permission,
   setPermission,
   busy,
+  lockSettings = false,
   importFile,
   onEngineChange,
   selection,
@@ -31,6 +33,7 @@ export function ComposerControls({
   permission: "safe" | "workspace-write";
   setPermission: (value: "safe" | "workspace-write") => void;
   busy: boolean;
+  lockSettings?: boolean;
   importFile: () => Promise<void>;
   onEngineChange: (engine: "native" | "codex") => void;
   selection: ModelSelection | undefined;
@@ -51,14 +54,14 @@ export function ComposerControls({
         engine={engine}
         permission={permission}
         onPermission={setPermission}
-        busy={busy}
+        busy={busy || lockSettings}
         onImport={importFile}
       />
       <ModelSelector
         state={state}
         engine={engine}
         model={model}
-        busy={busy}
+        busy={busy || lockSettings}
         onEngineChange={onEngineChange}
         selection={selection}
         onSelection={onSelection}
@@ -70,14 +73,25 @@ export function ComposerControls({
         <button
           type="button"
           disabled={status === "stopping"}
+          aria-label={t(status === "stopping" ? "live.stopping" : "live.stop")}
+          title={t(status === "stopping" ? "live.stopping" : "live.stop")}
           onClick={() => void cancel()}
         >
-          {t(status === "stopping" ? "live.stopping" : "live.stop")}
+          <Square size={16} aria-hidden="true" />
+          <span className="studio-action-label">
+            {t(status === "stopping" ? "live.stopping" : "live.stop")}
+          </span>
         </button>
       ) : (
-        <button type="button" disabled={!canSend} onClick={() => void send()}>
-          <ArrowUp size={16} />
-          {t("live.send")}
+        <button
+          type="button"
+          disabled={!canSend}
+          onClick={() => void send()}
+          aria-label={t("live.send")}
+          title={t("live.send")}
+        >
+          <ArrowUp size={16} aria-hidden="true" />
+          <span className="studio-action-label">{t("live.send")}</span>
         </button>
       )}
     </div>

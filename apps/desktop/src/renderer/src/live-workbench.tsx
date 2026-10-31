@@ -1,3 +1,5 @@
+import type { ProductRunCompletion } from "@forge/application";
+import type { ProductRunDelivery } from "@forge/persistence";
 import { ChatCircle } from "@phosphor-icons/react/ChatCircle";
 import { Code } from "@phosphor-icons/react/Code";
 import { FileText } from "@phosphor-icons/react/FileText";
@@ -12,18 +14,31 @@ import type {
   DesktopState,
   ManagementCommand,
   ModelSelection,
+  RecoveryPlan,
 } from "../../shared/application-protocol.js";
 import type { ChangeReview, FilePreview } from "../../shared/file-protocol.js";
-import type { RunEvent } from "../../shared/run-protocol.js";
+import type { RunEvent, RunPayload } from "../../shared/run-protocol.js";
+import { ApprovalCard } from "./approval-card.js";
 import logoUrl from "./assets/forge-logo.svg";
 import markUrl from "./assets/forge-mark.svg";
 import { ComposerControls } from "./composer-controls.js";
+import { ConversationMessage } from "./conversation-message.js";
 import { ContentPreview, DiffViewer } from "./file-preview.js";
-import { Markdown } from "./markdown.js";
+import { RecoveryFacts } from "./recovery-facts.js";
+import { RecoveryReview } from "./recovery-review.js";
+import { RunActivity } from "./run-activity.js";
+import { RunDelivery } from "./run-delivery.js";
+import { RunHistory } from "./run-history.js";
+import { RunResult } from "./run-result.js";
+import { activityReducer, initialActivity } from "./run-state.js";
 import { SettingsView } from "./settings-view.js";
 import { SlashCommandMenu } from "./slash-command-menu.js";
 import { commands, routeCommand, suggestions } from "./slash-commands.js";
+import { SystemFallback } from "./system-fallback.js";
+import { Transcript } from "./transcript.js";
 import { UpdateView } from "./update-view.js";
+import { useConversationBrowser } from "./use-conversation-browser.js";
+import { useStreamedAnswer } from "./use-streamed-answer.js";
 import { WorkspaceHeader } from "./workspace-header.js";
 
 export function LiveWorkbench(): React.JSX.Element {
@@ -73,24 +88,77 @@ export function LiveWorkbench(): React.JSX.Element {
   }>();
   const activeRef = React.useRef(active);
   const [status, setStatus] = React.useState("ready");
-  const [answer, setAnswer] = React.useState("");
+  const {
+    answer,
+    omittedCharacters,
+    append: appendAnswer,
+    flush: flushAnswer,
+    reset: resetAnswer,
+  } = useStreamedAnswer();
+  const [followRequest, setFollowRequest] = React.useState(0);
   const [prompt, setPrompt] = React.useState("");
-  const [details, setDetails] = React.useState<
-    { id: number; kind: string; text: string }[]
+  const [activity, dispatchActivity] = React.useReducer(
+    activityReducer,
+    initialActivity,
+  );
+  const [completion, setCompletion] = React.useState<ProductRunCompletion>();
+  const [completionRunId, setCompletionRunId] = React.useState<string>();
+  const [currentDelivery, setCurrentDelivery] =
+    React.useState<ProductRunDelivery>();
+  const submittedRef = React.useRef<
+    { sessionId: string; prompt: string; preserveDraft?: boolean } | undefined
+  >(undefined);
+  const [approvals, setApprovals] = React.useState<
+    Extract<RunPayload, { type: "approval" }>[]
   >([]);
-  const [approval, setApproval] = React.useState<{
-    approvalId: string;
-    description: string;
-  }>();
-  const approvalRef = React.useRef<HTMLButtonElement>(null);
-  React.useEffect(() => {
-    if (approval) approvalRef.current?.focus();
-  }, [approval]);
+  const approval = approvals[0];
+  const [approvalPending, setApprovalPending] = React.useState(false);
+  const approvalSubmitting = React.useRef(false);
+  const clearActivity = () => {
+    dispatchActivity({ type: "reset" });
+    setCompletion(undefined);
+    setCompletionRunId(undefined);
+    setCurrentDelivery(undefined);
+  };
   const [error, setError] = React.useState("");
   const [pending, setPending] = React.useState(false);
+  const [setupIssue, setSetupIssue] = React.useState<
+    | "missing_credentials"
+    | "invalid_configuration"
+    | "codex_sign_in"
+    | "codex_unavailable"
+  >();
   const [settings, setSettings] = React.useState(false);
   const [settingsSection, setSettingsSection] = React.useState("appearance");
   const [panel, setPanel] = React.useState(false);
+  const {
+    viewed,
+    viewedRef,
+    viewLoading,
+    shellRef,
+    key,
+    hasSavedPosition,
+    savePosition,
+    invalidateRead,
+    clearBrowsing,
+    returnToExecution,
+    browseSession,
+    readSession,
+    prepareExecutionView,
+  } = useConversationBrowser({
+    state,
+    panel,
+    tab: panelTab,
+    setPanel,
+    setTab: setPanelTab,
+    onError: (cause) => setError(operationError(cause)),
+    onNavigate: () => {
+      setSettings(false);
+      setNotice("");
+      setError("");
+    },
+  });
+
   const panelReserve =
     panel && viewportWidth > 900
       ? Math.min(panelWidth, viewportWidth * 0.48)
@@ -103,34 +171,99 @@ export function LiveWorkbench(): React.JSX.Element {
   const [filePath, setFilePath] = React.useState("");
   const [filePreview, setFilePreview] = React.useState<FilePreview>();
   const [review, setReview] = React.useState<ChangeReview>();
-  const scope = `${state?.sessionId ?? ""}:${state?.cwd ?? ""}`;
+  const [recoveryReview, setRecoveryReview] = React.useState<RecoveryPlan>();
+  const [retryPlan, setRetryPlan] = React.useState<RecoveryPlan>();
+  const executionScope = `${state?.sessionId ?? ""}:${state?.cwd ?? ""}`;
+  const scope = viewed ? `${viewed.sessionId}:${viewed.cwd}` : executionScope;
+  const displayState =
+    viewed && state
+      ? {
+          ...state,
+          sessionId: viewed.sessionId,
+          cwd: viewed.cwd,
+          messages: viewed.messages,
+          runHistory: viewed.runHistory,
+        }
+      : state;
+
+  const loadHistory = async (
+    command: Extract<ManagementCommand, { type: "run-history" }>,
+  ) => {
+    if (viewedRef.current)
+      await browseSession(
+        viewedRef.current.sessionId,
+        command.runId,
+        command.before,
+      );
+    else if (activeRef.current && api && state?.sessionId) {
+      const sourceSession = state.sessionId;
+      const view = await readSession(
+        sourceSession,
+        command.runId,
+        command.before,
+      );
+      if (view)
+        setState((value) =>
+          value?.sessionId === sourceSession
+            ? { ...value, runHistory: view.runHistory }
+            : value,
+        );
+    } else await manage(command);
+  };
+
+  const retainedRun =
+    !displayState?.messages.length && (!prompt || viewed)
+      ? (displayState?.runHistory?.selected?.summary ??
+        displayState?.runHistory?.runs[0])
+      : undefined;
+
   const scopeRef = React.useRef(scope);
   scopeRef.current = scope;
-  const previousSelectionScope = React.useRef(scope);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: Changing tasks must invalidate the previous task's artifact state.
+  const previousSelectionScope = React.useRef(executionScope);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: A viewed workspace identity change invalidates file previews and recovery review.
   React.useEffect(() => {
     setFilePath("");
+    setRetryPlan(undefined);
+    setRecoveryReview(undefined);
     setFilePreview(undefined);
     setReview(undefined);
+  }, [scope]);
+  React.useEffect(() => {
     const previous = previousSelectionScope.current;
-    previousSelectionScope.current = scope;
-    if (!(previous.startsWith(":") && !scope.startsWith(":"))) {
+    previousSelectionScope.current = executionScope;
+    if (!(previous.startsWith(":") && !executionScope.startsWith(":"))) {
       setSelection(undefined);
       setModel("");
       setPermission("safe");
     }
-  }, [scope]);
-  const key = state?.sessionId || `new:${state?.cwd ?? ""}`;
+  }, [executionScope]);
   const draft = drafts[key] ?? "";
   const [commandIndex, setCommandIndex] = React.useState(0);
   const [commandClosed, setCommandClosed] = React.useState(false);
   const commandPending = React.useRef(false);
+  const startSubmitting = React.useRef(false);
   const [literalOffer, setLiteralOffer] = React.useState(false);
   const [notice, setNotice] = React.useState("");
-  const candidates = commandClosed ? [] : suggestions(draft);
+  const candidates = viewed || commandClosed ? [] : suggestions(draft);
   const zh = i18n.language.startsWith("zh");
   const busy = Boolean(active) || pending;
   const api = window.forgeDesktop;
+  React.useEffect(() => {
+    void api?.setLocale?.(zh ? "zh-CN" : "en").catch(() => {});
+  }, [zh]);
+  const sessions = state?.sessions ?? [];
+  const navigationSessions =
+    active && !sessions.some((session) => session.id === active.sessionId)
+      ? [
+          {
+            id: active.sessionId,
+            title: submittedRef.current?.prompt.slice(0, 80) || "Forge",
+            cwd: state?.cwd ?? "",
+          },
+          ...sessions,
+        ]
+      : sessions;
+
   React.useEffect(() => {
     const guard = (event: BeforeUnloadEvent) => {
       if (busy || Object.values(drafts).some((value) => value.trim())) {
@@ -169,6 +302,28 @@ export function LiveWorkbench(): React.JSX.Element {
       setPending(false);
     }
   };
+  const restoreRunFocus = React.useCallback(() => {
+    const focused = document.activeElement;
+    if (
+      !(focused instanceof HTMLElement) ||
+      !focused.closest(".run-approval,[data-testid=stop-active]")
+    )
+      return;
+    requestAnimationFrame(() => {
+      if (
+        document.activeElement !== document.body &&
+        document.activeElement !== focused
+      )
+        return;
+      const target =
+        document.querySelector<HTMLButtonElement>(
+          viewedRef.current
+            ? "[data-testid=return-active]"
+            : "[data-testid=stop-active]",
+        ) ?? composerRef.current;
+      target?.focus({ preventScroll: true });
+    });
+  }, [viewedRef]);
   React.useEffect(() => {
     if (!api) {
       setError("management-failed");
@@ -203,23 +358,39 @@ export function LiveWorkbench(): React.JSX.Element {
       )
         return;
       const payload = event.payload;
-      if (payload.type === "text")
-        setAnswer((value) => (value + payload.text).slice(-1_000_000));
-      else if (payload.type === "detail")
-        setDetails((value) => [
-          ...value.slice(-199),
-          { ...payload, id: event.sequence },
-        ]);
+      dispatchActivity({ type: "event", event });
+      if (payload.type === "text") appendAnswer(payload.text);
+      else if (payload.type === "phase") setStatus(payload.phase);
       else if (payload.type === "approval") {
-        setApproval(payload);
+        setApprovals((values) => [...values, payload]);
         setStatus("approval");
-      } else {
+      } else if (payload.type === "approval-resolved") {
+        restoreRunFocus();
+        setApprovals((values) =>
+          values.filter((value) => value.approvalId !== payload.approvalId),
+        );
+        setStatus("running");
+      } else if (payload.type === "complete") {
+        restoreRunFocus();
+        flushAnswer();
         activeRef.current = undefined;
         setActive(undefined);
-        setApproval(undefined);
+        setApprovals([]);
+        setCompletion(payload);
+        setCompletionRunId(current.runId);
         setStatus(payload.outcome);
-        if (payload.outcome === "completed")
-          setDrafts((values) => ({ ...values, [current.sessionId]: "" }));
+        if (payload.outcome !== "completed") {
+          const submitted = submittedRef.current;
+          if (
+            submitted?.sessionId === current.sessionId &&
+            !submitted.preserveDraft
+          )
+            setDrafts((values) =>
+              values[current.sessionId]?.trim()
+                ? values
+                : { ...values, [current.sessionId]: submitted.prompt },
+            );
+        }
         if (payload.outcome !== "interrupted") {
           setPending(true);
           void api
@@ -227,8 +398,13 @@ export function LiveWorkbench(): React.JSX.Element {
             .then((next) => {
               if (!disposed) {
                 setState(next);
+                setCurrentDelivery(
+                  next.runHistory?.selected?.summary.runId === current.runId
+                    ? next.runHistory.selected.delivery
+                    : undefined,
+                );
                 setPrompt("");
-                setAnswer("");
+                resetAnswer();
               }
             })
             .catch(() => {
@@ -244,7 +420,7 @@ export function LiveWorkbench(): React.JSX.Element {
       disposed = true;
       unsubscribe();
     };
-  }, []);
+  }, [appendAnswer, flushAnswer, resetAnswer, restoreRunFocus]);
   React.useEffect(() => {
     if (state?.auth !== "signing-in" || !api) return;
     const timer = setInterval(() => {
@@ -255,6 +431,22 @@ export function LiveWorkbench(): React.JSX.Element {
     }, 1000);
     return () => clearInterval(timer);
   }, [state?.auth]);
+  const previewDeliveryFile = async (path: string) => {
+    if (viewedRef.current) {
+      setNotice(t("browsing.noSend"));
+      return;
+    }
+    setPanel(true);
+    setPanelTab("files");
+    setFilePath(path);
+    setFilePreview(undefined);
+    try {
+      const value = await api?.previewFile({ path });
+      if (scopeRef.current === scope) setFilePreview(value);
+    } catch (cause) {
+      if (scopeRef.current === scope) setError(operationError(cause));
+    }
+  };
   const importFile = async () => {
     try {
       const imported = await api?.importFile();
@@ -274,8 +466,8 @@ export function LiveWorkbench(): React.JSX.Element {
       if (next) {
         setState(next);
         setPrompt("");
-        setAnswer("");
-        setDetails([]);
+        resetAnswer();
+        clearActivity();
       }
     } catch (cause) {
       setError(operationError(cause));
@@ -286,9 +478,11 @@ export function LiveWorkbench(): React.JSX.Element {
   const newTask = async (mode: "new" | "clear" = "new") => {
     const next = await manage({ type: "reset", mode });
     if (!next) return false;
+    clearBrowsing();
+    setSetupIssue(undefined);
     setPrompt("");
-    setAnswer("");
-    setDetails([]);
+    resetAnswer();
+    clearActivity();
     setNotice("");
     setLiteralOffer(false);
     setSettings(false);
@@ -296,7 +490,32 @@ export function LiveWorkbench(): React.JSX.Element {
     setStatus("ready");
     return true;
   };
+  const resumeSession = async (sessionId: string) => {
+    if (activeRef.current || pending) return;
+    savePosition();
+    const position = prepareExecutionView(
+      sessionId,
+      sessionId === state?.sessionId && !viewed,
+    );
+    invalidateRead();
+    const next = await manage({ type: "resume", sessionId });
+    if (!next) return;
+    clearBrowsing();
+    setPanel(position.panel);
+    setPanelTab(position.tab);
+    setSettings(false);
+    setStatus("ready");
+    setNotice("");
+    clearActivity();
+    setPrompt("");
+    resetAnswer();
+    setApprovals([]);
+  };
   const executeSlash = async (input: string) => {
+    if (viewedRef.current) {
+      setNotice(t("browsing.noSend"));
+      return;
+    }
     const result = routeCommand(input, busy || commandPending.current);
     setCommandClosed(true);
     setNotice("");
@@ -452,13 +671,58 @@ export function LiveWorkbench(): React.JSX.Element {
           ?.click(),
       );
   };
-  const send = async (literal = false) => {
-    if (!draft.trim() || !api) return;
-    if (!literal && draft.trim().startsWith("/")) {
+  const prepareRecovery = async (
+    kind: RecoveryPlan["kind"],
+    sourceRunId: string,
+  ) => {
+    if (busy || !state?.sessionId) return;
+    if (engine !== "native") {
+      setNotice(t("recovery.nativeOnly"));
+      return;
+    }
+    const base = selection ?? state.defaultSelection;
+    if (base?.engine !== "native") {
+      setNotice(t("recovery.nativeOnly"));
+      return;
+    }
+    const entry = state.modelCatalog?.find(
+      (value) =>
+        value.engine === "native" &&
+        value.provider === base.provider &&
+        value.id === (model || base.model),
+    );
+    const chosen: ModelSelection = {
+      ...base,
+      model: model || base.model,
+      effort: (base.effort && entry?.efforts.includes(base.effort)
+        ? base.effort
+        : (entry?.defaultEffort ?? base.effort)) as ModelSelection["effort"],
+    };
+    const next = await manage({
+      type: "prepare-recovery",
+      responseLocale: zh ? "zh-CN" : "en",
+      sourceRunId,
+      kind,
+      selection: chosen,
+      permissionProfile: permission,
+    });
+    if (next?.recoveryPlan) setRecoveryReview(next.recoveryPlan);
+  };
+  const send = async (literal = false, explicitPlan?: RecoveryPlan) => {
+    if (viewedRef.current) {
+      setNotice(t("browsing.noSend"));
+      return;
+    }
+    const recovery = explicitPlan ?? retryPlan;
+    const input = explicitPlan ? explicitPlan.prompt : draft;
+    const preserveDraft =
+      recovery?.kind === "summarize" || recovery?.kind === "continue";
+    if (!input.trim() || !api) return;
+    if (!recovery && !literal && draft.trim().startsWith("/")) {
       await executeSlash(draft);
       return;
     }
-    if (busy || commandPending.current) return;
+    if (busy || commandPending.current || startSubmitting.current) return;
     if (
       engine === "native" &&
       !selection &&
@@ -472,12 +736,45 @@ export function LiveWorkbench(): React.JSX.Element {
       return;
     }
     setLiteralOffer(false);
+    startSubmitting.current = true;
     setPending(true);
     setError("");
     try {
+      const chosen =
+        recovery?.selection ??
+        selection ??
+        (model && state
+          ? {
+              engine,
+              provider: engine === "codex" ? "openai" : state.provider,
+              model,
+            }
+          : undefined);
+      let checked: DesktopState;
+      try {
+        checked = await api.manage({
+          type: "check-readiness",
+          engine: chosen?.engine ?? engine,
+          ...(chosen ? { selection: chosen } : {}),
+        });
+      } catch (cause) {
+        const code = operationError(cause);
+        if (code === "configuration-invalid")
+          setSetupIssue("invalid_configuration");
+        else {
+          setSetupIssue(undefined);
+          setError(code);
+        }
+        return;
+      }
+      if (!checked.readiness?.ready) {
+        setSetupIssue(checked.readiness?.issue ?? "invalid_configuration");
+        return;
+      }
+      setSetupIssue(undefined);
       const current = state?.sessionId
         ? state
-        : await api.manage({ type: "create", prompt: draft });
+        : await api.manage({ type: "create", prompt: input });
       setState(current);
       const identity = {
         sessionId: current.sessionId,
@@ -485,18 +782,47 @@ export function LiveWorkbench(): React.JSX.Element {
         requestId: crypto.randomUUID(),
       };
       activeRef.current = identity;
+      submittedRef.current = {
+        sessionId: current.sessionId,
+        prompt: input,
+        preserveDraft,
+      };
       setActive(identity);
+      setFollowRequest((value) => value + 1);
       setStatus("running");
-      setPrompt(draft);
-      setAnswer("");
-      setDetails([]);
+      setPrompt(input);
+      resetAnswer();
+      clearActivity();
+      if (!preserveDraft)
+        setDrafts((values) => ({
+          ...values,
+          [key]: values[key] === draft ? "" : (values[key] ?? ""),
+          [current.sessionId]:
+            values[current.sessionId] === draft
+              ? ""
+              : (values[current.sessionId] ?? ""),
+        }));
       const accepted = await api.runCommand({
         type: "start",
         ...identity,
-        prompt: draft,
-        engine,
-        permissionProfile: permission,
-        ...(selection
+        prompt: input,
+        engine: recovery ? recovery.selection.engine : engine,
+        permissionProfile: recovery ? recovery.permissionProfile : permission,
+        ...(recovery
+          ? {
+              recovery: {
+                token: recovery.token,
+                sourceRunId: recovery.sourceRunId,
+                kind: recovery.kind,
+              },
+              model: recovery.selection.model,
+              provider: recovery.selection.provider,
+              ...(recovery.selection.effort
+                ? { reasoningEffort: recovery.selection.effort }
+                : {}),
+            }
+          : {}),
+        ...(!recovery && selection
           ? {
               model: selection.model,
               provider: selection.provider,
@@ -504,34 +830,51 @@ export function LiveWorkbench(): React.JSX.Element {
                 ? { reasoningEffort: selection.effort }
                 : {}),
             }
-          : model
+          : !recovery && model
             ? { model }
             : {}),
       });
-      if (!accepted) {
+      if (accepted) setRetryPlan(undefined);
+      if (!accepted && activeRef.current === identity) {
         activeRef.current = undefined;
         setActive(undefined);
         setStatus("failed");
+        setCompletion({ outcome: "failed", reason: "execution_error" });
+        if (!preserveDraft)
+          setDrafts((values) =>
+            values[current.sessionId]?.trim()
+              ? values
+              : { ...values, [current.sessionId]: input },
+          );
         setError("management-failed");
-      } else
-        setDrafts((values) => ({
-          ...values,
-          [key]: "",
-          [current.sessionId]: draft,
-        }));
+      }
     } catch {
       setError("management-failed");
       setStatus("failed");
+      setCompletion({ outcome: "failed", reason: "execution_error" });
+      const submitted = submittedRef.current;
+      if (submitted && !submitted.preserveDraft)
+        setDrafts((values) =>
+          values[submitted.sessionId]?.trim()
+            ? values
+            : { ...values, [submitted.sessionId]: submitted.prompt },
+        );
       activeRef.current = undefined;
       setActive(undefined);
     } finally {
+      startSubmitting.current = false;
       setPending(false);
     }
   };
   const cancel = async () => {
-    if (!active || !api) return;
+    if (!active || !api || status === "stopping") return;
+    const current = active;
     setStatus("stopping");
-    setApproval(undefined);
+    const rejected = () => {
+      setError("management-failed");
+      if (activeRef.current === current)
+        setStatus(approval ? "approval" : "running");
+    };
     try {
       if (
         !(await api.runCommand({
@@ -540,16 +883,16 @@ export function LiveWorkbench(): React.JSX.Element {
           requestId: crypto.randomUUID(),
         }))
       )
-        setError("management-failed");
+        rejected();
     } catch {
-      setError("management-failed");
+      rejected();
     }
   };
   const decide = async (allow: boolean) => {
-    if (!active || !approval || !api) return;
+    if (!active || !approval || !api || approvalSubmitting.current) return;
     const approvalId = approval.approvalId;
-    setApproval(undefined);
-    setStatus("running");
+    approvalSubmitting.current = true;
+    setApprovalPending(true);
     try {
       if (
         !(await api.runCommand({
@@ -557,16 +900,23 @@ export function LiveWorkbench(): React.JSX.Element {
           type: "approve",
           requestId: crypto.randomUUID(),
           approvalId,
+          ...(approval.descriptor
+            ? { actionId: approval.descriptor.actionId }
+            : {}),
           allow,
         }))
       )
         setError("management-failed");
     } catch {
       setError("management-failed");
+    } finally {
+      approvalSubmitting.current = false;
+      setApprovalPending(false);
     }
   };
   return (
     <main
+      ref={shellRef}
       className={`app-shell live-shell ${window.forgeDesktop?.platform === "darwin" ? "platform-mac" : "platform-windows"} ${sidebarOpen ? "" : "sidebar-collapsed"}`}
       style={
         {
@@ -575,6 +925,33 @@ export function LiveWorkbench(): React.JSX.Element {
         } as React.CSSProperties
       }
     >
+      {recoveryReview && (
+        <RecoveryReview
+          plan={recoveryReview}
+          hasDraft={Boolean(draft.trim())}
+          busy={busy}
+          onCancel={() => {
+            setRecoveryReview(undefined);
+            void manage({ type: "dismiss-recovery" });
+          }}
+          onConfirm={() => {
+            const plan = recoveryReview;
+            setRecoveryReview(undefined);
+            if (plan.kind === "retry") {
+              setDrafts((values) => ({ ...values, [key]: plan.prompt }));
+              setSelection(plan.selection);
+              setEngine(plan.selection.engine);
+              setPermission(plan.permissionProfile);
+              setModel(plan.selection.model);
+              setRetryPlan(plan);
+              requestAnimationFrame(() => composerRef.current?.focus());
+            } else {
+              void send(true, plan);
+            }
+          }}
+        />
+      )}
+
       <div className="app-frame">
         <aside className="sidebar">
           <div className="studio-brand">
@@ -622,15 +999,15 @@ export function LiveWorkbench(): React.JSX.Element {
           />
           <div className="live-sessions">
             {sessionQuery &&
-              !state?.sessions.some((session) =>
+              !navigationSessions.some((session) =>
                 `${session.title} ${session.cwd ?? ""}`
                   .toLowerCase()
                   .includes(sessionQuery.toLowerCase()),
               ) && <p>{zh ? "没有匹配任务" : "No matching tasks"}</p>}
-            {!state?.sessions.length && (
+            {!navigationSessions.length && (
               <p className="studio-empty-list">{t("studio.noTasks")}</p>
             )}
-            {state?.sessions
+            {navigationSessions
               .filter((session) =>
                 `${session.title} ${session.cwd ?? ""}`
                   .toLowerCase()
@@ -642,39 +1019,35 @@ export function LiveWorkbench(): React.JSX.Element {
                   key={session.id}
                   data-session-id={session.id}
                   aria-current={
-                    session.id === state?.sessionId && !settings
+                    session.id === (viewed?.sessionId ?? state?.sessionId) &&
+                    !settings
                       ? "page"
                       : undefined
                   }
                   title={`${session.title} · ${session.cwd ?? ""}`}
-                  disabled={busy}
-                  onClick={async () => {
-                    if (session.cwd && state?.cwd && session.cwd !== state.cwd)
-                      setNotice(
-                        zh
-                          ? `恢复任务的工作区：${session.cwd}`
-                          : `Resuming workspace: ${session.cwd}`,
-                      );
-                    const next = await manage({
-                      type: "resume",
-                      sessionId: session.id,
-                    });
-                    if (!next) return;
-                    setSelection(undefined);
-                    setModel("");
-                    setPermission("safe");
-                    setPanel(true);
-                    setPanelTab("files");
-                    setStatus("ready");
-                    setSettings(false);
-                    setDetails([]);
-                    setPrompt("");
-                    setAnswer("");
-                    setApproval(undefined);
+                  disabled={
+                    pending || (viewLoading && session.id !== state?.sessionId)
+                  }
+                  onClick={() => {
+                    if (session.id === state?.sessionId) {
+                      if (activeRef.current || viewed) returnToExecution();
+                      else void resumeSession(session.id);
+                    } else if (activeRef.current || viewed)
+                      void browseSession(session.id);
+                    else void resumeSession(session.id);
                   }}
                 >
                   <ChatCircle size={16} />
-                  <span>{session.title}</span>
+                  <span>
+                    {session.title === "Empty session"
+                      ? t("setup.emptyTask")
+                      : session.title}
+                  </span>
+                  {active?.sessionId === session.id && (
+                    <small className="session-running">
+                      {t("browsing.runningBadge")}
+                    </small>
+                  )}
                 </button>
               ))}
           </div>
@@ -767,13 +1140,13 @@ export function LiveWorkbench(): React.JSX.Element {
         </aside>
         <section className="live-main">
           <WorkspaceHeader
-            state={state}
+            state={displayState}
             sidebarOpen={sidebarOpen}
             setSidebarOpen={setSidebarOpen}
             panel={panel}
             setPanel={setPanel}
             settings={settings}
-            busy={busy}
+            busy={busy || Boolean(viewed)}
             onChooseWorkspace={onChooseWorkspace}
             onNewTask={() => void newTask()}
             onSettings={() => {
@@ -781,6 +1154,94 @@ export function LiveWorkbench(): React.JSX.Element {
               setSettings(!settings);
             }}
           />
+          {(active || viewed || viewLoading) && (
+            <div
+              className="run-navigation"
+              data-browsing={Boolean(viewed)}
+              role="status"
+              aria-live="polite"
+            >
+              <div>
+                <strong>
+                  {t(active ? "browsing.activeTask" : "browsing.executionTask")}
+                  :{" "}
+                  {state?.sessions.find(
+                    (session) =>
+                      session.id === (active?.sessionId ?? state?.sessionId),
+                  )?.title ??
+                    submittedRef.current?.prompt.slice(0, 80) ??
+                    "Forge"}
+                </strong>
+                <span>
+                  {approval
+                    ? t("browsing.approvalCount", { count: approvals.length })
+                    : active
+                      ? t(`runUi.phases.${status}`, {
+                          defaultValue: t("live.running"),
+                        })
+                      : t(
+                          `runUi.outcomes.${completion?.outcome ?? "completed"}`,
+                        )}
+                </span>
+                {viewed && (
+                  <span>{t("browsing.viewing", { title: viewed.title })}</span>
+                )}
+              </div>
+              {(viewed || settings || viewLoading) && (
+                <button
+                  type="button"
+                  data-testid="return-active"
+                  onClick={returnToExecution}
+                >
+                  {t("browsing.return")}
+                </button>
+              )}
+              {active && (
+                <button
+                  type="button"
+                  data-testid="stop-active"
+                  disabled={status === "stopping"}
+                  onClick={() => void cancel()}
+                >
+                  {t("live.stop")}
+                </button>
+              )}
+              {viewed && !active && (
+                <button
+                  type="button"
+                  data-testid="resume-viewed"
+                  disabled={pending || viewLoading}
+                  onClick={() => void resumeSession(viewed.sessionId)}
+                >
+                  {t("browsing.resume")}
+                </button>
+              )}
+            </div>
+          )}
+          {setupIssue && !settings && (
+            <section
+              role="alert"
+              className="studio-notice setup-notice"
+              data-testid="setup-required"
+            >
+              <div>
+                <strong>{t("setup.title")}</strong>
+                <p>{t(`setup.${setupIssue}`)}</p>
+                <p>{t("setup.draftKept")}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSettingsSection(
+                    setupIssue.startsWith("codex_") ? "login" : "credentials",
+                  );
+                  setSettings(true);
+                }}
+              >
+                {t("setup.configure")}
+              </button>
+            </section>
+          )}
           {error && (
             <p role="alert" className="field-error">
               {t(`live.errors.${error}`, { defaultValue: t("live.error") })}
@@ -811,7 +1272,7 @@ export function LiveWorkbench(): React.JSX.Element {
             <SettingsView
               initialSection={settingsSection}
               state={state}
-              busy={busy}
+              busy={busy || Boolean(viewed)}
               onBack={() => {
                 setSettings(false);
                 requestAnimationFrame(() => composerRef.current?.focus());
@@ -823,128 +1284,277 @@ export function LiveWorkbench(): React.JSX.Element {
             />
           ) : (
             <>
-              <div className="live-transcript" aria-live="polite">
-                {!state?.messages.length && !prompt && (
-                  <div className="studio-welcome">
-                    <span className="studio-welcome-icon">
-                      <img src={markUrl} alt="" width={72} height={72} />
-                    </span>
-
-                    <h1>{t("studio.title")}</h1>
-                    <p>{t("studio.subtitle")}</p>
-                    <div className="studio-suggestions">
-                      {[
-                        { key: "code", icon: Code },
-                        { key: "document", icon: FileText },
-                        { key: "research", icon: Globe },
-                      ].map(({ key: suggestion, icon: Icon }) => (
-                        <button
-                          type="button"
-                          key={suggestion}
-                          onClick={() => {
-                            setDrafts((values) => ({
-                              ...values,
-                              [key]: t(`studio.prompts.${suggestion}`),
-                            }));
-                            composerRef.current?.focus();
-                          }}
-                        >
-                          <Icon size={20} />
-                          <span>{t(`studio.suggestions.${suggestion}`)}</span>
-                          <Plus size={14} />
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+              <Transcript
+                key={key}
+                viewKey={key}
+                live={Boolean(active) && !viewed}
+                preservePosition={hasSavedPosition}
+                followRequest={followRequest}
+              >
+                {viewed && (
+                  <p className="browsing-note">
+                    {t("browsing.snapshot")}
+                    {viewed.truncated && ` ${t("browsing.truncated")}`}
+                  </p>
                 )}
-                {state?.messages.map((message) => (
-                  <div
-                    key={message.id}
-                    className={
-                      message.role === "user" ? "live-user" : "live-answer"
-                    }
-                  >
-                    {message.role === "assistant" && (
-                      <img
-                        className="studio-answer-avatar"
-                        src={markUrl}
-                        alt="Forge"
-                      />
-                    )}
-                    <Markdown>{message.content}</Markdown>
-                  </div>
-                ))}
-                {prompt && (
-                  <div className="live-user">
-                    <Markdown>{prompt}</Markdown>
-                  </div>
-                )}
-                {answer && (
-                  <div className="live-answer">
-                    <img
-                      className="studio-answer-avatar"
-                      src={markUrl}
-                      alt="Forge"
-                    />
-                    <Markdown>{answer}</Markdown>
-                  </div>
-                )}
-                {active && (
-                  <div className="studio-run-state" role="status">
-                    <span className="spinner" />
-                    <span>{t(`live.${status}`)}</span>
-                    {details.length > 0 && (
-                      <details>
-                        <summary>
-                          {t("live.activity")} · {details.length}
-                        </summary>
-                        <pre>{details.at(-1)?.text}</pre>
-                      </details>
-                    )}
-                  </div>
-                )}
-                {approval && (
+                {retainedRun && (
                   <section
-                    className="approval-card"
-                    aria-labelledby="approval-title"
+                    className="retained-task"
+                    aria-labelledby="retained-task-title"
                   >
-                    <h3 id="approval-title">{t("live.approval")}</h3>
-                    <pre>{approval.description}</pre>
-                    <button
-                      ref={approvalRef}
-                      type="button"
-                      onClick={() => void decide(false)}
+                    <h2 id="retained-task-title">
+                      {t(
+                        retainedRun.completion?.outcome === "interrupted"
+                          ? "browsing.interruptedTitle"
+                          : "browsing.retainedTitle",
+                      )}
+                    </h2>
+                    <section
+                      className="retained-task-prompt"
+                      aria-label={t("browsing.savedRequest")}
+                      // biome-ignore lint/a11y/noNoninteractiveTabindex: Scrollable saved requests need keyboard scrolling.
+                      tabIndex={0}
                     >
-                      {t("common.deny")}
-                    </button>
-                    <button type="button" onClick={() => void decide(true)}>
-                      {t("common.approve")}
+                      {retainedRun.prompt}
+                    </section>
+                    <p>{t("browsing.retainedDescription")}</p>
+                    <button
+                      type="button"
+                      disabled={pending || viewLoading}
+                      onClick={async () => {
+                        await loadHistory({
+                          type: "run-history",
+                          runId: retainedRun.runId,
+                        });
+                        setPanel(true);
+                        setPanelTab("context");
+                      }}
+                    >
+                      {t("browsing.openRecord")}
                     </button>
                   </section>
                 )}
-              </div>
-              {!active &&
-                (status === "failed" ||
-                  status === "interrupted" ||
-                  status === "cancelled") && (
+                {!retainedRun &&
+                  !displayState?.messages.length &&
+                  (!prompt || viewed) && (
+                    <div className="studio-welcome">
+                      <span className="studio-welcome-icon">
+                        <img src={markUrl} alt="" width={72} height={72} />
+                      </span>
+
+                      <h1>{t("studio.title")}</h1>
+                      <p>{t("studio.subtitle")}</p>
+                      <div className="studio-suggestions">
+                        {[
+                          { key: "code", icon: Code },
+                          { key: "document", icon: FileText },
+                          { key: "research", icon: Globe },
+                        ].map(({ key: suggestion, icon: Icon }) => (
+                          <button
+                            type="button"
+                            key={suggestion}
+                            onClick={() => {
+                              setDrafts((values) => ({
+                                ...values,
+                                [key]: t(`studio.prompts.${suggestion}`),
+                              }));
+                              composerRef.current?.focus();
+                            }}
+                          >
+                            <Icon size={20} />
+                            <span>{t(`studio.suggestions.${suggestion}`)}</span>
+                            <Plus size={14} />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                {displayState?.messages
+                  .filter(
+                    (message) =>
+                      !(
+                        message.kind === "system-outcome" &&
+                        !viewed &&
+                        message.runId === completionRunId &&
+                        completion
+                      ),
+                  )
+                  .map((message) =>
+                    message.kind === "system-outcome" ? (
+                      <RunResult
+                        key={message.id}
+                        historical
+                        result={{
+                          outcome: message.outcome ?? "failed",
+                          message: message.content,
+                        }}
+                      />
+                    ) : message.kind === "system-fallback" ? (
+                      <SystemFallback
+                        key={message.id}
+                        original={message.content}
+                        delivery={
+                          message.runId === completionRunId && currentDelivery
+                            ? currentDelivery
+                            : displayState?.runHistory?.selected?.summary
+                                  .runId === message.runId
+                              ? displayState?.runHistory?.selected?.delivery
+                              : undefined
+                        }
+                      />
+                    ) : (
+                      <div key={message.id}>
+                        {message.role === "assistant" &&
+                          message.runId ===
+                            displayState?.runHistory?.selected?.summary.runId &&
+                          displayState?.runHistory?.selected
+                            ?.recoverySource && (
+                            <RecoveryFacts
+                              source={
+                                displayState?.runHistory?.selected
+                                  ?.recoverySource
+                              }
+                              onPreview={(path) =>
+                                void previewDeliveryFile(path)
+                              }
+                            />
+                          )}
+                        <ConversationMessage
+                          author={message.role}
+                          content={message.content}
+                          explanation={Boolean(
+                            message.role === "assistant" &&
+                              displayState?.runHistory?.runs.some(
+                                (run) =>
+                                  run.runId === message.runId &&
+                                  run.recovery?.kind === "summarize",
+                              ),
+                          )}
+                        />
+                      </div>
+                    ),
+                  )}
+                {!viewed && prompt && (
+                  <ConversationMessage author="user" content={prompt} />
+                )}
+                {!viewed &&
+                  answer &&
+                  completionRunId ===
+                    state?.runHistory?.selected?.summary.runId &&
+                  state?.runHistory?.selected?.recoverySource && (
+                    <RecoveryFacts
+                      source={state?.runHistory?.selected?.recoverySource}
+                      onPreview={(path) => void previewDeliveryFile(path)}
+                    />
+                  )}
+                {!viewed &&
+                answer &&
+                completion?.answerSource === "system-fallback" &&
+                !active ? (
+                  <SystemFallback
+                    original={answer}
+                    delivery={currentDelivery}
+                  />
+                ) : !viewed && answer ? (
+                  <ConversationMessage
+                    author="assistant"
+                    content={answer}
+                    explanation={completion?.recovery?.kind === "summarize"}
+                    streaming={Boolean(active)}
+                  />
+                ) : null}
+                {!viewed && omittedCharacters > 0 && (
+                  <p role="status">
+                    {t("messages.omitted", { count: omittedCharacters })}
+                  </p>
+                )}
+                {!viewed && active && (
                   <div
-                    className="studio-run-result"
-                    role={status === "failed" ? "alert" : "status"}
+                    className="studio-run-state"
+                    role="status"
+                    aria-live="polite"
                   >
-                    <strong>{t(`live.${status}`)}</strong>
-                    <p>
-                      {zh
-                        ? "草稿已保留，可以修改后重新发送。"
-                        : "Your draft is retained. Edit it and send again when ready."}
-                    </p>
-                    {details.length > 0 && (
-                      <details>
-                        <summary>{t("live.activity")}</summary>
-                        <pre>{details.at(-1)?.text}</pre>
-                      </details>
-                    )}
+                    {!approval && <span className="spinner" />}
+                    <span>
+                      {approval
+                        ? t("runUi.waiting")
+                        : t(`runUi.phases.${status}`, {
+                            defaultValue: t("live.running"),
+                          })}
+                    </span>
                   </div>
                 )}
+                {!viewed && activity.items.length > 0 && (
+                  <details
+                    className="run-activity-disclosure"
+                    data-view-disclosure="activity"
+                  >
+                    <summary>{t("live.activity")}</summary>
+                    <RunActivity state={activity} />
+                  </details>
+                )}
+                {!viewed && !active && completion && (
+                  <RunResult
+                    result={completion}
+                    recoveryDisabled={
+                      busy ||
+                      !state?.runHistory?.runs.some(
+                        (run) =>
+                          run.runId === completionRunId &&
+                          run.engine === "native",
+                      )
+                    }
+                    onRecover={
+                      completionRunId
+                        ? (kind) => void prepareRecovery(kind, completionRunId)
+                        : undefined
+                    }
+                    onConfigure={() => {
+                      setSettingsSection(
+                        engine === "codex" ? "login" : "credentials",
+                      );
+                      setSettings(true);
+                    }}
+                    onSource={(sourceRunId) => {
+                      setPanel(true);
+                      setPanelTab("context");
+                      void manage({ type: "run-history", runId: sourceRunId });
+                    }}
+                  />
+                )}
+                {!viewed && !active && completionRunId && currentDelivery && (
+                  <RunDelivery
+                    key={completionRunId}
+                    delivery={currentDelivery}
+                    busy={busy}
+                    onPreview={(path) => void previewDeliveryFile(path)}
+                  />
+                )}
+              </Transcript>
+              {!viewed && approval && (
+                <ApprovalCard
+                  key={approval.approvalId}
+                  approval={approval}
+                  count={approvals.length}
+                  pending={approvalPending || status === "stopping"}
+                  onDecide={decide}
+                />
+              )}
+              {retryPlan && (
+                <div className="run-retry-draft" role="status">
+                  <span>{t("recovery.retryDraft")}</span>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => {
+                      setRetryPlan(undefined);
+                      void manage({ type: "dismiss-recovery" });
+                    }}
+                  >
+                    {t("recovery.unlink")}
+                  </button>
+                </div>
+              )}
               <div className="live-composer">
                 {candidates.length > 0 && (
                   <SlashCommandMenu
@@ -968,7 +1578,12 @@ export function LiveWorkbench(): React.JSX.Element {
                       : undefined
                   }
                   onKeyDown={(event) => {
-                    if (event.nativeEvent.isComposing) return;
+                    if (
+                      event.nativeEvent.isComposing ||
+                      event.nativeEvent.keyCode === 229
+                    )
+                      return;
+                    if (event.key === "Enter" && event.shiftKey) return;
                     if (candidates.length) {
                       if (event.key === "Escape") {
                         event.preventDefault();
@@ -1010,16 +1625,17 @@ export function LiveWorkbench(): React.JSX.Element {
                         return;
                       }
                     }
-                    if (
-                      event.key === "Enter" &&
-                      (event.metaKey || event.ctrlKey) &&
-                      !event.nativeEvent.isComposing
-                    ) {
+                    if (event.key === "Enter" && !event.altKey) {
                       event.preventDefault();
                       void send();
                     }
                   }}
                   aria-label={t("home.placeholder")}
+                  title={
+                    zh
+                      ? "Enter 发送，Shift+Enter 换行"
+                      : "Enter to send, Shift+Enter for a new line"
+                  }
                   placeholder={t("home.placeholder")}
                   value={draft}
                   onChange={(event) => {
@@ -1032,43 +1648,54 @@ export function LiveWorkbench(): React.JSX.Element {
                     }));
                   }}
                 />
-                <ComposerControls
-                  state={state}
-                  engine={engine}
-                  model={model}
-                  permission={permission}
-                  setPermission={setPermission}
-                  busy={busy}
-                  importFile={importFile}
-                  onEngineChange={(value) => {
-                    setEngine(value);
-                    setModel("");
-                    setSelection(undefined);
-                    setPermission(
-                      value === "codex" ? "workspace-write" : "safe",
-                    );
-                  }}
-                  selection={selection}
-                  onSelection={(value) => {
-                    setSelection(value);
-                    setModel(value.model);
-                  }}
-                  onRefresh={async () => {
-                    await manage({
-                      type: engine === "codex" ? "models-refresh" : "state",
-                    });
-                  }}
-                  onSave={async (value) =>
-                    Boolean(
-                      await manage({ type: "model-save", selection: value }),
-                    )
-                  }
-                  active={Boolean(active)}
-                  status={status}
-                  cancel={cancel}
-                  send={send}
-                  canSend={!busy && Boolean(draft.trim()) && Boolean(api)}
-                />
+                {viewed ? (
+                  <div className="browsing-draft-note">
+                    {t(
+                      active
+                        ? "browsing.draftWhileRunning"
+                        : "browsing.draftReady",
+                    )}
+                  </div>
+                ) : (
+                  <ComposerControls
+                    state={state}
+                    engine={engine}
+                    model={model}
+                    permission={permission}
+                    setPermission={setPermission}
+                    busy={busy}
+                    importFile={importFile}
+                    onEngineChange={(value) => {
+                      setEngine(value);
+                      setModel("");
+                      setSelection(undefined);
+                      setPermission(
+                        value === "codex" ? "workspace-write" : "safe",
+                      );
+                    }}
+                    selection={selection}
+                    onSelection={(value) => {
+                      setSelection(value);
+                      setModel(value.model);
+                    }}
+                    onRefresh={async () => {
+                      await manage({
+                        type: engine === "codex" ? "models-refresh" : "state",
+                      });
+                    }}
+                    onSave={async (value) =>
+                      Boolean(
+                        await manage({ type: "model-save", selection: value }),
+                      )
+                    }
+                    active={Boolean(active)}
+                    status={status}
+                    cancel={cancel}
+                    send={send}
+                    lockSettings={Boolean(retryPlan)}
+                    canSend={!busy && Boolean(draft.trim()) && Boolean(api)}
+                  />
+                )}
               </div>
             </>
           )}
@@ -1131,6 +1758,7 @@ export function LiveWorkbench(): React.JSX.Element {
                 <button
                   type="button"
                   aria-pressed={panelTab === tab}
+                  disabled={Boolean(viewed) && tab !== "context"}
                   key={tab}
                   onClick={() => setPanelTab(tab)}
                 >
@@ -1277,23 +1905,35 @@ export function LiveWorkbench(): React.JSX.Element {
               )}
             </div>
             <div className="studio-panel-body" hidden={panelTab !== "context"}>
-              <h3>{t("live.context")}</h3>
-              <pre>{state?.context}</pre>
-              <button
-                type="button"
-                disabled={busy || !state?.sessionId}
-                onClick={() => void manage({ type: "compact" })}
-              >
-                {t("live.compact")}
-              </button>
-              <h3>{t("live.activity")}</h3>
-              {details.map((detail) => (
-                <details key={detail.id} open={detail.kind === "error"}>
-                  <summary>{detail.kind}</summary>
-                  <pre>{detail.text}</pre>
-                </details>
-              ))}
-              <p>{t("live.verification")}</p>
+              <RunHistory
+                key={key}
+                history={viewed?.runHistory ?? state?.runHistory}
+                onPreview={(path) => void previewDeliveryFile(path)}
+                busy={pending || viewLoading}
+                executionBusy={Boolean(active) || Boolean(viewed)}
+                onRecover={(kind, sourceRunId) =>
+                  void prepareRecovery(kind, sourceRunId)
+                }
+                onLoad={loadHistory}
+              />
+              {!viewed && activity.items.length > 0 && (
+                <>
+                  <h3>{t("live.activity")}</h3>
+                  <RunActivity state={activity} />
+                </>
+              )}
+              <details className="run-diagnostics" hidden={Boolean(viewed)}>
+                <summary>{t("live.context")}</summary>
+                <pre>{state?.context}</pre>
+                <button
+                  type="button"
+                  disabled={busy || !state?.sessionId}
+                  onClick={() => void manage({ type: "compact" })}
+                >
+                  {t("live.compact")}
+                </button>
+              </details>
+              {!viewed && <p>{t("live.verification")}</p>}
             </div>
           </aside>
         )}
@@ -1306,6 +1946,12 @@ function operationError(error: unknown): string {
   const message = error instanceof Error ? error.message : "";
   return (
     [
+      "recovery-stale",
+      "recovery-native-only",
+      "recovery-source-active",
+      "recovery-original-unavailable",
+      "recovery-prompt-too-large",
+      "recovery-select-source",
       "workspace-unavailable",
       "workspace-changed",
       "auto-workspace-boundary",

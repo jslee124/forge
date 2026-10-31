@@ -11,8 +11,8 @@ export interface AskOptions {
   readonly reasoningEffort?: string;
   readonly thinking?: string;
   readonly permissionProfile?: string;
-  readonly maxSteps?: number;
-  readonly maxToolCalls?: number;
+  readonly maxSteps?: number | null;
+  readonly maxToolCalls?: number | null;
   readonly commandTimeoutMs?: number;
   readonly maxToolOutputBytes?: number;
   readonly contextMode?: string;

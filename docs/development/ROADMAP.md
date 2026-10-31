@@ -22,6 +22,15 @@ compaction remains an explicit user opt-in. See the
 
 ## Current development
 
+- Desktop productization: [PRD](DESKTOP_PRODUCT_PRD.md) and
+  [implementation plan](DESKTOP_PRODUCT_IMPLEMENTATION.md) define the proposed
+  M0–M4 work for bounded local development tasks, structured run/approval events,
+  convergence, recovery, and product acceptance. Use the
+  [remaining acceptance table](DESKTOP_PRODUCT_IMPLEMENTATION.md#remaining-acceptance-work-2026-10-27)
+  for current next actions. Presentation, durable history, and
+  acceptance-corpus increments are partially implemented; remaining gates are pending;
+  this does not change previous completion records or claim shipped behavior.
+
 - 0.4.0 includes the experimental Telegram private-chat gateway. See
   [intent](CHAT_CHANNELS_INTENT.md), [specification](CHAT_CHANNELS_SPEC.md), and
   [setup guide](../product/operations/CHAT_CHANNELS.md). Core macOS live tests and Linux/Windows automation

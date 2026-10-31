@@ -7,7 +7,7 @@ import type { ForgeTool, ToolContext } from "@forge/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
-import { loadPluginHost } from "./index.js";
+import { loadPluginHost, trustProject } from "./index.js";
 
 const temporaryDirectories: string[] = [];
 const webPluginDirectory = fileURLToPath(
@@ -24,6 +24,22 @@ afterEach(async () => {
 });
 
 describe("web-tools example plugin", () => {
+  it("activates the repository wrapper with its real manifest", async () => {
+    const root = await createFixture();
+    const forgeHome = path.join(root, "forge-home");
+    const workspaceRoot = fileURLToPath(new URL("../../../", import.meta.url));
+    await trustProject(forgeHome, workspaceRoot);
+    const host = await loadPluginHost({
+      forgeHome,
+      workspaceRoot,
+      enabledUserPlugins: [],
+    });
+    expect(host.tools.map((tool) => tool.name)).toEqual([
+      "web_search",
+      "web_fetch",
+    ]);
+  });
+
   it("loads through the real plugin host with declared network tools", async () => {
     const root = await createFixture();
     const forgeHome = path.join(root, "forge-home");

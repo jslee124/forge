@@ -179,7 +179,9 @@ cancel、approval channel，以及 core + plugin restrictions 后的有效 polic
 并且只暴露声明的工具。Child 永远看不到 subagent tools，因此不能递归委派。
 
 每个 parent run 最多启动四个 child；所有 child 还共享与 parent 配置
-`maxSteps`/`maxToolCalls` 相等的预算，插件 limits 只能进一步收紧。返回值受
+有限 `maxSteps`/`maxToolCalls` 相等的预算。父任务对应限额为 `null` 时，委派池仍保留
+16 个模型步骤和 32 次工具调用的边界；单个子任务仍默认最多 4 步和 8 次工具调用，
+插件 limits 只能在可用共享池内进一步收紧。返回值受
 `maxToolOutputBytes` 约束。启用 trace 时，每个 child 使用独立 run trace，
 envelope 包含 `parentRunId`/`subagentName`；parent tool result 包含 child
 `runId`、status、step/tool 计数和 final text。

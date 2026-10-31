@@ -121,6 +121,8 @@ it("blocks Codex execution under a shared workspace lease and recovers after rel
         },
         {
           signal: new AbortController().signal,
+          phase: () => undefined,
+          action: () => undefined,
           text: () => {},
           detail: () => {},
           approve: async () => false,
@@ -128,14 +130,14 @@ it("blocks Codex execution under a shared workspace lease and recovers after rel
       );
     const lease = await acquireWorkspaceLease(cwd);
     try {
-      await expect(execute()).rejects.toThrow("run-failed");
+      await expect(execute()).resolves.toMatchObject({ outcome: "failed" });
       expect(clients.flatMap((client) => client.calls)).not.toContain(
         "turn/start",
       );
     } finally {
       await lease.release();
     }
-    await expect(execute()).resolves.toBe("completed");
+    await expect(execute()).resolves.toMatchObject({ outcome: "completed" });
     expect(clients.flatMap((client) => client.calls)).toContain("turn/start");
     const available = await acquireWorkspaceLease(cwd);
     await available.release();
@@ -178,6 +180,8 @@ it("executes and restores Codex desktop turns using only text history", async ()
       },
       {
         signal: new AbortController().signal,
+        phase: () => undefined,
+        action: () => undefined,
         text: (text) => output.push(text),
         detail: () => undefined,
         approve: async () => false,
@@ -201,6 +205,8 @@ it("executes and restores Codex desktop turns using only text history", async ()
       },
       {
         signal: new AbortController().signal,
+        phase: () => undefined,
+        action: () => undefined,
         text: () => undefined,
         detail: () => undefined,
         approve: async () => false,
@@ -243,12 +249,14 @@ it("reports missing Codex without falling back to native execution", async () =>
         },
         {
           signal: new AbortController().signal,
+          phase: () => undefined,
+          action: () => undefined,
           text: () => undefined,
           detail: () => undefined,
           approve: async () => false,
         },
       ),
-    ).rejects.toThrow("run-failed");
+    ).resolves.toMatchObject({ outcome: "failed" });
     app.close();
   } finally {
     await rm(cwd, { recursive: true, force: true });
@@ -428,6 +436,8 @@ it.each(["safe", "workspace-write"] as const)(
         },
         {
           signal: new AbortController().signal,
+          phase: () => undefined,
+          action: () => undefined,
           text: () => {},
           detail: () => {},
           approve: async () => false,
@@ -499,5 +509,40 @@ it("does not report successful logout when App Server rejects it", async () => {
   } finally {
     app.close();
     await rm(cwd, { recursive: true, force: true });
+  }
+});
+
+it("checks Codex subscription access without starting a thread or using Forge API credentials", async () => {
+  const root = await mkdtemp(join(tmpdir(), "forge-codex-readiness-"));
+  const client = new Client();
+  try {
+    const application = new DesktopApplication(
+      { FORGE_HOME: join(root, "home") },
+      root,
+      { connect: async () => client },
+    );
+    const ready = await application.manage({
+      type: "check-readiness",
+      engine: "codex",
+    });
+    expect(ready.readiness).toEqual({ ready: true });
+    expect(ready.sessions).toEqual([]);
+    expect(client.calls).toContain("account/read");
+    expect(client.calls).not.toContain("thread/start");
+    expect(client.calls).not.toContain("turn/start");
+    client.request = async <T>(method: string): Promise<T> =>
+      method === "account/read"
+        ? ({ account: null } as T)
+        : ({ data: [] } as T);
+    const signedOut = await application.manage({
+      type: "check-readiness",
+      engine: "codex",
+    });
+    expect(signedOut.readiness).toEqual({
+      ready: false,
+      issue: "codex_sign_in",
+    });
+  } finally {
+    await rm(root, { recursive: true, force: true });
   }
 });

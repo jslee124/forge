@@ -7,7 +7,11 @@ export interface AgentRequest {
 }
 
 export type AgentResponse =
-  | { readonly type: "ready"; readonly pid: number }
+  | {
+      readonly type: "ready";
+      readonly pid: number;
+      readonly runProtocolVersion: number;
+    }
   | {
       readonly type: "pong";
       readonly requestId: string;

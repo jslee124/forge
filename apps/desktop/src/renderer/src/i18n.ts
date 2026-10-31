@@ -6,6 +6,311 @@ export type Locale = "en" | "zh-CN";
 export const resources = {
   en: {
     translation: {
+      setup: {
+        title: "Set up your model before sending",
+        missing_credentials:
+          "The selected provider has no API key for this endpoint. Add a key in Models & access, or choose another configured model.",
+        invalid_configuration:
+          "The selected model or provider configuration is invalid. Review the model and credentials in Models & access; custom endpoints must be corrected in your user configuration.",
+        codex_sign_in:
+          "Sign in to Codex with your ChatGPT account before sending. Forge API keys do not sign you in to Codex.",
+        codex_unavailable:
+          "Could not connect to the local Codex service. Check Codex installation and sign-in.",
+        configure: "Configure model",
+        draftKept:
+          "Your draft is kept. Return and send again after configuring. This local check does not verify the remote service.",
+        automaticWorkspace: "Task workspace",
+        emptyTask: "New task",
+      },
+      fallback: {
+        title: "System-generated partial result",
+        explanation:
+          "The model did not produce a usable final answer. Forge organized the execution records below; this is not the model’s conclusion.",
+        unavailable:
+          "Execution details are not loaded for this run. Open the workbench Activity tab and select the run to inspect its records.",
+        more: "This is a bounded overview. More items or incomplete details are available in the execution and delivery record.",
+        limit:
+          "Task completion and checks beyond the recorded commands remain unconfirmed. Review the current files before continuing or retrying.",
+        raw: "Original system record",
+      },
+      messages: {
+        transcript: "Conversation",
+        jumpLatest: "Jump to latest",
+        copyAnswer: "Copy answer",
+        copyCode: "Copy code",
+        copied: "Copied",
+        copyFailed: "Could not copy. Try again.",
+        user: "Your message",
+        assistant: "Forge answer",
+        codeBlock: "{{language}} code",
+        table: "Scrollable table",
+        omitted:
+          "{{count}} earlier answer characters are not shown in the live preview.",
+      },
+      browsing: {
+        savedRequest: "Previously submitted request",
+        interruptedTitle: "The previous run was interrupted",
+        retainedTitle: "Saved run record",
+        retainedDescription:
+          "Review the saved request and recorded actions before deciding how to continue. Opening the record will not run it again.",
+        openRecord: "View record and next options",
+        draftWhileRunning:
+          "Draft kept here. Finish or stop the running task before continuing this one.",
+        draftReady: "Draft kept here. Choose Continue this task to send.",
+        unfinishedRecord: "Unfinished record",
+        activeTask: "Running task",
+        executionTask: "Execution session",
+        runningBadge: "Running",
+        return: "Return to task",
+        resume: "Continue this task",
+        viewing: "Viewing: {{title}}",
+        approvalCount: "Pending approvals: {{count}} — return to review",
+        snapshot:
+          "Saved conversation. Return to the running task for live progress.",
+        truncated:
+          "Older or long messages were omitted; this view is incomplete.",
+        noSend: "Messages cannot be sent while browsing saved history.",
+      },
+      delivery: {
+        emptyOutput: "(empty)",
+        commandAttention: "{{count}} command results need inspection",
+        title: "Execution and delivery records",
+        counts: "{{files}} writes · {{commands}} command results",
+        scope:
+          "Recorded observations from this run. Workspace files may have changed since; these records do not establish completion of the whole task.",
+        incomplete:
+          "Records are incomplete, clipped, or lack structured engine coverage. Missing evidence remains unknown.",
+        unstructured:
+          "{{count}} completed operations lack structured delivery facts (including older records). Inspect activity; no facts are inferred from the answer.",
+        files: "Recorded file writes",
+        noFiles:
+          "No structured file-write results were recorded. This does not prove that the workspace is unchanged.",
+        recordedPatch:
+          "Change observed at this operation, not a diff of the current workspace.",
+        previewCurrent: "Preview current file",
+        more: "Show 10 more",
+        commands: "Recorded command results",
+        cwd: "Working directory: {{path}}",
+        verificationScope:
+          "An exit code describes the process. Whether it verifies the requested behavior must be assessed from the command and its output in activity.",
+        noCommands:
+          "No completed command results were recorded; command verification is unconfirmed.",
+        commandOutcomes: {
+          zero: "Exited with code 0",
+          nonzero: "Exited with code {{code}}",
+          timeout: "Command timed out",
+          unknown: "Process result unknown or signalled",
+        },
+        unresolved: "Unresolved operations",
+        noUnresolved:
+          "No unresolved operations in the available records; this does not prove all requested work was completed.",
+        operations: {
+          create: "Created",
+          replace: "Replaced text",
+          rewrite: "Rewritten",
+        },
+        states: {
+          failed: "Tool failed; effects may need inspection",
+          denied: "Denied",
+          unknown: "Effect unknown; inspect before retry",
+          not_executed: "No completed execution recorded",
+        },
+      },
+      recovery: {
+        actions: {
+          summarize: "Summarize existing information",
+          continue: "Continue task",
+          retry: "Edit and retry",
+        },
+        reviewFirst:
+          "Review source, model, limits and permissions. Native Forge records only.",
+        viewSource: "View source run",
+        summaryTitle: "Existing-information summary",
+        factsTitle: "Source run · recorded facts",
+        factsScope:
+          "Read from saved run records. Missing evidence does not prove an operation never occurred.",
+        recordedStatus: "Recorded source status",
+        sourceReason: "Recorded source stop reason",
+        unknownStatus: "Unknown",
+        sourceUnavailable:
+          "Source record unavailable. The explanation below cannot replace it.",
+        verificationScope:
+          "Command results below are execution observations; they do not establish that the task or all tests passed.",
+        sourceActivity: "Source operations and output",
+        explanation: "Model explanation · verify against the recorded facts",
+        start: "Start new run",
+        cancel: "Cancel",
+        replaceDraft: "Replace with retry draft",
+        loadDraft: "Load retry draft",
+        keepDraft: "Keep current draft",
+        summaryScope:
+          "Recorded facts only. No project plugins or tools. At most one logical model call; task completion remains unconfirmed.",
+        continueScope:
+          "Start a new run using current configured limits and new approval checks. Inspect current state; do not replay unknown effects or denied operations.",
+        retryScope:
+          "Load the original prompt for editing. Nothing runs until you send it.",
+        source: "Source run",
+        model: "Model",
+        budget: "Run limits",
+        budgetValue: "Model steps: {{steps}} · Tool calls: {{tools}}",
+        unlimited: "No fixed cap",
+        language: "Summary language",
+        permission: "Permissions",
+        permissions: {
+          safe: "Ask to approve actions",
+          workspace: "Workspace writes; processes require approval",
+        },
+        noTools: "Tool-free summary",
+        incomplete:
+          "Source records are incomplete or clipped; missing evidence is not proof of success or non-execution.",
+        draftConflict:
+          "Your current draft will only be replaced if you confirm.",
+        draftPreserved: "Your current draft will be preserved.",
+        prompt: "New run prompt",
+        nativeOnly: "Select a Forge model to recover native records.",
+        retryDraft: "Retry draft · reviewed model and permissions are fixed",
+        unlink: "Remove retry link",
+      },
+      runUi: {
+        history: "Run records",
+        noProgressTitle: "Repeated operations stopped",
+        partialResult:
+          "Partial result based on available evidence; the task is not confirmed complete.",
+        refreshHistory: "Latest records",
+        noHistory:
+          "No product run records. Older sessions may have no activity history.",
+        historyError:
+          "Run records could not be read. Your conversation remains available.",
+        historyReadOnly:
+          "Historical facts only. Decisions grant no current permission; operations are never replayed.",
+        historyIncomplete:
+          "This record is incomplete or truncated. Missing output is not evidence of success.",
+
+        tools: {
+          read_file: "Read file",
+          list_files: "List files",
+          search: "Search workspace",
+          edit_file: "Edit file",
+          run_command: "Run command",
+          read_document: "Read document",
+          format_table: "Format table",
+          load_skill: "Load skill",
+          web_search: "Search web",
+          web_fetch: "Read web page",
+          search_forge_docs: "Search product help",
+          read_forge_doc: "Read product help",
+        },
+        approvalTitle: "Permission requested",
+        opaqueApproval:
+          "The engine provided a description; structured scope is unavailable.",
+        pendingCount: "{{count}} pending",
+        resource: "Target",
+        scope: "Authorization",
+        once: "This action only",
+        fullAction: "View complete action",
+        waiting: "Waiting for your decision",
+        allowOnce: "Allow once",
+        operationCount: "{{count}} tool operations",
+        operationCount_one: "{{count}} tool operation",
+        operationCount_other: "{{count}} tool operations",
+        activitySummary: "Run details",
+        omitted: "{{count}} earlier entries omitted",
+        input: "Input",
+        output: "Output",
+        truncated: "This output is partial. Additional content was omitted.",
+        older: "Earlier",
+        newer: "Latest",
+        elapsed: "{{seconds}}s elapsed",
+        steps: "{{count}} model steps",
+        steps_one: "{{count}} model step",
+        steps_other: "{{count}} model steps",
+        diagnostics: "Diagnostic details",
+        draftRetained:
+          "Your submitted prompt is retained. Any new draft has been preserved.",
+        kinds: {
+          reasoning: "Provider reasoning",
+          approval: "Permission decision",
+          error: "Error",
+          context: "Context diagnostics",
+          system: "Run information",
+          tool: "Engine tool information",
+        },
+        states: {
+          unknown: "Result unknown",
+          cancelled: "Cancelled",
+          unresolved: "No completed decision",
+          proposed: "Proposed",
+          awaiting_approval: "Needs approval",
+          running: "Running",
+          succeeded: "Succeeded",
+          failed: "Failed",
+          denied: "Denied",
+          pending: "Awaiting decision",
+          allowed: "Allowed once",
+        },
+        phases: {
+          running: "Preparing request",
+          finalizing: "Summarizing available evidence",
+          responding: "Waiting for the model",
+          executing: "Executing a tool",
+          stopping: "Stopping",
+        },
+        outcomes: {
+          completed: "Response complete",
+          failed: "Run failed",
+          cancelled: "Run stopped",
+          interrupted: "Run interrupted",
+          limit_reached: "Run budget reached",
+          denied: "Run could not proceed with the current permissions",
+        },
+        providerFailures: {
+          "provider-authentication-failed":
+            "The provider rejected access (HTTP 401/403). Check the credential and account permissions in Models & access.",
+          "provider-connection-failed":
+            "The model connection was interrupted. Check your network, proxy and endpoint before retrying.",
+          "provider-unavailable":
+            "The model service is temporarily unavailable. Wait and retry; adding a Forge run budget will not repair the service.",
+          "provider-rate-limited":
+            "The provider reported a rate or quota limit. Check its quota or wait before retrying.",
+        },
+        reasons: {
+          no_progress:
+            "Repeated unchanged reads or identical refused/invalid actions were stopped. Review the recorded actions before continuing.",
+          model_step_limit:
+            "The model-step budget was reached. Work may be incomplete.",
+          tool_call_limit:
+            "The tool-call budget was reached. Work may be incomplete.",
+          context_limit: "The available context budget was exceeded.",
+          configuration_error:
+            "Check model, plugin, and workspace configuration before retrying.",
+          workspace_conflict:
+            "Workspace or session state changed. Check current state before retrying.",
+          storage_error:
+            "The run could not be saved. Existing file changes were not rolled back.",
+          execution_error:
+            "Execution did not complete. Inspect the recorded tool results.",
+          permission_denied: "A required action was not authorized.",
+          cancelled:
+            "No new actions will be started. Existing changes were not rolled back.",
+          disconnected:
+            "The Agent disconnected. Effects of unfinished actions may be unknown.",
+        },
+        effects: {
+          read: "Read workspace information",
+          write: "Change workspace files",
+          process: "Execute a command",
+          network: "Access a network resource",
+          model: "Delegate a model task",
+        },
+        risks: {
+          "broad-external-effect": "Broad external effects",
+          "credential-sensitive": "Credential-sensitive",
+          destructive: "Destructive action",
+          install: "Software installation",
+          "policy-designated": "Policy approval required",
+          publish: "Publication",
+        },
+      },
       studio: {
         workspace: "Workspace",
         connection: "Forge connection",
@@ -68,6 +373,16 @@ export const resources = {
             "A web-tools directory already exists; your plugin was preserved. Remove or move it yourself before installing the bundled version.",
           "web-plugin-missing":
             "Install the web plugin before enabling or configuring it.",
+          "recovery-stale":
+            "Recovery source or settings changed. Prepare again.",
+          "recovery-native-only": "Recovery supports native Forge records.",
+          "recovery-source-active": "Wait for the source run to finish.",
+          "recovery-original-unavailable":
+            "The full original prompt is unavailable. Edit your draft and send normally.",
+          "recovery-prompt-too-large":
+            "Edit a shorter request before retrying.",
+          "recovery-select-source":
+            "Choose the original source run to continue or retry.",
           "workspace-unavailable":
             "The workspace directory is missing or inaccessible. Choose an existing directory.",
           "workspace-changed":
@@ -285,6 +600,281 @@ export const resources = {
   },
   "zh-CN": {
     translation: {
+      setup: {
+        title: "请先完成模型配置",
+        missing_credentials:
+          "所选供应商尚无此端点可用的 API 密钥。请在“模型与访问”中添加凭据，或选择已配置的模型。",
+        invalid_configuration:
+          "所选模型或供应商配置无效。请检查所选模型和凭据；自定义端点需在用户配置中修正。",
+        codex_sign_in:
+          "请先使用 ChatGPT 账号登录 Codex。Forge 的 API 密钥不能用于 Codex 登录。",
+        codex_unavailable:
+          "无法连接本机 Codex 服务，请检查 Codex 安装和登录状态。",
+        configure: "配置模型",
+        draftKept:
+          "草稿已保留，配置后返回重新发送。本地检查不代表远端服务一定可用。",
+        automaticWorkspace: "任务工作空间",
+        emptyTask: "新任务",
+      },
+      fallback: {
+        title: "系统整理的部分结果",
+        explanation:
+          "模型未能生成可用的最终回答。以下由 Forge 根据执行记录整理，不代表模型已给出结论。",
+        unavailable:
+          "尚未载入这次运行的执行详情。可在工作台的活动页选择对应运行，查看记录。",
+        more: "这里只展示有限摘要；更多条目或不完整的信息请查看执行与交付记录。",
+        limit:
+          "尚未确认任务整体完成；记录之外的验证仍未完成。继续或重试前，请先检查当前文件。",
+        raw: "原始系统记录",
+      },
+      messages: {
+        transcript: "对话",
+        jumpLatest: "跳到最新",
+        copyAnswer: "复制回答",
+        copyCode: "复制代码",
+        copied: "已复制",
+        copyFailed: "复制失败，请重试。",
+        user: "你的消息",
+        assistant: "Forge 回答",
+        codeBlock: "{{language}} 代码",
+        table: "可滚动表格",
+        omitted: "实时预览已省略较早的 {{count}} 个回答字符。",
+      },
+      browsing: {
+        savedRequest: "此前提交的请求",
+        interruptedTitle: "上次运行已中断",
+        retainedTitle: "已保留运行记录",
+        retainedDescription:
+          "查看此前提交的请求与已执行的操作，再决定如何继续。打开记录不会自动重跑。",
+        openRecord: "查看记录与后续选项",
+        draftWhileRunning: "草稿会保留，当前运行结束后可继续此任务并发送。",
+        draftReady: "草稿已保留，点击“继续此任务”后可发送。",
+        unfinishedRecord: "记录未结束",
+        activeTask: "正在运行",
+        executionTask: "执行会话",
+        runningBadge: "运行中",
+        return: "返回运行任务",
+        resume: "继续此任务",
+        viewing: "正在查看：{{title}}",
+        approvalCount: "{{count}} 项审批待处理，请返回确认",
+        snapshot: "这是已保存的对话，实时进度请返回运行任务查看。",
+        truncated: "较早或较长的消息已省略，此视图不完整。",
+        noSend: "浏览模式下不会发送消息，请先返回或继续此任务。",
+      },
+      delivery: {
+        emptyOutput: "（无输出）",
+        commandAttention: "{{count}} 项命令结果需检查",
+        title: "执行与交付记录",
+        counts: "{{files}} 次文件写入 · {{commands}} 项命令结果",
+        scope:
+          "仅展示本轮已记录的执行事实。工作区文件之后可能发生变化，这些记录不证明整个任务已完成。",
+        incomplete:
+          "记录不完整、已截断，或引擎缺少结构化记录。缺失证据保持未知。",
+        unstructured:
+          "{{count}} 项已结束操作缺少结构化交付事实（包括旧记录），请查看活动详情；不会从回答推断执行事实。",
+        files: "已记录的文件写入",
+        noFiles: "未记录结构化文件写入结果，不能据此判断工作区没有变化。",
+        recordedPatch: "这是该次操作时记录的改动，不是当前工作区差异。",
+        previewCurrent: "预览当前文件",
+        more: "再显示 10 项",
+        commands: "已记录的命令结果",
+        cwd: "工作目录：{{path}}",
+        verificationScope:
+          "退出码只说明进程结果。是否验证了所需行为，还需结合命令及活动中的输出判断。",
+        noCommands: "未记录已完成的命令结果，命令验证情况未确认。",
+        commandOutcomes: {
+          zero: "退出码 0",
+          nonzero: "退出码 {{code}}",
+          timeout: "命令超时",
+          unknown: "进程结果未知或被信号终止",
+        },
+        unresolved: "未解决的操作",
+        noUnresolved: "可用记录中没有未解决操作，不代表所有请求事项均已完成。",
+        operations: {
+          create: "已创建",
+          replace: "已替换文本",
+          rewrite: "已重写",
+        },
+        states: {
+          failed: "工具失败，可能需检查实际影响",
+          denied: "已拒绝",
+          unknown: "影响未知，重试前需检查",
+          not_executed: "未记录已完成执行",
+        },
+      },
+      recovery: {
+        actions: {
+          summarize: "总结已有信息",
+          continue: "继续任务",
+          retry: "编辑后重试",
+        },
+        reviewFirst: "先确认来源、模型、预算与权限，仅支持原生 Forge 记录。",
+        viewSource: "查看来源运行",
+        summaryTitle: "已有信息摘要",
+        factsTitle: "来源运行 · 记录事实",
+        factsScope: "直接读取已保存的运行记录。缺少证据不代表操作从未发生。",
+        recordedStatus: "来源记录状态",
+        sourceReason: "来源记录停止原因",
+        unknownStatus: "未知",
+        sourceUnavailable: "无法读取来源记录，下方模型解释不能代替原始记录。",
+        verificationScope:
+          "以下命令结果只代表执行观察，不代表任务或所有测试通过。",
+        sourceActivity: "来源操作与输出",
+        explanation: "模型解释 · 请对照记录事实核实",
+        start: "开始新运行",
+        cancel: "取消",
+        replaceDraft: "替换为重试草稿",
+        loadDraft: "载入重试草稿",
+        keepDraft: "保留当前草稿",
+        summaryScope:
+          "仅使用已有记录，不加载项目插件、不调用工具。最多一次逻辑模型调用，不代表原任务完成。",
+        continueScope:
+          "创建新运行，使用当前配置的限额并重新审批。先检查当前状态，不重放结果未知或已拒绝的操作。",
+        retryScope: "先恢复原始输入供你编辑，点击发送前不会运行。",
+        source: "来源运行",
+        model: "模型",
+        budget: "本次限额",
+        budgetValue: "模型步骤：{{steps}} · 工具调用：{{tools}}",
+        unlimited: "不限",
+        language: "摘要语言",
+        permission: "权限",
+        permissions: {
+          safe: "按需审批",
+          workspace: "允许工作区写入，进程仍需审批",
+        },
+        noTools: "无工具总结",
+        incomplete:
+          "来源记录不完整或已裁剪，缺少证据不能证明成功，也不能证明操作从未发生。",
+        draftConflict: "只有确认后才会替换现有草稿。",
+        draftPreserved: "现有草稿会保留。",
+        prompt: "新运行输入",
+        nativeOnly: "请先选择 Forge 模型，恢复仅支持原生记录。",
+        retryDraft: "重试草稿 · 模型与权限固定为已确认设置",
+        unlink: "解除重试关联",
+      },
+      runUi: {
+        history: "运行记录",
+        noProgressTitle: "已停止重复操作",
+        partialResult: "基于已有证据的部分结果，尚未确认任务完成。",
+        refreshHistory: "最新记录",
+        noHistory: "暂无产品运行记录。旧会话可能没有活动历史。",
+        historyError: "无法读取运行记录，对话内容仍可查看。",
+        historyReadOnly:
+          "这里只展示历史事实，旧决定不授予当前权限，也不会重放操作。",
+        historyIncomplete: "该记录不完整或已截断，缺失输出不能作为成功证据。",
+
+        tools: {
+          read_file: "读取文件",
+          list_files: "查看目录",
+          search: "搜索工作空间",
+          edit_file: "编辑文件",
+          run_command: "执行命令",
+          read_document: "读取文档",
+          format_table: "整理表格",
+          load_skill: "加载技能",
+          web_search: "搜索网页",
+          web_fetch: "读取网页",
+          search_forge_docs: "搜索产品帮助",
+          read_forge_doc: "读取产品帮助",
+        },
+        approvalTitle: "需要你的授权",
+        opaqueApproval: "引擎仅提供了操作描述，结构化范围未知。",
+        pendingCount: "{{count}} 项待确认",
+        resource: "操作对象",
+        scope: "授权范围",
+        once: "仅允许本次操作",
+        fullAction: "查看完整操作",
+        waiting: "等待你的确认",
+        allowOnce: "允许一次",
+        operationCount: "{{count}} 项工具操作",
+        activitySummary: "运行详情",
+        omitted: "已省略更早的 {{count}} 项记录",
+        input: "输入参数",
+        output: "执行结果",
+        truncated: "当前为部分输出，另有内容已省略。",
+        older: "更早记录",
+        newer: "最新记录",
+        elapsed: "用时 {{seconds}} 秒",
+        steps: "{{count}} 个模型步骤",
+        diagnostics: "诊断详情",
+        draftRetained: "已保留本次提交内容，你新写的草稿也会保留。",
+        kinds: {
+          reasoning: "模型提供的思考",
+          approval: "授权决定",
+          error: "错误",
+          context: "上下文诊断",
+          system: "运行信息",
+          tool: "引擎操作信息",
+        },
+        states: {
+          unknown: "结果未知",
+          cancelled: "已取消",
+          unresolved: "决定未完成",
+          proposed: "准备操作",
+          awaiting_approval: "需要授权",
+          running: "执行中",
+          succeeded: "执行成功",
+          failed: "执行失败",
+          denied: "已拒绝",
+          pending: "等待决定",
+          allowed: "已允许一次",
+        },
+        phases: {
+          running: "准备请求",
+          finalizing: "正在基于已有信息总结",
+          responding: "等待模型响应",
+          executing: "正在执行工具",
+          stopping: "正在停止",
+        },
+        outcomes: {
+          completed: "回答已完成",
+          failed: "运行失败",
+          cancelled: "已停止运行",
+          interrupted: "运行已中断",
+          limit_reached: "本轮运行预算已用尽",
+          denied: "当前权限下无法继续",
+        },
+        providerFailures: {
+          "provider-authentication-failed":
+            "供应商拒绝访问（HTTP 401/403）。请在“模型与访问”中检查凭据及账号权限。",
+          "provider-connection-failed":
+            "模型连接中断，请检查网络、代理和端点后重试。",
+          "provider-unavailable":
+            "模型服务暂不可用，请稍后重试；增加 Forge 运行预算不能修复远端服务。",
+          "provider-rate-limited":
+            "供应商报告速率或额度限制，请检查其额度或稍后重试。",
+        },
+        reasons: {
+          no_progress:
+            "重复不变的读取或相同的拒绝／无效操作已触发兜底停止，请查看记录后决定如何继续。",
+          model_step_limit: "已达到模型步骤上限，任务可能尚未完成。",
+          tool_call_limit: "已达到工具调用上限，任务可能尚未完成。",
+          context_limit: "当前可用上下文预算不足。",
+          configuration_error: "请检查模型、插件和工作空间配置后重试。",
+          workspace_conflict:
+            "工作空间或会话状态已变化，重试前请检查当前状态。",
+          storage_error: "运行记录未能保存，已经发生的文件更改不会回滚。",
+          execution_error: "执行未完成，请查看已记录的工具结果。",
+          permission_denied: "继续所需的操作没有获得授权。",
+          cancelled: "不会启动新的操作，已经发生的更改不会回滚。",
+          disconnected: "Agent 连接已断开，未结束操作的实际结果可能未知。",
+        },
+        effects: {
+          read: "读取工作空间信息",
+          write: "修改工作空间文件",
+          process: "执行进程命令",
+          network: "访问网络资源",
+          model: "委派模型任务",
+        },
+        risks: {
+          "broad-external-effect": "可能产生广泛外部影响",
+          "credential-sensitive": "涉及敏感凭据",
+          destructive: "破坏性操作",
+          install: "安装软件",
+          "policy-designated": "策略要求确认",
+          publish: "发布操作",
+        },
+      },
       studio: {
         workspace: "工作空间",
         connection: "Forge 连接",
@@ -344,6 +934,13 @@ export const resources = {
           "web-plugin-exists":
             "web-tools 目录已存在，已保留原插件。安装内置版本前请自行移走或删除原目录。",
           "web-plugin-missing": "请先安装搜索插件，再启用或配置。",
+          "recovery-stale": "来源或设置已变化，请重新准备恢复操作。",
+          "recovery-native-only": "恢复功能目前仅支持原生 Forge 记录。",
+          "recovery-source-active": "请等待来源运行结束。",
+          "recovery-original-unavailable":
+            "未保存完整原始输入，请编辑草稿后正常发送。",
+          "recovery-prompt-too-large": "恢复输入过长，请编辑为更短的请求。",
+          "recovery-select-source": "请从原始来源运行继续或重试。",
           "workspace-unavailable": "工作目录缺失或无法访问，请选择现有目录。",
           "workspace-changed": "工作空间边界已变化，请恢复原目录后再续聊。",
           "auto-workspace-boundary":

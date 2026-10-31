@@ -14,6 +14,9 @@ overrides:
   vitest>vite: 8.2.4
   '@vitest/mocker>vite': 8.2.4
 
+patchedDependencies:
+  '@ai-sdk/deepseek@3.0.35': c761937bbc5bd9f17472853a0769d68324f76a53db5983c2532e569d63327a94
+
 importers:
 
   .:
@@ -298,7 +301,7 @@ importers:
     dependencies:
       '@ai-sdk/deepseek':
         specifier: 3.0.35
-        version: 3.0.35(zod@4.4.3)
+        version: 3.0.35(patch_hash=c761937bbc5bd9f17472853a0769d68324f76a53db5983c2532e569d63327a94)(zod@4.4.3)
       '@forge/auth':
         specifier: workspace:*
         version: link:../auth
@@ -4075,7 +4078,7 @@ packages:
 
 snapshots:
 
-  '@ai-sdk/deepseek@3.0.35(zod@4.4.3)':
+  '@ai-sdk/deepseek@3.0.35(patch_hash=c761937bbc5bd9f17472853a0769d68324f76a53db5983c2532e569d63327a94)(zod@4.4.3)':
     dependencies:
       '@ai-sdk/provider': 4.0.8
       '@ai-sdk/provider-utils': 5.0.32(zod@4.4.3)

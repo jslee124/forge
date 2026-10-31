@@ -55,7 +55,13 @@ help.
 
 | Record | Decision |
 | --- | --- |
+| [ADR-0007](decisions/0007-experimental-evidence-finalization.md) | Host-only evidence-finalization experiment preserves records and fixed execution limits |
+| [ADR-0006](decisions/0006-explicit-answer-stage-message.md) | Explicit answer-stage control preserves evidence and existing run limits |
 | [ADR-0001](decisions/0001-gateway-single-owner-workspace.md) | The chat gateway serves one owner and one workspace |
+| [ADR-0002](decisions/0002-desktop-run-presentation-contract.md) | Desktop run presentation preserves semantics without restoring execution authority |
+| [ADR-0003](decisions/0003-desktop-durable-run-records.md) | Durable Desktop activity remains read-only and cannot replay effects or restore approvals |
+| [ADR-0005](decisions/0005-reviewed-desktop-run-recovery.md) | Review native Desktop recovery and start a linked run with fresh authority |
+| [ADR-0004](decisions/0004-reserved-desktop-finalization.md) | Native Desktop reserves tool-free finalization inside the existing total budget |
 
 ## Extend Forge
 
@@ -78,6 +84,8 @@ Use source, tests, and recorded acceptance results to establish completion.
 | --- | --- |
 | [Evaluation guide](development/EVALUATION.md) | Run deterministic evidence and explicit opt-in live trials |
 | [Roadmap](development/ROADMAP.md) | Current development, completed milestone summary, and later directions |
+| [Desktop productization PRD](development/DESKTOP_PRODUCT_PRD.md) | Proposed product scope, core journeys, requirements, and release gates |
+| [Desktop productization implementation](development/DESKTOP_PRODUCT_IMPLEMENTATION.md) | Proposed run contracts, persistence, tools, convergence, UI, and ordered tasks |
 | [Chat channels intent](development/CHAT_CHANNELS_INTENT.md) | Proposed 0.4.0 outcomes, scope, and product decisions |
 | [Chat channels specification](development/CHAT_CHANNELS_SPEC.md) | Proposed Telegram gateway contracts, security, recovery, and acceptance |
 

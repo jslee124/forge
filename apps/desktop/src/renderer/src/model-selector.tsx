@@ -1,9 +1,12 @@
+import { Brain } from "@phosphor-icons/react/Brain";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type {
   DesktopState,
   ModelSelection,
 } from "../../shared/application-protocol.js";
+import codexMark from "./assets/codex-mark.svg";
+import forgeMark from "./assets/forge-mark.svg";
 export function ModelSelector({
   state,
   engine,
@@ -140,9 +143,22 @@ export function ModelSelector({
       : undefined);
   return (
     <div className="studio-model-controls">
-      <label>
-        {t("live.engine")}{" "}
+      <label
+        className="studio-engine-picker"
+        title={`${t("live.engine")}: ${engine === "native" ? "Forge" : "Codex"}`}
+      >
+        <img
+          className="studio-compact-icon studio-engine-mark"
+          src={engine === "native" ? forgeMark : codexMark}
+          alt=""
+          aria-hidden="true"
+          width={18}
+          height={18}
+        />
+        <span className="studio-control-label">{t("live.engine")}</span>
         <select
+          aria-label={t("live.engine")}
+          title={`${t("live.engine")}: ${engine === "native" ? "Forge" : "Codex"}`}
           disabled={busy}
           data-testid="composer-engine"
           value={engine}
@@ -158,7 +174,7 @@ export function ModelSelector({
       </label>
       <div className="studio-model-picker" ref={pickerRef}>
         <label>
-          {t("live.model")}{" "}
+          <span className="studio-control-label">{t("live.model")}</span>
           <button
             type="button"
             disabled={busy}
@@ -166,11 +182,18 @@ export function ModelSelector({
             data-testid="composer-model"
             aria-expanded={open}
             aria-haspopup="dialog"
-            title={current?.label || model}
+            title={`${t("live.model")}: ${current?.label || model || (zh ? "选择模型" : "Choose model")}`}
             aria-label={`${t("live.model")}: ${current?.label || model || (zh ? "选择模型" : "Choose model")}`}
             onClick={toggle}
           >
-            {current?.label || model || (zh ? "选择模型" : "Choose model")}
+            <Brain
+              className="studio-compact-icon"
+              size={18}
+              aria-hidden="true"
+            />
+            <span className="studio-model-label">
+              {current?.label || model || (zh ? "选择模型" : "Choose model")}
+            </span>
           </button>
         </label>
         {open && (

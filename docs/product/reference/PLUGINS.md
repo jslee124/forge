@@ -339,8 +339,10 @@ exposes only the declared tools. Subagent tools are never included in child
 tool sets, preventing recursive delegation.
 
 One parent run may start at most four children. All children also share budgets
-equal to the configured parent `maxSteps` and `maxToolCalls`; a plugin's limit
-can only reduce those ceilings. Results are bounded by `maxToolOutputBytes`.
+equal to finite configured parent `maxSteps` and `maxToolCalls`. When a parent
+ceiling is `null`, the delegated pool remains bounded at 16 model steps and 32
+tool calls. Each child still defaults to 4 model steps and 8 tool calls; a
+plugin's limits can only reduce the available shared pool. Results are bounded by `maxToolOutputBytes`.
 When tracing is enabled, each child gets a separate run trace whose envelopes
 carry `parentRunId` and `subagentName`; the parent tool result carries the child
 `runId`, status, step/tool counts, and final text.

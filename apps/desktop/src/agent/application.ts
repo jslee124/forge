@@ -1,17 +1,11 @@
 import { createHash, randomUUID } from "node:crypto";
-import {
-  mkdir,
-  open,
-  readFile,
-  realpath,
-  stat,
-  unlink,
-} from "node:fs/promises";
+import { lstat, mkdir, readFile, realpath, stat } from "node:fs/promises";
 import { join } from "node:path";
 import {
   AuthenticationManager,
   type CodexClient,
   changeProjectPluginTrust,
+  createForgeModelAdapter,
   createPersistentInteractiveSession,
   detectStartupResources,
   discoverCodexModels,
@@ -20,6 +14,15 @@ import {
   type ModelCatalogEntry,
   nativeModelCatalog,
   type PersistentInteractiveSession,
+  type PreparedRunRecovery,
+  type ProductRunCompletion,
+  ProductRunRecorder,
+  prepareRunRecovery,
+  projectActionEvent,
+  projectRecordedActivity,
+  projectRunCompletion,
+  projectRunDelivery,
+  projectSessionMessages,
   type RunDependencies,
   removeUserProviderModel,
   runCodexAuthCommand,
@@ -27,27 +30,44 @@ import {
   runTask,
   saveUserModelSelection,
   setUserPluginEnabled,
+  summarizeRecordedRun,
 } from "@forge/application";
 import { CodexAppServerClient } from "@forge/codex-app-server";
-import { canonicalText, type RunEvent, type RunResult } from "@forge/core";
+import type { RunEvent, RunResult } from "@forge/core";
 import {
+  acquireWorkspaceLease,
   configuredSecrets,
+  ExecutionLease,
+  FileProductRunStore,
   FileSessionStore,
+  type ProductRecordPayload,
+  type ProductRunRecord,
   redactValue,
 } from "@forge/persistence";
 import type {
   DesktopState,
   ManagementCommand,
   ModelSelection,
+  RecoveryPlan,
 } from "../shared/application-protocol.js";
-import type { RunExecutor } from "./run-service.js";
+import type { RunCommand } from "../shared/run-protocol.js";
+import type { ExecutionContext, RunExecutor } from "./run-service.js";
 import { WebPluginSettings } from "./web-plugin-settings.js";
+
+interface RecoveryPreparation {
+  view: RecoveryPlan;
+  prepared: PreparedRunRecovery;
+  revision: string;
+  configuration: string;
+  executionConfiguration: string;
+}
 
 /** Electron-free orchestration. All credentials, configuration and persistence stay here. */
 export class DesktopApplication {
   readonly #env: NodeJS.ProcessEnv;
   readonly #initialCwd: string;
   readonly #overrides: {
+    finalizationInput?: RunDependencies["finalizationInput"];
     createAdapter?: RunDependencies["createAdapter"];
     connect?: () => Promise<CodexClient>;
   };
@@ -69,10 +89,14 @@ export class DesktopApplication {
   #busy = false;
   #managementBusy = false;
   #revision = "";
+  #runHistory: DesktopState["runHistory"];
+  #historyPageBefore: number | undefined;
+  #recovery: RecoveryPreparation | undefined;
   constructor(
     env: NodeJS.ProcessEnv,
     cwd: string,
     overrides: {
+      finalizationInput?: RunDependencies["finalizationInput"];
       createAdapter?: RunDependencies["createAdapter"];
       connect?: () => Promise<CodexClient>;
     } = {},
@@ -88,6 +112,30 @@ export class DesktopApplication {
     });
     this.#home = loaded.forgeHome;
     const sessions = await new FileSessionStore(this.#home).list();
+    // Admission records survive a crash before canonical conversation is saved.
+    // This is a read-only display fallback, never a recovered user turn.
+    const journal = new FileProductRunStore(this.#home, {
+      secrets: configuredSecrets(this.#env),
+    });
+    const navigationSessions: DesktopState["sessions"] = [];
+    for (const session of sessions) {
+      let title = session.title;
+      if (session.messageCount === 0) {
+        try {
+          const { runs } = await journal.list(session.id);
+          const prompt = runs.find((run) => run.prompt.trim())?.prompt;
+          const firstLine = prompt?.split(/\r?\n/u).find((line) => line.trim());
+          title = firstLine?.trim().slice(0, 80) || title;
+        } catch {
+          // An unreadable journal must not hide the other saved tasks.
+        }
+      }
+      navigationSessions.push({
+        id: session.id,
+        title: String(redactValue(title, configuredSecrets(this.#env))),
+        cwd: session.workingDirectory,
+      });
+    }
     return {
       management: this.#management,
       web: await new WebPluginSettings(
@@ -106,31 +154,26 @@ export class DesktopApplication {
         effort: loaded.config.model.reasoningEffort,
       },
       operationResult: this.#operationResult,
+      ...(this.#runHistory ? { runHistory: this.#runHistory } : {}),
+      ...(this.#recovery ? { recoveryPlan: this.#recovery.view } : {}),
       permissionGrants: [],
       contextUpdatedAt: new Date().toISOString(),
       forgeHome: this.#home,
       cwd: this.#cwd,
+      automaticWorkspace: this.#automaticWorkspace,
       sessionId: this.#session?.sessionId ?? "",
       model: loaded.config.model.id,
       provider: loaded.config.model.provider,
-      sessions: sessions.map((s) => ({
-        id: s.id,
-        title: s.title,
-        cwd: s.workingDirectory,
+      sessions: navigationSessions,
+      messages: projectSessionMessages(
+        this.#session?.history ?? [],
+        this.#session?.recordedRunIds ?? [],
+      ).map((message) => ({
+        ...message,
+        content: String(
+          redactValue(message.content, configuredSecrets(this.#env)),
+        ),
       })),
-      messages: (this.#session?.messages ?? []).flatMap((m, index) =>
-        m.role === "tool"
-          ? []
-          : [
-              {
-                id: `${this.#session?.sessionId}-${index}`,
-                role: m.role,
-                content: String(
-                  redactValue(canonicalText(m), configuredSecrets(this.#env)),
-                ),
-              },
-            ],
-      ),
       context: this.#session?.contextStatus() ?? "",
       ...(this.#session?.sessionId && this.#session.contextDetails
         ? {
@@ -189,6 +232,7 @@ export class DesktopApplication {
     return entry;
   }
   async manage(command: ManagementCommand): Promise<DesktopState> {
+    if (command.type === "browse-session") return this.#browseSession(command);
     if (command.type === "state" || command.type === "cancel-login")
       return this.#manage(command);
     if (this.#managementBusy || this.#busy) throw new Error("busy");
@@ -201,11 +245,187 @@ export class DesktopApplication {
   }
   async #manage(command: ManagementCommand): Promise<DesktopState> {
     if (command.type === "state") return this.state();
+    if (command.type === "dismiss-recovery") {
+      this.#recovery = undefined;
+      return this.state();
+    }
+    if (command.type === "prepare-recovery") {
+      const session = this.#session;
+      if (!session?.sessionId) throw new Error("session-required");
+      if (command.selection.engine !== "native")
+        throw new Error("recovery-native-only");
+      await this.state();
+      const lease = await desktopSessionLease(this.#home, session.sessionId);
+      try {
+        const revision = await snapshotHash(
+          join(this.#home, "sessions", `${session.sessionId}.json`),
+        );
+        if (revision !== this.#revision) throw new Error("session-conflict");
+        const loaded = await loadForgeConfig({
+          cwd: this.#cwd,
+          env: this.#env,
+        });
+        const entry = await this.#validateSelection(command.selection);
+        const selection = {
+          ...command.selection,
+          effort:
+            command.selection.effort ??
+            (entry.defaultEffort as import("../shared/application-protocol.js").ModelSelection["effort"]),
+        };
+        const store = new FileProductRunStore(this.#home, {
+          secrets: configuredSecrets(this.#env),
+        });
+        await store.reconcile(session.sessionId, session.recordedRunIds);
+        const prepared = prepareRunRecovery(
+          await store.read(session.sessionId, command.sourceRunId),
+          session.history,
+          command.kind,
+          { responseLocale: command.responseLocale },
+        );
+        const view: RecoveryPlan = {
+          token: randomUUID(),
+          sessionId: session.sessionId,
+          sourceRunId: command.sourceRunId,
+          kind: command.kind,
+          prompt: String(
+            redactValue(prepared.prompt, configuredSecrets(this.#env)),
+          ),
+          responseLocale: prepared.responseLocale,
+          selection,
+          permissionProfile:
+            command.kind === "summarize" ? "safe" : command.permissionProfile,
+          maxModelSteps:
+            command.kind === "summarize" ? 1 : loaded.config.limits.maxSteps,
+          maxToolCalls:
+            command.kind === "summarize"
+              ? 0
+              : loaded.config.limits.maxToolCalls,
+          incomplete: prepared.incomplete,
+        };
+        const execution = await loadForgeConfig({
+          cwd: this.#cwd,
+          env: this.#env,
+          cli: recoveryOptions(view),
+        });
+        this.#recovery = {
+          view,
+          prepared,
+          revision,
+          configuration: recoveryConfiguration(loaded.config),
+          executionConfiguration: recoveryConfiguration(execution.config),
+        };
+      } finally {
+        await lease.release();
+      }
+      return this.state();
+    }
+    if (command.type === "run-history") {
+      if (this.#busy) throw new Error("busy");
+      const session = this.#session;
+      if (!session?.sessionId) throw new Error("session-required");
+      const lease = await desktopSessionLease(this.#home, session.sessionId);
+      try {
+        await new FileProductRunStore(this.#home).reconcile(
+          session.sessionId,
+          session.recordedRunIds,
+        );
+        await this.#loadRunHistory(
+          command.runId
+            ? (command.before ?? this.#historyPageBefore)
+            : command.before,
+          command.runId,
+        );
+      } finally {
+        await lease.release();
+      }
+      return this.state();
+    }
     if (command.type === "cancel-login") {
       this.#login?.abort();
       return this.state();
     }
     if (this.#busy) throw new Error("busy");
+    if (command.type === "check-readiness") {
+      // Local validation only: no session creation, model request or authority grant.
+      const selection = command.selection;
+      if (selection && selection.engine !== command.engine)
+        throw new Error("configuration-invalid");
+      if (command.engine === "codex") {
+        const current = await this.#manage({ type: "auth-status" });
+        return {
+          ...current,
+          readiness:
+            current.auth === "authenticated"
+              ? { ready: true }
+              : {
+                  ready: false,
+                  issue:
+                    current.auth === "unavailable"
+                      ? "codex_unavailable"
+                      : "codex_sign_in",
+                },
+        };
+      }
+      const loaded = await loadForgeConfig({
+        env: this.#env,
+        cwd: this.#cwd || this.#initialCwd,
+        cli: {
+          engine: "forge",
+          ...(selection
+            ? {
+                provider: selection.provider,
+                model: selection.model,
+                ...(selection.effort
+                  ? { reasoningEffort: selection.effort }
+                  : {}),
+              }
+            : {}),
+        },
+      }).catch(() => undefined);
+      if (!loaded)
+        return {
+          ...(await this.state()),
+          readiness: { ready: false, issue: "invalid_configuration" },
+        };
+      const provider = loaded.config.model.provider;
+      const profile = loaded.config.providers[provider];
+      let issue: "missing_credentials" | "invalid_configuration" | undefined;
+      if (!this.#overrides.createAdapter) {
+        if (!["deepseek", "openai"].includes(provider) && !profile)
+          issue = "invalid_configuration";
+        else if (
+          profile?.auth.type !== "none" &&
+          !new AuthenticationManager(this.#env).status(provider, {
+            ...(profile ? { endpoint: profile.baseUrl } : {}),
+            ...(profile?.auth.type === "bearer" && profile.auth.apiKeyEnv
+              ? { environmentVariable: profile.auth.apiKeyEnv }
+              : {}),
+          }).authenticated
+        )
+          issue = "missing_credentials";
+        if (!issue) {
+          try {
+            createForgeModelAdapter({
+              env: this.#env,
+              provider,
+              model: loaded.config.model.id,
+              thinking:
+                loaded.config.model.thinking === "disabled"
+                  ? "disabled"
+                  : "enabled",
+              reasoningEffort: loaded.config.model.reasoningEffort,
+              providers: loaded.config.providers,
+            });
+          } catch {
+            issue = "invalid_configuration";
+          }
+        }
+      }
+      return {
+        ...(await this.state()),
+        readiness: issue ? { ready: false, issue } : { ready: true },
+      };
+    }
     this.#operationResult = "";
     if (
       [
@@ -338,9 +558,13 @@ export class DesktopApplication {
         this.#cwd || this.#initialCwd,
       ).manage(command);
     } else if (command.type === "reset") {
+      this.#recovery = undefined;
+      this.#runHistory = undefined;
       this.#session?.clear();
       this.#revision = "";
     } else if (command.type === "workspace") {
+      this.#recovery = undefined;
+      this.#runHistory = undefined;
       this.#management = undefined;
       const cwd = await directoryPath(command.cwd);
       const session = await createPersistentInteractiveSession({
@@ -355,6 +579,8 @@ export class DesktopApplication {
       this.#session = session;
       this.#revision = "";
     } else if (command.type === "create") {
+      this.#recovery = undefined;
+      this.#runHistory = undefined;
       if (!command.prompt.trim()) throw new Error("prompt-required");
       const automatic = !this.#cwd || this.#automaticWorkspace;
       let cwd = this.#cwd;
@@ -378,16 +604,10 @@ export class DesktopApplication {
       this.#session = session;
       this.#revision = "";
     } else if (command.type === "resume") {
+      this.#recovery = undefined;
       await this.state();
       const file = join(this.#home, "sessions", `${command.sessionId}.json`);
-      const lockPath = join(
-        this.#home,
-        "sessions",
-        `${command.sessionId}.desktop-lock`,
-      );
-      const handle = await open(lockPath, "wx", 0o600).catch(() => {
-        throw new Error("session-busy");
-      });
+      const lease = await desktopSessionLease(this.#home, command.sessionId);
       try {
         const saved = await new FileSessionStore(this.#home).load(
           command.sessionId,
@@ -411,28 +631,29 @@ export class DesktopApplication {
           loaded.workspaceRoot === cwd;
         this.#session = session;
         this.#revision = await snapshotHash(file);
+        try {
+          await new FileProductRunStore(this.#home, {
+            secrets: configuredSecrets(this.#env),
+          }).reconcile(command.sessionId, session.recordedRunIds);
+          await this.#loadRunHistory();
+        } catch {
+          this.#runHistory = { runs: [], error: "product-run-storage-failed" };
+        }
       } finally {
-        await handle.close();
-        await unlink(lockPath);
+        await lease.release();
       }
     } else if (command.type === "compact") {
       const session = this.#session;
       if (!session?.sessionId) throw new Error("session-required");
       const file = join(this.#home, "sessions", `${session.sessionId}.json`);
-      const lock = join(
-        this.#home,
-        "sessions",
-        `${session.sessionId}.desktop-lock`,
-      );
-      const handle = await open(lock, "wx", 0o600);
+      const lease = await desktopSessionLease(this.#home, session.sessionId);
       try {
         if ((await snapshotHash(file)) !== this.#revision)
           throw new Error("session-conflict");
         this.#operationResult = await session.compact(command.dryRun ?? false);
         this.#revision = await snapshotHash(file);
       } finally {
-        await handle.close();
-        await unlink(lock);
+        await lease.release();
       }
     } else if (command.type === "auth-status") {
       if (this.#login) return this.state();
@@ -593,219 +814,617 @@ export class DesktopApplication {
     for (const client of this.#clients) client.close();
     this.#clients.clear();
   }
-  readonly execute: RunExecutor = async (request, context) => {
-    if (
-      this.#busy ||
-      this.#managementBusy ||
-      !this.#session ||
-      this.#session.sessionId !== request.sessionId
-    )
-      throw new Error("session-mismatch");
-    this.#busy = true;
-    const session = this.#session;
-    let release: (() => Promise<void>) | undefined;
-    try {
-      if ((await directoryPath(this.#cwd)) !== this.#cwd)
-        throw new Error("workspace-changed");
-      await this.state();
-      const directory = join(this.#home, "sessions");
-      await mkdir(directory, { recursive: true, mode: 0o700 });
-      const lock = join(directory, `${request.sessionId}.desktop-lock`);
-      const handle = await open(lock, "wx", 0o600).catch(() => {
-        throw new Error("session-busy");
-      });
-      release = async () => {
-        await handle.close();
-        await unlink(lock);
-      };
-      const snapshotPath = join(directory, `${request.sessionId}.json`);
-      let before = await snapshotHash(snapshotPath);
-      if (before !== this.#revision) throw new Error("session-conflict");
-      const loaded = await loadForgeConfig({ env: this.#env, cwd: this.#cwd });
-      if (loaded.workspaceRoot !== this.#root)
-        throw new Error("workspace-changed");
-      const redact = (text: string) =>
-        String(redactValue(text, configuredSecrets(this.#env)));
-      const detail = (
-        kind: "tool" | "context" | "error" | "system" | "reasoning",
-        text: string,
-      ) => context.detail(kind, redact(text));
-      const matchingDefault =
-        (loaded.config.model.engine === "codex" ? "codex" : "native") ===
-        request.engine;
-      if (request.engine === "native" && !matchingDefault && !request.model)
-        throw new Error("model-required");
-      const model =
-        request.model ??
-        (request.engine === "codex" && matchingDefault
-          ? loaded.config.model.id
-          : undefined);
-      const effort =
-        request.reasoningEffort ??
-        (request.engine === "codex" &&
-        matchingDefault &&
-        (!request.model || request.model === loaded.config.model.id)
-          ? loaded.config.model.reasoningEffort
-          : undefined);
-      const provider =
-        request.provider ??
-        (request.engine === "codex" ? "openai" : loaded.config.model.provider);
-      if (model || request.provider || effort)
-        await this.#validateSelection({
-          engine: request.engine,
-          provider,
-          model: model ?? loaded.config.model.id,
-          ...(effort ? { effort: effort as ModelSelection["effort"] } : {}),
+  readonly execute: RunExecutor = Object.assign(
+    async (
+      request: Extract<RunCommand, { type: "start" }>,
+      context: ExecutionContext,
+    ): Promise<ProductRunCompletion> => {
+      if (
+        this.#busy ||
+        this.#managementBusy ||
+        !this.#session ||
+        this.#session.sessionId !== request.sessionId
+      )
+        throw new Error("session-mismatch");
+      this.#busy = true;
+      const startedAt = performance.now();
+      const session = this.#session;
+      let lease: ExecutionLease | undefined;
+      let workspaceLease: ExecutionLease | undefined;
+      let recorder: ProductRunRecorder | undefined;
+      let recoveryLink:
+        | import("@forge/persistence").ProductRecoveryLink
+        | undefined;
+      const storageAbort = new AbortController();
+      const signal = AbortSignal.any([context.signal, storageAbort.signal]);
+      let finalCompletion: ProductRunCompletion | undefined;
+      try {
+        if ((await directoryPath(this.#cwd)) !== this.#cwd)
+          throw new Error("workspace-changed");
+        await this.state();
+        const directory = join(this.#home, "sessions");
+        await mkdir(directory, { recursive: true, mode: 0o700 });
+        lease = await desktopSessionLease(this.#home, request.sessionId);
+        const snapshotPath = join(directory, `${request.sessionId}.json`);
+        let before = await snapshotHash(snapshotPath);
+        if (before !== this.#revision) throw new Error("session-conflict");
+        const loaded = await loadForgeConfig({
+          env: this.#env,
+          cwd: this.#cwd,
         });
-      await session.prepareRun(request.prompt);
-      before = await snapshotHash(snapshotPath);
-      this.#revision = before;
-      if (context.signal.aborted) return;
-      let result: RunResult | undefined;
-      const { FORGE_DESKTOP_RESOURCE_ROOT: builtinResourceRoot } = this.#env;
-      const shared = {
-        env: this.#env,
-        cwd: this.#cwd,
-        signal: context.signal,
-        stderr: { write: (text: string) => detail("error", text) },
-      };
-      if (request.engine === "native") {
-        session.selectModel(provider, model ?? loaded.config.model.id);
-        const code = await runTask(
-          request.prompt,
-          {
-            ...(model ? { model } : {}),
-            ...(request.engine === "native" ? { provider } : {}),
-            ...(effort
-              ? {
-                  reasoningEffort: effort,
-                  thinking: effort === "none" ? "disabled" : "enabled",
-                }
-              : {}),
-            permissionProfile: request.permissionProfile ?? "safe",
-          },
-          {
-            ...shared,
-            ...(builtinResourceRoot ? { builtinResourceRoot } : {}),
+        if (loaded.workspaceRoot !== this.#root)
+          throw new Error("workspace-changed");
+        const redact = (text: string) =>
+          String(redactValue(text, configuredSecrets(this.#env)));
+        const detail = (
+          kind: "tool" | "context" | "error" | "system" | "reasoning",
+          text: string,
+        ) => context.detail(kind, redact(text));
+        const matchingDefault =
+          (loaded.config.model.engine === "codex" ? "codex" : "native") ===
+          request.engine;
+        if (request.engine === "native" && !matchingDefault && !request.model)
+          throw new Error("model-required");
+        const model =
+          request.model ??
+          (request.engine === "codex" && matchingDefault
+            ? loaded.config.model.id
+            : undefined);
+        const effort =
+          request.reasoningEffort ??
+          (request.engine === "codex" &&
+          matchingDefault &&
+          (!request.model || request.model === loaded.config.model.id)
+            ? loaded.config.model.reasoningEffort
+            : undefined);
+        const provider =
+          request.provider ??
+          (request.engine === "codex"
+            ? "openai"
+            : loaded.config.model.provider);
+        if (model || request.provider || effort)
+          await this.#validateSelection({
+            engine: request.engine,
+            provider,
+            model: model ?? loaded.config.model.id,
+            ...(effort ? { effort: effort as ModelSelection["effort"] } : {}),
+          });
+        workspaceLease = await acquireWorkspaceLease(this.#root);
+        let recovery: RecoveryPreparation | undefined;
+        let recoveryConfigurationSnapshot:
+          | Awaited<ReturnType<typeof loadForgeConfig>>
+          | undefined;
+        if (request.recovery) {
+          recovery = this.#recovery;
+          if (
+            !recovery ||
+            recovery.view.token !== request.recovery.token ||
+            recovery.view.sessionId !== request.sessionId ||
+            recovery.view.kind !== request.recovery.kind ||
+            recovery.view.sourceRunId !== request.recovery.sourceRunId ||
+            recovery.revision !== before ||
+            recovery.configuration !== recoveryConfiguration(loaded.config)
+          )
+            throw new Error("recovery-stale");
+          const actualSelection = {
+            engine: request.engine,
+            provider,
+            model: model ?? loaded.config.model.id,
+            effort: effort ?? loaded.config.model.reasoningEffort,
+          };
+          if (
+            actualSelection.engine !== recovery.view.selection.engine ||
+            actualSelection.provider !== recovery.view.selection.provider ||
+            actualSelection.model !== recovery.view.selection.model ||
+            actualSelection.effort !== recovery.view.selection.effort ||
+            (request.permissionProfile ?? "safe") !==
+              recovery.view.permissionProfile ||
+            (recovery.view.kind !== "retry" &&
+              request.prompt !== recovery.view.prompt)
+          )
+            throw new Error("recovery-stale");
+          const record = await new FileProductRunStore(this.#home, {
+            secrets: configuredSecrets(this.#env),
+          }).read(request.sessionId, request.recovery.sourceRunId);
+          const current = prepareRunRecovery(
+            record,
+            session.history,
+            request.recovery.kind,
+            { responseLocale: recovery.view.responseLocale },
+          );
+          if (current.sourceFingerprint !== recovery.prepared.sourceFingerprint)
+            throw new Error("recovery-stale");
+          recoveryConfigurationSnapshot = await loadForgeConfig({
+            cwd: this.#cwd,
+            env: this.#env,
+            cli: recoveryOptions(recovery.view),
+          });
+          if (
+            recoveryConfiguration(recoveryConfigurationSnapshot.config) !==
+            recovery.executionConfiguration
+          )
+            throw new Error("recovery-stale");
+          recoveryLink = recovery.prepared.link;
+          this.#recovery = undefined;
+        } else {
+          this.#recovery = undefined;
+        }
+        await session.prepareRun(request.prompt);
+        await session.persistPreparedSession();
+        before = await snapshotHash(snapshotPath);
+        this.#revision = before;
+        if (signal.aborted)
+          return { outcome: "cancelled", reason: "cancelled" };
+        recorder = new ProductRunRecorder(
+          await new FileProductRunStore(this.#home, {
+            secrets: configuredSecrets(this.#env),
+          }).create({
             sessionId: request.sessionId,
             runId: request.runId,
-            conversation: session.conversationForEngine("native"),
-            ...(session.contextCheckpoint
-              ? { contextCheckpoint: session.contextCheckpoint }
-              : {}),
-            ...(this.#overrides.createAdapter
-              ? { createAdapter: this.#overrides.createAdapter }
-              : {}),
-            approvalChannel: {
-              request: (action) =>
-                context.approve(
-                  redact(
-                    `${action.tool.name}\n${JSON.stringify(action.input, null, 2)}`,
-                  ),
-                ),
-              requestStructured: async (
-                action,
-                _signal,
-                _toolContext,
-                descriptor,
-              ) => ({
-                kind: (await context.approve(
-                  redact(
-                    `${descriptor.preview}\n${JSON.stringify(action.input, null, 2)}`,
-                  ),
-                ))
-                  ? "allow-once"
-                  : "deny",
-              }),
-            },
-            onEvent: (event) => {
-              if (event.type === "model.text") context.text(redact(event.text));
-              else if (event.type === "model.reasoning")
-                detail("reasoning", event.text);
-              else if (event.type.startsWith("tool."))
-                detail("tool", JSON.stringify(event));
-              else if (event.type.startsWith("context."))
-                detail("context", JSON.stringify(event));
-            },
-            onResult: (value) => {
-              result = value;
-            },
-          },
+            engine: request.engine,
+            prompt: request.prompt,
+            ...(recovery ? { recovery: recovery.prepared.link } : {}),
+          }),
         );
-        if (!result)
-          throw new Error(code === 130 ? "cancelled" : "native-start-failed");
-      } else {
-        let answer = "";
-        const events: RunEvent[] = [];
-        const code = await runCodexTask(
-          request.prompt,
-          {
-            ...(model ? { model } : {}),
-            ...(effort
-              ? {
-                  reasoningEffort: effort,
-                  thinking: effort === "none" ? "disabled" : "enabled",
-                }
-              : {}),
-            permissionProfile: request.permissionProfile ?? "workspace-write",
-          },
-          {
-            ...this.#codexDependencies(context.signal),
-            ...shared,
-            conversation: session.messages,
-            onOutput: (event) => {
-              if (event.type === "answer") {
-                answer += event.text;
-                context.text(redact(event.text));
-              } else if (event.type === "reasoning") {
-                events.push({
-                  type: "model.reasoning",
-                  step: 1,
-                  text: event.text,
-                });
-                detail("reasoning", event.text);
-              } else
-                detail(event.type === "tool" ? "tool" : "system", event.text);
-            },
-            approve: (description) => context.approve(redact(description)),
-          },
+        recorder.controller.signal.addEventListener(
+          "abort",
+          () => storageAbort.abort(),
+          { once: true },
         );
-        result = {
-          status:
-            code === 0 ? "completed" : code === 130 ? "cancelled" : "failed",
-          exitCode: code,
-          finalText: answer,
-          modelSteps: 1,
-          toolCalls: 0,
-          events,
+        context.ready?.();
+        const record = recorder;
+        const observe = (payload: ProductRecordPayload) =>
+          record.observe(payload);
+        const approve = async (
+          description: string,
+          descriptor?: import("../shared/run-protocol.js").ApprovalView,
+        ) => {
+          const approvalId = `request-${++approvalSequence}`;
+          await record.record({
+            type: "approval",
+            approvalId,
+            description: description.slice(0, 16_384),
+            ...(descriptor ? { actionId: descriptor.actionId } : {}),
+          });
+          if (signal.aborted) return false;
+          const allow = await context.approve(description, descriptor);
+          await record.record({ type: "decision", approvalId, allow });
+          return !signal.aborted && allow;
         };
-      }
-      if (before !== (await snapshotHash(snapshotPath)))
-        throw new Error("session-conflict");
-      await session.recordRun(request.prompt, result, {
-        runId: request.runId,
-        engine: request.engine,
-        sessionId: request.sessionId,
-        tracePersisted:
-          request.engine === "native" && loaded.config.trace.enabled,
-      });
-      this.#revision = await snapshotHash(snapshotPath);
-      detail("context", session.contextStatus());
-      if (result.message) detail("error", result.message);
-      if (result.status !== "completed" && result.status !== "cancelled")
-        throw new Error(`run-${result.status}`);
-      return result.status;
-    } catch (error) {
-      context.detail("error", desktopError(error));
-      throw error;
-    } finally {
-      try {
-        await release?.();
+        let approvalSequence = 0;
+        let result: RunResult | undefined;
+        let finalizing = false;
+        const { FORGE_DESKTOP_RESOURCE_ROOT: builtinResourceRoot } = this.#env;
+        const shared = {
+          env: this.#env,
+          cwd: this.#cwd,
+          signal,
+          workspaceLease,
+          ...(recoveryConfigurationSnapshot
+            ? { configurationSnapshot: recoveryConfigurationSnapshot }
+            : {}),
+          stderr: {
+            write: (text: string) => {
+              observe({
+                type: "detail",
+                kind: "error",
+                text: redact(text).slice(0, 65_536),
+              });
+              detail("error", text);
+            },
+          },
+        };
+        const onRunEvent = async (event: RunEvent) => {
+          const action = projectActionEvent(
+            redactValue(event, configuredSecrets(this.#env)) as RunEvent,
+          );
+          if (action) {
+            await record.record({ type: "action", action });
+            context.action(action);
+          }
+          if (event.type === "run.finalizing") {
+            finalizing = true;
+            await record.record({
+              type: "detail",
+              kind: "system",
+              text: `Finalizing within the total budget: ${event.reason}`,
+            });
+            context.phase("finalizing");
+          }
+          if (event.type === "model.started" && !finalizing)
+            context.phase("responding");
+          if (event.type === "model.warning") {
+            await record.record({
+              type: "detail",
+              kind: "system",
+              text: redact(event.message).slice(0, 65_536),
+            });
+            detail("system", event.message);
+          }
+          if (event.type === "tool.started") context.phase("executing");
+          if (event.type === "model.text") {
+            await record.record({
+              type: "text",
+              text: redact(event.text),
+            });
+            context.text(redact(event.text));
+          } else if (event.type === "model.reasoning") {
+            await record.record({
+              type: "detail",
+              kind: "reasoning",
+              text: redact(event.text),
+              step: event.step,
+            });
+            context.detail("reasoning", redact(event.text), event.step);
+          } else if (event.type.startsWith("context.")) {
+            const text = redact(JSON.stringify(event)).slice(0, 65_536);
+            await record.record({
+              type: "detail",
+              kind: "context",
+              text,
+            });
+            detail("context", text);
+          }
+        };
+        if (request.engine === "native") {
+          session.selectModel(provider, model ?? loaded.config.model.id);
+          let code: number;
+          if (recovery?.view.kind === "summarize") {
+            context.phase("finalizing");
+            finalizing = true;
+            result = await summarizeRecordedRun(recovery.prepared, {
+              ...(this.#overrides.finalizationInput
+                ? { finalizationInput: this.#overrides.finalizationInput }
+                : {}),
+              env: this.#env,
+              cwd: this.#cwd,
+              runId: request.runId,
+              sessionId: request.sessionId,
+              signal,
+              ...(recoveryConfigurationSnapshot
+                ? { configurationSnapshot: recoveryConfigurationSnapshot }
+                : {}),
+              selection: {
+                provider,
+                model: model ?? loaded.config.model.id,
+                ...(effort ? { effort } : {}),
+              },
+              onEvent: onRunEvent,
+              ...(this.#overrides.createAdapter
+                ? { createAdapter: this.#overrides.createAdapter }
+                : {}),
+            });
+            code = result.exitCode;
+          } else {
+            code = await runTask(
+              request.prompt,
+              {
+                ...(model ? { model } : {}),
+                ...(request.engine === "native" ? { provider } : {}),
+                ...(effort
+                  ? {
+                      reasoningEffort: effort,
+                      thinking: effort === "none" ? "disabled" : "enabled",
+                    }
+                  : {}),
+                permissionProfile: request.permissionProfile ?? "safe",
+              },
+              {
+                ...shared,
+                completionPolicy: "reserve-final-step",
+                ...(this.#overrides.finalizationInput
+                  ? { finalizationInput: this.#overrides.finalizationInput }
+                  : {}),
+                ...(builtinResourceRoot ? { builtinResourceRoot } : {}),
+                sessionId: request.sessionId,
+                runId: request.runId,
+                conversation: session.conversationForEngine("native"),
+                ...(session.contextCheckpoint
+                  ? { contextCheckpoint: session.contextCheckpoint }
+                  : {}),
+                ...(this.#overrides.createAdapter
+                  ? { createAdapter: this.#overrides.createAdapter }
+                  : {}),
+                approvalChannel: {
+                  request: (action) =>
+                    approve(
+                      redact(
+                        `${action.tool.name}\n${JSON.stringify(action.input, null, 2)}`,
+                      ),
+                    ),
+                  requestStructured: async (
+                    action,
+                    _signal,
+                    _toolContext,
+                    descriptor,
+                  ) => ({
+                    kind: (await approve(redact(descriptor.preview), {
+                      actionId: descriptor.actionId,
+                      effect: descriptor.effect,
+                      resource: redact(descriptor.resource),
+                      preview: redact(descriptor.preview),
+                      input: redact(JSON.stringify(action.input, null, 2)),
+                      riskFlags: descriptor.riskFlags,
+                    }))
+                      ? "allow-once"
+                      : "deny",
+                  }),
+                },
+                onEvent: onRunEvent,
+                onResult: (value) => {
+                  result = value;
+                },
+              },
+            );
+          }
+          if (record.failed) throw new Error("product-run-storage-failed");
+          if (!result)
+            throw new Error(
+              code === 130
+                ? "cancelled"
+                : code === 2
+                  ? "configuration-invalid"
+                  : "native-start-failed",
+            );
+        } else {
+          let answer = "";
+          const events: RunEvent[] = [];
+          const code = await runCodexTask(
+            request.prompt,
+            {
+              ...(model ? { model } : {}),
+              ...(effort
+                ? {
+                    reasoningEffort: effort,
+                    thinking: effort === "none" ? "disabled" : "enabled",
+                  }
+                : {}),
+              permissionProfile: request.permissionProfile ?? "workspace-write",
+            },
+            {
+              ...this.#codexDependencies(context.signal),
+              ...shared,
+              conversation: session.messages,
+              onOutput: (event) => {
+                if (event.type === "answer") {
+                  answer += event.text;
+                  observe({ type: "text", text: redact(event.text) });
+                  context.text(redact(event.text));
+                } else if (event.type === "reasoning") {
+                  events.push({
+                    type: "model.reasoning",
+                    step: 1,
+                    text: event.text,
+                  });
+                  observe({
+                    type: "detail",
+                    kind: "reasoning",
+                    text: redact(event.text),
+                    step: 1,
+                  });
+                  detail("reasoning", event.text);
+                } else {
+                  observe({
+                    type: "detail",
+                    kind: event.type === "tool" ? "tool" : "system",
+                    text: redact(event.text).slice(0, 65_536),
+                  });
+                  detail(event.type === "tool" ? "tool" : "system", event.text);
+                }
+              },
+              approve: (description) => approve(redact(description)),
+            },
+          );
+          result = {
+            status:
+              code === 0 ? "completed" : code === 130 ? "cancelled" : "failed",
+            exitCode: code,
+            finalText: answer,
+            modelSteps: 1,
+            toolCalls: 0,
+            events,
+          };
+        }
+        if (before !== (await snapshotHash(snapshotPath)))
+          throw new Error("session-conflict");
+        if (record.failed) throw new Error("product-run-storage-failed");
+        const projected = projectRunCompletion(result);
+        const {
+          modelSteps: _modelSteps,
+          toolCalls: _toolCalls,
+          ...opaqueCompletion
+        } = projected;
+        finalCompletion = await record.result({
+          ...(request.engine === "native" ? projected : opaqueCompletion),
+          ...(recovery ? { recovery: recovery.prepared.link } : {}),
+          ...(projected.message ? { message: redact(projected.message) } : {}),
+          durationMs: Math.max(0, performance.now() - startedAt),
+        });
+        await session.recordRun(request.prompt, result, {
+          runId: request.runId,
+          engine: request.engine,
+          sessionId: request.sessionId,
+          tracePersisted:
+            request.engine === "native" && loaded.config.trace.enabled,
+        });
+        this.#revision = await snapshotHash(snapshotPath);
+        detail("context", session.contextStatus());
+        if (result.message) detail("error", result.message);
+        await record.finish(finalCompletion);
+        await this.#loadRunHistory(undefined, request.runId);
+        return finalCompletion;
+      } catch (error) {
+        const code = recorder?.failed
+          ? "product-run-storage-failed"
+          : desktopError(error);
+        context.detail("error", code);
+        const failure: ProductRunCompletion = {
+          outcome: context.signal.aborted ? "cancelled" : "failed",
+          reason: context.signal.aborted
+            ? "cancelled"
+            : code === "configuration-invalid"
+              ? "configuration_error"
+              : code === "session-storage-failed" ||
+                  code === "product-run-storage-failed"
+                ? "storage_error"
+                : [
+                      "session-conflict",
+                      "session-busy",
+                      "workspace-busy",
+                      "workspace-changed",
+                    ].includes(code)
+                  ? "workspace_conflict"
+                  : "execution_error",
+          message: code,
+          ...(recoveryLink ? { recovery: recoveryLink } : {}),
+          durationMs: Math.max(0, performance.now() - startedAt),
+        };
+        if (recorder && !recorder.failed) {
+          try {
+            await recorder.result(failure);
+            await recorder.finish(failure);
+            await this.#loadRunHistory(undefined, request.runId);
+          } catch {
+            return {
+              ...failure,
+              outcome: "failed",
+              reason: "storage_error",
+              message: "product-run-storage-failed",
+            };
+          }
+        }
+        return failure;
       } finally {
-        this.#busy = false;
+        try {
+          await workspaceLease?.release();
+        } finally {
+          try {
+            await lease?.release();
+          } finally {
+            this.#busy = false;
+          }
+        }
       }
+    },
+    { deferStartReply: true },
+  );
+  /** Snapshot observation only: never resume, reconcile, acquire execution authority, or change active state. */
+  async #browseSession(
+    command: Extract<ManagementCommand, { type: "browse-session" }>,
+  ): Promise<DesktopState> {
+    const state = await this.state();
+    const saved = await new FileSessionStore(this.#home).load(
+      command.sessionId,
+    );
+    const cwd = await directoryPath(saved.workingDirectory);
+    const loaded = await loadForgeConfig({ cwd, env: this.#env });
+    if (
+      cwd !== saved.workingDirectory ||
+      loaded.workspaceRoot !== saved.workspaceRoot
+    )
+      throw new Error("workspace-changed");
+    let remaining = 262_144;
+    let truncated = false;
+    const projected = projectSessionMessages(saved.history, saved.runIds);
+    if (projected.length > 1000) truncated = true;
+    const messages = projected
+      .slice(-1000)
+      .reverse()
+      .map((message) => {
+        const redacted = String(
+          redactValue(message.content, configuredSecrets(this.#env)),
+        );
+        const content = redacted.slice(0, remaining);
+        remaining -= content.length;
+        if (content.length < redacted.length) truncated = true;
+        return { ...message, content };
+      })
+      .filter((message) => message.content.length > 0)
+      .reverse();
+    let runHistory: NonNullable<DesktopState["runHistory"]>;
+    try {
+      const store = new FileProductRunStore(this.#home, {
+        secrets: configuredSecrets(this.#env),
+      });
+      const page = await store.list(command.sessionId, command.before);
+      const selectedId = command.runId ?? page.runs[0]?.runId;
+      const record = selectedId
+        ? await store.read(command.sessionId, selectedId)
+        : undefined;
+      runHistory = {
+        ...page,
+        ...(record
+          ? {
+              selected: await this.#projectHistoryRecord(store, record),
+            }
+          : {}),
+      };
+    } catch {
+      runHistory = { runs: [], error: "product-run-storage-failed" };
     }
-  };
+    return {
+      ...state,
+      browsedSession: {
+        sessionId: saved.id,
+        cwd,
+        title:
+          state.sessions.find((entry) => entry.id === saved.id)?.title ??
+          saved.id,
+        messages,
+        runHistory,
+        truncated,
+      },
+    };
+  }
+  async #projectHistoryRecord(
+    store: FileProductRunStore,
+    record: ProductRunRecord,
+  ) {
+    const project = (value: ProductRunRecord) => ({
+      summary: value.summary,
+      activity: projectRecordedActivity(value),
+      delivery: projectRunDelivery(value),
+      incomplete: value.incomplete || Boolean(value.summary.journalIncomplete),
+    });
+    const selected = project(record);
+    if (record.summary.recovery?.kind !== "summarize") return selected;
+    const sourceRunId = record.summary.recovery.sourceRunId;
+    try {
+      const source = await store.read(record.summary.sessionId, sourceRunId);
+      return {
+        ...selected,
+        recoverySource: { sourceRunId, record: project(source) },
+      };
+    } catch {
+      // A missing source must not hide the summary or be replaced by its prose.
+      return { ...selected, recoverySource: { sourceRunId } };
+    }
+  }
+  async #loadRunHistory(before?: number, runId?: string): Promise<void> {
+    const sessionId = this.#session?.sessionId;
+    if (!sessionId) {
+      this.#runHistory = undefined;
+      return;
+    }
+    try {
+      const store = new FileProductRunStore(this.#home, {
+        secrets: configuredSecrets(this.#env),
+      });
+      const page = await store.list(sessionId, before);
+      this.#historyPageBefore = before;
+      const record = runId ? await store.read(sessionId, runId) : undefined;
+      this.#runHistory = {
+        ...page,
+        ...(record
+          ? {
+              selected: await this.#projectHistoryRecord(store, record),
+            }
+          : {}),
+      };
+    } catch {
+      this.#runHistory = { runs: [], error: "product-run-storage-failed" };
+    }
+  }
   #codexDependencies(signal: AbortSignal) {
     return {
       env: this.#env,
@@ -864,4 +1483,48 @@ export function desktopError(error: unknown): string {
     if (error.name === "PersistenceError") return "session-storage-failed";
   }
   return "management-failed";
+}
+
+async function desktopSessionLease(
+  home: string,
+  sessionId: string,
+): Promise<ExecutionLease> {
+  try {
+    const legacy = await lstat(
+      join(home, "sessions", `${sessionId}.desktop-lock`),
+    ).catch((error: unknown) => {
+      if (error instanceof Error && "code" in error && error.code === "ENOENT")
+        return undefined;
+      throw error;
+    });
+    if (legacy) throw new Error("session-busy");
+    return await ExecutionLease.acquire(
+      `desktop-session:${await realpath(home)}:${sessionId}`,
+    );
+  } catch {
+    throw new Error("session-busy");
+  }
+}
+
+function recoveryConfiguration(configuration: unknown): string {
+  return createHash("sha256")
+    .update(JSON.stringify(configuration))
+    .digest("hex");
+}
+
+function recoveryOptions(view: RecoveryPlan) {
+  return {
+    engine: "forge",
+    provider: view.selection.provider,
+    model: view.selection.model,
+    ...(view.selection.effort
+      ? {
+          reasoningEffort: view.selection.effort,
+          thinking: view.selection.effort === "none" ? "disabled" : "enabled",
+        }
+      : {}),
+    permissionProfile: view.permissionProfile,
+    maxSteps: view.maxModelSteps,
+    maxToolCalls: view.kind === "summarize" ? 1 : view.maxToolCalls,
+  };
 }

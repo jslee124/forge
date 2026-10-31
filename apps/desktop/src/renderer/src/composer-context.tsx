@@ -26,6 +26,18 @@ export function ComposerContext({
   const percent = usage
     ? Math.min(100, Math.round((usage.used / usage.total) * 100))
     : undefined;
+  const permissionLabel =
+    permission === "workspace-write"
+      ? zh
+        ? "工作区写入"
+        : "Workspace writes"
+      : engine === "codex"
+        ? zh
+          ? "只读"
+          : "Read only"
+        : zh
+          ? "按需审批"
+          : "Ask to approve";
   return (
     <div className="studio-context-controls">
       <button
@@ -38,9 +50,10 @@ export function ComposerContext({
       >
         <Plus size={18} />
       </button>
-      <label className="studio-permission">
-        <ShieldCheck size={16} />
+      <label className="studio-permission" title={permissionLabel}>
+        <ShieldCheck size={18} aria-hidden="true" />
         <select
+          title={permissionLabel}
           aria-label={zh ? "当前权限" : "Permissions"}
           disabled={busy}
           value={permission}
@@ -63,7 +76,10 @@ export function ComposerContext({
         </select>
       </label>
       <details className="studio-permissions-details studio-context-popover">
-        <summary aria-label={zh ? "会话授权详情" : "Session grants"}>
+        <summary
+          aria-label={zh ? "会话授权详情" : "Session grants"}
+          title={zh ? "会话授权详情" : "Session grants"}
+        >
           <Info size={16} />
         </summary>
         <div>
@@ -91,7 +107,9 @@ export function ComposerContext({
             aria-hidden="true"
             style={{ "--usage": `${percent ?? 0}%` } as CSSProperties}
           />
-          <span>{percent === undefined ? "—" : `${percent}%`}</span>
+          <span className="studio-context-percent">
+            {percent === undefined ? "—" : `${percent}%`}
+          </span>
         </summary>
         <div>
           <strong>{zh ? "上下文" : "Context"}</strong>

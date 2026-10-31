@@ -21,6 +21,61 @@ import {
 
 const temporaryDirectories: string[] = [];
 
+it("defaults to uncapped task totals while preserving explicit limits and project-only tightening", async () => {
+  const f = await fixture();
+  const env = { FORGE_HOME: f.forgeHome };
+  const initial = await loadForgeConfig({ cwd: f.root, env });
+  expect(initial.config.limits).toMatchObject({
+    maxSteps: null,
+    maxToolCalls: null,
+    commandTimeoutMs: 60_000,
+  });
+  await writeFile(
+    initial.userConfigPath,
+    JSON.stringify({
+      schemaVersion: 1,
+      limits: { maxSteps: 5, maxToolCalls: 9 },
+    }),
+  );
+  await mkdir(path.join(f.root, ".forge"), { recursive: true });
+  await writeFile(
+    path.join(f.root, ".forge/config.json"),
+    JSON.stringify({
+      schemaVersion: 1,
+      limits: { maxSteps: null, maxToolCalls: null },
+    }),
+  );
+  expect(
+    (await loadForgeConfig({ cwd: f.root, env })).config.limits,
+  ).toMatchObject({ maxSteps: 5, maxToolCalls: 9 });
+  expect(
+    (
+      await loadForgeConfig({
+        cwd: f.root,
+        env,
+        cli: { maxSteps: null, maxToolCalls: null },
+      })
+    ).config.limits,
+  ).toMatchObject({ maxSteps: null, maxToolCalls: null });
+  await writeFile(
+    initial.userConfigPath,
+    JSON.stringify({
+      schemaVersion: 1,
+      limits: { maxSteps: null, maxToolCalls: null },
+    }),
+  );
+  await writeFile(
+    path.join(f.root, ".forge/config.json"),
+    JSON.stringify({
+      schemaVersion: 1,
+      limits: { maxSteps: 80, maxToolCalls: 120 },
+    }),
+  );
+  expect(
+    (await loadForgeConfig({ cwd: f.root, env })).config.limits,
+  ).toMatchObject({ maxSteps: 80, maxToolCalls: 120 });
+});
+
 afterEach(async () => {
   await Promise.all(
     temporaryDirectories

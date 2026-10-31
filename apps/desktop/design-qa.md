@@ -263,3 +263,68 @@ W18–W20 local acceptance is complete. All **49 actual Electron captures** are 
 The manifest's “no model calls” means no real external model was contacted: **four HTTP requests went to a deterministic local fixture**, through real provider adapter, Agent and IPC paths. Actual approval/tool execution was local. This proves local integration, not provider quality, authentication validity or remote cancellation. No P4 packaging/public-install claim is made.
 
 The P3 command matrix remains applicable. For `/exit`, P4 adds close/quit event-path proof with a simulated native response; manual native-dialog interaction and real-provider timeout/cancellation remain pending. `/login` and `/plugins` remain partial for the documented reasons. Live Codex expired-account recovery, VoiceOver/manual accessibility and installed signed/release acceptance are unverified. No commit, installed-app replacement or publication.
+
+
+## T12 reading and zoom audit — 2026-10-25
+
+Current source and repeatable acceptance: [implementation progress](../../docs/development/DESKTOP_PRODUCT_IMPLEMENTATION.md#reading-zoom-and-accessibility-follow-up-2026-10-25).
+This increment supersedes earlier notes about transcript live regions and pinned
+terminal cards. It is local development evidence, not release acceptance.
+
+1. **Streaming / 流式阅读 — corrected in the local fixture.** Before: 3735 CSS
+   pixels above the tail. After: within 2 pixels; user scroll-up preserves position,
+   and Jump to latest resumes following. 100 ordered deltas survive completion
+   without loss or duplication in copied answer text.
+2. **Answer actions / 回答操作 — locally usable.** Answer/code copying preserves
+   exact text; rejected clipboard access displays failure. Tests intercept clipboard
+   writes without changing the user's actual clipboard. Code/table containers are
+   keyboard-scrollable; decorative avatars are excluded from accessibility names.
+3. **Approval and reflow / 审批与缩放 — locally usable, constrained height.** At
+   200% zoom the approval body scrolls and decision buttons remain visible;
+   Enter activation resolves the approval and focus returns to the composer.
+   Terminal cards scroll inside the conversation to retain composer reachability.
+   The 16 EN/ZH × light/dark × 1100/840 × 100%/200% geometry checks passed.
+4. **Accessibility / 可访问性 — partial evidence.** Native Enter/Shift+Enter input,
+   a synthetic composition guard, reduced-motion emulation and a named Chromium
+   conversation region were verified. VoiceOver speech, native IME candidate
+   selection and installed-platform behavior remain manual acceptance work.
+
+Reproduce from `apps/desktop` after building:
+`FORGE_T12_MODE=verify FORGE_UI_OUTPUT=/tmp/forge-t12-ui-final node scripts/acceptance-ui.mjs`.
+Final local manifest: `/tmp/forge-t12-ui-final/ui.json` (97 images, including existing
+acceptance); numbered walkthrough: `/tmp/forge-t12-ui-final/audit.md`.
+151 Desktop/application tests passed, six live opt-in tests skipped; 133
+deterministic evaluations, root check, docs check and Desktop build passed.
+No external provider quality, performance benchmark, packaging or release claim.
+
+
+## First-send setup and failure guidance — 2026-10-26
+
+[Implementation and limits](../../docs/development/DESKTOP_PRODUCT_IMPLEMENTATION.md#first-send-setup-and-actionable-failures-2026-10-26).
+This source increment addresses the configuration/native-language findings from
+the previous packaged probe; it does not update that installed build.
+
+1. Local readiness blocks missing credentials before creating a session/run;
+   the configuration action reaches Models & access and retains the draft on return.
+2. Typed HTTP 401/403, missing-response retryable transport failures, 429 and 5xx
+   produce specific guidance. Unknown errors remain generic; no prose matching.
+   Access errors offer configuration; other known provider failures offer edit/retry.
+3. Native draft-guard prompts follow EN/ZH through sender-validated locale IPC.
+   The fixture invokes actual close/quit paths while supplying the cancel response;
+   this does not replace VoiceOver or native IME listening/candidate checks.
+
+Reproduce the existing full fixture after building with `FORGE_T12_MODE=verify`.
+Local output: `/tmp/forge-onboarding-acceptance/` including `ui.json` and onboarding
+screenshots. Validation: 190 related tests, six live tests skipped, 134 deterministic
+evaluations, root check and Desktop build. No external-provider or release claim.
+
+## Recovery source facts (2026-10-27)
+
+The recovery summary now presents deterministic source status and recorded command
+results before the model explanation, with missing/incomplete evidence called out.
+Host/renderer regressions cover conflicting model claims, separate source state,
+read-only history and unavailable source content. The local scripted-provider
+Electron matrix at `/tmp/forge-recovery-facts-ui-final/` covers en/zh-CN, light/dark
+and 1100/840 widths and asserts a single facts card across persistence handoff.
+This is development UI evidence; no paid-model, installed-app, native IME,
+VoiceOver or independent-user acceptance is implied.

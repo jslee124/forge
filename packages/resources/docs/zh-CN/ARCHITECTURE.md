@@ -112,6 +112,30 @@ Subagent 声明会变成 `model` risk 的 parent tool。由宿主而非插件创
 
 每个工具有唯一名称、model-facing 描述、Zod input schema、执行函数、risk 分类和结构化结果。当前工具包括 `list_files`、带完整读取版本信息的 `read_file`、`search`、统一的 `edit_file`（安全 create、精确 replace、版本保护 rewrite）和 `run_command`，以及示例 plugin 的 `web_search`/`web_fetch` 与 `delegate_code_review`。历史 session 中的 `create_file`/`apply_patch` 仍可读取，但当前请求不再广告或执行它们。
 
+`read_file` 新增可选 `startLine`（1—10,000,000）与 `lineCount`（1—2,000；
+指定起始行时默认 200）。两者都省略时保留完整的有界读取。结果返回实际
+`startLine`/`endLine`、`returnedLines`、`totalLinesKnown`/`totalLines`、`partial`、
+`resourceVersion` 与 `scannedBytes`；只有到达 EOF 才确认总行数。范围扫描上限为
+64 MiB，输出或扫描达到上限通过 `limitReason` 与 `truncated` 明确表示。UTF-8
+前缀不会从字符中间截断，选中内容不是合法文本时返回 `not_text`；读取期间文件变化
+返回可重试的 `stale_file`。
+
+显式范围读取始终返回 `sha256: null`、`rewriteAvailable: false`，即使范围恰好覆盖
+整个小文件。`resourceVersion` 只是用于重新读取判断的元数据身份，不是内容哈希、
+rewrite 基线或权限。只有完整且未截断的读取提供 `edit_file` 接受的整文件 SHA-256。
+
+`search` 只支持 `mode: "literal"`。可选 `contextBefore`/`contextAfter` 为前后
+0—20 行，重叠上下文会合并。`include`/`exclude` 接受最多 20 个、每个至多 256 字符的
+workspace-root-relative glob，仅支持 `*`、`?`、独占路径段的 `**`，例如
+`src/**/*.ts`、`node_modules/**`。正则、extglob、路径穿越模式和未知字段会被拒绝。
+过滤只能缩小发现范围，不能扩大 workspace 权限。
+
+搜索跳过超过 1 MiB 的文件，采用 16 MiB 扫描预算，保留条目、匹配数和输出上限。
+失败读取按本次尝试的最大字节量保守计费。`skippedFiles`、`scanBudgetBytes`、`limits`
+说明省略；不完整搜索的零匹配不能证明不存在。目录迭代先限制条目数，再排序已发现条目。
+行预览最多 2,048 个 UTF-16 code unit，保持完整字符并标明截断；`column` 与
+`previewStartColumn` 是原行中从 1 开始的 UTF-16 位置。上下文行保留原行号与裁剪提示。
+
 `edit_file` 的 model-facing schema 是带 `operation` enum 的 flat object，因此 compatible
 endpoint 不需要接受 `anyOf`/`oneOf`。Runtime 会在审批或执行前严格校验 create、replace
 与 rewrite 的字段组合。

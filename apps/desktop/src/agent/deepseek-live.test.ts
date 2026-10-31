@@ -61,27 +61,36 @@ it.skipIf(FORGE_DESKTOP_LIVE_DEEPSEEK !== "1")(
           },
           {
             signal: controller.signal,
+            phase: () => undefined,
+            action: () => {
+              metrics.toolEvents++;
+            },
             text: () => {
               metrics.textEvents++;
             },
             detail: (kind) => {
               if (kind === "tool") metrics.toolEvents++;
             },
-            approve: async (description) => {
+            approve: async (description, descriptor) => {
+              const input = descriptor?.input ?? description;
               metrics.approvals++;
               if (approvalMode === "cancel") controller.abort();
               if (approvalMode !== "allow") return false;
               // Only the scratch proof file and a read-only pwd command are authorized.
               return (
-                description.includes('"path": "d06-proof.txt"') ||
-                (description.includes('"program": "pwd"') &&
-                  description.includes('"args": []'))
+                input.includes('"path": "d06-proof.txt"') ||
+                (input.includes('"program": "pwd"') &&
+                  input.includes('"args": []'))
               );
             },
           },
         );
-        metrics.outcomes.push(outcome ?? "missing");
-        expect(outcome).toBe(
+        metrics.outcomes.push(
+          typeof outcome === "object"
+            ? outcome.outcome
+            : (outcome ?? "missing"),
+        );
+        expect(typeof outcome === "object" ? outcome.outcome : outcome).toBe(
           approvalMode === "cancel" ? "cancelled" : "completed",
         );
       };
