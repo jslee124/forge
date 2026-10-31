@@ -3,7 +3,7 @@
 [简体中文](INSTALL-WINDOWS.zh-CN.md) · [Desktop guide](../../docs/product/operations/DESKTOP.md)
 
 The Windows preview is for x64 PCs. Download `forge-desktop-0.4.0-x64.exe`
-and `SHA256SUMS` from the same [Desktop 0.4.0 Preview 1 release](https://github.com/jslee124/forge/releases/tag/desktop-0.4.0-preview.1).
+and `SHA256SUMS` from the same [Desktop 0.4.0 Preview 2 release](https://github.com/jslee124/forge/releases/tag/desktop-0.4.0-preview.2).
 In PowerShell, run `Get-FileHash .\forge-desktop-0.4.0-x64.exe -Algorithm SHA256`
 and compare the hash with the installer line in `SHA256SUMS` before running it.
 

@@ -2,15 +2,15 @@
 
 [简体中文](../../zh-CN/product/operations/DESKTOP.md) · [Documentation index](../../README.md)
 
-[Desktop 0.4.0 Preview 1](https://github.com/jslee124/forge/releases/tag/desktop-0.4.0-preview.1)
+[Desktop 0.4.0 Preview 2](https://github.com/jslee124/forge/releases/tag/desktop-0.4.0-preview.2)
 bundles the Forge 0.4.0 shared runtime. Desktop releases are separate from the
 `@jslee124/forge` npm CLI; upgrading npm does not update an installed desktop app.
 The release targets Windows x64 and macOS arm64/x64. Installers are unsigned;
 macOS DMGs are not notarized. Installation and replacement are manual. See the
-[Windows installation guide](https://github.com/jslee124/forge/blob/dev/apps/desktop/INSTALL-WINDOWS.md)
-or [macOS installation guide](https://github.com/jslee124/forge/blob/dev/apps/desktop/INSTALL.md).
+[Windows installation guide](https://github.com/jslee124/forge/blob/desktop-0.4.0-preview.2/apps/desktop/INSTALL-WINDOWS.md)
+or [macOS installation guide](https://github.com/jslee124/forge/blob/desktop-0.4.0-preview.2/apps/desktop/INSTALL.md).
 Publication status and completed checks are recorded in the
-[0.4.0 Preview 1 release record](../../../evals/reports/desktop-0.4.0-preview.1/README.md).
+[0.4.0 Preview 2 release record](../../../evals/reports/desktop-0.4.0-preview.2/README.md).
 The older [0.3.4 Preview 2](https://github.com/jslee124/forge/releases/tag/desktop-0.3.4-preview.2)
 still provides macOS ZIPs.
 
@@ -40,10 +40,10 @@ no gateway settings or background gateway service. Follow the
 
 ## Validation limits
 
-The [0.4.0 Preview 1 release record](../../../evals/reports/desktop-0.4.0-preview.1/README.md)
+The [0.4.0 Preview 2 release record](../../../evals/reports/desktop-0.4.0-preview.2/README.md)
 separates candidate checks, exact-source CI, publication and public download
 verification. The preceding records below are historical evidence for their own
-builds, not acceptance results for 0.4.0 Preview 1.
+builds, not acceptance results for 0.4.0 Preview 2.
 
 The [Preview 4 candidate CI run](https://github.com/jslee124/forge/actions/runs/36298064888)
 built the Windows installer and ran packaged and installed-app smoke on a
