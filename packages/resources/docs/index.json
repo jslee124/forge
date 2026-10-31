@@ -15357,7 +15357,7 @@
           "title": "Forge Desktop preview",
           "level": 1,
           "start": 0,
-          "end": 894,
+          "end": 934,
           "keywords": [
             "0-preview",
             "4-preview",
@@ -15375,7 +15375,6 @@
             "completed",
             "desktop",
             "desktop-0",
-            "dev",
             "dmgs",
             "documentation",
             "does",
@@ -15430,8 +15429,8 @@
           "id": "what-the-preview-supports",
           "title": "What the preview supports",
           "level": 2,
-          "start": 894,
-          "end": 1573,
+          "start": 934,
+          "end": 1613,
           "keywords": [
             "access",
             "and",
@@ -15513,8 +15512,8 @@
           "id": "workspace-coordination-and-telegram",
           "title": "Workspace coordination and Telegram",
           "level": 2,
-          "start": 1573,
-          "end": 2205,
+          "start": 1613,
+          "end": 2245,
           "keywords": [
             "active",
             "an",
@@ -15586,8 +15585,8 @@
           "id": "validation-limits",
           "title": "Validation limits",
           "level": 2,
-          "start": 2205,
-          "end": 3615,
+          "start": 2245,
+          "end": 3655,
           "keywords": [
             "13",
             "36298064888",
@@ -15675,8 +15674,8 @@
           "id": "desktop-development-records",
           "title": "Desktop development records",
           "level": 2,
-          "start": 3615,
-          "end": 4350,
+          "start": 3655,
+          "end": 4390,
           "keywords": [
             "above",
             "acceptance",
@@ -15761,7 +15760,7 @@
         "workspace"
       ],
       "path": "en/DESKTOP.md",
-      "sha256": "768ffe5a9c6edb707d5e4f9c6d6945d32a911dd832d463e77f1995daaed15341"
+      "sha256": "66473cec3b94047ccb0ce23918826ae96cb65e81969a930e06444adce33e5e2a"
     },
     {
       "id": "chat-channels",
@@ -26499,7 +26498,7 @@
           "title": "Forge Desktop 预览版",
           "level": 1,
           "start": 0,
-          "end": 625,
+          "end": 665,
           "keywords": [
             "0-preview",
             "4-preview",
@@ -26510,7 +26509,6 @@
             "com",
             "desktop",
             "desktop-0",
-            "dev",
             "dmg",
             "english",
             "forge",
@@ -26554,8 +26552,8 @@
           "id": "预览版支持的能力",
           "title": "预览版支持的能力",
           "level": 2,
-          "start": 625,
-          "end": 890,
+          "start": 665,
+          "end": 930,
           "keywords": [
             "cli",
             "codex",
@@ -26591,8 +26589,8 @@
           "id": "工作区协调与-telegram",
           "title": "工作区协调与 Telegram",
           "level": 2,
-          "start": 890,
-          "end": 1148,
+          "start": 930,
+          "end": 1188,
           "keywords": [
             "cli",
             "codex",
@@ -26624,8 +26622,8 @@
           "id": "验证边界",
           "title": "验证边界",
           "level": 2,
-          "start": 1148,
-          "end": 1853,
+          "start": 1188,
+          "end": 1893,
           "keywords": [
             "13",
             "36298064888",
@@ -26701,8 +26699,8 @@
           "id": "桌面开发记录",
           "title": "桌面开发记录",
           "level": 2,
-          "start": 1853,
-          "end": 2136,
+          "start": 1893,
+          "end": 2176,
           "keywords": [
             "gate",
             "preview",
@@ -26750,7 +26748,7 @@
         "验证边界"
       ],
       "path": "zh-CN/DESKTOP.md",
-      "sha256": "8f4f61c58d83e156fc0bb51aa4904c4363bf029a970749e3436142984348d737"
+      "sha256": "5de2953e1289f4c26a76bfe6d62025d08bdae241c9cbc3855c7838cf97fe5428"
     },
     {
       "id": "chat-channels",

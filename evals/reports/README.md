@@ -19,6 +19,9 @@ artifacts are written to the ignored `evals/artifacts/` directory first.
 
 ## Release reports
 
+- [Desktop 0.4.0 Preview 2 release record](desktop-0.4.0-preview.2/README.md) ·
+  [简体中文](desktop-0.4.0-preview.2/README.zh-CN.md) — candidate checks and publication gates;
+  see the record for completed stages and remaining limits
 - [v0.1 evaluation report](v0.1/report.md) and [release notes](v0.1/RELEASE_NOTES.md)
 - [v0.2.0 release notes](v0.2/RELEASE_NOTES.md)
 - [v0.2 context-management gate](v0.2/CONTEXT_MANAGEMENT.md)

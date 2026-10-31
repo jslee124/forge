@@ -56,7 +56,7 @@ jobs:
         run: pnpm test
 
       - name: Verify desktop release contracts
-        if: github.ref == 'refs/heads/dev' && contains(github.event.head_commit.message, '[desktop-preview-release]')
+        if: startsWith(github.ref, 'refs/tags/desktop-') && contains(github.ref_name, '-preview.')
         run: |
           pnpm eval:deterministic
           pnpm package:verify
@@ -107,12 +107,12 @@ jobs:
 
   desktop-windows:
     needs: verify
-    if: (github.event_name == 'pull_request' && needs.verify.outputs.desktop_changed == 'true') || (github.ref == 'refs/heads/dev' && contains(github.event.head_commit.message, '[desktop-preview-release]'))
+    if: (github.event_name == 'pull_request' && needs.verify.outputs.desktop_changed == 'true') || (startsWith(github.ref, 'refs/tags/desktop-') && contains(github.ref_name, '-preview.'))
     runs-on: windows-latest
     env:
       CI: "true"
       CSC_IDENTITY_AUTO_DISCOVERY: "false"
-      DESKTOP_RELEASE_TAG: ${{ github.ref == 'refs/heads/dev' && contains(github.event.head_commit.message, '[desktop-preview-release]') && 'desktop-0.4.0-preview.1' || '' }}
+      DESKTOP_RELEASE_TAG: ${{ startsWith(github.ref, 'refs/tags/desktop-') && contains(github.ref_name, '-preview.') && github.ref_name || '' }}
 
     steps:
       - name: Check out repository
@@ -179,12 +179,12 @@ jobs:
 
   desktop-macos-preview:
     needs: verify
-    if: (github.event_name == 'pull_request' && needs.verify.outputs.desktop_changed == 'true') || (github.ref == 'refs/heads/dev' && contains(github.event.head_commit.message, '[desktop-preview-release]'))
+    if: (github.event_name == 'pull_request' && needs.verify.outputs.desktop_changed == 'true') || (startsWith(github.ref, 'refs/tags/desktop-') && contains(github.ref_name, '-preview.'))
     runs-on: macos-latest
     env:
       CI: "true"
       CSC_IDENTITY_AUTO_DISCOVERY: "false"
-      DESKTOP_RELEASE_TAG: ${{ github.ref == 'refs/heads/dev' && contains(github.event.head_commit.message, '[desktop-preview-release]') && 'desktop-0.4.0-preview.1' || '' }}
+      DESKTOP_RELEASE_TAG: ${{ startsWith(github.ref, 'refs/tags/desktop-') && contains(github.ref_name, '-preview.') && github.ref_name || '' }}
 
     steps:
       - name: Check out repository
@@ -226,14 +226,14 @@ jobs:
           if-no-files-found: error
 
   desktop-publish-preview:
-    if: github.ref == 'refs/heads/dev' && contains(github.event.head_commit.message, '[desktop-preview-release]')
+    if: startsWith(github.ref, 'refs/tags/desktop-') && contains(github.ref_name, '-preview.')
     needs: [verify, desktop-windows, desktop-macos-preview]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     env:
       GH_TOKEN: ${{ github.token }}
-      DESKTOP_RELEASE_TAG: desktop-0.4.0-preview.1
+      DESKTOP_RELEASE_TAG: ${{ github.ref_name }}
 
     steps:
       - name: Check out release tooling and notes
@@ -270,7 +270,7 @@ jobs:
             exit 1
           fi
           if [ "$existing" != "true" ]; then
-            gh release create "$DESKTOP_RELEASE_TAG" --verify-tag --draft --prerelease --title "Forge Desktop 0.4.0 Preview 1" --notes-file .github/release-notes/desktop-0.4.0-preview.1.md
+            gh release create "$DESKTOP_RELEASE_TAG" --verify-tag --draft --prerelease --title "Forge Desktop ${DESKTOP_RELEASE_TAG#desktop-}" --notes-file ".github/release-notes/$DESKTOP_RELEASE_TAG.md"
           fi
           gh release upload "$DESKTOP_RELEASE_TAG" release-ready/* --clobber
           node apps/desktop/scripts/verify-preview-release.mjs release-ready "$DESKTOP_RELEASE_TAG"

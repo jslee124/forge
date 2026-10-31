@@ -1,6 +1,4 @@
-# Forge Desktop 0.4.0 Preview 2 — draft
-
-This is a candidate description, not a publication or completed platform acceptance record.
+# Forge Desktop 0.4.0 Preview 2
 
 ## 简体中文
 
@@ -17,8 +15,14 @@ This is a candidate description, not a publication or completed platform accepta
 验证尚未完成。旧验收失败记录保留，新路径契约已有一次通过，不代表整体稳定或所有输入正确。
 Telegram 工作暂缓；本次不新增网关或手机控制能力。桌面版与 CLI/npm 分开发行。
 
-安装包、目标平台、SHA-256 及安装验证结果须在候选产物检查完成后补齐，再公开发布。
-候选安装包未签名，macOS 未公证；不要将本文件视为已发布版本的下载说明。
+本发布页提供 Windows x64 EXE、Apple Silicon arm64 DMG、Intel x64 DMG，以及对应的
+`SHA256SUMS` 和 `desktop-build.json`。安装包未签名，macOS 未公证。保存工作并退出旧应用后，
+按 [Windows 指南](https://github.com/jslee124/forge/blob/desktop-0.4.0-preview.2/apps/desktop/INSTALL-WINDOWS.zh-CN.md)
+或 [macOS 指南](https://github.com/jslee124/forge/blob/desktop-0.4.0-preview.2/apps/desktop/INSTALL.zh-CN.md)手动安装。
+
+发布流程要求准确标签源码的完整测试、确定性检查、打包安装验证、双平台打包启动检查，
+以及 Windows NSIS 安装／启动／卸载检查；上传后核对文件大小和 SHA-256 才公开发布。
+实际发布状态和验证边界见[发布记录](https://github.com/jslee124/forge/blob/main/evals/reports/desktop-0.4.0-preview.2/README.zh-CN.md)。
 
 ## English
 
@@ -37,5 +41,12 @@ and target-hardware coverage remain incomplete. Old failures are retained; one c
 sample passed and is not a general stability claim. Telegram work is deferred. No new gateway or
 mobile-control capability is added. Desktop and CLI/npm releases are separate.
 
-Assets, platforms, SHA-256 values and installation results must be finalized before publication.
-Candidate installers are unsigned and macOS is not notarized. This draft is not a download notice.
+Assets: Windows x64 EXE, Apple Silicon arm64 DMG, Intel x64 DMG, `SHA256SUMS`, and
+`desktop-build.json`. Installers are unsigned and macOS is not notarized. Save work and quit the
+old application before manual installation; see the [Windows guide](https://github.com/jslee124/forge/blob/desktop-0.4.0-preview.2/apps/desktop/INSTALL-WINDOWS.md)
+or [macOS guide](https://github.com/jslee124/forge/blob/desktop-0.4.0-preview.2/apps/desktop/INSTALL.md).
+
+Publication requires full tests, deterministic checks, packed-install verification, packaged smoke
+on both platforms and Windows NSIS install/start/uninstall on the exact tagged source, followed by
+uploaded size and SHA-256 verification. Actual publication state and limits are retained in the
+[release record](https://github.com/jslee124/forge/blob/main/evals/reports/desktop-0.4.0-preview.2/README.md).
