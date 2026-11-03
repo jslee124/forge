@@ -11,12 +11,12 @@ import {
 } from "./slash-commands.js";
 
 describe("shared command contract", () => {
-  it("keeps both clients on the same sixteen-entry catalog", () => {
+  it("keeps both clients on the same command catalog", () => {
     expect(cliCommands).toEqual(SLASH_COMMANDS);
     expect(desktopCommands.map((x) => `/${x[0]}`)).toEqual(
       SLASH_COMMANDS.map((x) => x.name),
     );
-    expect(new Set(SLASH_COMMANDS.map((x) => x.name)).size).toBe(16);
+    expect(new Set(SLASH_COMMANDS.map((x) => x.name)).size).toBe(17);
   });
   it("matches TUI argument and case rules", () => {
     for (const { name } of SLASH_COMMANDS)
@@ -74,6 +74,7 @@ describe("shared command contract", () => {
       "/model",
       "/permissions",
       "/resume",
+      "/sessions",
       "/login",
     ])
       expect(routeCommand(name, true)).toEqual({
@@ -104,6 +105,10 @@ describe("shared command contract", () => {
     expect(routeCommand("/effort high", false)).toEqual({
       kind: "effort",
       value: "high",
+    });
+    expect(routeCommand("/sessions", false)).toEqual({
+      kind: "open",
+      target: "resume",
     });
     expect(routeCommand("/model", false)).toEqual({
       kind: "open",

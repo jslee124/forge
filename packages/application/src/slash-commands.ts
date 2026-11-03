@@ -15,6 +15,7 @@ export interface SlashCommand {
     | "/delete-model"
     | "/effort"
     | "/resume"
+    | "/sessions"
     | "/exit";
   readonly description: string;
   readonly descriptionZh: string;
@@ -86,6 +87,11 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
     name: "/effort",
     description: "Choose thinking effort",
     descriptionZh: "推理强度",
+  },
+  {
+    name: "/sessions",
+    description: "Browse, resume or delete saved workspace sessions",
+    descriptionZh: "浏览、恢复或删除历史任务",
   },
   {
     name: "/resume",

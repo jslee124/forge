@@ -798,3 +798,64 @@ describe("retained task entry", () => {
     expect(container.querySelector(".conversation-message")).toBeNull();
   });
 });
+
+it("cancels deletion by default, retains a failed request for retry, and clears a deleted current chat", async () => {
+  HTMLDialogElement.prototype.showModal = function () {
+    this.open = true;
+  };
+  HTMLDialogElement.prototype.close = function () {
+    this.open = false;
+  };
+  const initial = {
+    ...state,
+    sessions: [{ id: state.sessionId, title: "Obsolete chat", cwd: state.cwd }],
+    messages: [
+      {
+        id: "obsolete-answer",
+        role: "assistant" as const,
+        content: "Obsolete answer",
+      },
+    ],
+  };
+  const manage = vi.mocked(window.forgeDesktop.manage);
+  manage.mockResolvedValue(initial);
+  // Reload the component with a saved current conversation.
+  await act(async () => {
+    root.unmount();
+    root = createRoot(container);
+    root.render(createElement(LiveWorkbench));
+  });
+  const click = async (selector: string) => {
+    const element = container.querySelector<HTMLElement>(selector);
+    if (!element) throw new Error(`Missing ${selector}`);
+    await act(async () => element.click());
+  };
+  await click(".session-menu button");
+  expect(container.querySelector("dialog")?.open).toBe(true);
+  expect(document.activeElement?.textContent).toBe("取消");
+  await click("dialog button:first-of-type");
+  expect(
+    manage.mock.calls.some(([command]) => command.type === "delete-session"),
+  ).toBe(false);
+  await click(".session-menu button");
+  manage.mockRejectedValueOnce(new Error("session-busy"));
+  await click("dialog button:last-of-type");
+  expect(container.querySelector("dialog")?.open).toBe(true);
+  expect(container.querySelector("dialog [role=alert]")).not.toBeNull();
+  expect(container.textContent).toContain("Obsolete answer");
+  manage.mockResolvedValue({
+    ...state,
+    sessionId: "",
+    sessions: [],
+    messages: [],
+  });
+  await click("dialog button:last-of-type");
+  expect(manage).toHaveBeenCalledWith({
+    type: "delete-session",
+    sessionId: state.sessionId,
+  });
+  expect(container.querySelector("dialog")?.open).toBe(false);
+  expect(container.textContent).not.toContain("Obsolete answer");
+  expect(container.querySelector(".session-row")).toBeNull();
+  expect(runCommand).not.toHaveBeenCalled();
+});

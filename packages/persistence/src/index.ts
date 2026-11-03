@@ -26,6 +26,7 @@ export {
   type TraceEnvelope,
   traceEnvelopeSchema,
 } from "./schema.js";
+export { deleteSession } from "./session-deletion.js";
 export {
   type CompactionPreview,
   createForgeSummaryCheckpoint,

@@ -29,6 +29,7 @@ import {
   type ContextCheckpoint,
   configuredSecrets,
   type ExecutionLease,
+  FileSessionStore,
   JsonlTraceWriter,
   PersistenceError,
   redactValue,
@@ -137,6 +138,10 @@ export async function runTask(
     if (dependencies.workspaceLease)
       await dependencies.workspaceLease.assertWorkspace(loaded.workspaceRoot);
     else ownedLease = await acquireWorkspaceLease(loaded.workspaceRoot);
+    if (dependencies.sessionId)
+      await new FileSessionStore(loaded.forgeHome).assertNotDeleted(
+        dependencies.sessionId,
+      );
     const instructions = await loadInstructions(loaded);
     for (const warning of instructions.warnings) {
       dependencies.stderr.write(`Configuration warning: ${warning}\n`);

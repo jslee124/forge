@@ -127,7 +127,7 @@ Each command is defined once with its name, description, and handler. The same
 registry drives completion and `/help`, preventing the two surfaces from
 drifting. The registry contains `/help`, `/new`, `/clear`, `/context`,
 `/permissions`, `/update-dismiss`, `/compact`, `/plugins`, `/resources`,
-`/login`, `/logout`, `/model`, `/delete-model`, `/effort`, `/resume`, and
+`/login`, `/logout`, `/model`, `/delete-model`, `/effort`, `/sessions`, `/resume`, and
 `/exit`.
 `/plugins` opens the project-plugin trust review described above. `/model`
 opens a keyboard picker, discovers current
@@ -303,3 +303,7 @@ scripted input and events, while a small pseudo-terminal integration test proves
 the supported key sequences in representative terminals.
 
 `/resources` shows every discovered Skill's source, description, automatic or explicit-only status, shadowing, and bounded diagnostics. It does not import plugin entries or eagerly load Skill bodies. `/plugins` remains limited to executable plugins and points users to `/resources` for Skills.
+
+`/sessions` (alias `/resume`) opens saved conversations with ten entries per
+page. Use Left/Right to change pages and Ctrl+D to request deletion; confirmation
+defaults to Cancel. See [session deletion](SESSIONS.md#delete-a-saved-conversation).

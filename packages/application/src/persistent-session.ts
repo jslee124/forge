@@ -23,6 +23,7 @@ import {
   type ContextCheckpoint,
   configuredSecrets,
   createForgeSummaryCheckpoint,
+  deleteSession,
   FileSessionStore,
   FileTraceStore,
   isCheckpointValid,
@@ -50,6 +51,7 @@ export interface InteractiveSessionPersistence {
   ): Promise<void>;
   clear(): void;
   list(): Promise<readonly SessionSummary[]>;
+  delete?(sessionId: string): Promise<void>;
   resume(sessionId: string): Promise<readonly ModelConversationMessage[]>;
   contextDetails?(draft?: string, imageCount?: number): ContextStatus;
   contextStatus?(): string;
@@ -134,6 +136,7 @@ export class PersistentInteractiveSession
   #historyEvents: readonly RunEvent[] | undefined;
   #context: PersistentContextOptions;
   readonly #cwd: string;
+  readonly #forgeHome: string;
   readonly #env: NodeJS.ProcessEnv;
   #sessionMode: ContextPressureSnapshot["mode"];
   #lastPressure: ContextPressureSnapshot | undefined;
@@ -150,6 +153,7 @@ export class PersistentInteractiveSession
     readonly env: NodeJS.ProcessEnv;
   }) {
     this.#store = options.store;
+    this.#forgeHome = options.store.forgeHome;
     this.#traceStore = options.traceStore;
     this.#workspace = options.workspace;
     this.#snapshot = options.snapshot;
@@ -210,6 +214,7 @@ export class PersistentInteractiveSession
   }
 
   async prepareRun(prompt = "", imageCount = 0): Promise<string> {
+    if (this.#snapshot) await this.#store.assertNotDeleted(this.#snapshot.id);
     if (!this.#snapshot) {
       this.#snapshot = this.#store.create(this.#workspace);
     }
@@ -341,6 +346,11 @@ export class PersistentInteractiveSession
 
   list(): Promise<readonly SessionSummary[]> {
     return this.#store.list(this.#workspace.root);
+  }
+
+  async delete(sessionId: string): Promise<void> {
+    await deleteSession(this.#forgeHome, sessionId, this.#workspace.root);
+    if (this.sessionId === sessionId) this.clear();
   }
 
   async resume(

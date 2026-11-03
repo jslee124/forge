@@ -50,8 +50,8 @@ serialization. Forge checks the same byte limit on save and load. An oversized
 save fails before the atomic replacement, so the previous resumable snapshot is
 preserved. Because canonical history is intentionally lossless and checkpoints
 do not delete it, the current retention strategy is to start a new session as
-the limit approaches and archive the old JSON file outside the active
-`sessions/` directory if it no longer needs to appear in resume listings.
+the limit approaches. Keep an external backup if the history is needed, or use
+the explicit session deletion controls below to remove obsolete conversations.
 
 Each session stores:
 
@@ -79,7 +79,7 @@ forge resume <session-id>
 forge resume --last
 ```
 
-The interactive `/resume` command opens a bounded list of saved sessions for
+The interactive `/sessions` command (also available as `/resume`) opens a paged list of saved sessions for
 the current canonical workspace. Selecting one replaces the empty/current
 conversation with its canonical history and continues in that saved session.
 When every referenced trace is available, the interactive transcript is rebuilt
@@ -126,6 +126,33 @@ conversation history. Providers may expose only a reasoning summary, not their
 private internal chain of thought; Forge saves only the text actually emitted.
 For Codex App Server turns, Forge explicitly requests a detailed reasoning
 summary and renders the streamed summary notifications.
+
+## Delete a saved conversation
+
+In the TUI, `/sessions` and `/resume` open the same workspace session picker.
+Use Up/Down to select a conversation, Left/Right or Page Up/Page Down to move
+between pages of ten, and Enter to resume. Ctrl+D opens deletion confirmation
+only inside this picker. Cancel is selected by default; use the arrow keys to
+select Delete and Enter to confirm, or Esc to cancel.
+
+In Desktop, open a saved task's `⋯` menu in the sidebar and choose **Delete chat**.
+The confirmation defaults to Cancel. Deleting the current conversation returns
+to an empty conversation; deleting another task refreshes the saved-task list.
+
+Deletion permanently removes the local session snapshot (including checkpoints
+and saved reasoning), its product run records, and associated run/subagent
+traces. Project files, automatic workspace directories, code changes, credentials,
+and external engine history are kept. This is not an undo operation for tools or
+a request to erase provider-side history. There is no built-in restore.
+
+Stop active execution before deleting. Deletion uses the shared workspace lease,
+Desktop session lease and snapshot write lock, so another running Forge process
+can also block it. On macOS/Linux the primary lease directory is independent of
+`TMPDIR`, so terminal and GUI launch environments coordinate with each other.
+A content-free deletion marker prevents stale sessions from
+being saved or started again. If cleanup fails, Forge reports an error and keeps
+the snapshot listed for retry; start a new conversation rather than continuing
+that partially deleted session. `/new` and `/clear` still retain saved history.
 
 ## Inspect behavior
 

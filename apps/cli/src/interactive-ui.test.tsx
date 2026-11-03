@@ -2114,7 +2114,7 @@ describe("Ink interactive terminal", () => {
     await settle();
     instance.stdin.write("\r");
     await settle();
-    expect(instance.lastFrame()).toContain("Resume saved session");
+    expect(instance.lastFrame()).toContain("Saved sessions");
     expect(instance.lastFrame()).toContain("Previous task");
     instance.stdin.write("\r");
     await settle();
@@ -2177,3 +2177,62 @@ function stripSequences(frame: string): string {
       .replaceAll(/\u001B\[[0-9;]*m/gu, "")
   );
 }
+
+it("paginates /sessions and requires explicit confirmation before deleting the current session", async () => {
+  const cwd = await createWorkspace();
+  const sessions: SessionSummary[] = Array.from({ length: 12 }, (_, index) => ({
+    id: `session-${index}`,
+    title: `Saved task ${index}`,
+    updatedAt: "2026-11-03",
+    workspaceRoot: cwd,
+    workingDirectory: cwd,
+    messageCount: 2,
+    runCount: 1,
+  }));
+  const remove = vi.fn(async () => {});
+  const persistence: InteractiveSessionPersistence = {
+    messages: [{ role: "assistant", content: "Old conversation answer" }],
+    sessionId: "session-10",
+    prepareRun: async () => "session-10",
+    recordRun: async () => {},
+    clear: () => {},
+    list: async () => sessions,
+    resume: async () => [],
+    delete: remove,
+  };
+  const instance = render(
+    <InteractiveApp
+      options={{}}
+      env={{}}
+      cwd={cwd}
+      sessionPersistence={persistence}
+    />,
+  );
+  await settle();
+  instance.stdin.write("/sessions");
+  await settle();
+  instance.stdin.write("\r");
+  await settle();
+  expect(instance.lastFrame()).toContain("Page 1/2");
+  expect(instance.lastFrame()).not.toContain("Saved task 10");
+  instance.stdin.write("\u001b[C");
+  await settle();
+  expect(instance.lastFrame()).toContain("Page 2/2");
+  expect(instance.lastFrame()).toContain("Saved task 10");
+  instance.stdin.write("\u0004");
+  await settle();
+  expect(instance.lastFrame()).toContain("Delete “Saved task 10”?");
+  instance.stdin.write("\r");
+  await settle();
+  expect(remove).not.toHaveBeenCalled();
+  instance.stdin.write("\u0004");
+  await settle();
+  instance.stdin.write("\u001b[C");
+  await settle();
+  instance.stdin.write("\r");
+  await settle();
+  expect(remove).toHaveBeenCalledExactlyOnceWith("session-10");
+  expect(instance.lastFrame()).toContain("Deleted session session-10");
+  expect(instance.lastFrame()).not.toContain("Old conversation answer");
+  instance.unmount();
+});

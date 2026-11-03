@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import {
+  lstat,
   mkdir,
   open,
   readdir,
@@ -57,6 +58,10 @@ export class FileSessionStore {
     this.#secrets = options.secrets ?? [];
   }
 
+  get forgeHome(): string {
+    return path.dirname(this.#sessionsDirectory);
+  }
+
   create(workspace: WorkspaceContext): SessionSnapshot {
     const now = new Date().toISOString();
     const id = randomUUID();
@@ -73,6 +78,17 @@ export class FileSessionStore {
       runIds: [],
       historyFidelity: "structured",
     } as Omit<SessionSnapshot, "messages">);
+  }
+
+  async assertNotDeleted(sessionId: string): Promise<void> {
+    const target = this.#pathFor(sessionId);
+    if (
+      await lstat(`${target}.deleted`).catch((error: unknown) => {
+        if (isNotFound(error)) return undefined;
+        throw error;
+      })
+    )
+      throw new PersistenceError("Session was deleted; start a new session.");
   }
 
   async save(snapshot: SessionSnapshot): Promise<void> {
@@ -126,6 +142,7 @@ export class FileSessionStore {
       });
     });
     try {
+      await this.assertNotDeleted(validated.id);
       const expected = this.#revisions.get(validated.id);
       if (
         expected !== undefined &&
@@ -237,9 +254,7 @@ export class FileSessionStore {
       });
     }
     const snapshots: SessionSnapshot[] = [];
-    for (const entry of entries
-      .filter((name) => name.endsWith(".json"))
-      .slice(0, 1_000)) {
+    for (const entry of entries.filter((name) => name.endsWith(".json"))) {
       try {
         const reader = new FileSessionStore(
           path.dirname(this.#sessionsDirectory),

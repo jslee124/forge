@@ -180,3 +180,62 @@ it("keeps application services independent of CLI and UI runtimes", async () => 
     );
   }
 });
+
+it("blocks stale sessions before a native model request or Codex connection after deletion", async () => {
+  const cwd = await mkdtemp(path.join(tmpdir(), "forge-deleted-session-"));
+  try {
+    const env = { FORGE_HOME: path.join(cwd, "home") };
+    const session = await createPersistentInteractiveSession({ cwd, env });
+    const sessionId = await session.prepareRun("hello");
+    await session.persistPreparedSession();
+    const stale = await createPersistentInteractiveSession({
+      cwd,
+      env,
+      sessionId,
+    });
+    await session.delete(sessionId);
+    expect(session.sessionId).toBeUndefined();
+    await expect(stale.prepareRun("continue")).rejects.toThrow("deleted");
+    let requested = false;
+    const dependencies = {
+      cwd,
+      env,
+      sessionId,
+      signal: new AbortController().signal,
+      stdout: { write() {} },
+      stderr: { write() {} },
+    };
+    expect(
+      await runTask(
+        "continue",
+        {},
+        {
+          ...dependencies,
+          createAdapter: () => {
+            requested = true;
+            throw new Error("Model must not be created");
+          },
+        },
+      ),
+    ).not.toBe(0);
+    const { runCodexTask } = await import("./codex.js");
+    expect(
+      await runCodexTask(
+        "continue",
+        {},
+        {
+          ...dependencies,
+          isTTY: false,
+          connect: async () => {
+            requested = true;
+            throw new Error("Codex must not connect");
+          },
+        },
+      ),
+    ).not.toBe(0);
+    expect(requested).toBe(false);
+    expect(await session.prepareRun("fresh")).not.toBe(sessionId);
+  } finally {
+    await rm(cwd, { recursive: true, force: true });
+  }
+});

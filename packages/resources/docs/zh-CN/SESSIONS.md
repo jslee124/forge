@@ -31,7 +31,7 @@ $FORGE_HOME/
 
 Session snapshot 使用 `schemaVersion: 3`，读取时迁移 v1/v2；v3 保存 provider-neutral content block 与 fidelity 标记。trace envelope 使用 `schemaVersion: 1`。文件只能写入解析后的 Forge home。snapshot 原子替换，活跃 run 的 trace 追加写入。
 
-最终脱敏并序列化为 JSON 后，持久 session snapshot 的上限为 4 MiB。Forge 在保存与加载时使用同一 byte limit。超限保存会在原子替换前失败，因此之前可恢复的 snapshot 会保留。由于 canonical history 有意保持无损，checkpoint 也不会删除它，当前 retention 策略是在接近上限时开启新 session；若旧 JSON 不再需要出现在 resume 列表中，可将它归档到活动 `sessions/` 目录之外。
+最终脱敏并序列化为 JSON 后，持久 session snapshot 的上限为 4 MiB。Forge 在保存与加载时使用同一 byte limit。超限保存会在原子替换前失败，因此之前可恢复的 snapshot 会保留。由于 canonical history 有意保持无损，checkpoint 也不会删除它，当前 retention 策略是在接近上限时开启新 session；需要保留的历史应另行备份，过期聊天可以使用下方的显式删除功能清理。
 
 每个 session 保存 session ID、创建和更新时间、规范 workspace root、工作目录、已完成对话、未完成运行的原始用户请求和有界无授权语义结果、provider 暴露的 reasoning 文本、run ID 顺序，以及可选的带来源和 hash 的 checkpoint。已完成但遇到工具失败的运行也会保留有界工具结果。每行 trace 包含 run ID、可选 session ID、序号、时间戳和一个结构化 `RunEvent`。Subagent trace envelope 还包含 `parentRunId` 和 `subagentName`，parent trace 则通过完成的 delegation tool result 反向关联 child run。
 
@@ -58,6 +58,28 @@ forge resume --last
 10. 任一关联 trace 缺失或无效时，Forge 使用 structured canonical fallback，不展示误导性的残缺时间线；tool call/result 仍可见且 final answer 不重复。
 
 因此，Forge 恢复的是 conversation context，而不是 authority 或 executable state。保存的 reasoning 仅用于展示，不会加入模型历史；Forge 只保存 provider 实际发出的 summary，不会声称拥有隐藏 chain of thought。
+
+## 删除历史聊天
+
+TUI 的 `/sessions` 和 `/resume` 打开同一个当前工作区会话选择器。
+上下键选择会话，左右键或 Page Up/Page Down 翻页，每页十条，Enter 恢复。
+仅在该选择器内，Ctrl+D 打开删除确认；默认选择“取消”，使用方向键切换到
+“删除”后按 Enter 确认，Esc 取消。
+
+Desktop 在侧栏会话的 `⋯` 菜单中提供“删除聊天”，确认窗口默认聚焦“取消”。
+删除当前聊天后进入空白会话，删除其他聊天后刷新列表。
+
+删除会永久清理本地会话快照（含 checkpoint 和已保存的 reasoning）、该会话的
+产品运行记录及关联 run/subagent trace，不提供内置恢复。项目文件、自动创建的
+workspace 目录、已完成的代码修改、凭据及外部引擎历史会保留；删除聊天不会撤销
+工具操作，也不会向 provider 请求清理远端历史。
+
+执行中的任务需先停止。删除共用 workspace lease、Desktop session lease 和
+snapshot 写锁，因此其他 Forge 进程正在执行时也可能阻止删除。macOS/Linux 的主锁
+目录不依赖 `TMPDIR`，终端和 GUI 启动环境不同也能相互协调。无聊天正文的删除
+标记会阻止旧内存会话再次保存或开始运行。清理失败时会报告错误，并保留列表中的
+快照供重试；应新建聊天，不要继续已经部分删除的会话。`/new` 和 `/clear` 仍保留
+已保存的历史。
 
 ## Inspect 行为
 

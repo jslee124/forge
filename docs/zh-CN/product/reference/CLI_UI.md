@@ -62,7 +62,7 @@ editing
 
 ## 斜杠命令补全
 
-当 `/` 是首个非空白字符时打开命令列表，后续字符按命令名过滤。同一个 registry 同时驱动补全和 `/help`，避免两处漂移。当前包括 `/help`、`/new`、`/clear`、`/context`、`/permissions`、`/update-dismiss`、`/compact`、`/plugins`、`/resources`、`/login`、`/logout`、`/model`、`/delete-model`、`/effort`、`/resume` 和 `/exit`。
+当 `/` 是首个非空白字符时打开命令列表，后续字符按命令名过滤。同一个 registry 同时驱动补全和 `/help`，避免两处漂移。当前包括 `/help`、`/new`、`/clear`、`/context`、`/permissions`、`/update-dismiss`、`/compact`、`/plugins`、`/resources`、`/login`、`/logout`、`/model`、`/delete-model`、`/effort`、`/sessions`、`/resume` 和 `/exit`。
 
 `/model` 打开键盘 picker，发现当前 ChatGPT/Codex models、配置的 API providers，并按 model 而非 effort 重复显示；`/effort` 是独立的 model-specific picker，`/effort <level>` 可直接设置支持的等级，两者原子保存。`/logout` 移除选定的保存 credential，但不假装能取消父 shell 的环境变量。`/delete-model` 只显示用户配置的 provider model，需要确认，且不能删除当前 active model。
 
@@ -122,3 +122,6 @@ CLI 可以把 runtime event 变成 message block、tool activity row、status in
 确定性 UI 测试应覆盖斜杠菜单、文件过滤和 workspace escape、结构化 mention、Enter/Shift+Enter/Meta+Enter/Ctrl+J、多行/粘贴/Unicode/resize/取消、editing/completion/running/approval 状态、插件/Skill 启动列表和 trust label，以及 create/modify、多 hunk、无色、截断和审批范围的 diff。UI 测试不应发起付费请求；组件测试使用脚本化输入和 event，另用小型 pseudo-terminal 集成测试验证代表性终端的按键序列。
 
 `/resources` 显示每个已发现 Skill 的来源、描述、自动或仅显式调用状态、遮蔽关系与有界诊断；它不会导入插件 entry 或提前加载 Skill 正文。`/plugins` 仍只处理可执行插件，并引导用户通过 `/resources` 查看 Skills。
+
+`/sessions`（也可用 `/resume`）打开历史会话，每页十条。左右键翻页，Ctrl+D 请求
+删除，确认默认选择取消。详见[删除历史聊天](SESSIONS.md#删除历史聊天)。

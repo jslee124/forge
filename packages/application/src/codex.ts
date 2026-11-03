@@ -14,7 +14,7 @@ import {
   type JsonRpcNotification,
   type JsonRpcServerRequest,
 } from "@forge/codex-app-server";
-import { resolveForgeWorkspace } from "@forge/config";
+import { loadForgeConfig, resolveForgeWorkspace } from "@forge/config";
 import {
   conservativeTextTokens,
   DEFAULT_CONTEXT_CONFIGURATION,
@@ -24,7 +24,11 @@ import {
 } from "@forge/core";
 import { openAIModelContext } from "@forge/model-openai";
 import type { ContextCheckpoint } from "@forge/persistence";
-import { acquireWorkspaceLease, type ExecutionLease } from "@forge/persistence";
+import {
+  acquireWorkspaceLease,
+  type ExecutionLease,
+  FileSessionStore,
+} from "@forge/persistence";
 
 import type { AskOptions, WritableOutput } from "./options.js";
 
@@ -66,6 +70,7 @@ export type CodexOutputEvent =
     };
 
 export interface CodexCommandDependencies {
+  readonly sessionId?: string;
   readonly workspaceLease?: ExecutionLease;
   readonly env: NodeJS.ProcessEnv;
   readonly cwd: string;
@@ -296,6 +301,15 @@ export async function runCodexTask(
     if (dependencies.workspaceLease)
       await dependencies.workspaceLease.assertWorkspace(loaded.workspaceRoot);
     else lease = await acquireWorkspaceLease(loaded.workspaceRoot);
+    if (dependencies.sessionId) {
+      const config = await loadForgeConfig({
+        cwd: dependencies.cwd,
+        env: dependencies.env,
+      });
+      await new FileSessionStore(config.forgeHome).assertNotDeleted(
+        dependencies.sessionId,
+      );
+    }
     return await runCodexTaskWithLease(prompt, options, dependencies);
   } catch {
     dependencies.stderr.write(

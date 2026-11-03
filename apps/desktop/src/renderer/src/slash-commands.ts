@@ -80,6 +80,7 @@ export function routeCommand(input: string, busy: boolean): CommandResult {
     )
   )
     return { kind: "open", target: "settings" };
+  if (p.name === "/sessions") return { kind: "open", target: "resume" };
   if (p.name === "/model" || p.name === "/permissions" || p.name === "/resume")
     return {
       kind: "open",

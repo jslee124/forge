@@ -13,6 +13,7 @@ import { join } from "node:path";
 /** Coordinates cooperating processes on this host, independently of FORGE_HOME. */
 export class ExecutionLease {
   #released = false;
+  #compatibilityLease: ExecutionLease | undefined;
   private constructor(
     readonly key: string,
     private readonly file: string,
@@ -20,10 +21,35 @@ export class ExecutionLease {
   ) {}
 
   static async acquire(key: string): Promise<ExecutionLease> {
-    const directory = join(
-      tmpdir(),
-      `forge-execution-${process.getuid?.() ?? "user"}`,
+    // POSIX launchers may supply different TMPDIR values. The primary lease
+    // must still be shared by a GUI launched from Finder and a terminal process.
+    const base = await realpath(
+      process.platform === "win32" ? tmpdir() : "/tmp",
     );
+    const legacyBase = await realpath(tmpdir());
+    const name = `forge-execution-${process.getuid?.() ?? "user"}`;
+    const lease = await ExecutionLease.#acquireInDirectory(
+      key,
+      join(base, name),
+    );
+    try {
+      // Also honor running older builds that use this launcher's temp directory.
+      if (legacyBase !== base)
+        lease.#compatibilityLease = await ExecutionLease.#acquireInDirectory(
+          key,
+          join(legacyBase, name),
+        );
+      return lease;
+    } catch (error) {
+      await lease.release();
+      throw error;
+    }
+  }
+
+  static async #acquireInDirectory(
+    key: string,
+    directory: string,
+  ): Promise<ExecutionLease> {
     await mkdir(directory, { recursive: true, mode: 0o700 });
     const file = join(
       directory,
@@ -93,8 +119,12 @@ export class ExecutionLease {
   async release(): Promise<void> {
     if (this.#released) return;
     this.#released = true;
-    if ((await readFile(this.file, "utf8")) === this.owner)
-      await unlink(this.file);
+    try {
+      await this.#compatibilityLease?.release();
+    } finally {
+      if ((await readFile(this.file, "utf8")) === this.owner)
+        await unlink(this.file);
+    }
   }
 }
 

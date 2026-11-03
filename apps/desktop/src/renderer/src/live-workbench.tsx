@@ -77,6 +77,17 @@ export function LiveWorkbench(): React.JSX.Element {
   const [engine, setEngine] = React.useState<"native" | "codex">("native");
   const [model, setModel] = React.useState("");
   const [selection, setSelection] = React.useState<ModelSelection>();
+  const deleteDialog = React.useRef<HTMLDialogElement>(null);
+  const [sessionToDelete, setSessionToDelete] = React.useState<{
+    id: string;
+    title: string;
+  }>();
+  React.useEffect(() => {
+    if (sessionToDelete) {
+      deleteDialog.current?.showModal();
+      deleteDialog.current?.querySelector<HTMLButtonElement>("button")?.focus();
+    } else if (deleteDialog.current?.open) deleteDialog.current.close();
+  }, [sessionToDelete]);
   const [sessionQuery, setSessionQuery] = React.useState("");
   const [permission, setPermission] = React.useState<
     "safe" | "workspace-write"
@@ -489,6 +500,29 @@ export function LiveWorkbench(): React.JSX.Element {
     setPanel(false);
     setStatus("ready");
     return true;
+  };
+  const removeSession = async () => {
+    if (!sessionToDelete || pending || activeRef.current) return;
+    const id = sessionToDelete.id;
+    const wasCurrent = state?.sessionId === id;
+    const wasViewed = viewed?.sessionId === id;
+    const next = await manage({ type: "delete-session", sessionId: id });
+    if (!next) return;
+    setDrafts((values) => {
+      const remaining = { ...values };
+      delete remaining[id];
+      return remaining;
+    });
+    if (wasCurrent || wasViewed) {
+      clearBrowsing();
+      setPrompt("");
+      resetAnswer();
+      clearActivity();
+      setStatus("ready");
+      setPanel(false);
+    }
+    setSessionToDelete(undefined);
+    requestAnimationFrame(() => composerRef.current?.focus());
   };
   const resumeSession = async (sessionId: string) => {
     if (activeRef.current || pending) return;
@@ -1014,43 +1048,114 @@ export function LiveWorkbench(): React.JSX.Element {
                   .includes(sessionQuery.toLowerCase()),
               )
               .map((session) => (
-                <button
-                  type="button"
-                  key={session.id}
-                  data-session-id={session.id}
-                  aria-current={
-                    session.id === (viewed?.sessionId ?? state?.sessionId) &&
-                    !settings
-                      ? "page"
-                      : undefined
-                  }
-                  title={`${session.title} · ${session.cwd ?? ""}`}
-                  disabled={
-                    pending || (viewLoading && session.id !== state?.sessionId)
-                  }
-                  onClick={() => {
-                    if (session.id === state?.sessionId) {
-                      if (activeRef.current || viewed) returnToExecution();
+                <div className="session-row" key={session.id}>
+                  <button
+                    type="button"
+                    data-session-id={session.id}
+                    aria-current={
+                      session.id === (viewed?.sessionId ?? state?.sessionId) &&
+                      !settings
+                        ? "page"
+                        : undefined
+                    }
+                    title={`${session.title} · ${session.cwd ?? ""}`}
+                    disabled={
+                      pending ||
+                      (viewLoading && session.id !== state?.sessionId)
+                    }
+                    onClick={() => {
+                      if (session.id === state?.sessionId) {
+                        if (activeRef.current || viewed) returnToExecution();
+                        else void resumeSession(session.id);
+                      } else if (activeRef.current || viewed)
+                        void browseSession(session.id);
                       else void resumeSession(session.id);
-                    } else if (activeRef.current || viewed)
-                      void browseSession(session.id);
-                    else void resumeSession(session.id);
-                  }}
-                >
-                  <ChatCircle size={16} />
-                  <span>
-                    {session.title === "Empty session"
-                      ? t("setup.emptyTask")
-                      : session.title}
-                  </span>
-                  {active?.sessionId === session.id && (
-                    <small className="session-running">
-                      {t("browsing.runningBadge")}
-                    </small>
-                  )}
-                </button>
+                    }}
+                  >
+                    <ChatCircle size={16} />
+                    <span>
+                      {session.title === "Empty session"
+                        ? t("setup.emptyTask")
+                        : session.title}
+                    </span>
+                    {active?.sessionId === session.id && (
+                      <small className="session-running">
+                        {t("browsing.runningBadge")}
+                      </small>
+                    )}
+                  </button>
+                  <details className="session-menu">
+                    <summary
+                      aria-label={
+                        zh
+                          ? `聊天操作：${session.title}`
+                          : `Chat actions: ${session.title}`
+                      }
+                    >
+                      ⋯
+                    </summary>
+                    <button
+                      type="button"
+                      disabled={pending || busy}
+                      onClick={(event) => {
+                        event.currentTarget
+                          .closest("details")
+                          ?.removeAttribute("open");
+                        setSessionToDelete({
+                          id: session.id,
+                          title: session.title,
+                        });
+                      }}
+                    >
+                      {zh ? "删除聊天" : "Delete chat"}
+                    </button>
+                  </details>
+                </div>
               ))}
           </div>
+          <dialog
+            ref={deleteDialog}
+            className="session-delete-dialog"
+            aria-labelledby="delete-chat-title"
+            aria-describedby="delete-chat-description"
+            onCancel={(event) => {
+              if (pending) event.preventDefault();
+              else setSessionToDelete(undefined);
+            }}
+          >
+            <h2 id="delete-chat-title">{zh ? "删除聊天？" : "Delete chat?"}</h2>
+            <p>{sessionToDelete?.title}</p>
+            <p id="delete-chat-description">
+              {zh
+                ? "将永久删除本地聊天、运行记录和 trace，无法恢复。不会删除项目文件、撤销代码修改或清理外部引擎历史。"
+                : "Permanently deletes local conversation, run records and traces. This cannot be undone. Project files, code changes and external engine history are kept."}
+            </p>
+            {error && (
+              <p role="alert">
+                {t(`live.errors.${error}`, { defaultValue: t("live.error") })}
+              </p>
+            )}
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => setSessionToDelete(undefined)}
+            >
+              {zh ? "取消" : "Cancel"}
+            </button>
+            <button
+              type="button"
+              disabled={pending || busy}
+              onClick={() => void removeSession()}
+            >
+              {pending
+                ? zh
+                  ? "删除中…"
+                  : "Deleting…"
+                : zh
+                  ? "删除"
+                  : "Delete"}
+            </button>
+          </dialog>
           <div className="sidebar-bottom">
             <button
               title={t("common.settings")}

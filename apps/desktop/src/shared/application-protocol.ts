@@ -62,6 +62,7 @@ export const readinessSchema = z
   })
   .strict();
 export const managementCommandSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("delete-session"), sessionId: id }).strict(),
   z
     .object({
       type: z.literal("check-readiness"),

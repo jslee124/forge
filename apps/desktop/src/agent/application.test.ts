@@ -1550,3 +1550,20 @@ describe("retained admission navigation", () => {
     f.application.close();
   });
 });
+
+it("deletes the current saved conversation and returns a fresh state without changing project files", async () => {
+  const { application, sessionId, cwd } = await fixture([]);
+  await run(application, sessionId);
+  await writeFile(join(cwd, "keep.txt"), "keep");
+  expect(
+    (await application.state()).sessions.some(
+      (session) => session.id === sessionId,
+    ),
+  ).toBe(true);
+  const next = await application.manage({ type: "delete-session", sessionId });
+  expect(next.sessionId).toBe("");
+  expect(next.messages).toEqual([]);
+  expect(next.runHistory).toBeUndefined();
+  expect(next.sessions.some((session) => session.id === sessionId)).toBe(false);
+  expect(await readFile(join(cwd, "keep.txt"), "utf8")).toBe("keep");
+});

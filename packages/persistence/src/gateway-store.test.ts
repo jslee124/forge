@@ -92,3 +92,43 @@ it("reclaims a dead process lease without replacing a live owner", async () => {
     await reclaimed.release();
   }
 });
+
+it.skipIf(process.platform === "win32")(
+  "coordinates independent processes even when their TMPDIR values differ",
+  async () => {
+    const key = `different-tmpdir:${await root()}`;
+    const alternate = await root();
+    const lease = await ExecutionLease.acquire(key);
+    try {
+      const module = new URL("../dist/execution-lease.js", import.meta.url)
+        .href;
+      const child = spawn(
+        process.execPath,
+        [
+          "--input-type=module",
+          "-e",
+          `
+      import { ExecutionLease } from ${JSON.stringify(module)};
+      try { const lease = await ExecutionLease.acquire(${JSON.stringify(key)}); await lease.release(); process.exitCode = 42; }
+      catch (error) { if (!error.message.includes('workspace-busy')) throw error; }
+    `,
+        ],
+        { env: { ...process.env, TMPDIR: alternate }, stdio: "pipe" },
+      );
+      let stderr = "";
+      child.stderr.on("data", (value) => {
+        stderr += value;
+      });
+      const exit = await new Promise<number | null>((resolve, reject) => {
+        child.once("exit", resolve);
+        child.once("error", reject);
+      });
+      expect(stderr).toBe("");
+      expect(exit).toBe(0);
+    } finally {
+      await lease.release();
+    }
+    const next = await ExecutionLease.acquire(key);
+    await next.release();
+  },
+);

@@ -37,6 +37,7 @@ import type { RunEvent, RunResult } from "@forge/core";
 import {
   acquireWorkspaceLease,
   configuredSecrets,
+  deleteSession,
   ExecutionLease,
   FileProductRunStore,
   FileSessionStore,
@@ -603,6 +604,16 @@ export class DesktopApplication {
       this.#automaticWorkspace = automatic;
       this.#session = session;
       this.#revision = "";
+    } else if (command.type === "delete-session") {
+      await this.state();
+      await deleteSession(this.#home, command.sessionId);
+      if (this.#session?.sessionId === command.sessionId) {
+        this.#session.clear();
+        this.#revision = "";
+        this.#recovery = undefined;
+        this.#runHistory = undefined;
+        this.#historyPageBefore = undefined;
+      }
     } else if (command.type === "resume") {
       this.#recovery = undefined;
       await this.state();

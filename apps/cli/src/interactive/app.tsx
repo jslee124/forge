@@ -790,6 +790,8 @@ export function InteractiveApp({
   const [pluginTrustIntent, setPluginTrustIntent] = useState<
     "trust" | "untrust"
   >();
+  const [sessionDeletionConfirmed, setSessionDeletionConfirmed] =
+    useState(false);
   const [sessions, setSessions] = useState<readonly SessionSummary[]>([]);
   const [modelChoices, setModelChoices] = useState<readonly ModelChoice[]>(
     () => [...providerModelChoices(initialProviders), ...MODEL_CHOICES],
@@ -1459,6 +1461,7 @@ export function InteractiveApp({
         );
         return;
       }
+      case "/sessions":
       case "/resume":
         setEditor(createEditorState());
         setContextPanel(undefined);
@@ -1468,6 +1471,7 @@ export function InteractiveApp({
           appendEntry("warning", "Persistent sessions are unavailable.\n");
           return;
         }
+        setSessions([]);
         setPhase("resuming");
         setSelectedIndex(0);
         void sessionPersistence.list().then(
@@ -1480,7 +1484,7 @@ export function InteractiveApp({
               setPhase("editing");
               return;
             }
-            setSessions(available.slice(0, 10));
+            setSessions(available);
           },
           (error: unknown) => {
             appendEntry(
@@ -1708,6 +1712,7 @@ export function InteractiveApp({
         let finalText = "";
         let reasoningText = "";
         codexExitCode = await executeCodexTask(prompt, activeOptions, {
+          ...(sessionId ? { sessionId } : {}),
           env,
           cwd,
           stdout,
@@ -2071,7 +2076,72 @@ export function InteractiveApp({
       );
       return;
     }
+    if (phase === "deleting-session") return;
+    if (phase === "delete-session-confirm") {
+      if (key.escape || input.toLowerCase() === "n") {
+        setPhase("resuming");
+        return;
+      }
+      if (key.leftArrow || key.rightArrow || key.upArrow || key.downArrow) {
+        setSessionDeletionConfirmed((current) => !current);
+        return;
+      }
+      if (key.return) {
+        if (!sessionDeletionConfirmed) {
+          setPhase("resuming");
+          return;
+        }
+        const selected = sessions[selectedIndex];
+        if (!selected || !sessionPersistence?.delete) return;
+        const wasCurrent = sessionPersistence.sessionId === selected.id;
+        setPhase("deleting-session");
+        void sessionPersistence.delete(selected.id).then(
+          () => {
+            if (wasCurrent) {
+              conversation.current = [];
+              setTranscript([]);
+              nextTranscriptId.current = 0;
+              setStaticRenderRevision((current) => current + 1);
+              setContextPanel(undefined);
+              setContextOfferDismissed(false);
+              setContextActivity(undefined);
+              approvalStore.clear();
+              setPermissionRevision((current) => current + 1);
+            }
+            const remaining = sessions.filter(({ id }) => id !== selected.id);
+            setSessions(remaining);
+            setSelectedIndex(
+              Math.max(0, Math.min(selectedIndex, remaining.length - 1)),
+            );
+            setPhase(wasCurrent || !remaining.length ? "editing" : "resuming");
+            appendEntry("system", `Deleted session ${selected.id}.`);
+          },
+          (error: unknown) => {
+            appendEntry(
+              "error",
+              `Could not delete session: ${error instanceof Error ? error.message : "unknown error"}`,
+            );
+            setPhase("resuming");
+          },
+        );
+      }
+      return;
+    }
     if (phase === "resuming") {
+      if (key.ctrl && input === "d") {
+        if (sessions[selectedIndex] && sessionPersistence?.delete) {
+          setSessionDeletionConfirmed(false);
+          setPhase("delete-session-confirm");
+        }
+        return;
+      }
+      if (key.leftArrow || key.rightArrow || key.pageUp || key.pageDown) {
+        const direction = key.leftArrow || key.pageUp ? -1 : 1;
+        setSelectedIndex((current) =>
+          Math.max(0, Math.min(sessions.length - 1, current + direction * 10)),
+        );
+        return;
+      }
       if (key.escape) {
         setSessions([]);
         setPhase("editing");
@@ -2936,6 +3006,30 @@ export function InteractiveApp({
         <UpdateBanner state={updateState} terminalWidth={terminalWidth} />
       ) : null}
 
+      {phase === "delete-session-confirm" ? (
+        <Box
+          borderStyle="round"
+          borderColor="yellow"
+          flexDirection="column"
+          paddingX={1}
+        >
+          <Text bold>Delete “{sessions[selectedIndex]?.title}”?</Text>
+          <Text>
+            Local conversation, run records and traces will be permanently
+            deleted.
+          </Text>
+          <Text>
+            Project files and external engine history remain unchanged.
+          </Text>
+          <Text>
+            {sessionDeletionConfirmed
+              ? "  Cancel    › Delete"
+              : "› Cancel      Delete"}
+          </Text>
+          <Text dimColor>←→ choose · Enter confirm · Esc cancel</Text>
+        </Box>
+      ) : null}
+      {phase === "deleting-session" ? <Text>Deleting session…</Text> : null}
       {phase === "resuming" ? (
         <Box
           borderStyle="round"
@@ -2944,22 +3038,38 @@ export function InteractiveApp({
           paddingX={1}
         >
           <Text bold color="cyan">
-            Resume saved session
+            Saved sessions
           </Text>
           {sessions.length === 0 ? (
             <Text dimColor>Loading sessions…</Text>
           ) : null}
-          {sessions.map((session, index) => (
-            <Text
-              key={session.id}
-              bold={index === selectedIndex}
-              {...(index === selectedIndex ? { color: "cyan" as const } : {})}
-            >
-              {index === selectedIndex ? "› " : "  "}
-              {session.title} · {session.updatedAt} · {session.id.slice(0, 8)}
-            </Text>
-          ))}
-          <Text dimColor>Enter resume · Esc cancel</Text>
+          {sessions
+            .slice(
+              Math.floor(selectedIndex / 10) * 10,
+              Math.floor(selectedIndex / 10) * 10 + 10,
+            )
+            .map((session, offset) => {
+              const index = Math.floor(selectedIndex / 10) * 10 + offset;
+              return (
+                <Text
+                  key={session.id}
+                  bold={index === selectedIndex}
+                  {...(index === selectedIndex
+                    ? { color: "cyan" as const }
+                    : {})}
+                >
+                  {index === selectedIndex ? "› " : "  "}
+                  {session.title} · {session.updatedAt} ·{" "}
+                  {session.id.slice(0, 8)}
+                </Text>
+              );
+            })}
+          <Text dimColor>
+            Page {Math.floor(selectedIndex / 10) + 1}/
+            {Math.max(1, Math.ceil(sessions.length / 10))} · ←→ page · Enter
+            resume{sessionPersistence?.delete ? " · Ctrl+D delete" : ""} · Esc
+            cancel
+          </Text>
         </Box>
       ) : null}
 

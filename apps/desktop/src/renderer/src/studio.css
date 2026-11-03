@@ -2469,3 +2469,56 @@
   max-width: 100%;
   white-space: normal;
 }
+
+.session-row {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  position: relative;
+}
+.session-row > button {
+  flex: 1;
+  min-width: 0;
+}
+.session-menu {
+  flex: 0 0 auto;
+}
+.session-menu summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 6px 9px;
+  border-radius: 6px;
+}
+.session-menu summary:focus-visible {
+  outline: 2px solid var(--accent);
+}
+.session-menu[open] > button {
+  position: absolute;
+  right: 0;
+  z-index: 5;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  white-space: nowrap;
+}
+.session-delete-dialog {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+  max-width: min(460px, calc(100vw - 32px));
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+}
+.session-delete-dialog::backdrop {
+  background: rgb(0 0 0 / 45%);
+}
+.session-delete-dialog p {
+  overflow-wrap: anywhere;
+}
+.session-delete-dialog button {
+  margin: 8px 8px 0 0;
+}

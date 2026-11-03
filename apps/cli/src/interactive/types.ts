@@ -4,6 +4,8 @@ export type InteractivePhase =
   | "approving"
   | "approval-feedback"
   | "resuming"
+  | "delete-session-confirm"
+  | "deleting-session"
   | "models"
   | "delete-models"
   | "delete-model-confirm"
