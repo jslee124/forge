@@ -18,7 +18,7 @@ Validation covers the real channel/scheduler, queue bounds and order, cross-sess
 
 Local verification on 2026-11-03: 215 desktop tests passed (6 opt-in live tests skipped), 223 cross-layer deterministic tests passed, and `pnpm check`, `pnpm check:docs` and `pnpm desktop:build` passed. The Electron acceptance harness also passed with a loopback scripted provider, including two concurrent approvals, third-session queuing, cancellation isolation and narrow-window captures. These checks do not establish live external-provider or installed-app acceptance.
 
-Desktop and TUI now use `SessionScheduler` and `createSessionWorkspace` from the private application package. The terminal interaction is documented in the [CLI UI guide](../../docs/product/reference/CLI_UI.md#parallel-sessions-in-the-development-checkout).
+Desktop and TUI now use `SessionScheduler` and `createSessionWorkspace` from the private application package. The terminal interaction is documented in the [CLI UI guide](../../docs/product/reference/CLI_UI.md#parallel-sessions-in-the-preview).
 
 ## Unsigned updates (2026-09-22)
 

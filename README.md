@@ -42,7 +42,7 @@ end, experiment with, and measure. Forge now has a single-package npm release
 path while retaining the source checkout for contributors. It is not a turnkey
 replacement for a hardened coding environment.
 
-The separately distributed [macOS desktop preview](docs/product/operations/DESKTOP.md) has its own
+The separately distributed [Windows/macOS desktop preview](docs/product/operations/DESKTOP.md) has its own
 installation steps and validation limits; the npm package below is the CLI.
 
 ## Why Forge?
@@ -56,6 +56,7 @@ and testable.
 | **Forge-owned loop** | The runtime controls model steps, tool execution, continuation, recovery, cancellation, and stop limits. |
 | **Explicit policy** | Every tool proposal receives an `allow`, `confirm`, or `deny` decision before execution. |
 | **Observable runs** | Structured terminal events and versioned JSONL traces show what the model proposed and what actually happened. |
+| **Parallel sessions (preview)** | Desktop and TUI run independent sessions with FIFO waiting and per-session drafts, output, approvals and cancellation. |
 | **Persistent sessions** | Completed turns and bounded failed-run outcomes survive restarts without restoring old approvals or pending tool calls. |
 | **Budgeted context** | `/context` exposes the active budget; optional checkpoints compact canonical history without deleting the canonical transcript. |
 | **Reproducible evaluation** | Deterministic tests prove runtime behavior, while live-model trials retain both successes and failures. |
@@ -153,6 +154,10 @@ inspection.
 - React to failed verification and continue toward a corrected result.
 - Stream model text and provider-exposed reasoning as separate events.
 - Persist sessions and resume completed turns plus bounded failed-run outcomes by ID or recency.
+- In the 0.5.0 preview, run independent sessions concurrently in Desktop and TUI.
+  In the TUI, use `Ctrl+N` to create a session and `Ctrl+P` to switch; two tasks run
+  by default, or set `FORGE_MAX_CONCURRENT_RUNS=3` for three. See
+  [session controls and limits](docs/product/reference/CLI_UI.md#parallel-sessions-in-the-preview).
 - Inspect context usage and create explicit, displayable conversation
   checkpoints.
 - Load hierarchical `AGENTS.md` instructions and lazily invoked built-in, user, and project Skills.

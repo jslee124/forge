@@ -79,7 +79,7 @@ forge resume <session-id>
 forge resume --last
 ```
 
-In 0.5.0-preview.1, `/sessions` (also `/resume` or Ctrl+P) lists open views and saved sessions with their working directories. Selecting an open view switches to it without stopping its task. Selecting saved history opens an independent view in the saved workspace with canonical history. Published 0.4.0 CLI builds retain the earlier workspace-only picker. See [parallel terminal sessions](CLI_UI.md#parallel-sessions-in-the-development-checkout).
+In 0.5.0-preview.1, `/sessions` (also `/resume` or Ctrl+P) lists open views and saved sessions with their working directories. Selecting an open view switches to it without stopping its task. Selecting saved history opens an independent view in the saved workspace with canonical history. Published 0.4.0 CLI builds retain the earlier workspace-only picker. See [parallel terminal sessions](CLI_UI.md#parallel-sessions-in-the-preview).
 When every referenced trace is available, the interactive transcript is rebuilt
 from the same ordered `RunEvent` stream used during the original run. This
 restores reasoning summaries, intermediate model text, tool proposals,

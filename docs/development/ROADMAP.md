@@ -4,9 +4,16 @@
 
 ## Current milestone
 
-**Milestone 15, the v0.3.4 release target, is complete.** It unifies
-model-facing file editing, decomposes the interactive CLI, makes context mode
-changes reversible, and repairs terminal listener lifecycle. Automatic
+**0.5.0-preview.1 is published for CLI/npm and Desktop.** The preview adds
+independent parallel sessions, FIFO waiting and per-session approvals/cancellation.
+CLI users opt in through npm `next`; stable `latest` remains 0.4.0. Desktop users
+install the separate preview. See the [CLI publication record](../../evals/reports/v0.5.0-preview.1/README.md)
+and [Desktop publication record](../../evals/reports/desktop-0.5.0-preview.1/README.md)
+for exact source, CI, public-artifact checks and validation limits.
+
+The earlier numbered baseline, **Milestone 15 (v0.3.4), is complete**. It unified
+model-facing file editing, decomposed the interactive CLI, made context mode
+changes reversible, and repaired terminal listener lifecycle. Automatic
 compaction remains an explicit user opt-in. See the
 [v0.3.4 implementation plan](../history/v0.3.4/IMPLEMENTATION_PLAN.md).
 
@@ -22,8 +29,14 @@ compaction remains an explicit user opt-in. See the
 
 ## Current development
 
-- Multi-session development: Desktop and TUI share a process-local scheduler and Git worktree creation. The terminal workbench adds live/saved session switching, independent approvals, FIFO waiting and cancellation. See [terminal behavior and limits](../product/reference/CLI_UI.md#parallel-sessions-in-the-development-checkout). Published builds and cross-platform/live-provider acceptance remain separate.
-
+- Multi-session follow-up: Desktop and TUI share a process-local scheduler and
+  Git worktree creation, shipped in 0.5.0-preview.1. See
+  [terminal behavior and limits](../product/reference/CLI_UI.md#parallel-sessions-in-the-preview).
+  Remaining acceptance includes live Codex TUI, multi-turn Codex recovery,
+  installed-app live providers, Windows/Linux real-provider/TUI behavior and
+  sustained load. Independent-user, IME/accessibility, Intel hardware and
+  signing/notarization coverage also remain open; consult the
+  [release evidence](../../evals/reports/desktop-0.5.0-preview.1/README.md#limits).
 
 - Desktop productization: [PRD](DESKTOP_PRODUCT_PRD.md) and
   [implementation plan](DESKTOP_PRODUCT_IMPLEMENTATION.md) define the proposed

@@ -18,7 +18,7 @@ Agent 为各会话持有独立 application 实例，并通过有上限的调度�
 
 2026-11-03 本地验证：215 项桌面测试通过（6 项可选真实服务测试跳过），223 项跨层确定性测试通过，`pnpm check`、`pnpm check:docs` 与 `pnpm desktop:build` 通过。Electron 验收脚本通过回环模拟服务验证了双会话同时审批、第三会话排队、取消隔离及窄窗口截图；这些检查不等于真实外部提供商或安装后应用验收。
 
-Desktop 与 TUI 已共用私有 application 包内的 `SessionScheduler` 和 `createSessionWorkspace`；终端交互详见 [CLI UI 指南](../../docs/zh-CN/product/reference/CLI_UI.md#开发工作区中的多会话)。
+Desktop 与 TUI 已共用私有 application 包内的 `SessionScheduler` 和 `createSessionWorkspace`；终端交互详见 [CLI UI 指南](../../docs/zh-CN/product/reference/CLI_UI.md#预览版中的多会话)。
 
 ## 未签名版本更新（2026-09-22）
 

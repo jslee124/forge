@@ -42,7 +42,7 @@ forge resume <session-id>
 forge resume --last
 ```
 
-0.5.0-preview.1 的 `/sessions`、`/resume` 或 Ctrl+P 展示活动视图及历史会话，并标明工作目录。选择活动视图只切换显示，不停止任务；选择历史会话会在保存的工作区打开独立视图。已发布 0.4.0 CLI 仍使用原工作区内选择器。详见[多会话终端说明](CLI_UI.md#开发工作区中的多会话)。从磁盘恢复规则如下：
+0.5.0-preview.1 的 `/sessions`、`/resume` 或 Ctrl+P 展示活动视图及历史会话，并标明工作目录。选择活动视图只切换显示，不停止任务；选择历史会话会在保存的工作区打开独立视图。已发布 0.4.0 CLI 仍使用原工作区内选择器。详见[多会话终端说明](CLI_UI.md#预览版中的多会话)。从磁盘恢复规则如下：
 
 当所有关联 trace 均可用时，交互式 transcript 会按照原运行使用的同一组有序 `RunEvent` 重建，恢复 reasoning summary、中间模型文本、工具 Proposed、审批决定、Completed 和 Failed 记录，而不是把供模型续聊使用的有界摘要显示成 assistant 正文。
 

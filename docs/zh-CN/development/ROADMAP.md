@@ -4,7 +4,9 @@
 
 ## 当前 milestone
 
-**作为 v0.3.4 release 目标的 Milestone 15 已完成。** 它统一模型侧文件编辑、拆分 interactive CLI、让 context mode 可逆，并修复 terminal listener lifecycle。自动 compact 始终是用户显式 opt-in。详见 [v0.3.4 详细实现方案](../history/v0.3.4/IMPLEMENTATION_PLAN.md)。
+**CLI/npm 与 Desktop 的 0.5.0-preview.1 均已发布。** 预览版增加独立会话并行、FIFO 排队以及会话独立的审批和取消。CLI 通过 npm `next` 主动安装，稳定版 `latest` 保持 0.4.0；Desktop 需安装独立预览包。准确源码、CI、公开文件验证和验收边界见 [CLI 发布记录](../../../evals/reports/v0.5.0-preview.1/README.zh-CN.md)与 [Desktop 发布记录](../../../evals/reports/desktop-0.5.0-preview.1/README.zh-CN.md)。
+
+较早的编号基线 **Milestone 15（v0.3.4）已完成**：统一模型侧文件编辑、拆分 interactive CLI、让 context mode 可逆，并修复 terminal listener lifecycle。自动 compact 仍是用户显式 opt-in。详见 [v0.3.4 详细实现方案](../history/v0.3.4/IMPLEMENTATION_PLAN.md)。
 
 ## 工作规则
 
@@ -18,8 +20,7 @@
 
 ## 当前开发
 
-- 多会话开发：Desktop 与 TUI 共用进程内调度器及 Git worktree 创建逻辑；终端工作台增加活动/历史会话切换、独立审批、FIFO 排队与取消。详见[终端行为及边界](../product/reference/CLI_UI.md#开发工作区中的多会话)。已发布构建、跨平台及真实提供商验收仍分别判断。
-
+- 多会话后续验收：Desktop 与 TUI 共用进程内调度器及 Git worktree 创建逻辑，已随 0.5.0-preview.1 发布。详见[终端行为及边界](../product/reference/CLI_UI.md#预览版中的多会话)。真实 Codex TUI、多轮 Codex 恢复、安装版真实提供商、Windows/Linux 真实模型或 TUI 行为及长期负载仍待验收；独立用户、IME/无障碍、Intel 实机及签名/公证也仍有缺口，范围以[发布证据](../../../evals/reports/desktop-0.5.0-preview.1/README.md#limits)为准。
 
 桌面端下一步以[当前剩余工作表](DESKTOP_PRODUCT_IMPLEMENTATION.md#当前剩余工作2026-10-27)为入口，区分实现、真实模型、安装与发布门槛。
 

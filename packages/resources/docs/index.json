@@ -11852,7 +11852,7 @@
           "title": "Status",
           "level": 2,
           "start": 50,
-          "end": 270,
+          "end": 330,
           "keywords": [
             "and",
             "boundaries",
@@ -11862,12 +11862,14 @@
             "existing",
             "experience",
             "forge-owned",
+            "id",
             "implemented",
             "ink",
             "interactive",
             "milestone",
             "non-interactive",
             "now",
+            "parallel-sessions-in-the-development-checkout",
             "provides",
             "renderer",
             "retain",
@@ -11881,11 +11883,11 @@
           ]
         },
         {
-          "id": "parallel-sessions-in-the-development-checkout",
-          "title": "Parallel sessions in the development checkout",
+          "id": "parallel-sessions-in-the-preview",
+          "title": "Parallel sessions in the preview",
           "level": 2,
-          "start": 270,
-          "end": 2617,
+          "start": 330,
+          "end": 2664,
           "keywords": [
             "0-preview",
             "16",
@@ -11908,7 +11910,6 @@
             "by",
             "cancels",
             "channel",
-            "checkout",
             "cli",
             "concurrent",
             "concurrently",
@@ -11917,7 +11918,6 @@
             "default",
             "deliberate",
             "desktop",
-            "development",
             "directory",
             "down",
             "draft",
@@ -11961,20 +11961,22 @@
             "parallel",
             "pending",
             "persistence",
+            "preview",
             "process",
             "queue",
             "queued",
             "remains",
             "restores",
-            "resume"
+            "resume",
+            "retain"
           ]
         },
         {
           "id": "goals",
           "title": "Goals",
           "level": 2,
-          "start": 2617,
-          "end": 3598,
+          "start": 2664,
+          "end": 3645,
           "keywords": [
             "actions",
             "activity",
@@ -12062,8 +12064,8 @@
           "id": "startup-capability-summary",
           "title": "Startup capability summary",
           "level": 2,
-          "start": 3598,
-          "end": 4772,
+          "start": 3645,
+          "end": 4819,
           "keywords": [
             "activation",
             "actual",
@@ -12151,8 +12153,8 @@
           "id": "interaction-states",
           "title": "Interaction states",
           "level": 2,
-          "start": 4772,
-          "end": 5412,
+          "start": 4819,
+          "end": 5459,
           "keywords": [
             "active",
             "an",
@@ -12216,8 +12218,8 @@
           "id": "prompt-editor",
           "title": "Prompt editor",
           "level": 2,
-          "start": 5412,
-          "end": 6582,
+          "start": 5459,
+          "end": 6629,
           "keywords": [
             "active",
             "advertise",
@@ -12305,8 +12307,8 @@
           "id": "context-pressure-and-controls",
           "title": "Context pressure and controls",
           "level": 2,
-          "start": 6582,
-          "end": 8297,
+          "start": 6629,
+          "end": 8344,
           "keywords": [
             "active",
             "always",
@@ -12394,8 +12396,8 @@
           "id": "slash-command-completion",
           "title": "Slash-command completion",
           "level": 2,
-          "start": 8297,
-          "end": 10993,
+          "start": 8344,
+          "end": 11040,
           "keywords": [
             "above",
             "additional",
@@ -12483,8 +12485,8 @@
           "id": "workspace-file-mentions",
           "title": "Workspace-file mentions",
           "level": 2,
-          "start": 10993,
-          "end": 12192,
+          "start": 11040,
+          "end": 12239,
           "keywords": [
             "10",
             "active",
@@ -12572,8 +12574,8 @@
           "id": "pasted-image-attachments",
           "title": "Pasted image attachments",
           "level": 2,
-          "start": 12192,
-          "end": 13081,
+          "start": 12239,
+          "end": 13128,
           "keywords": [
             "absolute",
             "accepted",
@@ -12661,8 +12663,8 @@
           "id": "diff-review",
           "title": "Diff review",
           "level": 2,
-          "start": 13081,
-          "end": 15124,
+          "start": 13128,
+          "end": 15171,
           "keywords": [
             "action",
             "added",
@@ -12750,8 +12752,8 @@
           "id": "sign-in-panel",
           "title": "Sign-in panel",
           "level": 2,
-          "start": 15124,
-          "end": 16270,
+          "start": 15171,
+          "end": 16317,
           "keywords": [
             "add",
             "address",
@@ -12839,8 +12841,8 @@
           "id": "rendering-boundaries",
           "title": "Rendering boundaries",
           "level": 2,
-          "start": 16270,
-          "end": 16973,
+          "start": 16317,
+          "end": 17020,
           "keywords": [
             "activity",
             "and",
@@ -12928,8 +12930,8 @@
           "id": "test-strategy",
           "title": "Test strategy",
           "level": 2,
-          "start": 16973,
-          "end": 18454,
+          "start": 17020,
+          "end": 18501,
           "keywords": [
             "and",
             "approval",
@@ -13019,12 +13021,10 @@
         "attachments",
         "boundaries",
         "capability",
-        "checkout",
         "cli",
         "completion",
         "context",
         "controls",
-        "development",
         "diff",
         "editor",
         "goals",
@@ -13037,6 +13037,7 @@
         "parallel",
         "pasted",
         "pressure",
+        "preview",
         "prompt",
         "rendering",
         "review",
@@ -13054,7 +13055,7 @@
         "workspace-file"
       ],
       "path": "en/CLI_UI.md",
-      "sha256": "d1d5fa59b03ee9c488718b487c31bda5a96902c9ebbedc4e232d46f7f517967c"
+      "sha256": "fb373d0c12a4df0f8443d35c86ce1f089f4ba3f8251347b9c1a53d61eab5b141"
     },
     {
       "id": "architecture",
@@ -24429,21 +24430,23 @@
           "title": "交互式 CLI UI",
           "level": 1,
           "start": 0,
-          "end": 30,
+          "end": 55,
           "keywords": [
             "cli",
             "english",
+            "id",
             "ui",
             "中文目录",
-            "交互式"
+            "交互式",
+            "开发工作区中的多会话"
           ]
         },
         {
-          "id": "开发工作区中的多会话",
-          "title": "开发工作区中的多会话",
+          "id": "预览版中的多会话",
+          "title": "预览版中的多会话",
           "level": 2,
-          "start": 30,
-          "end": 1007,
+          "start": 55,
+          "end": 1030,
           "keywords": [
             "0-preview",
             "000",
@@ -24521,18 +24524,18 @@
             "在其他会话输入不会批准后台动作",
             "并显示保存的工作目录",
             "并等待执行及持久化结束",
-            "开发工作区中的多会话",
             "当前面板采用有上限的实时",
             "忽略文件或依赖",
-            "打开活动与历史会话列表"
+            "打开活动与历史会话列表",
+            "打开独立会话"
           ]
         },
         {
           "id": "状态",
           "title": "状态",
           "level": 2,
-          "start": 1007,
-          "end": 1094,
+          "start": 1030,
+          "end": 1117,
           "keywords": [
             "forge",
             "ink",
@@ -24552,8 +24555,8 @@
           "id": "目标",
           "title": "目标",
           "level": 2,
-          "start": 1094,
-          "end": 1505,
+          "start": 1117,
+          "end": 1528,
           "keywords": [
             "agent",
             "apps",
@@ -24618,8 +24621,8 @@
           "id": "启动能力摘要",
           "title": "启动能力摘要",
           "level": 2,
-          "start": 1505,
-          "end": 2021,
+          "start": 1528,
+          "end": 2044,
           "keywords": [
             "activation",
             "capability",
@@ -24687,8 +24690,8 @@
           "id": "交互状态",
           "title": "交互状态",
           "level": 2,
-          "start": 2021,
-          "end": 2358,
+          "start": 2044,
+          "end": 2381,
           "keywords": [
             "approval",
             "awaiting",
@@ -24715,8 +24718,8 @@
           "id": "prompt-editor",
           "title": "Prompt editor",
           "level": 2,
-          "start": 2358,
-          "end": 2810,
+          "start": 2381,
+          "end": 2833,
           "keywords": [
             "buffer",
             "code",
@@ -24775,8 +24778,8 @@
           "id": "context-压力与控制",
           "title": "Context 压力与控制",
           "level": 2,
-          "start": 2810,
-          "end": 3705,
+          "start": 2833,
+          "end": 3728,
           "keywords": [
             "active",
             "activity",
@@ -24864,8 +24867,8 @@
           "id": "斜杠命令补全",
           "title": "斜杠命令补全",
           "level": 2,
-          "start": 3705,
-          "end": 4780,
+          "start": 3728,
+          "end": 4803,
           "keywords": [
             "active",
             "api",
@@ -24953,8 +24956,8 @@
           "id": "workspace-文件引用",
           "title": "Workspace 文件引用",
           "level": 2,
-          "start": 4780,
-          "end": 5233,
+          "start": 4803,
+          "end": 5256,
           "keywords": [
             "10",
             "build",
@@ -25016,8 +25019,8 @@
           "id": "粘贴图片附件",
           "title": "粘贴图片附件",
           "level": 2,
-          "start": 5233,
-          "end": 5517,
+          "start": 5256,
+          "end": 5540,
           "keywords": [
             "backspace",
             "bracketed",
@@ -25056,8 +25059,8 @@
           "id": "diff-审查",
           "title": "Diff 审查",
           "level": 2,
-          "start": 5517,
-          "end": 6257,
+          "start": 5540,
+          "end": 6280,
           "keywords": [
             "action",
             "approval",
@@ -25145,8 +25148,8 @@
           "id": "登录面板",
           "title": "登录面板",
           "level": 2,
-          "start": 6257,
-          "end": 6478,
+          "start": 6280,
+          "end": 6501,
           "keywords": [
             "auth",
             "codex",
@@ -25183,8 +25186,8 @@
           "id": "rendering-边界",
           "title": "Rendering 边界",
           "level": 2,
-          "start": 6478,
-          "end": 6780,
+          "start": 6501,
+          "end": 6803,
           "keywords": [
             "activity",
             "ansi",
@@ -25231,8 +25234,8 @@
           "id": "测试策略",
           "title": "测试策略",
           "level": 2,
-          "start": 6780,
-          "end": 7321,
+          "start": 6803,
+          "end": 7344,
           "keywords": [
             "approval",
             "completion",
@@ -25318,7 +25321,6 @@
         "压力与控制",
         "启动能力摘要",
         "审查",
-        "开发工作区中的多会话",
         "文件引用",
         "斜杠命令补全",
         "测试策略",
@@ -25326,10 +25328,11 @@
         "登录面板",
         "目标",
         "粘贴图片附件",
-        "边界"
+        "边界",
+        "预览版中的多会话"
       ],
       "path": "zh-CN/CLI_UI.md",
-      "sha256": "d3641ce77c6be8659748a0bcfb4ad13c9a2aabb80aa5352d9d43c0562c9a1df6"
+      "sha256": "e1404c20cb8a71ead0e06c3d62ce5dc93ccc1e92d65fd2e5182f9c4d3e5f0eeb"
     },
     {
       "id": "architecture",

@@ -8,7 +8,9 @@ This document defines the implemented Milestone 4.6 terminal experience. Ink
 now provides the interactive renderer while the non-interactive commands and
 Forge-owned runtime retain their existing boundaries.
 
-## Parallel sessions in the development checkout
+<a id="parallel-sessions-in-the-development-checkout"></a>
+
+## Parallel sessions in the preview
 
 CLI 0.5.0-preview.1 adds a multi-session terminal workbench through the npm `next` channel. Stable 0.4.0 CLI builds retain the earlier single-session UI.
 

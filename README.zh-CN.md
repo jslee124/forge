@@ -36,7 +36,7 @@ Forge 是一个开源 TypeScript 项目，用于学习和展示编码 Agent 背�
 
 它最适合希望从头读懂一个小型 runtime、亲自实验并测量结果的开发者。Forge 现在具备单 package 的 npm 发布路径，同时保留面向贡献者的源码 checkout；它仍不是 hardened coding environment 的开箱即用替代品。
 
-独立分发的 [macOS 桌面预览版](docs/zh-CN/product/operations/DESKTOP.md)有自己的安装步骤和验证边界；下方 npm package 是 CLI。
+独立分发的 [Windows/macOS 桌面预览版](docs/zh-CN/product/operations/DESKTOP.md)有自己的安装步骤和验证边界；下方 npm package 是 CLI。
 
 ## 为什么是 Forge？
 
@@ -47,6 +47,7 @@ Forge 是一个开源 TypeScript 项目，用于学习和展示编码 Agent 背�
 | **Forge 自有循环** | 运行时控制模型步骤、工具执行、继续运行、恢复、取消和停止限制。 |
 | **明确策略** | 每个工具提议在执行前都会得到 `allow`、`confirm` 或 `deny` 决策。 |
 | **可观察运行** | 结构化终端事件和版本化 JSONL trace 展示模型提出了什么以及实际发生了什么。 |
+| **并行会话（预览版）** | Desktop 与 TUI 支持独立会话并行、FIFO 排队，以及会话独立的草稿、输出、审批和取消。 |
 | **持久化会话** | 已完成的对话可以跨进程恢复，但不会恢复旧审批或待执行工具调用。 |
 | **有预算的上下文** | `/context` 展示当前预算；可选 checkpoint 压缩已完成历史，但不删除规范 transcript。 |
 | **可复现评测** | 确定性测试验证运行时行为，真实模型试验同时保留成功和失败。 |
@@ -133,6 +134,7 @@ forge
 - 对失败的验证作出反应，继续修复结果。
 - 将模型文本和 provider 提供的 reasoning 作为独立事件流式输出。
 - 持久化会话，并按 ID 或最近使用顺序恢复已完成的对话轮次。
+- 0.5.0 预览版支持在 Desktop 与 TUI 中并行执行独立会话。TUI 使用 `Ctrl+N` 新建、`Ctrl+P` 切换；默认同时执行两个任务，设置 `FORGE_MAX_CONCURRENT_RUNS=3` 可允许三个。详见[会话操作及边界](docs/zh-CN/product/reference/CLI_UI.md#预览版中的多会话)。
 - 检查上下文用量，并创建明确、可展示的对话 checkpoint。
 - 加载分层的 `AGENTS.md` 指令，以及延迟调用的内置、用户和项目 Skills。
 - 加载能够贡献工具、命令、observer、prompt、更严格策略 hook 或有界宿主管理 subagent 角色的受信任插件。
