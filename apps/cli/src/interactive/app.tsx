@@ -32,6 +32,7 @@ import {
 import type { SessionReasoning, SessionSummary } from "@forge/persistence";
 import {
   Box,
+  type Key,
   Static,
   Text,
   useApp,
@@ -118,6 +119,10 @@ import { runInteractiveLifecycle } from "./lifecycle.js";
 import { nextCursor, PromptWithCursor, previousCursor } from "./prompt.js";
 import { SignInPanel } from "./providers.js";
 import { PluginsPanel, PluginTrustPanel, ResourcesPanel } from "./resources.js";
+import type {
+  InteractiveSessionHost,
+  TuiSessionStatus,
+} from "./session-host.js";
 import { TranscriptBlock } from "./transcript.js";
 import type {
   PendingSignIn,
@@ -530,9 +535,10 @@ export interface InteractiveUiDependencies {
   ) => Promise<DetectedStartupResources>;
 }
 
-interface InteractiveAppProps extends InteractiveUiDependencies {
+export interface InteractiveAppProps extends InteractiveUiDependencies {
   readonly options: AskOptions;
   readonly initialProviders?: Readonly<Record<string, ProviderProfile>>;
+  readonly sessionHost?: InteractiveSessionHost;
 }
 
 export const INK_INCREMENTAL_RENDERING = false as const;
@@ -642,15 +648,8 @@ export async function runInkInteractiveFromCli(
     updateService:
       dependencies.updateService ??
       createUpdateService({ env: dependencies.env, isTTY: true }),
-    executeCodexTask:
-      dependencies.executeCodexTask ??
-      ((prompt, taskOptions, taskDependencies) =>
-        withSharedCodexClient((client) =>
-          runCodexTask(prompt, taskOptions, {
-            ...taskDependencies,
-            client,
-          }),
-        )),
+    // Each running session owns a client; Codex notification/approval listeners are client-scoped.
+    executeCodexTask: dependencies.executeCodexTask ?? runCodexTask,
     discoverSubscriptionModels:
       dependencies.discoverSubscriptionModels ??
       ((modelDependencies) =>
@@ -674,9 +673,11 @@ export async function runInkInteractiveFromCli(
   };
 
   try {
+    const { InteractiveWorkbench } = await import("./workbench.js");
     return await runInteractiveLifecycle(
-      <InteractiveApp
+      <InteractiveWorkbench
         {...interactiveDependencies}
+        startupOptions={options}
         sessionPersistence={sessionPersistence}
         detectedResources={detectedResources}
         options={effectiveOptions}
@@ -714,6 +715,7 @@ export function InteractiveApp({
   options,
   env,
   cwd,
+  sessionHost,
   executeTask = runTask,
   executeCodexTask = runCodexTask,
   discoverSubscriptionModels = discoverCodexModels,
@@ -742,7 +744,14 @@ export function InteractiveApp({
   updateProjectPluginTrust = (trusted) =>
     changeProjectPluginTrust({ cwd, env, trusted }),
 }: InteractiveAppProps): React.JSX.Element {
-  const { exit } = useApp();
+  const { exit: inkExit } = useApp();
+  const exit = (code: number) =>
+    sessionHost ? sessionHost.requestExit() : inkExit(code);
+  const hosted = Boolean(sessionHost);
+  const [inputReady, setInputReady] = useState(!sessionHost);
+  const [queued, setQueued] = useState(false);
+  const [lastRunStatus, setLastRunStatus] = useState<TuiSessionStatus>("ready");
+  const [transcriptOffset, setTranscriptOffset] = useState(0);
   const [editor, setEditor] = useState<EditorState>(() => createEditorState());
   const [phase, setPhase] = useState<Phase>("editing");
   const [runActivity, setRunActivity] = useState<RunActivity>();
@@ -784,7 +793,7 @@ export function InteractiveApp({
   const [updateState, setUpdateState] = useState<UpdateState | undefined>(() =>
     updateService?.snapshot(),
   );
-  const { columns: terminalWidth } = useWindowSize();
+  const { columns: terminalWidth, rows: terminalHeight } = useWindowSize();
   const [resources, setResources] =
     useState<DetectedStartupResources>(detectedResources);
   const [pluginTrustIntent, setPluginTrustIntent] = useState<
@@ -906,15 +915,25 @@ export function InteractiveApp({
 
   const appendEntry = useCallback(
     (kind: TranscriptKind, text: string, merge = false): void => {
-      setTranscript((current) =>
-        appendTranscriptEntry(
+      setTranscript((current) => {
+        const next = appendTranscriptEntry(
           current,
           { id: nextTranscriptId.current++, kind, text },
           merge,
-        ),
-      );
+        );
+        if (!hosted) return next;
+        let remaining = 1_000_000;
+        const bounded: TranscriptEntry[] = [];
+        for (const entry of next.slice(-1000).toReversed()) {
+          if (remaining <= 0) break;
+          const retained = entry.text.slice(-remaining);
+          bounded.push({ ...entry, text: retained });
+          remaining -= retained.length;
+        }
+        return bounded.reverse();
+      });
     },
-    [],
+    [hosted],
   );
   const appendOutput = useCallback(
     (chunk: string): void => appendEntry("raw", chunk, true),
@@ -1186,6 +1205,19 @@ export function InteractiveApp({
     [appendEntry],
   );
 
+  const reportSession = sessionHost?.report;
+  useEffect(() => {
+    reportSession?.(
+      queued
+        ? "queued"
+        : phase === "approving" || phase === "approval-feedback"
+          ? "approval"
+          : phase === "running"
+            ? "running"
+            : lastRunStatus,
+    );
+  }, [reportSession, queued, phase, lastRunStatus]);
+
   useEffect(() => {
     const controller = new AbortController();
     setFilesLoading(true);
@@ -1389,6 +1421,11 @@ export function InteractiveApp({
         setEditor(createEditorState());
         return;
       case "/new":
+        if (sessionHost) {
+          setEditor(createEditorState());
+          sessionHost.newSession();
+          return;
+        }
         conversation.current = [];
         sessionPersistence?.clear();
         setContextPanel(undefined);
@@ -1463,6 +1500,11 @@ export function InteractiveApp({
       }
       case "/sessions":
       case "/resume":
+        if (sessionHost) {
+          setEditor(createEditorState());
+          sessionHost.showSessions();
+          return;
+        }
         setEditor(createEditorState());
         setContextPanel(undefined);
         approvalStore.clear();
@@ -1634,12 +1676,16 @@ export function InteractiveApp({
       return;
     }
 
+    const submittedEditor = editor;
     const prompt = assemblePrompt(editor);
     const imageSources = [
       ...editor.images.map(({ source }) => source),
       ...referencedPaths(editor).filter(isSupportedImagePath),
     ];
     const controller = new AbortController();
+    const runId = randomUUID();
+    sessionHost?.submitted(prompt);
+    setTranscriptOffset(0);
     activeController.current = controller;
     setContextPanel(undefined);
     setEditor(createEditorState());
@@ -1663,31 +1709,45 @@ export function InteractiveApp({
     let networkPreview: NetworkApprovalPreview | undefined;
     let subagentPreview: SubagentApprovalPreview | undefined;
 
+    const requestApproval = (
+      approvalPrompt: string,
+      signal: AbortSignal,
+      allowSession: boolean,
+    ): Promise<string | null> =>
+      new Promise<string | null>((resolve) => {
+        let settled = false;
+        const settle = (answer: string | null) => {
+          if (settled) return;
+          settled = true;
+          signal.removeEventListener("abort", onAbort);
+          resolve(answer);
+        };
+        const onAbort = () => settle(null);
+        if (signal.aborted) {
+          settle(null);
+          return;
+        }
+        signal.addEventListener("abort", onAbort, { once: true });
+        setApproval({
+          prompt: approvalPrompt,
+          allowSession: allowSession,
+          ...(commandPreview ? { command: commandPreview } : {}),
+          ...(networkPreview ? { network: networkPreview } : {}),
+          ...(subagentPreview ? { subagent: subagentPreview } : {}),
+          resolve: settle,
+        });
+        commandPreview = undefined;
+        networkPreview = undefined;
+        subagentPreview = undefined;
+        setPhase("approving");
+      });
     const approvalChannel = createApprovalChannel(
       (approvalPrompt, signal, descriptor) =>
-        new Promise<string | null>((resolve) => {
-          let settled = false;
-          const settle = (answer: string | null) => {
-            if (settled) return;
-            settled = true;
-            signal.removeEventListener("abort", onAbort);
-            resolve(answer);
-          };
-          const onAbort = () => settle(null);
-          signal.addEventListener("abort", onAbort, { once: true });
-          setApproval({
-            prompt: approvalPrompt,
-            allowSession: descriptor.allowedScopes.length > 0,
-            ...(commandPreview ? { command: commandPreview } : {}),
-            ...(networkPreview ? { network: networkPreview } : {}),
-            ...(subagentPreview ? { subagent: subagentPreview } : {}),
-            resolve: settle,
-          });
-          commandPreview = undefined;
-          networkPreview = undefined;
-          subagentPreview = undefined;
-          setPhase("approving");
-        }),
+        requestApproval(
+          approvalPrompt,
+          signal,
+          descriptor.allowedScopes.length > 0,
+        ),
       stderr,
       {
         onDiffPreview: ({ diff }) => appendEntry("diff", diff),
@@ -1703,7 +1763,7 @@ export function InteractiveApp({
       },
     );
 
-    void (async () => {
+    const execute = async () => {
       const sessionId = await sessionPersistence?.prepareRun(
         prompt,
         imageSources.length,
@@ -1727,6 +1787,9 @@ export function InteractiveApp({
             ? { contextCheckpoint: sessionPersistence.contextCheckpoint }
             : {}),
           signal: controller.signal,
+          approve: async (description) =>
+            (await requestApproval(description, controller.signal, false)) ===
+            "1",
           isTTY: true,
         });
         result = {
@@ -1745,7 +1808,7 @@ export function InteractiveApp({
             : [],
         };
         metadata = {
-          runId: randomUUID(),
+          runId,
           ...(sessionId ? { sessionId } : {}),
           tracePersisted: false,
         };
@@ -1764,6 +1827,7 @@ export function InteractiveApp({
           cwd,
           stdout,
           stderr,
+          runId,
           signal: controller.signal,
           approvalChannel,
           approvalStore,
@@ -1789,11 +1853,17 @@ export function InteractiveApp({
       if (result && metadata && sessionPersistence) {
         await sessionPersistence.recordRun(prompt, result, metadata);
       }
-    })()
+    };
+    const execution = sessionHost
+      ? sessionHost.schedule(runId, controller, execute, (state) =>
+          setQueued(state === "queued"),
+        )
+      : execute();
+    void execution
       .catch((error: unknown) => {
         appendEntry(
           "error",
-          `Session persistence failed: ${error instanceof Error ? error.message : "unknown error"}`,
+          `Session execution failed: ${error instanceof Error ? error.message : "unknown error"}`,
         );
       })
       .finally(() => {
@@ -1810,7 +1880,21 @@ export function InteractiveApp({
         if (result) {
           conversation.current.push(...runConversationMessages(prompt, result));
         }
+        if (sessionHost && !completed)
+          setEditor((current) =>
+            current.value.trim() || current.images.length
+              ? current
+              : submittedEditor,
+          );
         activeController.current = undefined;
+        setQueued(false);
+        setLastRunStatus(
+          controller.signal.aborted
+            ? "cancelled"
+            : completed
+              ? "completed"
+              : "failed",
+        );
         setApproval(undefined);
         setRunActivity(undefined);
         setPhase("editing");
@@ -1848,13 +1932,23 @@ export function InteractiveApp({
 
   usePaste(
     (text) => updateEditor((current) => insertPastedEditorText(current, text)),
-    { isActive: phase === "editing" },
+    { isActive: (sessionHost?.focused ?? true) && phase === "editing" },
   );
   usePaste((text) => setLoginKey((current) => current + text), {
-    isActive: phase === "login-key",
+    isActive: (sessionHost?.focused ?? true) && phase === "login-key",
   });
 
-  useInput((input, key) => {
+  const handleInput = (input: string, key: Key): void => {
+    if (sessionHost && key.ctrl && ["n", "p"].includes(input.toLowerCase()))
+      return;
+    if (sessionHost && (key.pageUp || key.pageDown)) {
+      setTranscriptOffset((current) =>
+        key.pageUp
+          ? Math.min(Math.max(0, transcript.length - 1), current + 5)
+          : Math.max(0, current - 5),
+      );
+      return;
+    }
     if (phase === "provider-setup") return;
     const interruptCount = Array.from(input).filter(
       (character) => character === "\u0003",
@@ -2847,8 +2941,18 @@ export function InteractiveApp({
       idleExitArmed.current = false;
       updateEditor((current) => insertEditorText(current, input));
     }
-  });
+  };
+  useInput(handleInput, { isActive: sessionHost?.focused ?? true });
 
+  useEffect(() => {
+    setInputReady(true);
+  }, []);
+  if (sessionHost && (!sessionHost.visible || !inputReady)) return <Box />;
+  const liveTranscriptEnd = Math.max(0, transcript.length - transcriptOffset);
+  const liveTranscript = transcript.slice(
+    Math.max(0, liveTranscriptEnd - 12),
+    liveTranscriptEnd,
+  );
   const staticTranscript =
     phase === "running" ? transcript.slice(0, -1) : transcript;
   const staticOutputItems: StaticOutputItem[] = [
@@ -2863,7 +2967,31 @@ export function InteractiveApp({
     <Box flexDirection="column" paddingX={1}>
       {transcript.length === 0 ? <ForgeHeader resources={resources} /> : null}
 
-      {transcript.length > 0 ? (
+      {hosted && transcript.length > 0 ? (
+        <>
+          <Box
+            height={Math.max(4, terminalHeight - (approval ? 26 : 16))}
+            overflow="hidden"
+            flexDirection="column"
+            justifyContent="flex-end"
+          >
+            {liveTranscript.map((entry) => (
+              <Box key={entry.id} flexShrink={0} flexDirection="column">
+                <TranscriptBlock
+                  entry={{ ...entry, text: entry.text.slice(-16_000) }}
+                />
+              </Box>
+            ))}
+          </Box>
+          <Text dimColor>
+            PgUp/PgDn transcript ·{" "}
+            {transcriptOffset
+              ? `${transcriptOffset} newer entries below`
+              : "latest output"}
+            {queued ? " · Queued: waiting for an execution slot" : ""}
+          </Text>
+        </>
+      ) : transcript.length > 0 ? (
         <>
           <Static key={staticRenderRevision} items={staticOutputItems}>
             {(item) =>

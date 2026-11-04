@@ -1,10 +1,14 @@
-import { configureHttpDispatcher } from "@forge/application";
+import {
+  configureHttpDispatcher,
+  sessionConcurrency,
+} from "@forge/application";
 import { z } from "zod";
 import { managementCommandSchema } from "../shared/application-protocol.js";
 import { RUN_PROTOCOL_VERSION } from "../shared/run-protocol.js";
-import { DesktopApplication, desktopError } from "./application.js";
+import { desktopError } from "./application.js";
 import { RunService } from "./run-service.js";
 import { createAgentRequestHandler } from "./runtime.js";
+import { SessionApplication } from "./session-application.js";
 
 const parentPort = process.parentPort;
 if (!parentPort) {
@@ -19,16 +23,18 @@ const {
   FORGE_PRODUCT_LIVE_OPT_IN: liveOptIn,
   FORGE_PRODUCT_LIVE_FINALIZATION_INPUT: liveInput,
 } = process.env;
-const application = new DesktopApplication(
+const application = new SessionApplication(
   process.env,
   process.cwd(),
   liveOptIn === "1" && liveInput === "evidence"
     ? { finalizationInput: "evidence" }
     : {},
+  (sessionId) => (sessionId ? runs.hasSession(sessionId) : runs.busy),
 );
 const runs = new RunService(
   (message) => parentPort.postMessage(message),
   application.execute,
+  { maxConcurrent: sessionConcurrency(process.env) },
 );
 const managementSchema = z
   .object({
@@ -56,13 +62,6 @@ parentPort.on("message", (event) => {
     const { requestId, command } = parsed.data;
     management = management.then(async () => {
       try {
-        if (
-          runs.busy &&
-          command.type !== "state" &&
-          command.type !== "browse-session" &&
-          command.type !== "cancel-login"
-        )
-          throw new Error("busy");
         const state = await application.manage(command);
         parentPort.postMessage({ type: "management-reply", requestId, state });
       } catch (error) {

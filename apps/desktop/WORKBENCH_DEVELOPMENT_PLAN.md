@@ -4,6 +4,22 @@ Date: 2026-09-15. Development plan, not a shipped-feature declaration.
 
 [中文（详细任务说明）](WORKBENCH_DEVELOPMENT_PLAN.zh-CN.md) · [UX specification](WORKBENCH_UX_PLAN.md) · [Model and workbench refinement proposal](DESKTOP_REFINEMENT_PLAN.md) · [Visual QA](design-qa.md)
 
+## Parallel sessions (2026-11-03, development checkout)
+
+The desktop workbench now schedules independent sessions: two runs execute at a time by default, with up to 32 additional sessions in a FIFO queue. Set `FORGE_MAX_CONCURRENT_RUNS` before launching Desktop (the previous `FORGE_DESKTOP_MAX_CONCURRENT_RUNS` remains a fallback alias) to choose an integer from 1 to 16. Each session admits one active or queued run. Waiting for approval continues to occupy a concurrency slot.
+
+Switching sessions or choosing New task leaves other runs active. Each session retains its draft, temporary model/effort/permission selection, bounded streamed output, activity and pending approvals. Sidebar badges show running, queued, approval and terminal states. Stop and approval actions target the selected session/run only. Application shutdown cancels workers and drops the process-local queue; queued requests are not durable jobs and are not automatically replayed after restart.
+
+When creating a task in a Git workspace, Desktop creates a branch named `codex/session-<uuid>` and a linked worktree under `<FORGE_HOME>/worktrees/<uuid>` from the current `HEAD`. Uncommitted and ignored files are not copied; install dependencies or provide ignored project configuration separately. Existing sessions retain their saved directories. Non-Git tasks retain the selected directory, and the shared workspace lease still rejects concurrent execution in the same directory. Worktrees do not isolate ports, databases, environment credentials or external effects. Review changes in the task's branch/worktree before integrating them. Deleting a conversation retains its worktree and branch so that code is not lost; cleanup and merging remain explicit Git operations.
+
+The Agent owns per-session application instances and a bounded scheduler. The main-process channel validates identities and event sequences independently for each session. The renderer keeps bounded background projections and restores the selected session without transferring approval authority. Global credential/configuration mutations remain unavailable while any run is active or queued.
+
+Validation covers the real channel/scheduler, queue bounds and order, cross-session approval/cancel isolation, background completion, UI draft/output restoration, real Git worktree creation and persisted session histories with a controlled model adapter. This is local development behavior, not a capability of the published Preview 2 installers; live-provider, installed-app and cross-platform acceptance remain separate.
+
+Local verification on 2026-11-03: 215 desktop tests passed (6 opt-in live tests skipped), 223 cross-layer deterministic tests passed, and `pnpm check`, `pnpm check:docs` and `pnpm desktop:build` passed. The Electron acceptance harness also passed with a loopback scripted provider, including two concurrent approvals, third-session queuing, cancellation isolation and narrow-window captures. These checks do not establish live external-provider or installed-app acceptance.
+
+Desktop and TUI now use `SessionScheduler` and `createSessionWorkspace` from the private application package. The terminal interaction is documented in the [CLI UI guide](../../docs/product/reference/CLI_UI.md#parallel-sessions-in-the-development-checkout).
+
 ## Unsigned updates (2026-09-22)
 
 Without a signing certificate, use startup background checks, explicit verified DMG downloads and manual replacement. See the [update design and U01–U04 plan](UPDATE_PLAN.md). U01–U04 local implementation and controlled acceptance are complete; see [update QA](../../evals/reports/desktop-0.3.4-preview.2/UPDATE_QA.md) for current evidence. P0–P4 historical acceptance is unchanged.

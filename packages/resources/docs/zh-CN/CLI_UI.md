@@ -2,6 +2,18 @@
 
 English · 中文目录
 
+## 开发工作区中的多会话
+
+当前源码增加了多会话终端工作台。这是尚未发布的开发行为，已发布的 0.4.0 CLI 仍使用原单会话界面。
+
+- `Ctrl+N` 或 `/new` 打开独立会话，不停止其他任务。
+- `Ctrl+P`、`/sessions` 或 `/resume` 打开活动与历史会话列表，并显示保存的工作目录。上下键选择、Enter 切换、Esc 返回。切回活动会话会恢复草稿、模型选择、输出及待处理审批，不会启动新任务。
+- 默认同时执行 2 个任务，最多额外排队 32 个，按 FIFO 调度。`FORGE_MAX_CONCURRENT_RUNS=3 forge` 可改为同时执行 3 个，有效值 1 至 16。Desktop 使用相同调度器及配置，保留 `FORGE_DESKTOP_MAX_CONCURRENT_RUNS` 为后备别名。各进程独立调度，不是跨进程统一队列；等待审批仍占用执行名额。
+- `Ctrl+C` 取消当前会话的运行或排队任务。空闲时仍需明确退出；`/exit` 会取消工作台全部任务，并等待执行及持久化结束。切换视图、在其他会话输入不会批准后台动作。
+- 新 Git 会话从 `HEAD` 创建独立 `codex/session-<uuid>` 分支和 `<FORGE_HOME>/worktrees/<uuid>` 目录，不复制未提交、忽略文件或依赖。非 Git 会话沿用目录，共享 workspace lease 拒绝同目录并发执行。端口、数据库、凭据及外部副作用仍共享。
+- 当前面板采用有上限的实时 transcript，不依赖终端 scrollback。Page Up/Page Down 查看更早/更新的条目，运行中也可使用；面板内存最多保留 1,000 个条目和 1,000,000 个文本字符，单条显示末尾 16,000 个字符。规范会话与 trace 的持久化策略不变。最多打开 50 个视图；列表内 `x` 关闭空闲视图并丢弃未发送草稿，保留历史及工作区文件。
+- 从磁盘恢复会话会创建新的审批 store；切回已打开视图，只保留该视图自身的内存 grant。运行会话之间的审批与 Codex 通知客户端相互独立。队列仅在进程内保存，重启不会重放。
+
 ## 状态
 
 本文描述已实现的 Milestone 4.6 终端体验。Ink 提供交互式 renderer；非交互命令和 Forge 自有 runtime 保持原有边界。
@@ -99,7 +111,7 @@ editing
 
 文件写入审批前必须在独立面板展示精确变更：操作和路径（create/modify/delete）、文件摘要和行数、带新旧行号的 unified diff、带 `+/-` 的新增/删除行、清晰的 file/hunk header、已知文件类型的语法高亮，以及触达安全显示限制时的截断说明。
 
-审批不能只依赖颜色；`--no-color`、无色终端和色觉差异都必须保留 `+/-`、header 和行号。超过安全审查限制的 diff 不可审批。`1` 仅允许一次，`2` 允许当前内存 session 中准确展示的 scope，`3` 打开可选拒绝 feedback；高风险 action 不提供 session 选项。`/permissions` 展示 profile、scope ID、use count 和 revoke；grant 会在 `/new`、`/resume` 和进程退出时消失。
+审批不能只依赖颜色；`--no-color`、无色终端和色觉差异都必须保留 `+/-`、header 和行号。超过安全审查限制的 diff 不可审批。`1` 仅允许一次，`2` 允许当前内存 session 中准确展示的 scope，`3` 打开可选拒绝 feedback；高风险 action 不提供 session 选项。`/permissions` 展示 profile、scope ID、use count 和 revoke；grant 属于活动会话视图；新建或从磁盘恢复的视图没有历史 grant，切回已打开视图只保留自己的 grant，关闭视图或退出进程后消失。
 
 网络工具审批使用专用面板，展示注册工具名和将发送到外部的有界 URL 或搜索词；plugin secret 和任意 input object 不渲染为预览。
 
@@ -123,5 +135,4 @@ CLI 可以把 runtime event 变成 message block、tool activity row、status in
 
 `/resources` 显示每个已发现 Skill 的来源、描述、自动或仅显式调用状态、遮蔽关系与有界诊断；它不会导入插件 entry 或提前加载 Skill 正文。`/plugins` 仍只处理可执行插件，并引导用户通过 `/resources` 查看 Skills。
 
-`/sessions`（也可用 `/resume`）打开历史会话，每页十条。左右键翻页，Ctrl+D 请求
-删除，确认默认选择取消。详见删除历史聊天。
+`/sessions`（也可用 `/resume`）展示活动及历史会话。先用 `x` 关闭空闲视图，再用 Ctrl+D 请求删除其历史会话；`y` 确认，Enter 或 Esc 取消。详见删除历史聊天。

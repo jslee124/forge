@@ -52,9 +52,26 @@ export async function runUiAcceptance(
   const js = (code: string) => window.webContents.executeJavaScript(code);
   const until = async (condition: string, timeoutMs = 10000) => {
     console.log("D12 UI wait", condition);
-    await js(
-      `new Promise((resolve, reject) => { const end = Date.now() + ${timeoutMs}; const poll = () => { if (${condition}) resolve(true); else if(Date.now() > end) reject(new Error('UI condition timed out')); else setTimeout(poll, 40); }; poll(); })`,
-    );
+    try {
+      await js(
+        `new Promise((resolve, reject) => { const end = Date.now() + ${timeoutMs}; const poll = () => { if (${condition}) resolve(true); else if(Date.now() > end) reject(new Error('UI condition timed out')); else setTimeout(poll, 40); }; poll(); })`,
+      );
+    } catch (error) {
+      await writeFile(
+        join(output, "timeout-diagnostic.json"),
+        JSON.stringify(
+          {
+            condition,
+            ui: await js(
+              "({text:document.body.innerText, badges:Array.from(document.querySelectorAll('[data-session-status]')).map(node=>({id:node.closest('[data-session-id]')?.getAttribute('data-session-id'),status:node.getAttribute('data-session-status')}))})",
+            ),
+          },
+          null,
+          2,
+        ),
+      );
+      throw error;
+    }
   };
   const click = async (selector: string) => {
     await until(
@@ -508,10 +525,10 @@ export async function runUiAcceptance(
         "(() => {const b=document.querySelector('.studio-management .studio-connection-card > button');b.focus();b.click();})()",
       );
       await until(
-        "document.querySelector('dialog[open]') && document.activeElement === document.querySelector('dialog button')",
+        "document.querySelector('dialog[open]') && document.activeElement === document.querySelector('dialog[open] button')",
       );
       await until(
-        "(() => {const r=document.querySelector('dialog').getBoundingClientRect();return Math.abs(r.left+r.width/2-innerWidth/2)<2 && Math.abs(r.top+r.height/2-innerHeight/2)<2;})()",
+        "(() => {const r=document.querySelector('dialog[open]').getBoundingClientRect();return Math.abs(r.left+r.width/2-innerWidth/2)<2 && Math.abs(r.top+r.height/2-innerHeight/2)<2;})()",
       );
       await capture(`p4-${locale}-${appearance}-confirmation`);
       // Chromium performs actual Tab traversal and modal focus containment.
@@ -526,7 +543,7 @@ export async function runUiAcceptance(
         modifiers: ["shift"],
       });
       await until(
-        "document.activeElement === document.querySelector('dialog button:last-child')",
+        "document.activeElement === document.querySelector('dialog[open] button:last-child')",
       );
       window.webContents.sendInputEvent({ type: "keyDown", keyCode: "Escape" });
       window.webContents.sendInputEvent({ type: "keyUp", keyCode: "Escape" });
@@ -588,7 +605,7 @@ export async function runUiAcceptance(
       "window.forgeDesktop.manage({type:'state'}).then(state=>state.sessionId)",
     );
     const browsingFixture = fixtures.find((entry) => entry.kind === "local");
-    if (!browsingFixture) throw new Error("Missing read-only browsing fixture");
+    if (!browsingFixture) throw new Error("Missing parallel session fixture");
     const callsBeforeBrowsing = provider.calls;
     await until(
       `document.querySelector('[data-session-id="${runningSession}"] .session-running')`,
@@ -600,23 +617,46 @@ export async function runUiAcceptance(
     );
     if (await js("Boolean(document.querySelector('.run-approval'))"))
       throw new Error("Approval leaked into the browsed conversation");
-    await enterDraft("Draft for viewed task B");
-    await js(
-      "document.querySelector('.live-composer textarea').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true}))",
-    );
-    if (provider.calls !== callsBeforeBrowsing)
-      throw new Error("Browsing started another model request");
+    await enterDraft("Parallel task B");
+    await click(".studio-composer-footer > button:last-child");
+    await until("document.querySelector('.run-approval')");
+    if (provider.calls !== callsBeforeBrowsing + 1)
+      throw new Error(
+        "B did not execute independently while A waited for approval",
+      );
+    await enterDraft("Draft for running task B");
+    await capture("product-parallel-two-approvals");
+    const queuedFixture = fixtures.find((entry) => entry.kind === "research");
+    if (!queuedFixture) throw new Error("Missing queue fixture");
+    await click(`[data-session-id="${queuedFixture.id}"]`);
     await until(
-      "document.querySelector('.run-navigation')?.textContent.includes('Pending approvals:')",
+      `document.querySelector('.live-transcript')?.getAttribute('data-view-session') === ${JSON.stringify(queuedFixture.id)} && !document.querySelector('[data-testid=composer-engine]').disabled`,
     );
-    await capture("product-browsing-during-approval");
+    await enterDraft("Queued task C");
+    await click(".studio-composer-footer > button:last-child");
+    await until(
+      `document.querySelector('[data-session-id="${queuedFixture.id}"] [data-session-status="queued"]')`,
+    );
+    if (provider.calls !== callsBeforeBrowsing + 1)
+      throw new Error("Queued C executed before capacity was available");
     window.setContentSize(840, 800);
+    await capture("product-parallel-queue-narrow");
+    await click('[data-testid="stop-active"]');
     await until(
-      "(() => {const r=document.querySelector('[data-testid=return-active]').getBoundingClientRect();return r.left>=0 && r.right<=innerWidth && r.top>=0 && r.bottom<=innerHeight;})()",
+      `document.querySelector('[data-session-id="${queuedFixture.id}"] [data-session-status="cancelled"]')`,
     );
-    await capture("product-browsing-approval-narrow");
+    if (provider.calls !== callsBeforeBrowsing + 1)
+      throw new Error("Cancelling queued C invoked the provider");
     window.setContentSize(1100, 728);
-    await click('[data-testid="return-active"]');
+    await click(`[data-session-id="${browsingFixture.id}"]`);
+    await until(
+      "document.querySelector('.run-approval') && document.querySelector('.live-composer textarea').value === 'Draft for running task B'",
+    );
+    await click('[data-testid="stop-active"]');
+    await until(
+      `document.querySelector('[data-session-id="${browsingFixture.id}"] [data-session-status="cancelled"]')`,
+    );
+    await click(`[data-session-id="${runningSession}"]`);
     await until(
       "document.querySelector('.run-approval') && document.querySelector('.run-approval-details').open && document.querySelector('.live-composer textarea').value === 'Draft for running task A'",
     );
@@ -625,7 +665,8 @@ export async function runUiAcceptance(
         "window.forgeDesktop.manage({type:'state'}).then(state=>state.sessionId)",
       )) !== runningSession
     )
-      throw new Error("Browsing changed the execution session");
+      throw new Error("Switching back did not select A");
+    await capture("product-parallel-A-restored");
     await click(".run-approval button:last-child");
     await until(
       "document.querySelector('.live-transcript')?.textContent.includes('P4 offline fixture completed after approval.') && !document.querySelector('[data-testid=composer-engine]').disabled",
@@ -1335,11 +1376,13 @@ export async function runUiAcceptance(
       );
     if (provider.calls < 4) throw new Error("offline transport not exercised");
     results.push({
-      name: "independent-browsing",
-      executionSessionUnchanged: true,
+      name: "independent-sessions",
+      twoConcurrentRuns: true,
+      thirdRunQueuedWithoutModelCall: true,
+      queuedCancellationWithoutModelCall: true,
       draftPreserved: true,
       approvalReturned: true,
-      stopFromOtherSession: true,
+      cancellationIsolated: true,
       noReadReplay: true,
       externalProvider: false,
     });

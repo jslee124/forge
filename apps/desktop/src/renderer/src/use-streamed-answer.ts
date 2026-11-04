@@ -50,6 +50,15 @@ export function useStreamedAnswer() {
     omitted.current = 0;
     setValue({ text: "", omitted: 0 });
   }, []);
+  const replace = useCallback(
+    (text: string, omittedCount = 0) => {
+      reset();
+      published.current = text;
+      omitted.current = omittedCount;
+      setValue({ text, omitted: omittedCount });
+    },
+    [reset],
+  );
   useEffect(
     () => () => {
       generation.current++;
@@ -64,5 +73,6 @@ export function useStreamedAnswer() {
     append,
     flush,
     reset,
+    replace,
   };
 }

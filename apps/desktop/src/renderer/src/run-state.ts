@@ -9,13 +9,17 @@ export interface ActivityState {
 export const initialActivity: ActivityState = { items: [], omitted: 0 };
 const MAX_ITEMS = 500;
 const MAX_TEXT = 65_536;
-type ActivityInput = { type: "reset" } | { type: "event"; event: RunEvent };
+type ActivityInput =
+  | { type: "reset" }
+  | { type: "restore"; state: ActivityState }
+  | { type: "event"; event: RunEvent };
 
 export function activityReducer(
   state: ActivityState,
   input: ActivityInput,
 ): ActivityState {
   if (input.type === "reset") return initialActivity;
+  if (input.type === "restore") return input.state;
   const { payload, sequence } = input.event;
   let items = state.items;
   if (payload.type === "detail") {

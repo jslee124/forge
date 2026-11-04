@@ -31,6 +31,11 @@ import { RunDelivery } from "./run-delivery.js";
 import { RunHistory } from "./run-history.js";
 import { RunResult } from "./run-result.js";
 import { activityReducer, initialActivity } from "./run-state.js";
+import {
+  createSessionRun,
+  reduceSessionRun,
+  type SessionRun,
+} from "./session-runs.js";
 import { SettingsView } from "./settings-view.js";
 import { SlashCommandMenu } from "./slash-command-menu.js";
 import { commands, routeCommand, suggestions } from "./slash-commands.js";
@@ -98,6 +103,22 @@ export function LiveWorkbench(): React.JSX.Element {
     requestId: string;
   }>();
   const activeRef = React.useRef(active);
+  const sessionRuns = React.useRef(new Map<string, SessionRun>());
+  const [, refreshRuns] = React.useReducer((value: number) => value + 1, 0);
+  const selectedSessionRef = React.useRef(state?.sessionId);
+  selectedSessionRef.current = state?.sessionId;
+  const sessionSelections = React.useRef(
+    new Map<
+      string,
+      {
+        engine: "native" | "codex";
+        model: string;
+        selection: ModelSelection | undefined;
+        permission: "safe" | "workspace-write";
+      }
+    >(),
+  );
+
   const [status, setStatus] = React.useState("ready");
   const {
     answer,
@@ -105,6 +126,7 @@ export function LiveWorkbench(): React.JSX.Element {
     append: appendAnswer,
     flush: flushAnswer,
     reset: resetAnswer,
+    replace: replaceAnswer,
   } = useStreamedAnswer();
   const [followRequest, setFollowRequest] = React.useState(0);
   const [prompt, setPrompt] = React.useState("");
@@ -243,11 +265,22 @@ export function LiveWorkbench(): React.JSX.Element {
     const previous = previousSelectionScope.current;
     previousSelectionScope.current = executionScope;
     if (!(previous.startsWith(":") && !executionScope.startsWith(":"))) {
-      setSelection(undefined);
-      setModel("");
-      setPermission("safe");
+      const saved = sessionSelections.current.get(state?.sessionId ?? "");
+      setSelection(saved?.selection);
+      setModel(saved?.model ?? "");
+      setPermission(saved?.permission ?? "safe");
+      if (saved) setEngine(saved.engine);
     }
-  }, [executionScope]);
+  }, [executionScope, state?.sessionId]);
+  React.useEffect(() => {
+    if (state?.sessionId)
+      sessionSelections.current.set(state.sessionId, {
+        engine,
+        model,
+        selection,
+        permission,
+      });
+  }, [state?.sessionId, engine, model, selection, permission]);
   const draft = drafts[key] ?? "";
   const [commandIndex, setCommandIndex] = React.useState(0);
   const [commandClosed, setCommandClosed] = React.useState(false);
@@ -277,7 +310,11 @@ export function LiveWorkbench(): React.JSX.Element {
 
   React.useEffect(() => {
     const guard = (event: BeforeUnloadEvent) => {
-      if (busy || Object.values(drafts).some((value) => value.trim())) {
+      if (
+        [...sessionRuns.current.values()].some((run) => run.active) ||
+        busy ||
+        Object.values(drafts).some((value) => value.trim())
+      ) {
         event.preventDefault();
         event.returnValue = "";
       }
@@ -360,6 +397,31 @@ export function LiveWorkbench(): React.JSX.Element {
         if (!disposed) setError("management-failed");
       });
     const unsubscribe = api.onRunEvent((event: RunEvent) => {
+      const stored = sessionRuns.current.get(event.sessionId);
+      if (stored) {
+        const updated = reduceSessionRun(stored, event);
+        sessionRuns.current.set(event.sessionId, updated);
+        // Completed conversations live on disk; bound their transient live projections.
+        const completed = [...sessionRuns.current.entries()].filter(
+          ([, run]) => !run.active,
+        );
+        for (const [id] of completed.slice(0, -20)) {
+          if (id !== selectedSessionRef.current) sessionRuns.current.delete(id);
+        }
+        refreshRuns();
+        if (
+          stored.active &&
+          !updated.active &&
+          event.payload.type === "complete" &&
+          event.payload.outcome !== "completed" &&
+          !stored.preserveDraft
+        )
+          setDrafts((values) =>
+            values[event.sessionId]?.trim()
+              ? values
+              : { ...values, [event.sessionId]: stored.prompt },
+          );
+      }
       const current = activeRef.current;
       if (
         !current ||
@@ -371,7 +433,10 @@ export function LiveWorkbench(): React.JSX.Element {
       const payload = event.payload;
       dispatchActivity({ type: "event", event });
       if (payload.type === "text") appendAnswer(payload.text);
-      else if (payload.type === "phase") setStatus(payload.phase);
+      else if (payload.type === "phase")
+        setStatus(
+          sessionRuns.current.get(event.sessionId)?.status ?? payload.phase,
+        );
       else if (payload.type === "approval") {
         setApprovals((values) => [...values, payload]);
         setStatus("approval");
@@ -407,7 +472,11 @@ export function LiveWorkbench(): React.JSX.Element {
           void api
             .manage({ type: "state" })
             .then((next) => {
-              if (!disposed) {
+              if (
+                !disposed &&
+                selectedSessionRef.current === current.sessionId &&
+                next.sessionId === current.sessionId
+              ) {
                 setState(next);
                 setCurrentDelivery(
                   next.runHistory?.selected?.summary.runId === current.runId
@@ -489,6 +558,10 @@ export function LiveWorkbench(): React.JSX.Element {
   const newTask = async (mode: "new" | "clear" = "new") => {
     const next = await manage({ type: "reset", mode });
     if (!next) return false;
+    activeRef.current = undefined;
+    setActive(undefined);
+    setApprovals([]);
+    submittedRef.current = undefined;
     clearBrowsing();
     setSetupIssue(undefined);
     setPrompt("");
@@ -525,7 +598,7 @@ export function LiveWorkbench(): React.JSX.Element {
     requestAnimationFrame(() => composerRef.current?.focus());
   };
   const resumeSession = async (sessionId: string) => {
-    if (activeRef.current || pending) return;
+    if (pending) return;
     savePosition();
     const position = prepareExecutionView(
       sessionId,
@@ -538,12 +611,31 @@ export function LiveWorkbench(): React.JSX.Element {
     setPanel(position.panel);
     setPanelTab(position.tab);
     setSettings(false);
-    setStatus("ready");
+    const run = sessionRuns.current.get(sessionId);
+    const identity = run?.active ? run.identity : undefined;
+    activeRef.current = identity;
+    setActive(identity);
+    submittedRef.current = run
+      ? {
+          sessionId,
+          prompt: run.prompt,
+          preserveDraft: Boolean(run.preserveDraft),
+        }
+      : undefined;
+    setStatus(run?.status ?? "ready");
     setNotice("");
-    clearActivity();
-    setPrompt("");
-    resetAnswer();
-    setApprovals([]);
+    dispatchActivity({
+      type: "restore",
+      state: run?.activity ?? initialActivity,
+    });
+    setCompletion(run?.completion);
+    setCompletionRunId(run?.completion ? run.identity.runId : undefined);
+    setCurrentDelivery(next.runHistory?.selected?.delivery);
+    setPrompt(run?.active ? run.prompt : "");
+    replaceAnswer(run?.active ? run.answer : "", run?.active ? run.omitted : 0);
+    setApprovals(run?.active ? run.approvals : []);
+    setApprovalPending(false);
+    approvalSubmitting.current = false;
   };
   const executeSlash = async (input: string) => {
     if (viewedRef.current) {
@@ -815,6 +907,10 @@ export function LiveWorkbench(): React.JSX.Element {
         runId: crypto.randomUUID(),
         requestId: crypto.randomUUID(),
       };
+      sessionRuns.current.set(
+        current.sessionId,
+        createSessionRun(identity, input, Boolean(preserveDraft)),
+      );
       activeRef.current = identity;
       submittedRef.current = {
         sessionId: current.sessionId,
@@ -872,6 +968,14 @@ export function LiveWorkbench(): React.JSX.Element {
       if (!accepted && activeRef.current === identity) {
         activeRef.current = undefined;
         setActive(undefined);
+        const failed = sessionRuns.current.get(current.sessionId);
+        if (failed)
+          sessionRuns.current.set(current.sessionId, {
+            ...failed,
+            active: false,
+            status: "failed",
+            completion: { outcome: "failed", reason: "execution_error" },
+          });
         setStatus("failed");
         setCompletion({ outcome: "failed", reason: "execution_error" });
         if (!preserveDraft)
@@ -893,6 +997,15 @@ export function LiveWorkbench(): React.JSX.Element {
             ? values
             : { ...values, [submitted.sessionId]: submitted.prompt },
         );
+      if (submitted) {
+        const failed = sessionRuns.current.get(submitted.sessionId);
+        if (failed)
+          sessionRuns.current.set(submitted.sessionId, {
+            ...failed,
+            active: false,
+            status: "failed",
+          });
+      }
       activeRef.current = undefined;
       setActive(undefined);
     } finally {
@@ -905,9 +1018,10 @@ export function LiveWorkbench(): React.JSX.Element {
     const current = active;
     setStatus("stopping");
     const rejected = () => {
-      setError("management-failed");
-      if (activeRef.current === current)
+      if (activeRef.current === current) {
+        setError("management-failed");
         setStatus(approval ? "approval" : "running");
+      }
     };
     try {
       if (
@@ -924,6 +1038,7 @@ export function LiveWorkbench(): React.JSX.Element {
   };
   const decide = async (allow: boolean) => {
     if (!active || !approval || !api || approvalSubmitting.current) return;
+    const current = active;
     const approvalId = approval.approvalId;
     approvalSubmitting.current = true;
     setApprovalPending(true);
@@ -939,13 +1054,16 @@ export function LiveWorkbench(): React.JSX.Element {
             : {}),
           allow,
         }))
-      )
-        setError("management-failed");
+      ) {
+        if (activeRef.current === current) setError("management-failed");
+      }
     } catch {
-      setError("management-failed");
+      if (activeRef.current === current) setError("management-failed");
     } finally {
-      approvalSubmitting.current = false;
-      setApprovalPending(false);
+      if (activeRef.current === current) {
+        approvalSubmitting.current = false;
+        setApprovalPending(false);
+      }
     }
   };
   return (
@@ -1017,7 +1135,7 @@ export function LiveWorkbench(): React.JSX.Element {
             className="studio-new-task"
             title={t("live.new")}
             aria-label={t("live.new")}
-            disabled={busy}
+            disabled={pending}
             onClick={() => void newTask()}
           >
             <Plus size={17} />
@@ -1064,11 +1182,8 @@ export function LiveWorkbench(): React.JSX.Element {
                       (viewLoading && session.id !== state?.sessionId)
                     }
                     onClick={() => {
-                      if (session.id === state?.sessionId) {
-                        if (activeRef.current || viewed) returnToExecution();
-                        else void resumeSession(session.id);
-                      } else if (activeRef.current || viewed)
-                        void browseSession(session.id);
+                      if (session.id === state?.sessionId && viewed)
+                        returnToExecution();
                       else void resumeSession(session.id);
                     }}
                   >
@@ -1078,9 +1193,20 @@ export function LiveWorkbench(): React.JSX.Element {
                         ? t("setup.emptyTask")
                         : session.title}
                     </span>
-                    {active?.sessionId === session.id && (
-                      <small className="session-running">
-                        {t("browsing.runningBadge")}
+                    {sessionRuns.current.get(session.id) && (
+                      <small
+                        className="session-running"
+                        data-session-status={
+                          sessionRuns.current.get(session.id)?.status
+                        }
+                      >
+                        {t(
+                          `parallel.${sessionRuns.current.get(session.id)?.status}`,
+                          {
+                            defaultValue: sessionRuns.current.get(session.id)
+                              ?.status,
+                          },
+                        )}
                       </small>
                     )}
                   </button>

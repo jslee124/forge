@@ -42,16 +42,16 @@ forge resume <session-id>
 forge resume --last
 ```
 
-交互式 `/resume` 只展示当前规范 workspace 的有界 session 列表。恢复规则如下：
+开发工作区的 `/sessions`、`/resume` 或 Ctrl+P 展示活动视图及历史会话，并标明工作目录。选择活动视图只切换显示，不停止任务；选择历史会话会在保存的工作区打开独立视图。已发布 0.4.0 CLI 仍使用原工作区内选择器。详见多会话终端说明。从磁盘恢复规则如下：
 
 当所有关联 trace 均可用时，交互式 transcript 会按照原运行使用的同一组有序 `RunEvent` 重建，恢复 reasoning summary、中间模型文本、工具 Proposed、审批决定、Completed 和 Failed 记录，而不是把供模型续聊使用的有界摘要显示成 assistant 正文。
 
 1. 恢复已完成的 user/assistant/tool 轮次，包括严格配对的 tool call 与模型实际看到的 result/failure；failed、denied、cancelled 和 limit-reached 运行恢复原始请求及有界结果摘要。
 2. 新 prompt 总是以新的 run ID 开始新的有界运行。
 3. 重新加载当前配置和 `AGENTS.md` 指令。
-4. 每次恢复都创建新的审批状态，并在加载历史前清除内存 session grant。
+4. 从磁盘恢复时创建新的审批 store，历史不会恢复内存 grant；切回已打开视图，只保留该视图自身的活动 store。
 5. 不恢复 provider continuation、部分完成的工具调用或子进程；闭合的历史工具交换会成为模型可见上下文，但只是 untrusted historical observation，新运行仍须重新检查 workspace 并重新取得审批。Tool name 与 input 保持不可变历史数据：v0.3.3 的 `create_file`/`apply_patch` exchange 仍可读取，而当前请求只广告 `edit_file`，不会让 legacy tool 可执行。
-6. 其他 workspace 的 session 会被拒绝。
+6. 直接 `forge resume` 仍拒绝其他规范 workspace 的会话，除非从该工作区启动；开发版选择器会明确打开保存的目录，并校验其规范 root。
 7. 缺失或无效 snapshot 在发起模型请求前以可操作的配置错误结束。
 8. 有效 checkpoint 恢复同一个有界 active view；过期 checkpoint 被忽略，不改变规范 transcript。
 9. 旧 snapshot 的文本总是无损迁移；只有当所有关联 run trace 均可读、完整且现有规范消息能与重建结果严格按顺序匹配时，才 all-or-nothing 补回结构化工具历史。
@@ -61,10 +61,7 @@ forge resume --last
 
 ## 删除历史聊天
 
-TUI 的 `/sessions` 和 `/resume` 打开同一个当前工作区会话选择器。
-上下键选择会话，左右键或 Page Up/Page Down 翻页，每页十条，Enter 恢复。
-仅在该选择器内，Ctrl+D 打开删除确认；默认选择“取消”，使用方向键切换到
-“删除”后按 Enter 确认，Esc 取消。
+开发版 TUI 的 `/sessions`、`/resume` 和 Ctrl+P 打开同一会话列表，上下键选择，Enter 打开。`x` 关闭空闲视图并丢弃未发送草稿，不删除历史；运行或排队视图不可关闭。会话不再打开后，Ctrl+D 请求删除历史，`y` 确认、Enter 或 Esc 取消。已发布 0.4.0 保留原十条分页选择器及方向键删除确认。
 
 Desktop 在侧栏会话的 `⋯` 菜单中提供“删除聊天”，确认窗口默认聚焦“取消”。
 删除当前聊天后进入空白会话，删除其他聊天后刷新列表。

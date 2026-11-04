@@ -57,7 +57,7 @@ export type RunPayload =
   | { readonly type: "action"; readonly action: ProductActionUpdate }
   | {
       readonly type: "phase";
-      readonly phase: "responding" | "executing" | "finalizing";
+      readonly phase: "queued" | "responding" | "executing" | "finalizing";
     }
   | {
       readonly type: "approval-resolved";
@@ -279,7 +279,7 @@ export const runPayloadSchema = z.discriminatedUnion("type", [
   z
     .object({
       type: z.literal("phase"),
-      phase: z.enum(["responding", "executing", "finalizing"]),
+      phase: z.enum(["queued", "responding", "executing", "finalizing"]),
     })
     .strict(),
   z

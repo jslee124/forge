@@ -15,7 +15,7 @@ export class RunChannel {
   >();
   readonly #listeners = new Set<(event: RunEvent) => void>();
   readonly #seen = new Set<string>();
-  #active: { request: RunCommand; sequence: number } | undefined;
+  #active = new Map<string, { request: RunCommand; sequence: number }>();
   #closed = false;
   constructor(
     send: (value: RunCommand) => void,
@@ -38,11 +38,12 @@ export class RunChannel {
     )
       return Promise.resolve(false);
     if (request.type === "start") {
-      if (this.#active) return Promise.resolve(false);
-      this.#active = { request, sequence: 0 };
+      if (this.#active.has(request.sessionId)) return Promise.resolve(false);
+      this.#active.set(request.sessionId, { request, sequence: 0 });
     } else if (
-      this.#active?.request.runId !== request.runId ||
-      this.#active.request.sessionId !== request.sessionId
+      this.#active.get(request.sessionId)?.request.runId !== request.runId ||
+      this.#active.get(request.sessionId)?.request.sessionId !==
+        request.sessionId
     )
       return Promise.resolve(false);
     this.#seen.add(request.requestId);
@@ -64,13 +65,23 @@ export class RunChannel {
       if (!pending) return;
       clearTimeout(pending.timer);
       this.#pending.delete(reply.requestId);
-      if (!reply.ok && this.#active?.request.requestId === reply.requestId)
-        this.#active = undefined;
+      if (!reply.ok) {
+        for (const [id, active] of this.#active)
+          if (active.request.requestId === reply.requestId)
+            this.#active.delete(id);
+      }
       pending.resolve(reply.ok);
       return;
     }
     const event = parseRunEvent(value);
-    const active = this.#active;
+    const candidateSession =
+      typeof value === "object" && value !== null
+        ? (value as Record<string, unknown>)["sessionId"]
+        : undefined;
+    const active =
+      typeof candidateSession === "string"
+        ? this.#active.get(candidateSession)
+        : undefined;
     if (!event && active && typeof value === "object" && value !== null) {
       const candidate = value as Record<string, unknown>;
       if (
@@ -97,7 +108,7 @@ export class RunChannel {
       return;
     }
     active.sequence = event.sequence;
-    if (event.payload.type === "complete") this.#active = undefined;
+    if (event.payload.type === "complete") this.#active.delete(event.sessionId);
     for (const listener of this.#listeners) listener(event);
   }
   #fault(): void {
@@ -108,14 +119,14 @@ export class RunChannel {
   disconnect(): void {
     if (this.#closed) return;
     this.#closed = true;
-    const active = this.#active;
-    this.#active = undefined;
+    const activeRuns = [...this.#active.values()];
+    this.#active.clear();
     for (const pending of this.#pending.values()) {
       clearTimeout(pending.timer);
       pending.resolve(false);
     }
     this.#pending.clear();
-    if (active) {
+    for (const active of activeRuns) {
       const event: RunEvent = {
         type: "run-event",
         schemaVersion: 2,

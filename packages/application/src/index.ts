@@ -25,5 +25,7 @@ export {
 export * from "./run.js";
 export * from "./run-delivery.js";
 export * from "./run-recovery.js";
+export * from "./session-scheduler.js";
 export * from "./session-view.js";
+export * from "./session-workspace.js";
 export * from "./startup-resources.js";

@@ -79,9 +79,7 @@ forge resume <session-id>
 forge resume --last
 ```
 
-The interactive `/sessions` command (also available as `/resume`) opens a paged list of saved sessions for
-the current canonical workspace. Selecting one replaces the empty/current
-conversation with its canonical history and continues in that saved session.
+In the development checkout, `/sessions` (also `/resume` or Ctrl+P) lists open views and saved sessions with their working directories. Selecting an open view switches to it without stopping its task. Selecting saved history opens an independent view in the saved workspace with canonical history. Published 0.4.0 CLI builds retain the earlier workspace-only picker. See parallel terminal sessions.
 When every referenced trace is available, the interactive transcript is rebuilt
 from the same ordered `RunEvent` stream used during the original run. This
 restores reasoning summaries, intermediate model text, tool proposals,
@@ -96,8 +94,7 @@ Resume follows these rules:
    tool-outcome suffix as well.
 2. A new prompt always starts a new bounded run with a new run ID.
 3. Current configuration and `AGENTS.md` instructions are loaded again.
-4. Approval state is new for every resumed run; memory-only session grants are
-   cleared before the saved conversation is loaded.
+4. Disk resume creates a fresh approval store; saved history never restores memory grants. Switching to an already-open live view retains that view's own live store.
 5. Provider continuation records and partially completed tool calls are never
    resumed. Closed historical tool exchanges are model-visible context, but
    remain untrusted historical observations: the next run must re-inspect the
@@ -105,8 +102,7 @@ Resume follows these rules:
    Tool names and inputs remain immutable historical data: v0.3.3
    `create_file`/`apply_patch` exchanges stay readable, while current requests
    advertise only `edit_file` and never make legacy tools executable.
-6. A saved session from another workspace is rejected unless the user starts
-   from that workspace explicitly.
+6. Direct `forge resume` still rejects a different canonical workspace unless launched there explicitly. The development picker explicitly opens the saved directory and validates its canonical root.
 7. Missing or invalid session files produce an actionable configuration-style
    error without starting a model request.
 8. A valid checkpoint restores the same bounded active view; a stale or invalid
@@ -129,11 +125,7 @@ summary and renders the streamed summary notifications.
 
 ## Delete a saved conversation
 
-In the TUI, `/sessions` and `/resume` open the same workspace session picker.
-Use Up/Down to select a conversation, Left/Right or Page Up/Page Down to move
-between pages of ten, and Enter to resume. Ctrl+D opens deletion confirmation
-only inside this picker. Cancel is selected by default; use the arrow keys to
-select Delete and Enter to confirm, or Esc to cancel.
+In the development TUI, `/sessions`, `/resume`, and Ctrl+P open the session list. Use Up/Down and Enter to choose a view or saved conversation. `x` closes an idle view (discarding its unsent draft) without deleting saved data. Active or queued views cannot be closed. Once a conversation is no longer open, Ctrl+D requests deletion; `y` confirms, while Enter or Escape cancels. Published 0.4.0 builds retain the preceding paged picker and arrow-key confirmation.
 
 In Desktop, open a saved task's `⋯` menu in the sidebar and choose **Delete chat**.
 The confirmation defaults to Cancel. Deleting the current conversation returns

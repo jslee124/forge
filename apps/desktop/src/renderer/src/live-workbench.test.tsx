@@ -462,55 +462,43 @@ describe("reviewed recovery", () => {
   });
 });
 
-describe("separate execution and conversation browsing", () => {
-  let execution: DesktopState;
-  let delayed: ((value: DesktopState) => void) | undefined;
-  function snapshot(sessionId: string): DesktopState {
-    return {
-      ...execution,
-      browsedSession: {
-        sessionId,
-        cwd: `/tmp/${sessionId}`,
-        title: sessionId,
-        messages: [
-          {
-            id: "saved-message",
-            role: "assistant",
-            kind: "answer",
-            content: `saved ${sessionId} content`,
-          },
-        ],
-        runHistory: { runs: [] },
-        truncated: false,
-      },
-    };
-  }
+describe("parallel session navigation", () => {
+  let selected: DesktopState;
+  let saved: Map<string, DesktopState>;
   beforeEach(async () => {
-    execution = {
-      ...state,
-      sessions: [
-        { id: state.sessionId, title: "task A", cwd: state.cwd },
-        { id: "task-B", title: "task B", cwd: "/tmp/task-B" },
-        { id: "task-C", title: "task C", cwd: "/tmp/task-C" },
-      ],
-    };
-    delayed = undefined;
+    const sessions = [
+      { id: state.sessionId, title: "task A", cwd: state.cwd },
+      { id: "task-B", title: "task B", cwd: "/tmp/task-B" },
+    ];
+    saved = new Map(
+      sessions.map((session) => [
+        session.id,
+        {
+          ...state,
+          sessions,
+          sessionId: session.id,
+          cwd: session.cwd,
+          messages:
+            session.id === "task-B"
+              ? [
+                  {
+                    id: "saved",
+                    role: "assistant" as const,
+                    content: "saved task-B content",
+                  },
+                ]
+              : [],
+        },
+      ]),
+    );
+    selected = saved.get(state.sessionId) as DesktopState;
     vi.mocked(window.forgeDesktop.manage).mockImplementation(
       async (command) => {
-        if (command.type === "browse-session") {
-          if (command.sessionId === "task-C")
-            return await new Promise<DesktopState>((resolve) => {
-              delayed = resolve;
-            });
-          return snapshot(command.sessionId);
-        }
         if (command.type === "resume")
-          execution = {
-            ...execution,
-            sessionId: command.sessionId,
-            cwd: `/tmp/${command.sessionId}`,
-          };
-        return execution;
+          selected = saved.get(command.sessionId) as DesktopState;
+        if (command.type === "reset")
+          selected = { ...state, sessionId: "", sessions };
+        return selected;
       },
     );
     await act(async () => {
@@ -524,7 +512,7 @@ describe("separate execution and conversation browsing", () => {
     if (!button || button.disabled) throw new Error(`Unavailable ${selector}`);
     await act(async () => button.click());
   }
-  it("isolates messages and drafts, preserves scroll/disclosures and binds approvals to A", async () => {
+  it("runs B while A streams and restores A's draft, output, disclosures and approvals", async () => {
     await draft("A prompt");
     await key();
     await draft("A next draft");
@@ -534,33 +522,33 @@ describe("separate execution and conversation browsing", () => {
     const disclosure = container.querySelector<HTMLDetailsElement>(
       ".run-activity-disclosure",
     );
-    if (!transcript || !disclosure) throw new Error("Missing active view");
+    if (!transcript || !disclosure) throw new Error("Missing A view");
     transcript.scrollTop = 123;
     disclosure.open = true;
     await click('[data-session-id="task-B"]');
-    expect(composer().value).toBe("");
     expect(container.querySelector(".live-transcript")?.textContent).toContain(
       "saved task-B content",
     );
     expect(
       container.querySelector(".live-transcript")?.textContent,
     ).not.toContain("live only A");
-    await draft("B draft");
+    await draft("B prompt");
     await key();
+    await draft("B next draft");
     expect(
       runCommand.mock.calls.filter(([command]) => command.type === "start"),
-    ).toHaveLength(1);
-    composer().focus();
+    ).toHaveLength(2);
     await deliver(
       { type: "approval", approvalId: "pending-A", description: "A command" },
       3,
     );
-    expect(document.activeElement).toBe(composer());
     expect(container.querySelector(".run-approval")).toBeNull();
-    expect(container.querySelector(".run-navigation")?.textContent).toContain(
-      "1 项审批",
-    );
-    await click('[data-testid="return-active"]');
+    expect(
+      container.querySelector(
+        '[data-session-id="test-session"] [data-session-status="approval"]',
+      ),
+    ).not.toBeNull();
+    await click('[data-session-id="test-session"]');
     expect(composer().value).toBe("A next draft");
     expect(container.querySelector(".live-transcript")?.textContent).toContain(
       "live only A",
@@ -571,111 +559,126 @@ describe("separate execution and conversation browsing", () => {
         ?.open,
     ).toBe(true);
     await click(".run-approval-allow");
-    const start = runCommand.mock.calls[0]?.[0];
     expect(runCommand).toHaveBeenLastCalledWith(
       expect.objectContaining({
         type: "approve",
         sessionId: state.sessionId,
-        runId: start?.runId,
         approvalId: "pending-A",
       }),
     );
     await click('[data-session-id="task-B"]');
-    expect(composer().value).toBe("B draft");
+    expect(composer().value).toBe("B next draft");
+    expect(
+      container.querySelector(".live-transcript")?.textContent,
+    ).not.toContain("live only A");
   });
-  it("stops A from B and keeps B selected when A completes; continuation is explicit", async () => {
+  it("cancels A without changing B's active identity or draft", async () => {
     await draft("A prompt");
     await key();
     await click('[data-session-id="task-B"]');
-    await draft("B future request");
+    await draft("B prompt");
+    await key();
+    await draft("B draft");
+    await click('[data-session-id="test-session"]');
     await click('[data-testid="stop-active"]');
     expect(runCommand).toHaveBeenLastCalledWith(
       expect.objectContaining({ type: "cancel", sessionId: state.sessionId }),
     );
-    await deliver({ type: "complete", outcome: "cancelled" }, 2);
-    expect(
-      container
-        .querySelector(".live-transcript")
-        ?.getAttribute("data-view-session"),
-    ).toBe("task-B");
-    expect(composer().value).toBe("B future request");
-    expect(
-      container.querySelector('[data-testid="resume-viewed"]'),
-    ).not.toBeNull();
-    await key();
-    expect(
-      runCommand.mock.calls.filter(([command]) => command.type === "start"),
-    ).toHaveLength(1);
-    await click('[data-testid="resume-viewed"]');
-    expect(composer().value).toBe("B future request");
-    await key();
-    expect(
-      runCommand.mock.calls.filter(
-        ([command]) => command.type === "start",
-      )[1]?.[0],
-    ).toMatchObject({ sessionId: "task-B", prompt: "B future request" });
-  });
-  it("ignores a late snapshot after returning to the execution view", async () => {
-    await draft("A prompt");
-    await key();
-    await deliver({ type: "text", text: "A stream" });
     await click('[data-session-id="task-B"]');
-    await click('[data-session-id="task-C"]');
-    expect(delayed).toBeTypeOf("function");
-    await click('[data-testid="return-active"]');
-    await act(async () => delayed?.(snapshot("task-C")));
+    await deliver({ type: "complete", outcome: "cancelled" }, 2);
+    expect(composer().value).toBe("B draft");
     expect(
-      container
-        .querySelector(".live-transcript")
-        ?.getAttribute("data-view-session"),
-    ).toBe(state.sessionId);
+      container.querySelector('[data-testid="stop-active"]'),
+    ).not.toBeNull();
     expect(container.querySelector(".live-transcript")?.textContent).toContain(
-      "A stream",
+      "B prompt",
     );
   });
-  it("keeps B visible after successful A completion and shows A's refreshed answer on return", async () => {
+  it("keeps B selected when A completes and loads A's saved answer on return", async () => {
     await draft("A prompt");
     await key();
     await click('[data-session-id="task-B"]');
     await draft("B stays here");
-    execution = {
-      ...execution,
+    const a = saved.get(state.sessionId) as DesktopState;
+    saved.set(state.sessionId, {
+      ...a,
       messages: [
-        {
-          id: "final-A",
-          role: "assistant",
-          kind: "answer",
-          content: "completed A answer",
-        },
+        { id: "final-A", role: "assistant", content: "completed A answer" },
       ],
-    };
+    });
     await deliver({ type: "complete", outcome: "completed" }, 2);
     expect(container.querySelector(".live-transcript")?.textContent).toContain(
       "saved task-B content",
     );
-    expect(
-      container.querySelector(".live-transcript")?.textContent,
-    ).not.toContain("completed A answer");
     expect(composer().value).toBe("B stays here");
-    await click('[data-testid="return-active"]');
+    await click('[data-session-id="test-session"]');
     expect(container.querySelector(".live-transcript")?.textContent).toContain(
       "completed A answer",
     );
   });
-  it("can abandon the first pending snapshot without waiting for disk navigation", async () => {
+  it("allows a new task while A continues and restores A on selection", async () => {
     await draft("A prompt");
     await key();
-    await click('[data-session-id="task-C"]');
-    await click('[data-testid="return-active"]');
-    await act(async () => delayed?.(snapshot("task-C")));
+    await click(".studio-new-task");
+    expect(composer().value).toBe("");
+    expect(container.querySelector('[data-testid="stop-active"]')).toBeNull();
+    await deliver({ type: "text", text: "background A" });
+    await click('[data-session-id="test-session"]');
+    expect(container.querySelector(".live-transcript")?.textContent).toContain(
+      "background A",
+    );
     expect(
-      container
-        .querySelector(".live-transcript")
-        ?.getAttribute("data-view-session"),
-    ).toBe(state.sessionId);
+      container.querySelector('[data-testid="stop-active"]'),
+    ).not.toBeNull();
+  });
+  it("retains independent engine and permission selections for each session", async () => {
+    const select = async (selector: string, value: string) => {
+      const control = container.querySelector<HTMLSelectElement>(selector);
+      if (!control) throw new Error(`Missing ${selector}`);
+      await act(async () => {
+        control.value = value;
+        control.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+    };
+    await select('[data-testid="composer-engine"]', "codex");
+    await select(".studio-permission select", "workspace-write");
+    await click('[data-session-id="task-B"]');
+    await select('[data-testid="composer-engine"]', "native");
+    await select(".studio-permission select", "safe");
+    await click('[data-session-id="test-session"]');
     expect(
-      runCommand.mock.calls.filter(([command]) => command.type === "start"),
-    ).toHaveLength(1);
+      container.querySelector<HTMLSelectElement>(
+        '[data-testid="composer-engine"]',
+      )?.value,
+    ).toBe("codex");
+    expect(
+      container.querySelector<HTMLSelectElement>(".studio-permission select")
+        ?.value,
+    ).toBe("workspace-write");
+    await click('[data-session-id="task-B"]');
+    expect(
+      container.querySelector<HTMLSelectElement>(
+        '[data-testid="composer-engine"]',
+      )?.value,
+    ).toBe("native");
+    expect(
+      container.querySelector<HTMLSelectElement>(".studio-permission select")
+        ?.value,
+    ).toBe("safe");
+  });
+  it("shows queued status and cancels the selected queued run", async () => {
+    await draft("A prompt");
+    await key();
+    await deliver({ type: "phase", phase: "queued" });
+    expect(
+      container.querySelector('[data-session-status="queued"]')?.textContent,
+    ).toBe("排队中");
+    await click('[data-session-id="task-B"]');
+    await click('[data-session-id="test-session"]');
+    await click('[data-testid="stop-active"]');
+    expect(runCommand).toHaveBeenLastCalledWith(
+      expect.objectContaining({ type: "cancel", sessionId: state.sessionId }),
+    );
   });
 });
 

@@ -22,6 +22,9 @@ compaction remains an explicit user opt-in. See the
 
 ## Current development
 
+- Multi-session development: Desktop and TUI share a process-local scheduler and Git worktree creation. The terminal workbench adds live/saved session switching, independent approvals, FIFO waiting and cancellation. See [terminal behavior and limits](../product/reference/CLI_UI.md#parallel-sessions-in-the-development-checkout). Published builds and cross-platform/live-provider acceptance remain separate.
+
+
 - Desktop productization: [PRD](DESKTOP_PRODUCT_PRD.md) and
   [implementation plan](DESKTOP_PRODUCT_IMPLEMENTATION.md) define the proposed
   M0–M4 work for bounded local development tasks, structured run/approval events,

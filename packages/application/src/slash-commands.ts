@@ -90,8 +90,8 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
   },
   {
     name: "/sessions",
-    description: "Browse, resume or delete saved workspace sessions",
-    descriptionZh: "浏览、恢复或删除历史任务",
+    description: "Switch open sessions, resume or delete saved conversations",
+    descriptionZh: "切换会话、恢复或删除历史任务",
   },
   {
     name: "/resume",

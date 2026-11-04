@@ -4,6 +4,22 @@
 
 [English](WORKBENCH_DEVELOPMENT_PLAN.md) · [视觉与交互规范](WORKBENCH_UX_PLAN.zh-CN.md) · [模型与工作台改进方案](DESKTOP_REFINEMENT_PLAN.zh-CN.md) · [实际界面验收](design-qa.md)
 
+## 多会话并行（2026-11-03，开发工作区）
+
+桌面工作台支持独立会话并行：默认同时执行 2 个任务，其余按 FIFO 排队，最多额外排队 32 个会话。启动 Desktop 前可设置 `FORGE_MAX_CONCURRENT_RUNS`（保留原 `FORGE_DESKTOP_MAX_CONCURRENT_RUNS` 为后备别名），有效值为 1 至 16 的整数。同一会话最多拥有一个运行中或排队中的任务。等待审批仍占用并发名额。
+
+切换会话或新建任务不会停止其他任务。每个会话分别保留草稿、临时模型/推理强度/权限选择、有长度上限的流式输出、活动及待处理审批。侧栏显示运行、排队、等待审批与终态；停止和审批只针对当前选择的会话及运行。退出应用会取消执行并丢弃进程内队列；排队请求不是持久任务，重启后不会自动重放。
+
+在 Git 工作区创建任务时，Desktop 从当前 `HEAD` 创建 `codex/session-<uuid>` 分支，并在 `<FORGE_HOME>/worktrees/<uuid>` 创建关联 worktree。不会复制未提交或忽略的文件；依赖及被忽略的项目配置需要单独准备。旧会话保留原目录，非 Git 任务沿用所选目录；共享 workspace lease 仍拒绝同目录并发执行。worktree 不隔离端口、数据库、环境凭证或外部副作用。合入前应检查任务分支/worktree 中的修改。删除会话保留 worktree 与分支，避免丢失代码；清理与合并仍通过明确的 Git 操作完成。
+
+Agent 为各会话持有独立 application 实例，并通过有上限的调度器运行任务。主进程通信按会话分别校验身份与事件序号。界面保存有上限的后台运行投影，切换时恢复当前会话，审批权限不会转移。只要存在运行或排队任务，全局凭证与配置修改仍不可用。
+
+验证覆盖真实 channel/scheduler、队列上限与顺序、跨会话审批/取消隔离、后台完成、界面草稿/输出恢复、真实 Git worktree 创建，以及受控模型 adapter 下的会话持久化。这是本地开发行为，不代表已发布 Preview 2 安装包具备该功能；真实提供商、安装后应用及跨平台验收仍需分别完成。
+
+2026-11-03 本地验证：215 项桌面测试通过（6 项可选真实服务测试跳过），223 项跨层确定性测试通过，`pnpm check`、`pnpm check:docs` 与 `pnpm desktop:build` 通过。Electron 验收脚本通过回环模拟服务验证了双会话同时审批、第三会话排队、取消隔离及窄窗口截图；这些检查不等于真实外部提供商或安装后应用验收。
+
+Desktop 与 TUI 已共用私有 application 包内的 `SessionScheduler` 和 `createSessionWorkspace`；终端交互详见 [CLI UI 指南](../../docs/zh-CN/product/reference/CLI_UI.md#开发工作区中的多会话)。
+
 ## 未签名版本更新（2026-09-22）
 
 用户没有签名证书，采用启动后台检查、主动下载并校验 DMG、手动替换的方案。详见[更新设计与 U01—U04 开发计划](UPDATE_PLAN.zh-CN.md)。U01—U04 已完成本地实现与受控验收，当前证据见[更新 QA](../../evals/reports/desktop-0.3.4-preview.2/UPDATE_QA.zh-CN.md)；不改变 P0—P4 的历史验收。

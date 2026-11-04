@@ -1,6 +1,7 @@
-import type {
-  ProductActionUpdate,
-  ProductRunCompletion,
+import {
+  type ProductActionUpdate,
+  type ProductRunCompletion,
+  SessionScheduler,
 } from "@forge/application";
 import {
   type ApprovalView,
@@ -35,7 +36,7 @@ export type RunExecutor = ((
 };
 
 /** One execution at a time. No retries, persisted authority, or effect replay. */
-export class RunService {
+class SingleRunService {
   readonly #send: (value: RunEvent | RunReply) => void;
   readonly #execute: RunExecutor | undefined;
   readonly #seen = new Set<string>();
@@ -283,6 +284,9 @@ export class RunService {
       reply(true);
     }
   }
+  settled(): Promise<void> {
+    return this.#execution;
+  }
   async drain(): Promise<void> {
     this.close();
     await this.#execution;
@@ -301,5 +305,139 @@ export class RunService {
     for (const approval of this.#active?.approvals.values() ?? [])
       approval.resolve(false);
     this.#active?.approvals.clear();
+  }
+}
+
+/** Transport and replay protection wrap the shared process-local session scheduler. */
+export class RunService {
+  readonly #scheduler: SessionScheduler;
+  readonly #runs = new Map<
+    string,
+    {
+      request: Extract<RunCommand, { type: "start" }>;
+      worker?: SingleRunService;
+      acknowledged: boolean;
+    }
+  >();
+  readonly #seen = new Set<string>();
+  #closed = false;
+  constructor(
+    readonly send: (value: RunEvent | RunReply) => void,
+    readonly execute?: RunExecutor,
+    options: { maxConcurrent?: number } = {},
+  ) {
+    this.#scheduler = new SessionScheduler(options);
+  }
+  handle(value: unknown): void {
+    const request = parseRunCommand(value);
+    if (!request) return;
+    const reply = (ok: boolean) =>
+      this.send({ type: "run-reply", requestId: request.requestId, ok });
+    if (
+      this.#closed ||
+      this.#seen.has(request.requestId) ||
+      this.#seen.size >= 100_000
+    ) {
+      reply(false);
+      return;
+    }
+    this.#seen.add(request.requestId);
+    const existing = this.#runs.get(request.sessionId);
+    if (request.type !== "start") {
+      if (!existing || existing.request.runId !== request.runId) {
+        reply(false);
+        return;
+      }
+      if (existing.worker) existing.worker.handle(request);
+      else if (request.type === "cancel")
+        reply(this.#scheduler.cancel(request.sessionId, request.runId));
+      else reply(false);
+      return;
+    }
+    if (!this.execute || existing || this.#seen.has(`run:${request.runId}`)) {
+      reply(false);
+      return;
+    }
+    this.#seen.add(`run:${request.runId}`);
+    const entry: {
+      request: typeof request;
+      worker?: SingleRunService;
+      acknowledged: boolean;
+    } = { request, acknowledged: false };
+    this.#runs.set(request.sessionId, entry);
+    const emit = (sequence: number, payload: RunPayload) =>
+      this.send({
+        type: "run-event",
+        schemaVersion: 2,
+        occurredAt: new Date().toISOString(),
+        requestId: request.requestId,
+        sessionId: request.sessionId,
+        runId: request.runId,
+        sequence,
+        payload,
+      });
+    void this.#scheduler
+      .submit({
+        sessionId: request.sessionId,
+        runId: request.runId,
+        onState: (state) => {
+          if (state === "queued") {
+            entry.acknowledged = true;
+            reply(true);
+            emit(1, { type: "phase", phase: "queued" });
+          }
+        },
+        execute: async (signal) => {
+          const offset = entry.acknowledged ? 1 : 0;
+          const worker = new SingleRunService((message) => {
+            if (
+              message.type === "run-reply" &&
+              message.requestId === request.requestId &&
+              entry.acknowledged
+            )
+              return;
+            this.send(
+              message.type === "run-event"
+                ? { ...message, sequence: message.sequence + offset }
+                : message,
+            );
+          }, this.execute);
+          entry.worker = worker;
+          const abort = () => worker.close();
+          signal.addEventListener("abort", abort, { once: true });
+          try {
+            worker.handle(request);
+            await worker.settled();
+          } finally {
+            signal.removeEventListener("abort", abort);
+            worker.close();
+          }
+        },
+      })
+      .catch(() => {
+        if (this.#closed) return;
+        if (entry.acknowledged)
+          emit(2, {
+            type: "complete",
+            outcome: "cancelled",
+            reason: "cancelled",
+          });
+        else reply(false);
+      })
+      .finally(() => this.#runs.delete(request.sessionId));
+  }
+  get busy(): boolean {
+    return this.#scheduler.busy;
+  }
+  hasSession(sessionId: string): boolean {
+    return this.#scheduler.hasSession(sessionId);
+  }
+  close(): void {
+    this.#closed = true;
+    this.#scheduler.close();
+  }
+  async drain(): Promise<void> {
+    this.close();
+    await this.#scheduler.drain();
   }
 }

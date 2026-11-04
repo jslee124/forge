@@ -6,6 +6,20 @@ export type Locale = "en" | "zh-CN";
 export const resources = {
   en: {
     translation: {
+      parallel: {
+        queued: "Queued",
+        running: "Running",
+        responding: "Responding",
+        executing: "Executing",
+        finalizing: "Finalizing",
+        approval: "Needs approval",
+        completed: "Completed",
+        failed: "Failed",
+        cancelled: "Cancelled",
+        denied: "Denied",
+        limit_reached: "Limit reached",
+        interrupted: "Interrupted",
+      },
       setup: {
         title: "Set up your model before sending",
         missing_credentials:
@@ -249,6 +263,7 @@ export const resources = {
           allowed: "Allowed once",
         },
         phases: {
+          queued: "Waiting for an execution slot",
           running: "Preparing request",
           finalizing: "Summarizing available evidence",
           responding: "Waiting for the model",
@@ -600,6 +615,20 @@ export const resources = {
   },
   "zh-CN": {
     translation: {
+      parallel: {
+        queued: "排队中",
+        running: "运行中",
+        responding: "回复中",
+        executing: "执行中",
+        finalizing: "整理结果",
+        approval: "等待审批",
+        completed: "已完成",
+        failed: "失败",
+        cancelled: "已取消",
+        denied: "已拒绝",
+        limit_reached: "已达上限",
+        interrupted: "已中断",
+      },
       setup: {
         title: "请先完成模型配置",
         missing_credentials:
@@ -820,6 +849,7 @@ export const resources = {
           allowed: "已允许一次",
         },
         phases: {
+          queued: "等待执行名额",
           running: "准备请求",
           finalizing: "正在基于已有信息总结",
           responding: "等待模型响应",

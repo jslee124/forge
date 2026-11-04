@@ -366,3 +366,142 @@ it("keeps the live channel connected for unknown command effects and accepts can
   expect(events.at(-1)?.payload).toMatchObject({ outcome: "cancelled" });
   channel.disconnect();
 });
+
+describe("parallel scheduling through the real channel", () => {
+  it("runs two sessions, queues FIFO, isolates decisions and cancellation, and drains", async () => {
+    const events: RunEvent[] = [];
+    const entered: string[] = [];
+    const decisions = new Map<string, boolean>();
+    const channel = new RunChannel((command) => service.handle(command));
+    const service = new RunService(
+      (event) => channel.receive(event),
+      async (request, context) => {
+        entered.push(request.sessionId);
+        const allowed = await context.approve(`Write ${request.sessionId}`);
+        decisions.set(request.sessionId, allowed);
+        if (allowed) context.text(request.sessionId);
+      },
+    );
+    channel.subscribe((event) => events.push(event));
+    const starts = [1, 2, 3, 4].map((n) => ({
+      ...start,
+      requestId: `request-${n}`,
+      sessionId: `session-${n}`,
+      runId: `run-${n}`,
+    }));
+    for (const request of starts)
+      expect(await channel.request(request)).toBe(true);
+    await flush();
+    expect(entered).toEqual(["session-1", "session-2"]);
+    expect(
+      events
+        .filter((event) => event.payload.type === "phase")
+        .map((event) => event.sessionId),
+    ).toEqual(["session-3", "session-4"]);
+    expect(
+      await channel.request({
+        ...starts[2],
+        type: "cancel",
+        requestId: "wrong-cancel",
+        runId: "run-1",
+      }),
+    ).toBe(false);
+    expect(
+      await channel.request({
+        ...starts[2],
+        requestId: "duplicate-session",
+        runId: "another-run",
+      }),
+    ).toBe(false);
+    expect(
+      await channel.request({
+        type: "approve",
+        requestId: "allow-two",
+        sessionId: "session-2",
+        runId: "run-2",
+        approvalId: "approval-1",
+        allow: true,
+      }),
+    ).toBe(true);
+    await flush();
+    expect(entered).toEqual(["session-1", "session-2", "session-3"]);
+    expect(decisions.get("session-2")).toBe(true);
+    expect(decisions.has("session-1")).toBe(false);
+    expect(
+      await channel.request({
+        type: "cancel",
+        requestId: "cancel-four",
+        sessionId: "session-4",
+        runId: "run-4",
+      }),
+    ).toBe(true);
+    expect(entered).not.toContain("session-4");
+    expect(
+      events
+        .filter((event) => event.sessionId === "session-4")
+        .map((event) => event.sequence),
+    ).toEqual([1, 2]);
+    channel.disconnect();
+    expect(
+      events
+        .filter(
+          (event) =>
+            event.payload.type === "complete" &&
+            event.payload.outcome === "interrupted",
+        )
+        .map((event) => event.sessionId)
+        .sort(),
+    ).toEqual(["session-1", "session-3"]);
+    await service.drain();
+    expect(service.busy).toBe(false);
+    expect(decisions.get("session-1")).toBe(false);
+    expect(decisions.get("session-3")).toBe(false);
+  });
+
+  it("keeps queued run sequences contiguous and bounds admission", async () => {
+    const events: RunEvent[] = [];
+    let release: (() => void) | undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const channel = new RunChannel((command) => service.handle(command));
+    const service = new RunService(
+      (event) => channel.receive(event),
+      async (request) => {
+        if (request.sessionId === "session1") await gate;
+      },
+      { maxConcurrent: 1 },
+    );
+    channel.subscribe((event) => events.push(event));
+    expect(await channel.request(start)).toBe(true);
+    for (let n = 0; n < 32; n++)
+      expect(
+        await channel.request({
+          ...start,
+          sessionId: `queued-${n}`,
+          runId: `run-${n}`,
+          requestId: `request-${n}`,
+        }),
+      ).toBe(true);
+    expect(
+      await channel.request({
+        ...start,
+        sessionId: "overflow",
+        runId: "overflow",
+        requestId: "overflow",
+      }),
+    ).toBe(false);
+    release?.();
+    await flush();
+    await flush();
+    expect(
+      events
+        .filter((event) => event.sessionId === "queued-0")
+        .map((event) => event.sequence),
+    ).toEqual([1, 2]);
+    expect(
+      events.filter((event) => event.payload.type === "complete"),
+    ).toHaveLength(33);
+    await service.drain();
+  });
+});

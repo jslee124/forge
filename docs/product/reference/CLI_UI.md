@@ -8,6 +8,18 @@ This document defines the implemented Milestone 4.6 terminal experience. Ink
 now provides the interactive renderer while the non-interactive commands and
 Forge-owned runtime retain their existing boundaries.
 
+## Parallel sessions in the development checkout
+
+The current source adds a multi-session terminal workbench. This is unreleased development behavior; published 0.4.0 CLI builds retain the earlier single-session UI.
+
+- `Ctrl+N` or `/new` opens an independent session without stopping other runs.
+- `Ctrl+P`, `/sessions`, or `/resume` opens the live/saved session list, including each saved working directory. Use Up/Down and Enter to switch; Escape returns. Switching to a live session restores its draft, model selection, output and pending approval without starting another run.
+- By default, two tasks run concurrently and up to 32 more wait FIFO. Set `FORGE_MAX_CONCURRENT_RUNS=3 forge` to allow three; valid values are 1–16. Desktop uses the same scheduler and setting; `FORGE_DESKTOP_MAX_CONCURRENT_RUNS` remains a fallback alias. Each process has its own scheduler, not a cross-process queue. An approval holds its execution slot.
+- `Ctrl+C` cancels the selected active/queued task. The existing deliberate idle-exit behavior remains; `/exit` cancels all workbench tasks and waits for their execution/persistence to settle. Switching views and keyboard input never approve a background action.
+- New Git sessions use separate `codex/session-<uuid>` branches and `<FORGE_HOME>/worktrees/<uuid>` directories from `HEAD`. Uncommitted/ignored files and dependencies are not copied. Non-Git sessions retain their directory and the shared workspace lease rejects concurrent execution there. Ports, databases, credentials and external effects remain shared.
+- The selected panel renders a bounded live transcript, independently of terminal scrollback. Page Up/Page Down navigates older/newer transcript entries, including while a task runs; the in-memory panel retains at most 1,000 entries and 1,000,000 text characters, and a rendered entry shows its last 16,000 characters. Canonical conversation and trace retention are unchanged. At most 50 views may be open; `x` in the list closes an idle view and discards its unsent draft, retaining saved history and workspace files.
+- Opening saved history creates a fresh approval store; returning to an already-open view retains only that view's live memory grants. Approvals and Codex notification clients are independent across running sessions. Queue state is process-local and is not replayed after restart.
+
 ## Goals
 
 The interactive CLI should make common coding-agent actions discoverable
@@ -238,7 +250,7 @@ The approval controls are visible next to the diff and describe their scope.
 for the current in-memory session, and `3` opens an optional denial-feedback
 field. High-risk actions omit the session option. `/permissions` shows the
 effective profile, active scope identifiers, use counts, and revoke controls;
-grants disappear on `/new`, `/resume`, and process exit.
+grants belong to the live session view. New or disk-resumed views start without grants; switching back to an open view retains its own grants. Closing that view or exiting the process discards them.
 
 Process-command approval uses the same dedicated panel. It renders a
 shell-readable `$ command` line followed by clearly labelled working-directory
@@ -304,6 +316,4 @@ the supported key sequences in representative terminals.
 
 `/resources` shows every discovered Skill's source, description, automatic or explicit-only status, shadowing, and bounded diagnostics. It does not import plugin entries or eagerly load Skill bodies. `/plugins` remains limited to executable plugins and points users to `/resources` for Skills.
 
-`/sessions` (alias `/resume`) opens saved conversations with ten entries per
-page. Use Left/Right to change pages and Ctrl+D to request deletion; confirmation
-defaults to Cancel. See [session deletion](SESSIONS.md#delete-a-saved-conversation).
+`/sessions` (alias `/resume`) lists open and saved conversations. Close an idle view with `x` before requesting deletion of its saved conversation with Ctrl+D. Press `y` to confirm deletion; Enter or Escape cancels. See [session deletion](SESSIONS.md#delete-a-saved-conversation).

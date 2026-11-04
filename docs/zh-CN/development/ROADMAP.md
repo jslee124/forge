@@ -18,6 +18,9 @@
 
 ## 当前开发
 
+- 多会话开发：Desktop 与 TUI 共用进程内调度器及 Git worktree 创建逻辑；终端工作台增加活动/历史会话切换、独立审批、FIFO 排队与取消。详见[终端行为及边界](../product/reference/CLI_UI.md#开发工作区中的多会话)。已发布构建、跨平台及真实提供商验收仍分别判断。
+
+
 桌面端下一步以[当前剩余工作表](DESKTOP_PRODUCT_IMPLEMENTATION.md#当前剩余工作2026-10-27)为入口，区分实现、真实模型、安装与发布门槛。
 
 - Desktop 产品化：[PRD](DESKTOP_PRODUCT_PRD.md)与[实现方案](DESKTOP_PRODUCT_IMPLEMENTATION.md)
