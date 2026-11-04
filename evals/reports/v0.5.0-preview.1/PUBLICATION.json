@@ -1,0 +1,60 @@
+{
+  "version": "0.5.0-preview.1",
+  "source": "3b6c3b5252a65861a63f074c0fe3c35ef824f60f",
+  "completedVerificationAt": "2026-11-04T05:39:37.300Z",
+  "passed": true,
+  "npm": {
+    "version": "0.5.0-preview.1",
+    "distTags": {
+      "bootstrap": "0.3.0-bootstrap.0",
+      "latest": "0.4.0",
+      "next": "0.5.0-preview.1"
+    },
+    "tarball": "https://registry.npmjs.org/@jslee124/forge/-/forge-0.5.0-preview.1.tgz",
+    "integrity": "sha512-rf0jtjSGQvMeukjhOYqoRXzQOZ30V8Xydze5FwueLj0IZA1T81wiJVUScU1LlBg6LE/ZgTr5YSP5D0XsRO6/CQ==",
+    "shasum": "7599902f5f3d5059e241c938c1418140728bafae",
+    "attestations": {
+      "url": "https://registry.npmjs.org/-/npm/v1/attestations/@jslee124%2fforge@0.5.0-preview.1",
+      "provenance": {
+        "predicateType": "https://slsa.dev/provenance/v1"
+      }
+    },
+    "cleanInstall": {
+      "lifecycleScripts": false,
+      "version": "0.5.0-preview.1",
+      "help": true,
+      "configValidate": true
+    },
+    "installedIntegrityMatchesRegistry": true,
+    "installedMultiSessionBundlePresent": true,
+    "provenanceStatementMatchesSource": true,
+    "provenanceSignatureIndependentlyVerified": false,
+    "provenanceSubjectMatchesPackageIntegrity": true
+  },
+  "cliRelease": {
+    "url": "https://github.com/jslee124/forge/releases/tag/v0.5.0-preview.1",
+    "prerelease": true
+  },
+  "stableLatest": "v0.4.0",
+  "ci": {
+    "npm": {
+      "id": 41779416857,
+      "url": "https://github.com/jslee124/forge/actions/runs/41779416857",
+      "headSha": "3b6c3b5252a65861a63f074c0fe3c35ef824f60f",
+      "conclusion": "success"
+    },
+    "sourceMain": {
+      "id": 41779417108,
+      "url": "https://github.com/jslee124/forge/actions/runs/41779417108",
+      "headSha": "3b6c3b5252a65861a63f074c0fe3c35ef824f60f",
+      "conclusion": "success"
+    },
+    "cliTag": {
+      "id": 41779416627,
+      "url": "https://github.com/jslee124/forge/actions/runs/41779416627",
+      "headSha": "3b6c3b5252a65861a63f074c0fe3c35ef824f60f",
+      "conclusion": "success"
+    }
+  },
+  "initialAvailabilityFailure": "The first npm view returned E404 during registry processing. The publish workflow explicitly reported processing delay. The failure was retained locally; a later public clean install and integrity verification passed."
+}

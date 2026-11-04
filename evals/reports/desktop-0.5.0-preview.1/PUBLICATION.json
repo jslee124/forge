@@ -1,0 +1,172 @@
+{
+  "version": "0.5.0-preview.1",
+  "source": "3b6c3b5252a65861a63f074c0fe3c35ef824f60f",
+  "verifiedAt": "2026-11-04T05:35:45.898Z",
+  "passed": true,
+  "npm": {
+    "version": "0.5.0-preview.1",
+    "distTags": {
+      "bootstrap": "0.3.0-bootstrap.0",
+      "latest": "0.4.0",
+      "next": "0.5.0-preview.1"
+    },
+    "tarball": "https://registry.npmjs.org/@jslee124/forge/-/forge-0.5.0-preview.1.tgz",
+    "integrity": "sha512-rf0jtjSGQvMeukjhOYqoRXzQOZ30V8Xydze5FwueLj0IZA1T81wiJVUScU1LlBg6LE/ZgTr5YSP5D0XsRO6/CQ==",
+    "shasum": "7599902f5f3d5059e241c938c1418140728bafae",
+    "attestations": {
+      "url": "https://registry.npmjs.org/-/npm/v1/attestations/@jslee124%2fforge@0.5.0-preview.1",
+      "provenance": {
+        "predicateType": "https://slsa.dev/provenance/v1"
+      }
+    },
+    "cleanInstall": {
+      "lifecycleScripts": false,
+      "version": "0.5.0-preview.1",
+      "help": true,
+      "configValidate": true
+    },
+    "installedIntegrityMatchesRegistry": true,
+    "installedMultiSessionBundlePresent": true,
+    "provenanceStatementMatchesSource": true,
+    "provenanceSignatureIndependentlyVerified": false,
+    "provenanceSubjectMatchesPackageIntegrity": true
+  },
+  "updateCandidates": [
+    {
+      "platform": "darwin",
+      "arch": "arm64",
+      "name": "forge-desktop-0.5.0-arm64.dmg",
+      "version": "0.5.0-preview.1",
+      "url": "https://github.com/jslee124/forge/releases/download/desktop-0.5.0-preview.1/forge-desktop-0.5.0-arm64.dmg"
+    },
+    {
+      "platform": "darwin",
+      "arch": "x64",
+      "name": "forge-desktop-0.5.0-x64.dmg",
+      "version": "0.5.0-preview.1",
+      "url": "https://github.com/jslee124/forge/releases/download/desktop-0.5.0-preview.1/forge-desktop-0.5.0-x64.dmg"
+    },
+    {
+      "platform": "win32",
+      "arch": "x64",
+      "name": "forge-desktop-0.5.0-x64.exe",
+      "version": "0.5.0-preview.1",
+      "url": "https://github.com/jslee124/forge/releases/download/desktop-0.5.0-preview.1/forge-desktop-0.5.0-x64.exe"
+    }
+  ],
+  "desktop": {
+    "url": "https://github.com/jslee124/forge/releases/tag/desktop-0.5.0-preview.1",
+    "tag": "desktop-0.5.0-preview.1",
+    "prerelease": true,
+    "assets": [
+      {
+        "name": "desktop-build.json",
+        "size": 738,
+        "sha256": "b02b3570a02c9a0685208d2322699645886612c54697ff41948ef78d2cd8a212",
+        "digest": "sha256:b02b3570a02c9a0685208d2322699645886612c54697ff41948ef78d2cd8a212",
+        "url": "https://github.com/jslee124/forge/releases/download/desktop-0.5.0-preview.1/desktop-build.json"
+      },
+      {
+        "name": "forge-desktop-0.5.0-arm64.dmg",
+        "size": 167173910,
+        "sha256": "e856408f90a691730858be57bd3e4e5eeb0a248ddccaa233dbdb83b0906fe9f3",
+        "digest": "sha256:e856408f90a691730858be57bd3e4e5eeb0a248ddccaa233dbdb83b0906fe9f3",
+        "url": "https://github.com/jslee124/forge/releases/download/desktop-0.5.0-preview.1/forge-desktop-0.5.0-arm64.dmg"
+      },
+      {
+        "name": "forge-desktop-0.5.0-x64.dmg",
+        "size": 170987196,
+        "sha256": "d9ffd3e2ca4ff5bf2a797b818ec6fd36547fff83eeeabfb83d7f04489de92eb5",
+        "digest": "sha256:d9ffd3e2ca4ff5bf2a797b818ec6fd36547fff83eeeabfb83d7f04489de92eb5",
+        "url": "https://github.com/jslee124/forge/releases/download/desktop-0.5.0-preview.1/forge-desktop-0.5.0-x64.dmg"
+      },
+      {
+        "name": "forge-desktop-0.5.0-x64.exe",
+        "size": 140777830,
+        "sha256": "f1a1167ac2d00bab0920d24d7f2b15ad08cf58bb440103cb8c7c27ef02372713",
+        "digest": "sha256:f1a1167ac2d00bab0920d24d7f2b15ad08cf58bb440103cb8c7c27ef02372713",
+        "url": "https://github.com/jslee124/forge/releases/download/desktop-0.5.0-preview.1/forge-desktop-0.5.0-x64.exe"
+      },
+      {
+        "name": "SHA256SUMS",
+        "size": 284,
+        "sha256": "61d24c77bcaead46a8f0f0defbe666fd6284df07da4358a1806dfdecc2e49e82",
+        "digest": "sha256:61d24c77bcaead46a8f0f0defbe666fd6284df07da4358a1806dfdecc2e49e82",
+        "url": "https://github.com/jslee124/forge/releases/download/desktop-0.5.0-preview.1/SHA256SUMS"
+      }
+    ]
+  },
+  "cliRelease": {
+    "url": "https://github.com/jslee124/forge/releases/tag/v0.5.0-preview.1",
+    "prerelease": true
+  },
+  "stableLatest": "v0.4.0",
+  "completedVerificationAt": "2026-11-04T05:39:37.300Z",
+  "installedArtifactSmoke": {
+    "artifact": "forge-desktop-0.5.0-arm64.dmg",
+    "platform": "darwin",
+    "arch": "arm64",
+    "isolatedCopy": true,
+    "modelRequests": 0,
+    "passed": true,
+    "embeddedPackageVersion": "0.5.0",
+    "embeddedDesktopIdentity": "0.5.0-preview.1",
+    "exitCode": 0
+  },
+  "ci": {
+    "desktop": {
+      "id": 41779417083,
+      "url": "https://github.com/jslee124/forge/actions/runs/41779417083",
+      "headSha": "3b6c3b5252a65861a63f074c0fe3c35ef824f60f",
+      "conclusion": "success",
+      "jobs": [
+        {
+          "name": "Windows gateway contracts",
+          "conclusion": "success"
+        },
+        {
+          "name": "verify",
+          "conclusion": "success"
+        },
+        {
+          "name": "desktop-macos-preview",
+          "conclusion": "success"
+        },
+        {
+          "name": "desktop-windows",
+          "conclusion": "success"
+        },
+        {
+          "name": "desktop-publish-preview",
+          "conclusion": "success"
+        }
+      ]
+    },
+    "npm": {
+      "id": 41779416857,
+      "url": "https://github.com/jslee124/forge/actions/runs/41779416857",
+      "headSha": "3b6c3b5252a65861a63f074c0fe3c35ef824f60f",
+      "conclusion": "success"
+    },
+    "sourceMain": {
+      "id": 41779417108,
+      "url": "https://github.com/jslee124/forge/actions/runs/41779417108",
+      "headSha": "3b6c3b5252a65861a63f074c0fe3c35ef824f60f",
+      "conclusion": "success"
+    },
+    "cliTag": {
+      "id": 41779416627,
+      "url": "https://github.com/jslee124/forge/actions/runs/41779416627",
+      "headSha": "3b6c3b5252a65861a63f074c0fe3c35ef824f60f",
+      "conclusion": "success"
+    }
+  },
+  "limits": [
+    "Unsigned installers; macOS not notarized",
+    "Public DMG smoke uses an isolated copy without quarantine/Gatekeeper acceptance or replacing the current installation",
+    "macOS x64 packaged in CI without Intel hardware acceptance; Windows smoke is runner-based, not real provider testing",
+    "Live model checks preceded release version changes; installed smoke makes no model calls",
+    "Live Codex TUI, Codex multi-turn recovery and long-duration coverage remain open",
+    "Provenance payload and package digest were matched; signatures were not independently verified"
+  ]
+}

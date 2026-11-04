@@ -4,7 +4,7 @@
 
 ## Candidate
 
-Prepared on 2026-11-04 from feature commit 21babed. Publication is pending the immutable-tag workflow and independent public-artifact verification. Feature-source CI 41774872810 passed; it is not the release-tag result.
+Prepared on 2026-11-04 from feature commit 21babed. The immutable-tag workflow and independent public-artifact verification are complete; see the published-artifact section below. Feature-source CI 41774872810 passed; it is not the release-tag result.
 
 Feature-source local checks: 899 tests passed, 6 opt-in tests skipped; 223 deterministic checks passed; source/type/docs and packed-install checks passed.
 
@@ -22,8 +22,16 @@ The versioned candidate passed 899 tests (6 opt-in skips), 223 deterministic che
 
 ## Publication
 
-Exact release source, CI run IDs, npm integrity/dist-tags or installer hashes, and public-download verification will be recorded after publication. Do not treat candidate checks as publication evidence.
+Exact release source, CI run IDs and public-artifact verification are recorded below and in PUBLICATION.json. Candidate checks remain distinct from publication evidence.
 
 ## Limits
 
 Preview; process-local queues, no automatic replay, worktrees retain external shared resources. Unsigned desktop installers, macOS not notarized; Windows/Linux real-provider/TUI, Intel hardware, independent users, IME/accessibility, installed-app live providers and long-duration coverage are not established. Existing stable channels remain unchanged.
+
+## Published artifact verification (2026-11-04)
+
+Published [v0.5.0-preview.1](https://github.com/jslee124/forge/releases/tag/v0.5.0-preview.1) from immutable source `3b6c3b5252a65861a63f074c0fe3c35ef824f60f`. [Trusted publishing workflow](https://github.com/jslee124/forge/actions/runs/41779416857), [CLI-tag CI](https://github.com/jslee124/forge/actions/runs/41779416627) and [exact-source main CI](https://github.com/jslee124/forge/actions/runs/41779417108) passed.
+
+npm next resolves to 0.5.0-preview.1; latest remains 0.4.0. A clean temporary installation from the public registry with lifecycle scripts disabled passed version, help and config validation. Installed lockfile integrity matched the registry; the installed bundle contains multi-session controls. The registry provenance statement identifies this source SHA, publish.yml and the immutable tag; its subject digest matches package integrity. Signatures were not independently verified.
+
+The first public lookup returned E404 while npm processed the new package; a later clean install passed. This transient failure was retained locally. See [PUBLICATION.json](PUBLICATION.json) for exact registry integrity, shasum, dist-tags, source and CI results. This npm publication does not update an installed Desktop application.
