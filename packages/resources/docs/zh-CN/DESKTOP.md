@@ -2,14 +2,14 @@
 
 English · 中文目录
 
-[Desktop 0.4.0 Preview 2](https://github.com/jslee124/forge/releases/tag/desktop-0.4.0-preview.2)
-内置 Forge 0.4.0 共享运行层。桌面版与 `@jslee124/forge` npm CLI 分开发行；
+[Desktop 0.5.0 Preview 1](https://github.com/jslee124/forge/releases/tag/desktop-0.5.0-preview.1)
+内置 Forge 0.5.0-preview.1 共享运行层。桌面版与 `@jslee124/forge` npm CLI 分开发行；
 升级 npm 不会更新已安装的桌面应用。发布面向 Windows x64 和 macOS arm64/x64。
 安装包未签名，macOS DMG 未公证；安装和替换需手动完成。
-配置、认证与更新步骤见 [Windows 安装指南](https://github.com/jslee124/forge/blob/desktop-0.4.0-preview.2/apps/desktop/INSTALL-WINDOWS.zh-CN.md)
-或 [macOS 安装指南](https://github.com/jslee124/forge/blob/desktop-0.4.0-preview.2/apps/desktop/INSTALL.zh-CN.md)。
+配置、认证与更新步骤见 [Windows 安装指南](https://github.com/jslee124/forge/blob/desktop-0.5.0-preview.1/apps/desktop/INSTALL-WINDOWS.zh-CN.md)
+或 [macOS 安装指南](https://github.com/jslee124/forge/blob/desktop-0.5.0-preview.1/apps/desktop/INSTALL.zh-CN.md)。
 发布状态和已完成检查见
-0.4.0 Preview 2 发布记录。
+0.5.0 Preview 1 发布记录。
 较早的 [0.3.4 Preview 2](https://github.com/jslee124/forge/releases/tag/desktop-0.3.4-preview.2)
 仍提供 macOS ZIP。
 
@@ -26,7 +26,7 @@ English · 中文目录
 
 ## 工作区协调与 Telegram
 
-Native Forge 与 Codex 任务执行共用宿主机上的工作区租约，并与 Forge 0.4.0 CLI
+Native Forge 与 Codex 任务执行共用宿主机上的工作区租约，并与 Forge 0.5.0-preview.1 CLI
 及实验性 Telegram 网关协调。工作区被占用时，另一任务会被拒绝，直到活跃任务完成或
 取消。旧桌面版本不参与这套协调；依赖该能力前需先更新。租约只协调任务执行，
 不阻止手工编辑或其他应用修改文件。
@@ -36,9 +36,9 @@ Telegram 配置与前台网关运行仍通过 CLI 完成；Desktop 没有网关�
 
 ## 验证边界
 
-0.4.0 Preview 2 发布记录
+0.5.0 Preview 1 发布记录
 分别记录候选检查、准确源码 CI、发布和公开下载验证。下方旧记录是对应构建的历史证据，
-不能当作 0.4.0 Preview 2 的验收结果。
+不能当作 0.5.0 Preview 1 的验收结果。
 
 [Preview 4 候选版 CI](https://github.com/jslee124/forge/actions/runs/36298064888)
 在 Windows runner 上构建安装包，并执行打包应用与安装后 smoke。这些离线检查
@@ -70,3 +70,7 @@ D01 基线为历史记录。
 | 模型与工作台细化方案 | 细化设计与本地实现记录 |
 | 未签名更新方案 | U01–U04 更新流程，随 Preview 2 发布 |
 | 桌面 QA 记录 | 命令级与无障碍限制 |
+
+## 并行会话
+
+0.5.0 Preview 1 支持独立任务并行、FIFO 排队以及会话独立的草稿、审批和停止操作。默认同时运行两个任务；启动前设置 `FORGE_MAX_CONCURRENT_RUNS=3` 可允许三个，范围为 1–16。Git 新任务使用从 HEAD 创建的独立 worktree，不复制未提交文件或依赖。会话列表也支持删除已保存聊天，保留工作文件。真实模型验收范围见本版本发布记录。

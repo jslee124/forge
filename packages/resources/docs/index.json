@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "forgeVersion": "0.4.0",
+  "forgeVersion": "0.5.0-preview.1",
   "documents": [
     {
       "id": "getting-started",
@@ -176,8 +176,9 @@
           "title": "1. Install the checkout",
           "level": 2,
           "start": 1206,
-          "end": 1780,
+          "end": 1790,
           "keywords": [
+            "0-preview",
             "after",
             "and",
             "apps",
@@ -241,8 +242,8 @@
           "id": "2-choose-an-access-route",
           "title": "2. Choose an access route",
           "level": 2,
-          "start": 1780,
-          "end": 2676,
+          "start": 1790,
+          "end": 2686,
           "keywords": [
             "access",
             "add",
@@ -313,8 +314,8 @@
           "id": "option-a-interactive-api-key-setup",
           "title": "Option A: interactive API-key setup",
           "level": 3,
-          "start": 2676,
-          "end": 3194,
+          "start": 2686,
+          "end": 3204,
           "keywords": [
             "advertised",
             "and",
@@ -377,8 +378,8 @@
           "id": "option-b-environment-variables",
           "title": "Option B: environment variables",
           "level": 3,
-          "start": 3194,
-          "end": 3353,
+          "start": 3204,
+          "end": 3363,
           "keywords": [
             "and",
             "api",
@@ -402,8 +403,8 @@
           "id": "or",
           "title": "or",
           "level": 1,
-          "start": 3353,
-          "end": 3581,
+          "start": 3363,
+          "end": 3591,
           "keywords": [
             "and",
             "api",
@@ -441,8 +442,8 @@
           "id": "option-c-chatgpt-subscription-through-codex",
           "title": "Option C: ChatGPT subscription through Codex",
           "level": 3,
-          "start": 3581,
-          "end": 4142,
+          "start": 3591,
+          "end": 4152,
           "keywords": [
             "agent",
             "and",
@@ -510,8 +511,8 @@
           "id": "3-validate-configuration-locally",
           "title": "3. Validate configuration locally",
           "level": 2,
-          "start": 4142,
-          "end": 4842,
+          "start": 4152,
+          "end": 4852,
           "keywords": [
             "60-second",
             "and",
@@ -592,8 +593,8 @@
           "id": "4-run-a-first-task",
           "title": "4. Run a first task",
           "level": 2,
-          "start": 4842,
-          "end": 4866,
+          "start": 4852,
+          "end": 4876,
           "keywords": [
             "first",
             "run",
@@ -604,8 +605,8 @@
           "id": "start-read-only",
           "title": "Start read-only",
           "level": 3,
-          "start": 4866,
-          "end": 5372,
+          "start": 4876,
+          "end": 5382,
           "keywords": [
             "allowed",
             "and",
@@ -670,8 +671,8 @@
           "id": "try-a-coding-task",
           "title": "Try a coding task",
           "level": 3,
-          "start": 5372,
-          "end": 5936,
+          "start": 5382,
+          "end": 5946,
           "keywords": [
             "action",
             "an",
@@ -747,8 +748,8 @@
           "id": "one-shot-commands",
           "title": "One-shot commands",
           "level": 3,
-          "start": 5936,
-          "end": 6222,
+          "start": 5946,
+          "end": 6232,
           "keywords": [
             "and",
             "architecture",
@@ -778,8 +779,8 @@
           "id": "equivalent-engine-selection",
           "title": "equivalent engine selection:",
           "level": 1,
-          "start": 6222,
-          "end": 6623,
+          "start": 6232,
+          "end": 6633,
           "keywords": [
             "action",
             "an",
@@ -836,8 +837,8 @@
           "id": "5-continue-and-inspect",
           "title": "5. Continue and inspect",
           "level": 2,
-          "start": 6623,
-          "end": 7328,
+          "start": 6633,
+          "end": 7338,
           "keywords": [
             "agent-loop",
             "an",
@@ -921,8 +922,8 @@
           "id": "next-steps",
           "title": "Next steps",
           "level": 2,
-          "start": 7328,
-          "end": 7788,
+          "start": 7338,
+          "end": 7798,
           "keywords": [
             "add",
             "an",
@@ -1027,7 +1028,7 @@
         "you"
       ],
       "path": "en/GETTING_STARTED.md",
-      "sha256": "69379df159952012fc08408dcff9642947a070db07701eaa838901b67c02ca2a"
+      "sha256": "66cd09500f558c4499aef38beaf320dd26532cf6da12ac8734e0251308ee0aa7"
     },
     {
       "id": "configuration",
@@ -5506,8 +5507,9 @@
           "title": "Resume behavior",
           "level": 2,
           "start": 2896,
-          "end": 6269,
+          "end": 6256,
           "keywords": [
+            "0-preview",
             "also",
             "always",
             "an",
@@ -5522,15 +5524,14 @@
             "builds",
             "cancelled",
             "canonical",
-            "checkout",
             "cli",
             "completed",
             "completions",
             "context",
             "ctrl",
+            "current",
             "decisions",
             "denied",
-            "development",
             "directories",
             "displaying",
             "during",
@@ -5594,9 +5595,10 @@
           "id": "delete-a-saved-conversation",
           "title": "Delete a saved conversation",
           "level": 2,
-          "start": 6269,
-          "end": 8019,
+          "start": 6256,
+          "end": 8010,
           "keywords": [
+            "0-preview",
             "active",
             "an",
             "and",
@@ -5631,7 +5633,6 @@
             "deleting",
             "deletion",
             "desktop",
-            "development",
             "directories",
             "discarding",
             "down",
@@ -5683,8 +5684,8 @@
           "id": "inspect-behavior",
           "title": "Inspect behavior",
           "level": 2,
-          "start": 8019,
-          "end": 8548,
+          "start": 8010,
+          "end": 8539,
           "keywords": [
             "an",
             "and",
@@ -5751,8 +5752,8 @@
           "id": "redaction-and-safety",
           "title": "Redaction and safety",
           "level": 2,
-          "start": 8548,
-          "end": 9736,
+          "start": 8539,
+          "end": 9727,
           "keywords": [
             "and",
             "api",
@@ -5840,8 +5841,8 @@
           "id": "deferred-behavior",
           "title": "Deferred behavior",
           "level": 2,
-          "start": 9736,
-          "end": 10052,
+          "start": 9727,
+          "end": 10043,
           "keywords": [
             "active",
             "an",
@@ -5901,7 +5902,7 @@
         "traces"
       ],
       "path": "en/SESSIONS.md",
-      "sha256": "c6e7f5f6d64c4701ba51d476f8d9a9d682c70e960702e71f0f805bc66ec1bc42"
+      "sha256": "3e433b3a16e3435b8e0db490089fd0526db61098d0609f32b5083caf42569bf8"
     },
     {
       "id": "context-management",
@@ -11884,8 +11885,9 @@
           "title": "Parallel sessions in the development checkout",
           "level": 2,
           "start": 270,
-          "end": 2629,
+          "end": 2617,
           "keywords": [
+            "0-preview",
             "16",
             "32",
             "action",
@@ -11905,13 +11907,13 @@
             "builds",
             "by",
             "cancels",
+            "channel",
             "checkout",
             "cli",
             "concurrent",
             "concurrently",
             "cross-process",
             "ctrl",
-            "current",
             "default",
             "deliberate",
             "desktop",
@@ -11930,6 +11932,7 @@
             "fifo",
             "for",
             "forge",
+            "git",
             "has",
             "holds",
             "idle-exit",
@@ -11937,7 +11940,6 @@
             "including",
             "independent",
             "input",
-            "is",
             "its",
             "keyboard",
             "list",
@@ -11948,7 +11950,9 @@
             "multi-session",
             "never",
             "new",
+            "next",
             "not",
+            "npm",
             "opens",
             "or",
             "other",
@@ -11958,22 +11962,19 @@
             "pending",
             "persistence",
             "process",
-            "published",
             "queue",
             "queued",
             "remains",
             "restores",
-            "resume",
-            "retain",
-            "returns"
+            "resume"
           ]
         },
         {
           "id": "goals",
           "title": "Goals",
           "level": 2,
-          "start": 2629,
-          "end": 3610,
+          "start": 2617,
+          "end": 3598,
           "keywords": [
             "actions",
             "activity",
@@ -12061,8 +12062,8 @@
           "id": "startup-capability-summary",
           "title": "Startup capability summary",
           "level": 2,
-          "start": 3610,
-          "end": 4784,
+          "start": 3598,
+          "end": 4772,
           "keywords": [
             "activation",
             "actual",
@@ -12150,8 +12151,8 @@
           "id": "interaction-states",
           "title": "Interaction states",
           "level": 2,
-          "start": 4784,
-          "end": 5424,
+          "start": 4772,
+          "end": 5412,
           "keywords": [
             "active",
             "an",
@@ -12215,8 +12216,8 @@
           "id": "prompt-editor",
           "title": "Prompt editor",
           "level": 2,
-          "start": 5424,
-          "end": 6594,
+          "start": 5412,
+          "end": 6582,
           "keywords": [
             "active",
             "advertise",
@@ -12304,8 +12305,8 @@
           "id": "context-pressure-and-controls",
           "title": "Context pressure and controls",
           "level": 2,
-          "start": 6594,
-          "end": 8309,
+          "start": 6582,
+          "end": 8297,
           "keywords": [
             "active",
             "always",
@@ -12393,8 +12394,8 @@
           "id": "slash-command-completion",
           "title": "Slash-command completion",
           "level": 2,
-          "start": 8309,
-          "end": 11005,
+          "start": 8297,
+          "end": 10993,
           "keywords": [
             "above",
             "additional",
@@ -12482,8 +12483,8 @@
           "id": "workspace-file-mentions",
           "title": "Workspace-file mentions",
           "level": 2,
-          "start": 11005,
-          "end": 12204,
+          "start": 10993,
+          "end": 12192,
           "keywords": [
             "10",
             "active",
@@ -12571,8 +12572,8 @@
           "id": "pasted-image-attachments",
           "title": "Pasted image attachments",
           "level": 2,
-          "start": 12204,
-          "end": 13093,
+          "start": 12192,
+          "end": 13081,
           "keywords": [
             "absolute",
             "accepted",
@@ -12660,8 +12661,8 @@
           "id": "diff-review",
           "title": "Diff review",
           "level": 2,
-          "start": 13093,
-          "end": 15136,
+          "start": 13081,
+          "end": 15124,
           "keywords": [
             "action",
             "added",
@@ -12749,8 +12750,8 @@
           "id": "sign-in-panel",
           "title": "Sign-in panel",
           "level": 2,
-          "start": 15136,
-          "end": 16282,
+          "start": 15124,
+          "end": 16270,
           "keywords": [
             "add",
             "address",
@@ -12838,8 +12839,8 @@
           "id": "rendering-boundaries",
           "title": "Rendering boundaries",
           "level": 2,
-          "start": 16282,
-          "end": 16985,
+          "start": 16270,
+          "end": 16973,
           "keywords": [
             "activity",
             "and",
@@ -12927,8 +12928,8 @@
           "id": "test-strategy",
           "title": "Test strategy",
           "level": 2,
-          "start": 16985,
-          "end": 18466,
+          "start": 16973,
+          "end": 18454,
           "keywords": [
             "and",
             "approval",
@@ -13053,7 +13054,7 @@
         "workspace-file"
       ],
       "path": "en/CLI_UI.md",
-      "sha256": "7781f40d48dcf704f660b687860f823b80b79a1d5d16302c8dc839644bff6385"
+      "sha256": "d1d5fa59b03ee9c488718b487c31bda5a96902c9ebbedc4e232d46f7f517967c"
     },
     {
       "id": "architecture",
@@ -15544,7 +15545,7 @@
           "title": "Forge Desktop preview",
           "level": 1,
           "start": 0,
-          "end": 934,
+          "end": 944,
           "keywords": [
             "0-preview",
             "4-preview",
@@ -15616,8 +15617,8 @@
           "id": "what-the-preview-supports",
           "title": "What the preview supports",
           "level": 2,
-          "start": 934,
-          "end": 1613,
+          "start": 944,
+          "end": 1623,
           "keywords": [
             "access",
             "and",
@@ -15699,9 +15700,10 @@
           "id": "workspace-coordination-and-telegram",
           "title": "Workspace coordination and Telegram",
           "level": 2,
-          "start": 1613,
-          "end": 2245,
+          "start": 1623,
+          "end": 2265,
           "keywords": [
+            "0-preview",
             "active",
             "an",
             "and",
@@ -15772,8 +15774,8 @@
           "id": "validation-limits",
           "title": "Validation limits",
           "level": 2,
-          "start": 2245,
-          "end": 3655,
+          "start": 2265,
+          "end": 3675,
           "keywords": [
             "13",
             "36298064888",
@@ -15861,8 +15863,8 @@
           "id": "desktop-development-records",
           "title": "Desktop development records",
           "level": 2,
-          "start": 3655,
-          "end": 4390,
+          "start": 3675,
+          "end": 4411,
           "keywords": [
             "above",
             "acceptance",
@@ -15928,6 +15930,67 @@
             "work",
             "workbench"
           ]
+        },
+        {
+          "id": "parallel-sessions",
+          "title": "Parallel sessions",
+          "level": 2,
+          "start": 4411,
+          "end": 4848,
+          "keywords": [
+            "16",
+            "adds",
+            "and",
+            "approvals",
+            "before",
+            "by",
+            "cancellation",
+            "concurrent",
+            "copying",
+            "coverage",
+            "default",
+            "deletion",
+            "dependencies",
+            "drafts",
+            "fifo",
+            "files",
+            "for",
+            "forge",
+            "from",
+            "git",
+            "head",
+            "independent",
+            "live-model",
+            "max",
+            "new",
+            "or",
+            "parallel",
+            "per-session",
+            "preview",
+            "range",
+            "record",
+            "release",
+            "retains",
+            "run",
+            "runs",
+            "saved-chat",
+            "see",
+            "separate",
+            "sessions",
+            "set",
+            "startup",
+            "tasks",
+            "this",
+            "three",
+            "two",
+            "uncommitted",
+            "use",
+            "version",
+            "waiting",
+            "without",
+            "workspace",
+            "worktrees"
+          ]
         }
       ],
       "keywords": [
@@ -15937,8 +16000,10 @@
         "development",
         "forge",
         "limits",
+        "parallel",
         "preview",
         "records",
+        "sessions",
         "supports",
         "telegram",
         "the",
@@ -15947,7 +16012,7 @@
         "workspace"
       ],
       "path": "en/DESKTOP.md",
-      "sha256": "66473cec3b94047ccb0ce23918826ae96cb65e81969a930e06444adce33e5e2a"
+      "sha256": "8342a944d03e18ebec62475689b72760b52ff873e0abf1751a6607eb5bd11a91"
     },
     {
       "id": "chat-channels",
@@ -17057,8 +17122,9 @@
           "title": "1. 安装 checkout",
           "level": 2,
           "start": 674,
-          "end": 1062,
+          "end": 1072,
           "keywords": [
+            "0-preview",
             "bash",
             "build",
             "cd",
@@ -17099,8 +17165,8 @@
           "id": "2-选择访问方式",
           "title": "2. 选择访问方式",
           "level": 2,
-          "start": 1062,
-          "end": 1682,
+          "start": 1072,
+          "end": 1692,
           "keywords": [
             "api",
             "app",
@@ -17146,8 +17212,8 @@
           "id": "方案-a-交互式保存-api-key",
           "title": "方案 A：交互式保存 API key",
           "level": 3,
-          "start": 1682,
-          "end": 1989,
+          "start": 1692,
+          "end": 1999,
           "keywords": [
             "api",
             "auth",
@@ -17190,8 +17256,8 @@
           "id": "方案-b-环境变量",
           "title": "方案 B：环境变量",
           "level": 3,
-          "start": 1989,
-          "end": 2072,
+          "start": 1999,
+          "end": 2082,
           "keywords": [
             "api",
             "bash",
@@ -17209,8 +17275,8 @@
           "id": "或",
           "title": "或",
           "level": 1,
-          "start": 2072,
-          "end": 2225,
+          "start": 2082,
+          "end": 2235,
           "keywords": [
             "api",
             "config",
@@ -17241,8 +17307,8 @@
           "id": "方案-c-通过-codex-使用-chatgpt-订阅",
           "title": "方案 C：通过 Codex 使用 ChatGPT 订阅",
           "level": 3,
-          "start": 2225,
-          "end": 2631,
+          "start": 2235,
+          "end": 2641,
           "keywords": [
             "agent",
             "app",
@@ -17293,8 +17359,8 @@
           "id": "3-在本地验证配置",
           "title": "3. 在本地验证配置",
           "level": 2,
-          "start": 2631,
-          "end": 2989,
+          "start": 2641,
+          "end": 2999,
           "keywords": [
             "60",
             "bash",
@@ -17340,8 +17406,8 @@
           "id": "4-完成第一次任务",
           "title": "4. 完成第一次任务",
           "level": 2,
-          "start": 2989,
-          "end": 3004,
+          "start": 2999,
+          "end": 3014,
           "keywords": [
             "完成第一次任务"
           ]
@@ -17350,8 +17416,8 @@
           "id": "先从只读任务开始",
           "title": "先从只读任务开始",
           "level": 3,
-          "start": 3004,
-          "end": 3257,
+          "start": 3014,
+          "end": 3267,
           "keywords": [
             "bash",
             "engine",
@@ -17388,8 +17454,8 @@
           "id": "再尝试-coding-task",
           "title": "再尝试 coding task",
           "level": 3,
-          "start": 3257,
-          "end": 3495,
+          "start": 3267,
+          "end": 3505,
           "keywords": [
             "coding",
             "denial",
@@ -17425,8 +17491,8 @@
           "id": "one-shot-命令",
           "title": "One-shot 命令",
           "level": 3,
-          "start": 3495,
-          "end": 3647,
+          "start": 3505,
+          "end": 3657,
           "keywords": [
             "bash",
             "codex",
@@ -17448,8 +17514,8 @@
           "id": "等价的-engine-选择",
           "title": "等价的 engine 选择：",
           "level": 1,
-          "start": 3647,
-          "end": 3798,
+          "start": 3657,
+          "end": 3808,
           "keywords": [
             "closed",
             "codex",
@@ -17477,8 +17543,8 @@
           "id": "5-继续会话与检查证据",
           "title": "5. 继续会话与检查证据",
           "level": 2,
-          "start": 3798,
-          "end": 4253,
+          "start": 3808,
+          "end": 4263,
           "keywords": [
             "agent-loop",
             "bash",
@@ -17535,8 +17601,8 @@
           "id": "下一步",
           "title": "下一步",
           "level": 2,
-          "start": 4253,
-          "end": 4473,
+          "start": 4263,
+          "end": 4483,
           "keywords": [
             "agents",
             "cli",
@@ -17599,7 +17665,7 @@
         "通过"
       ],
       "path": "zh-CN/GETTING_STARTED.md",
-      "sha256": "11ddaca9b4eb015b58ffee4cd2d8e3cc4360cb114e712e20aff36574c2eb9516"
+      "sha256": "0f25712602a20e3c090cb662c9e8bd02443109f6013132c3b258e22458aa0164"
     },
     {
       "id": "configuration",
@@ -20779,8 +20845,9 @@
           "title": "恢复行为",
           "level": 2,
           "start": 1366,
-          "end": 2817,
+          "end": 2828,
           "keywords": [
+            "0-preview",
             "10",
             "active",
             "agents",
@@ -20829,6 +20896,7 @@
             "store",
             "summary",
             "tool",
+            "tr",
             "trace",
             "transcript",
             "untrusted",
@@ -20858,18 +20926,17 @@
             "只保留该视图自身的活动",
             "只有当所有关联",
             "可执行",
-            "在发起模型请求前以可操作的配置错误结束",
-            "均可用时",
-            "均可读"
+            "在发起模型请求前以可操作的配置错误结束"
           ]
         },
         {
           "id": "删除历史聊天",
           "title": "删除历史聊天",
           "level": 2,
-          "start": 2817,
-          "end": 3500,
+          "start": 2828,
+          "end": 3523,
           "keywords": [
+            "0-preview",
             "checkpoint",
             "clear",
             "ctrl",
@@ -20924,7 +20991,6 @@
             "已完成的代码修改",
             "并保留列表中的",
             "应新建聊天",
-            "开发版",
             "快照供重试",
             "打开",
             "打开同一会话列表",
@@ -20952,8 +21018,8 @@
           "id": "inspect-行为",
           "title": "Inspect 行为",
           "level": 2,
-          "start": 3500,
-          "end": 3722,
+          "start": 3523,
+          "end": 3745,
           "keywords": [
             "forge",
             "inspect",
@@ -20987,8 +21053,8 @@
           "id": "脱敏与安全",
           "title": "脱敏与安全",
           "level": 2,
-          "start": 3722,
-          "end": 4164,
+          "start": 3745,
+          "end": 4187,
           "keywords": [
             "api",
             "checkpoint",
@@ -21047,8 +21113,8 @@
           "id": "延后行为",
           "title": "延后行为",
           "level": 2,
-          "start": 4164,
-          "end": 4282,
+          "start": 4187,
+          "end": 4305,
           "keywords": [
             "checkpoint",
             "opaque",
@@ -21083,7 +21149,7 @@
         "行为"
       ],
       "path": "zh-CN/SESSIONS.md",
-      "sha256": "03ae09f157a4c7453b93cef1b2c0dada0e8c1e845423ce04fc56bed9ee69c662"
+      "sha256": "a7219490447d187e6df8e96f48c5a79e34e9db7423255e2b4fddd9a4b9699b8b"
     },
     {
       "id": "context-management",
@@ -24377,8 +24443,9 @@
           "title": "开发工作区中的多会话",
           "level": 2,
           "start": 30,
-          "end": 991,
+          "end": 1007,
           "keywords": [
+            "0-preview",
             "000",
             "16",
             "32",
@@ -24401,6 +24468,8 @@
             "lease",
             "max",
             "new",
+            "next",
+            "npm",
             "page",
             "resume",
             "runs",
@@ -24450,23 +24519,20 @@
             "可改为同时执行",
             "各进程独立调度",
             "在其他会话输入不会批准后台动作",
-            "已发布的",
             "并显示保存的工作目录",
             "并等待执行及持久化结束",
             "开发工作区中的多会话",
-            "当前源码增加了多会话终端工作台",
             "当前面板采用有上限的实时",
             "忽略文件或依赖",
-            "打开活动与历史会话列表",
-            "打开独立会话"
+            "打开活动与历史会话列表"
           ]
         },
         {
           "id": "状态",
           "title": "状态",
           "level": 2,
-          "start": 991,
-          "end": 1078,
+          "start": 1007,
+          "end": 1094,
           "keywords": [
             "forge",
             "ink",
@@ -24486,8 +24552,8 @@
           "id": "目标",
           "title": "目标",
           "level": 2,
-          "start": 1078,
-          "end": 1489,
+          "start": 1094,
+          "end": 1505,
           "keywords": [
             "agent",
             "apps",
@@ -24552,8 +24618,8 @@
           "id": "启动能力摘要",
           "title": "启动能力摘要",
           "level": 2,
-          "start": 1489,
-          "end": 2005,
+          "start": 1505,
+          "end": 2021,
           "keywords": [
             "activation",
             "capability",
@@ -24621,8 +24687,8 @@
           "id": "交互状态",
           "title": "交互状态",
           "level": 2,
-          "start": 2005,
-          "end": 2342,
+          "start": 2021,
+          "end": 2358,
           "keywords": [
             "approval",
             "awaiting",
@@ -24649,8 +24715,8 @@
           "id": "prompt-editor",
           "title": "Prompt editor",
           "level": 2,
-          "start": 2342,
-          "end": 2794,
+          "start": 2358,
+          "end": 2810,
           "keywords": [
             "buffer",
             "code",
@@ -24709,8 +24775,8 @@
           "id": "context-压力与控制",
           "title": "Context 压力与控制",
           "level": 2,
-          "start": 2794,
-          "end": 3689,
+          "start": 2810,
+          "end": 3705,
           "keywords": [
             "active",
             "activity",
@@ -24798,8 +24864,8 @@
           "id": "斜杠命令补全",
           "title": "斜杠命令补全",
           "level": 2,
-          "start": 3689,
-          "end": 4764,
+          "start": 3705,
+          "end": 4780,
           "keywords": [
             "active",
             "api",
@@ -24887,8 +24953,8 @@
           "id": "workspace-文件引用",
           "title": "Workspace 文件引用",
           "level": 2,
-          "start": 4764,
-          "end": 5217,
+          "start": 4780,
+          "end": 5233,
           "keywords": [
             "10",
             "build",
@@ -24950,8 +25016,8 @@
           "id": "粘贴图片附件",
           "title": "粘贴图片附件",
           "level": 2,
-          "start": 5217,
-          "end": 5501,
+          "start": 5233,
+          "end": 5517,
           "keywords": [
             "backspace",
             "bracketed",
@@ -24990,8 +25056,8 @@
           "id": "diff-审查",
           "title": "Diff 审查",
           "level": 2,
-          "start": 5501,
-          "end": 6241,
+          "start": 5517,
+          "end": 6257,
           "keywords": [
             "action",
             "approval",
@@ -25079,8 +25145,8 @@
           "id": "登录面板",
           "title": "登录面板",
           "level": 2,
-          "start": 6241,
-          "end": 6462,
+          "start": 6257,
+          "end": 6478,
           "keywords": [
             "auth",
             "codex",
@@ -25117,8 +25183,8 @@
           "id": "rendering-边界",
           "title": "Rendering 边界",
           "level": 2,
-          "start": 6462,
-          "end": 6764,
+          "start": 6478,
+          "end": 6780,
           "keywords": [
             "activity",
             "ansi",
@@ -25165,8 +25231,8 @@
           "id": "测试策略",
           "title": "测试策略",
           "level": 2,
-          "start": 6764,
-          "end": 7305,
+          "start": 6780,
+          "end": 7321,
           "keywords": [
             "approval",
             "completion",
@@ -25263,7 +25329,7 @@
         "边界"
       ],
       "path": "zh-CN/CLI_UI.md",
-      "sha256": "55b7433380230f3637186245e77c577c536233e4bf0f6b80cd34c0fa134d9cc4"
+      "sha256": "d3641ce77c6be8659748a0bcfb4ad13c9a2aabb80aa5352d9d43c0562c9a1df6"
     },
     {
       "id": "architecture",
@@ -26872,7 +26938,7 @@
           "title": "Forge Desktop 预览版",
           "level": 1,
           "start": 0,
-          "end": 665,
+          "end": 675,
           "keywords": [
             "0-preview",
             "4-preview",
@@ -26926,8 +26992,8 @@
           "id": "预览版支持的能力",
           "title": "预览版支持的能力",
           "level": 2,
-          "start": 665,
-          "end": 930,
+          "start": 675,
+          "end": 940,
           "keywords": [
             "cli",
             "codex",
@@ -26963,9 +27029,10 @@
           "id": "工作区协调与-telegram",
           "title": "工作区协调与 Telegram",
           "level": 2,
-          "start": 930,
-          "end": 1188,
+          "start": 940,
+          "end": 1208,
           "keywords": [
+            "0-preview",
             "cli",
             "codex",
             "desktop",
@@ -26996,8 +27063,8 @@
           "id": "验证边界",
           "title": "验证边界",
           "level": 2,
-          "start": 1188,
-          "end": 1893,
+          "start": 1208,
+          "end": 1913,
           "keywords": [
             "13",
             "36298064888",
@@ -27073,8 +27140,8 @@
           "id": "桌面开发记录",
           "title": "桌面开发记录",
           "level": 2,
-          "start": 1893,
-          "end": 2176,
+          "start": 1913,
+          "end": 2197,
           "keywords": [
             "gate",
             "preview",
@@ -27109,6 +27176,39 @@
             "记录",
             "验收"
           ]
+        },
+        {
+          "id": "并行会话",
+          "title": "并行会话",
+          "level": 2,
+          "start": 2197,
+          "end": 2401,
+          "keywords": [
+            "16",
+            "concurrent",
+            "fifo",
+            "forge",
+            "git",
+            "head",
+            "max",
+            "preview",
+            "runs",
+            "worktree",
+            "不复制未提交文件或依赖",
+            "会话列表也支持删除已保存聊天",
+            "保留工作文件",
+            "创建的独立",
+            "可允许三个",
+            "启动前设置",
+            "审批和停止操作",
+            "并行会话",
+            "排队以及会话独立的草稿",
+            "支持独立任务并行",
+            "新任务使用从",
+            "真实模型验收范围见本版本发布记录",
+            "范围为",
+            "默认同时运行两个任务"
+          ]
         }
       ],
       "keywords": [
@@ -27116,13 +27216,14 @@
         "forge",
         "telegram",
         "工作区协调与",
+        "并行会话",
         "桌面开发记录",
         "预览版",
         "预览版支持的能力",
         "验证边界"
       ],
       "path": "zh-CN/DESKTOP.md",
-      "sha256": "5de2953e1289f4c26a76bfe6d62025d08bdae241c9cbc3855c7838cf97fe5428"
+      "sha256": "32f39bff053cd8a6e71973836e3fdaf778ac1b674cc0d2f66372a22827c63880"
     },
     {
       "id": "chat-channels",

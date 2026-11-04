@@ -79,7 +79,7 @@ forge resume <session-id>
 forge resume --last
 ```
 
-In the development checkout, `/sessions` (also `/resume` or Ctrl+P) lists open views and saved sessions with their working directories. Selecting an open view switches to it without stopping its task. Selecting saved history opens an independent view in the saved workspace with canonical history. Published 0.4.0 CLI builds retain the earlier workspace-only picker. See [parallel terminal sessions](CLI_UI.md#parallel-sessions-in-the-development-checkout).
+In 0.5.0-preview.1, `/sessions` (also `/resume` or Ctrl+P) lists open views and saved sessions with their working directories. Selecting an open view switches to it without stopping its task. Selecting saved history opens an independent view in the saved workspace with canonical history. Published 0.4.0 CLI builds retain the earlier workspace-only picker. See [parallel terminal sessions](CLI_UI.md#parallel-sessions-in-the-development-checkout).
 When every referenced trace is available, the interactive transcript is rebuilt
 from the same ordered `RunEvent` stream used during the original run. This
 restores reasoning summaries, intermediate model text, tool proposals,
@@ -102,7 +102,7 @@ Resume follows these rules:
    Tool names and inputs remain immutable historical data: v0.3.3
    `create_file`/`apply_patch` exchanges stay readable, while current requests
    advertise only `edit_file` and never make legacy tools executable.
-6. Direct `forge resume` still rejects a different canonical workspace unless launched there explicitly. The development picker explicitly opens the saved directory and validates its canonical root.
+6. Direct `forge resume` still rejects a different canonical workspace unless launched there explicitly. The preview picker explicitly opens the saved directory and validates its canonical root.
 7. Missing or invalid session files produce an actionable configuration-style
    error without starting a model request.
 8. A valid checkpoint restores the same bounded active view; a stale or invalid
@@ -125,7 +125,7 @@ summary and renders the streamed summary notifications.
 
 ## Delete a saved conversation
 
-In the development TUI, `/sessions`, `/resume`, and Ctrl+P open the session list. Use Up/Down and Enter to choose a view or saved conversation. `x` closes an idle view (discarding its unsent draft) without deleting saved data. Active or queued views cannot be closed. Once a conversation is no longer open, Ctrl+D requests deletion; `y` confirms, while Enter or Escape cancels. Published 0.4.0 builds retain the preceding paged picker and arrow-key confirmation.
+In the 0.5.0-preview.1 TUI, `/sessions`, `/resume`, and Ctrl+P open the session list. Use Up/Down and Enter to choose a view or saved conversation. `x` closes an idle view (discarding its unsent draft) without deleting saved data. Active or queued views cannot be closed. Once a conversation is no longer open, Ctrl+D requests deletion; `y` confirms, while Enter or Escape cancels. Published 0.4.0 builds retain the preceding paged picker and arrow-key confirmation.
 
 In Desktop, open a saved task's `⋯` menu in the sidebar and choose **Delete chat**.
 The confirmation defaults to Cancel. Deleting the current conversation returns

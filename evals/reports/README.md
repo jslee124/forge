@@ -5,6 +5,9 @@ artifacts are written to the ignored `evals/artifacts/` directory first.
 
 ## Latest
 
+- [CLI 0.5.0-preview.1 preview evidence](v0.5.0-preview.1/README.md) · [简体中文](v0.5.0-preview.1/README.zh-CN.md)
+- [Desktop 0.5.0-preview.1 preview evidence](desktop-0.5.0-preview.1/README.md) · [简体中文](desktop-0.5.0-preview.1/README.zh-CN.md)
+
 - [v0.4.0 release verification](v0.4.0/RELEASE_VERIFICATION.md) — authorized
   stable CLI/npm 0.4.0 release with the Telegram gateway explicitly experimental.
   The document records the verification procedure and remaining limits; it does

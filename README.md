@@ -13,7 +13,7 @@
 
 <p align="center">
   <a href="https://github.com/jslee124/forge/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/jslee124/forge/ci.yml?branch=main&amp;style=flat-square&amp;label=CI" alt="CI status"></a>
-  <img src="https://img.shields.io/badge/source-v0.4.0-0e7490?style=flat-square" alt="Source version 0.4.0">
+  <img src="https://img.shields.io/badge/source-v0.5.0-preview.1-0e7490?style=flat-square" alt="Source version 0.5.0-preview.1">
   <img src="https://img.shields.io/badge/Node.js-%3E%3D24.22.1-525252?style=flat-square&amp;logo=nodedotjs&amp;logoColor=white" alt="Node.js 24.22.1 or newer">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-525252?style=flat-square" alt="MIT license"></a>
 </p>
@@ -69,6 +69,9 @@ Released builds can be installed as a global CLI:
 npm install --global @jslee124/forge
 forge config validate
 ```
+
+Try the multi-session preview with `npm install --global @jslee124/forge@next`
+(exact version: `0.5.0-preview.1`). Stable installations remain on `latest`.
 
 Contributors can use the source checkout below. Source development requires
 Node.js 24.22.1 or newer, pnpm 11.18.0, Git, and one supported model-access route:
@@ -311,10 +314,10 @@ Start at the [documentation hub](docs/README.md), which routes readers by task.
 
 ## Current status and limitations
 
-Forge is under active development. The source version is `0.4.0`; verify the
-current npm `latest` dist-tag rather than inferring publication from the
-checkout. See the [v0.4.0 release
-notes](.github/releases/v0.4.0.md) for this release and the
+Forge is under active development. The source version is `0.5.0-preview.1`; verify the
+current npm `latest` and `next` dist-tags rather than inferring publication from the
+checkout. See the [v0.5.0-preview.1 release
+notes](.github/releases/v0.5.0-preview.1.md) for this release and the
 [v0.3.0 release notes](docs/history/v0.3.0/RELEASE_NOTES.md) for the first public
 feature baseline. Automatic context checkpoint generation remains opt-in while
 live provider-quality evidence is collected.

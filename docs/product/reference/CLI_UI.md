@@ -10,7 +10,7 @@ Forge-owned runtime retain their existing boundaries.
 
 ## Parallel sessions in the development checkout
 
-The current source adds a multi-session terminal workbench. This is unreleased development behavior; published 0.4.0 CLI builds retain the earlier single-session UI.
+CLI 0.5.0-preview.1 adds a multi-session terminal workbench through the npm `next` channel. Stable 0.4.0 CLI builds retain the earlier single-session UI.
 
 - `Ctrl+N` or `/new` opens an independent session without stopping other runs.
 - `Ctrl+P`, `/sessions`, or `/resume` opens the live/saved session list, including each saved working directory. Use Up/Down and Enter to switch; Escape returns. Switching to a live session restores its draft, model selection, output and pending approval without starting another run.

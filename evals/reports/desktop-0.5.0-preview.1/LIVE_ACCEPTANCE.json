@@ -1,0 +1,45 @@
+{
+  "passed": true,
+  "date": "2026-11-04 Asia/Shanghai",
+  "externalNativeRequests": 4,
+  "nativeAllHttp200": true,
+  "codexStartedTurns": 8,
+  "codexModel": "gpt-6-luna",
+  "codexReasoningEffort": "low",
+  "firstCodexThreeTurnsOverlapped": true,
+  "firstCodexFourTurnsCompleted": true,
+  "finalCodexTwoActiveThirdQueued": true,
+  "finalCodexInterruptConfirmed": true,
+  "finalQueuedCodexNeverStarted": true,
+  "nativeAssertions": {
+    "threeActiveAndFourthQueued": true,
+    "draftsAndApprovalsIsolated": true,
+    "cancelBDoesNotAffectAOrC": true,
+    "answerRenderingIsolated": true,
+    "historySurvivesRendererReload": true,
+    "persistedHistoriesAndWorkspacesIsolated": true
+  },
+  "codexAssertions": {
+    "twoActiveAndThirdQueued": true,
+    "cancelBDoesNotAffectA": true,
+    "answerRenderingIsolated": true,
+    "historySurvivesRendererReload": true,
+    "persistedHistoriesAndWorkspacesIsolated": true
+  },
+  "tuiLiveCodexTested": false,
+  "limits": [
+    "macOS development Electron only",
+    "No installed/released artifact or Windows/Linux validation",
+    "No live Codex TUI validation in this round",
+    "No multi-turn Codex resume validation",
+    "First Codex cleanup failure allowed queued D to run; second attempt killed local test process, remote turn completion not confirmed",
+    "8 turns do not imply 8 HTTP/model requests; provider usage from interrupted attempts is incomplete; no billing estimate"
+  ],
+  "featureCommit": "21babed0c728ae1480be012a2bbaaded792e45df",
+  "scope": "Reviewed summary of pre-version-bump development-source acceptance; not an installed-release result.",
+  "failedHarnessAttemptsRetained": [
+    "initial sandbox Electron did not launch; zero calls",
+    "initial Codex script read an empty sessionId before creation settled; queued D later ran",
+    "second Codex script counted previous rounds; local process killed; remote final state unconfirmed"
+  ]
+}

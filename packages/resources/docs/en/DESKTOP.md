@@ -2,15 +2,15 @@
 
 简体中文 · Documentation index
 
-[Desktop 0.4.0 Preview 2](https://github.com/jslee124/forge/releases/tag/desktop-0.4.0-preview.2)
-bundles the Forge 0.4.0 shared runtime. Desktop releases are separate from the
+[Desktop 0.5.0 Preview 1](https://github.com/jslee124/forge/releases/tag/desktop-0.5.0-preview.1)
+bundles the Forge 0.5.0-preview.1 shared runtime. Desktop releases are separate from the
 `@jslee124/forge` npm CLI; upgrading npm does not update an installed desktop app.
 The release targets Windows x64 and macOS arm64/x64. Installers are unsigned;
 macOS DMGs are not notarized. Installation and replacement are manual. See the
-[Windows installation guide](https://github.com/jslee124/forge/blob/desktop-0.4.0-preview.2/apps/desktop/INSTALL-WINDOWS.md)
-or [macOS installation guide](https://github.com/jslee124/forge/blob/desktop-0.4.0-preview.2/apps/desktop/INSTALL.md).
+[Windows installation guide](https://github.com/jslee124/forge/blob/desktop-0.5.0-preview.1/apps/desktop/INSTALL-WINDOWS.md)
+or [macOS installation guide](https://github.com/jslee124/forge/blob/desktop-0.5.0-preview.1/apps/desktop/INSTALL.md).
 Publication status and completed checks are recorded in the
-0.4.0 Preview 2 release record.
+0.5.0 Preview 1 release record.
 The older [0.3.4 Preview 2](https://github.com/jslee124/forge/releases/tag/desktop-0.3.4-preview.2)
 still provides macOS ZIPs.
 
@@ -29,7 +29,7 @@ still provides macOS ZIPs.
 ## Workspace coordination and Telegram
 
 Native Forge and Codex task execution shares a host-local workspace lease with
-Forge 0.4.0 CLI and the experimental Telegram gateway. An occupied workspace
+Forge 0.5.0-preview.1 CLI and the experimental Telegram gateway. An occupied workspace
 rejects another task until the active run finishes or is cancelled. Older desktop
 builds do not participate in this coordination; update them before relying on it.
 The lease coordinates task execution, not manual edits or other applications.
@@ -40,10 +40,10 @@ Telegram guide to use that separate entry point.
 
 ## Validation limits
 
-The 0.4.0 Preview 2 release record
+The 0.5.0 Preview 1 release record
 separates candidate checks, exact-source CI, publication and public download
 verification. The preceding records below are historical evidence for their own
-builds, not acceptance results for 0.4.0 Preview 2.
+builds, not acceptance results for 0.5.0 Preview 1.
 
 The [Preview 4 candidate CI run](https://github.com/jslee124/forge/actions/runs/36298064888)
 built the Windows installer and ran packaged and installed-app smoke on a
@@ -79,3 +79,7 @@ declarations; source, tests, and the release evidence above remain authoritative
 | Model and workbench refinement plan | Refinement design and local implementation record |
 | Unsigned update plan | U01–U04 update flow, published through Preview 2 |
 | Desktop QA record | Command-specific and accessibility limits |
+
+## Parallel sessions
+
+0.5.0 Preview 1 adds independent parallel tasks, FIFO waiting and per-session drafts, approvals and cancellation. Two tasks run by default; set `FORGE_MAX_CONCURRENT_RUNS=3` before startup for three (range 1–16). New Git tasks use separate worktrees from HEAD without copying uncommitted files or dependencies. Saved-chat deletion retains workspace files. See this version's release record for live-model coverage.

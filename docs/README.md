@@ -161,3 +161,7 @@ Before submitting documentation changes, run:
 ```bash
 pnpm check:docs
 ```
+
+## 0.5.0 Preview 1
+
+[CLI/npm preview evidence](../evals/reports/v0.5.0-preview.1/README.md) · [Desktop preview evidence](../evals/reports/desktop-0.5.0-preview.1/README.md)
