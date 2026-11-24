@@ -1,6 +1,10 @@
 import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import type {
+  ContextStatus,
+  InteractiveSessionPersistence,
+} from "@forge/application/persistent-session";
 import { AuthenticationManager } from "@forge/auth";
 import {
   type ForgeTool,
@@ -12,7 +16,6 @@ import type { SessionSummary } from "@forge/persistence";
 import { renderToString } from "ink";
 import { render } from "ink-testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
-
 import {
   diffRowStyle,
   INK_INCREMENTAL_RENDERING,
@@ -20,10 +23,6 @@ import {
   resolveInkKeyboardMode,
   UpdateBanner,
 } from "./interactive-ui.js";
-import type {
-  ContextStatus,
-  InteractiveSessionPersistence,
-} from "./persistent-session.js";
 import type { UpdateService, UpdateState } from "./update.js";
 
 const temporaryDirectories: string[] = [];

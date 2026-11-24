@@ -1,3 +1,8 @@
+import { resolveImageInputs } from "@forge/application/image-input";
+import {
+  type CreateForgeModelAdapterOptions,
+  createForgeModelAdapter,
+} from "@forge/application/model-adapter";
 import { AuthenticationStoreError } from "@forge/auth";
 import {
   ForgeConfigError,
@@ -11,11 +16,6 @@ import {
   type ModelUsage,
 } from "@forge/core";
 import { DEFAULT_DEEPSEEK_MODEL } from "@forge/model-deepseek";
-import { resolveImageInputs } from "./image-input.js";
-import {
-  type CreateForgeModelAdapterOptions,
-  createForgeModelAdapter,
-} from "./model-adapter.js";
 import { createSigintCancellationScope } from "./signals.js";
 
 export type { AskOptions, WritableOutput } from "@forge/application";

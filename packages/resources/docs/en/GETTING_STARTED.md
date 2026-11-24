@@ -2,42 +2,29 @@
 
 简体中文 · Documentation index
 
-This guide takes a new contributor from a clean checkout to a verified Forge
-session. It uses only local validation until you deliberately send a prompt to
-a provider.
-
-## What you will do
-
-1. Install and build the development checkout.
-2. Choose one model-access route.
-3. Validate the effective configuration without a paid request.
-4. Run a read-only prompt, then a coding task with explicit approvals.
-5. Find the saved session and run trace.
+This guide takes you from zero to a working Forge setup using local offline checks first, so you only spend tokens when you deliberately run a prompt.
 
 ## Prerequisites
 
-- Node.js 24.22.1 or newer
-- pnpm 11.18.0, as pinned by the root `packageManager` field
-- Git
+- **Node.js** 24.22.1 or newer
+- **pnpm** 11.18.0 (pinned in the root `packageManager` field)
+- **Git**
 - One model-access route:
-  - a DeepSeek API key;
-  - an OpenAI API key;
-  - a configured OpenAI-compatible endpoint; or
-  - Codex CLI with an eligible ChatGPT account for the separate Codex Engine.
+  - DeepSeek API key (`DEEPSEEK_API_KEY`)
+  - OpenAI API key (`OPENAI_API_KEY`)
+  - Any OpenAI-compatible HTTP endpoint
+  - Codex CLI signed in with an eligible ChatGPT account (for the separate Codex Engine)
 
-Forge's development workspace remains private. Release automation produces one
-public CLI package, `@jslee124/forge`, while internal packages and the plugin
-SDK remain private. Install the published CLI for normal use; run from source
-or link the current checkout globally when contributing to Forge.
-
-For the current stable build:
+For normal CLI usage, install the single published package `@jslee124/forge` (workspace `@forge/*` packages remain private):
 
 ```bash
 npm install --global @jslee124/forge
 forge --version
 ```
 
-## 1. Install the checkout
+## 1. Build the source checkout
+
+If you are working from the repository checkout instead of the global npm package:
 
 ```bash
 git clone https://github.com/jslee124/forge.git
@@ -47,55 +34,26 @@ pnpm build
 pnpm forge --version
 ```
 
-The final command builds the workspace and should print `0.5.0-preview.1` for the current
-source release. It does not contact a model provider.
+`pnpm forge --version` should print `0.5.0-preview.1` without touching the network. You can keep using `pnpm forge ...` during development, or run `pnpm link:global` (and later `pnpm unlink:global`) so plain `forge` points to `apps/cli/dist`—remember to rerun `pnpm build` after editing TypeScript sources.
 
-During development you can keep using `pnpm forge`. To expose the same checkout
-as a global `forge` command:
+## 2. Pick a model-access route
 
-```bash
-pnpm link:global
-forge --version
-```
-
-The link points to `apps/cli/dist`, so run `pnpm build` after source changes.
-Remove it later with `pnpm unlink:global`.
-
-## 2. Choose an access route
-
-Forge exposes two execution engines. Pick the route that matches how you want
-to authenticate and which runtime should own tools and approvals.
-
-| Route | Engine | Credential owner | Start here |
+| Route | Engine | Who holds credentials | Quickest setup |
 | --- | --- | --- | --- |
 | DeepSeek API | Forge Engine | Forge stored key or `DEEPSEEK_API_KEY` | Run `pnpm forge`, then `/login` |
 | OpenAI API | Forge Engine | Forge stored key or `OPENAI_API_KEY` | Run `pnpm forge`, then `/login` |
-| OpenAI-compatible endpoint | Forge Engine | Configured environment variable or Forge stored route key | Add the route through `/login` or user configuration |
+| OpenAI-compatible route | Forge Engine | Stored route key or env var | Configure via `/login` or user config |
 | ChatGPT subscription | Codex Engine | Codex App Server | `pnpm forge auth login openai` |
 
-OpenAI API usage and ChatGPT subscription access are separate. A ChatGPT
-subscription does not supply `OPENAI_API_KEY`, and an API key does not make a
-Codex subscription session.
+> **Important:** OpenAI API keys and ChatGPT subscriptions are separate systems. A ChatGPT subscription cannot replace `OPENAI_API_KEY`, and an API key does not authenticate Codex Engine.
 
-### Option A: interactive API-key setup
+### Option A: Interactive `/login` (recommended for local work)
 
-Start the terminal UI:
+Start `pnpm forge`, run `/login`, pick a provider (or add an OpenAI-compatible endpoint), and paste your key into the masked input. Forge stores it in `$FORGE_HOME/auth.json` (`~/.forge/auth.json` by default) with owner-only file permissions. Then pick models with `/model` and thinking depth with `/effort` (or `Shift+Tab`).
 
-```bash
-pnpm forge
-```
+### Option B: Environment variables
 
-Enter `/login`, choose DeepSeek, OpenAI API, or a configured route, and paste
-the key into the masked field. Forge saves it to `$FORGE_HOME/auth.json`
-(`~/.forge/auth.json` by default), protected by owner-only filesystem
-permissions. Environment variables take precedence over a saved key.
-
-Use `/model` to choose the engine, provider, and model. Use `/effort` or
-Shift+Tab to choose a reasoning level advertised by that model.
-
-### Option B: environment variables
-
-Environment variables are convenient for automation and temporary shells:
+Useful for scripts and temporary shells (environment variables always override stored keys):
 
 ```bash
 export DEEPSEEK_API_KEY="your-api-key"
@@ -103,14 +61,11 @@ export DEEPSEEK_API_KEY="your-api-key"
 export OPENAI_API_KEY="your-api-key"
 ```
 
-Do not put keys in `.forge/config.json`, prompts, committed shell files, issue
-reports, or run-trace examples. Forge's user and project configuration schemas
-reject secret fields.
+Never place secrets in `.forge/config.json`, shell history you commit, issue reports, or trace excerpts—Forge's project configuration schemas reject secret fields automatically.
 
-### Option C: ChatGPT subscription through Codex
+### Option C: ChatGPT subscription (Codex Engine)
 
-Install Codex CLI first, then let the official App Server own browser or device
-code sign-in:
+Install Codex CLI first, then sign in through the official App Server:
 
 ```bash
 pnpm forge auth login openai
@@ -118,19 +73,17 @@ pnpm forge auth status openai
 pnpm forge models list --provider openai
 ```
 
-For a headless machine, use:
+On headless machines without a browser:
 
 ```bash
 pnpm forge auth login openai --method device-code
 ```
 
-The Codex Engine owns its own agent runtime, sandbox, tools, approvals, and
-conversation state. Native Forge plugins and JSONL run traces do not wrap that
-engine. See Authentication for the complete boundary.
+Codex Engine runs inside Codex App Server with its own tools, sandbox, approvals, and history; native Forge plugins and JSONL run traces do not wrap Codex runs. See Authentication.
 
-## 3. Validate configuration locally
+## 3. Verify local config before calling a model
 
-These commands parse and merge configuration without making a model request:
+Run these offline commands to inspect merged settings, provenance, and discovered extensions:
 
 ```bash
 pnpm forge config validate
@@ -138,105 +91,68 @@ pnpm forge config show
 pnpm forge plugins list
 ```
 
-`config show` prints the effective value and source for each public setting. A
-fresh configuration begins with the `safe` permission profile, no fixed total
-model-step/tool-call ceiling, a 60-second command timeout, trace persistence enabled, and
-context mode `manual`.
+A clean installation starts with the `safe` permission profile, a 60-second command timeout, trace persistence enabled, and `manual` context management. Note that a project's `.forge/config.json` may lower budgets or make rules stricter, but cannot override your chosen model, enable plugins, or loosen permissions. See Configuration.
 
-If the output is surprising, read Configuration before
-starting a run. In particular, project `.forge/config.json` may only tighten
-limits and context behavior; it cannot select a model, enable plugins, or widen
-permissions.
+## 4. Run your first task
 
-## 4. Run a first task
-
-### Start read-only
-
-From a small repository you understand, start the interactive UI:
+Start interactive mode in a workspace you recognize:
 
 ```bash
 pnpm forge
 ```
 
-Ask a bounded question first:
+Try a read-only prompt first (allowed automatically under `safe` without prompts):
 
 ```text
 Inspect this repository. Summarize the package structure and name the commands
 that verify a change. Do not modify files.
 ```
 
-Workspace listing, reading, and search are allowed automatically under the
-default `safe` profile. A native Forge Engine run streams model output and
-provider-exposed reasoning separately and records structured runtime events.
-
-### Try a coding task
+Then try a coding change that asks for approval:
 
 ```text
 Fix one failing test. Show the proposed diff and run the narrowest relevant
 verification command before reporting success.
 ```
 
-Under `safe`, Forge asks before the first workspace write in that run and before
-every process command. Read the full diff, command arguments, working directory,
-and timeout before approving. Approval is not process isolation: an approved
-program runs with your user privileges.
+Under `safe`, Forge pauses to show the full diff or command (`cwd`, arguments, timeout) before applying the first workspace write or running a shell command. Review carefully before confirming—an approved command runs with your normal OS user privileges, and denying an action cleanly records the refusal instead of retrying behind the scenes.
 
-If you reject an action, Forge records the denial. It does not silently widen
-the policy or treat missing input as consent.
+### One-shot CLI runs
 
-### One-shot commands
-
-Use the native Forge Engine without entering the interactive UI:
+Run without entering the TUI:
 
 ```bash
 pnpm forge run "Inspect the repository and summarize its architecture"
-```
-
-Use the separate Codex Engine:
-
-```bash
 pnpm forge codex "Inspect the repository and summarize its architecture"
-# equivalent engine selection:
+# equivalent Codex selection:
 pnpm forge run --engine codex "Inspect the repository"
 ```
 
-A one-shot native run started from a TTY presents approval prompts in plain
-terminal UI. If stdin or stderr is redirected, there is no approval channel and
-any confirmation-required action is denied, so automated invocations should
-start with read-only prompts unless they provide an explicit narrow channel.
+When stdin or stderr is redirected (no TTY approval channel), actions requiring confirmation are denied automatically, so non-interactive scripts should stick to read-only tasks unless given an explicit narrow approval policy.
 
-## 5. Continue and inspect
+## 5. Resume and inspect sessions
 
-Inside the terminal UI:
+Inside the interactive UI:
 
-```text
-/context    show the current context budget and checkpoint status
-/compact    create an explicit conversation checkpoint
-/resume     choose a saved session for this workspace
-/help       show every interactive command
-```
+- `/context` — inspect token usage, budget breakdown, and checkpoint status
+- `/compact` — create a conversation checkpoint without losing saved history
+- `/resume` — browse and resume a saved workspace session
+- `/help` — list all interactive slash commands
 
-From the shell:
+From your shell:
 
 ```bash
 pnpm forge resume --last
 pnpm forge inspect <run-id>
 ```
 
-A session stores canonical conversation context. A run is one bounded
-agent-loop execution with its own ID and JSONL event trace. Interactive resume
-replays available historical model and tool events, but it does not reactivate
-old approvals, pending tool calls, child processes, or provider continuation
-state. See Sessions and traces.
+Resuming restores completed conversation context after validating the workspace, without re-arming old approvals, background processes, or provider continuation tokens. See Sessions and traces.
 
-## Next steps
+## Where to go next
 
-- Learn every terminal control in CLI UI.
-- Customize models and limits with Configuration.
-- Read Security model before opening an untrusted repository or
-  trusting a plugin.
-- Add repository instructions or a Skill with Project context.
-- Build an extension with Plugin authoring.
-- Reproduce the paid-call-free evidence with `pnpm eval:deterministic` and the
-  Evaluation guide.
-- If setup does not behave as described, use Troubleshooting.
+- CLI UI reference — keyboard shortcuts, `@` file mentions, images, and parallel session switching
+- Configuration — user vs. project config precedence and limits
+- Security model — exact workspace, plugin, and process boundaries
+- Project context & Plugin authoring — adding `AGENTS.md`, portable Skills, or local plugins
+- Evaluation guide — running `pnpm eval:deterministic` without paid model calls
+- Troubleshooting — diagnosing auth, terminal, or approval issues

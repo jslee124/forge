@@ -57,6 +57,8 @@
 - `redirect`: compatibility pointer from an old documentation path.
 - Release evidence belongs under `evals/reports/<version>/`, and every report
   directory must be listed in `evals/reports/README.md`.
+- Keep active guides concise and readable; archive chronological experiment and
+  acceptance logs under `docs/history/<snapshot>/`.
 - Every page must be reachable from a documentation entry point; `pnpm check:docs`
   enforces that and the catalog, link, anchor, and role invariants.
 

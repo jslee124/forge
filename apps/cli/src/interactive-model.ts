@@ -3,7 +3,7 @@ import { readdir, realpath } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { isSupportedImagePath } from "./image-input.js";
+import { isSupportedImagePath } from "@forge/application/image-input";
 
 export interface FileMention {
   readonly path: string;

@@ -1,12 +1,11 @@
+import { createPersistentInteractiveSession } from "@forge/application/persistent-session";
 import { ForgeConfigError } from "@forge/config";
 import { PersistenceError } from "@forge/persistence";
-
 import type { AskOptions } from "./ask.js";
 import {
   type InteractiveUiDependencies,
   runInkInteractiveFromCli,
 } from "./interactive-ui.js";
-import { createPersistentInteractiveSession } from "./persistent-session.js";
 
 export interface ResumeOptions extends AskOptions {
   readonly last?: boolean;

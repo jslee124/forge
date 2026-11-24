@@ -1,6 +1,6 @@
 # 桌面更新验收 — 2026-09-22
 
-[English](UPDATE_QA.md) · [更新计划](../../../apps/desktop/UPDATE_PLAN.zh-CN.md) · [安装说明](../../../apps/desktop/INSTALL.zh-CN.md)
+[English](UPDATE_QA.md) · [更新计划](../../../docs/zh-CN/history/desktop-workbench/UPDATE_PLAN.md) · [安装说明](../../../apps/desktop/INSTALL.zh-CN.md)
 
 U01—U04 的实现与受控验收已在本地完成。本记录不代表发布、替换已安装应用、签名/公证或 Intel 真机验收。
 

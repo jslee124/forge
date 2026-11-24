@@ -8,13 +8,11 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-
-import { afterEach, describe, expect, it } from "vitest";
-
 import {
   changeProjectPluginTrust,
   detectStartupResources,
-} from "./startup-resources.js";
+} from "@forge/application";
+import { afterEach, describe, expect, it } from "vitest";
 
 const temporaryDirectories: string[] = [];
 

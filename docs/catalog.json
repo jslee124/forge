@@ -129,6 +129,54 @@
     {
       "path": "zh-CN/history/v0.3.4/MILESTONES.md",
       "snapshot": "v0.3.4"
+    },
+    {
+      "path": "history/desktop-workbench/STUDIO_DESIGN.md",
+      "snapshot": "desktop-workbench"
+    },
+    {
+      "path": "history/desktop-workbench/WORKBENCH_DEVELOPMENT_PLAN.md",
+      "snapshot": "desktop-workbench"
+    },
+    {
+      "path": "history/desktop-workbench/WORKBENCH_UX_PLAN.md",
+      "snapshot": "desktop-workbench"
+    },
+    {
+      "path": "history/desktop-workbench/DESKTOP_REFINEMENT_PLAN.md",
+      "snapshot": "desktop-workbench"
+    },
+    {
+      "path": "history/desktop-workbench/UPDATE_PLAN.md",
+      "snapshot": "desktop-workbench"
+    },
+    {
+      "path": "zh-CN/history/desktop-workbench/STUDIO_DESIGN.md",
+      "snapshot": "desktop-workbench"
+    },
+    {
+      "path": "zh-CN/history/desktop-workbench/WORKBENCH_DEVELOPMENT_PLAN.md",
+      "snapshot": "desktop-workbench"
+    },
+    {
+      "path": "zh-CN/history/desktop-workbench/WORKBENCH_UX_PLAN.md",
+      "snapshot": "desktop-workbench"
+    },
+    {
+      "path": "zh-CN/history/desktop-workbench/DESKTOP_REFINEMENT_PLAN.md",
+      "snapshot": "desktop-workbench"
+    },
+    {
+      "path": "zh-CN/history/desktop-workbench/UPDATE_PLAN.md",
+      "snapshot": "desktop-workbench"
+    },
+    {
+      "path": "history/desktop-productization-log/ACCEPTANCE_LOG.md",
+      "snapshot": "desktop-productization-log"
+    },
+    {
+      "path": "zh-CN/history/desktop-productization-log/ACCEPTANCE_LOG.md",
+      "snapshot": "desktop-productization-log"
     }
   ],
   "redirects": []

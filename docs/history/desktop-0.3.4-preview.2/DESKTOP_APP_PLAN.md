@@ -52,7 +52,7 @@ this first-version contract.
 | TUI submission connects events, approvals, and cancellation to execution | [app.tsx](../../../apps/cli/src/interactive/app.tsx) | Consume structured interfaces, not terminal strings |
 | `runTask` assembles configuration, instructions, models, tools, plugins, policy, then calls `runAgent` | [run.ts](../../../apps/cli/src/run.ts) | Share assembly instead of copying it |
 | Core owns the model/tool loop, policy, events, and outcomes | [runtime.ts](../../../packages/core/src/runtime.ts) | Do not rebuild the loop in UI |
-| Session service prepares and records runs, lists and restores workspace history | [persistent-session.ts](../../../apps/cli/src/persistent-session.ts) | UI task maps to Session |
+| Session service prepares and records runs, lists and restores workspace history | [persistent-session.ts](../../../packages/application/src/persistent-session.ts) | UI task maps to Session |
 | Forge home stores `sessions/` and `runs/` | [session-store.ts](../../../packages/persistence/src/session-store.ts), [trace-store.ts](../../../packages/persistence/src/trace-store.ts) | Reuse validated persistence |
 | Built-ins list, read, search, edit, and execute commands | [registry.ts](../../../packages/tools/src/registry.ts) | General document previews and research need additional capabilities |
 

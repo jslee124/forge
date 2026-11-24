@@ -6,7 +6,7 @@ import { parseArgs, promisify } from "node:util";
 import {
   acceptanceLane,
   pilotDeadlines,
-} from "../src/main/product-live-scenarios.ts";
+} from "../src/main/acceptance/product-live-scenarios.ts";
 import { snapshotMatrixInputs } from "./product-matrix-inputs.mjs";
 
 // Offline proposal only. Never imports the live launcher or credential manager.
@@ -28,8 +28,8 @@ const files = [
   "apps/desktop/scripts/product-matrix.mjs",
   "apps/desktop/scripts/product-matrix-inputs.mjs",
   "apps/desktop/scripts/product-live.mjs",
-  "apps/desktop/src/main/product-live-scenarios.ts",
-  "apps/desktop/src/main/product-live-policy.ts",
+  "apps/desktop/src/main/acceptance/product-live-scenarios.ts",
+  "apps/desktop/src/main/acceptance/product-live-policy.ts",
   "evals/scripts/desktop-product-assertions.mjs",
   "docs/development/DESKTOP_PRODUCT_PRD.md",
 ];

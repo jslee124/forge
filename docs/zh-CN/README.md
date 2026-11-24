@@ -99,6 +99,12 @@ Forge 文档按“读者想完成什么”组织。第一次接触项目时无�
 | [桌面实施合同](history/desktop-0.3.4-preview.2/DESKTOP_APP_PLAN.md) | 历史桌面范围与 coding agent 交接依据 |
 | [桌面 D01—D13 清单](history/desktop-0.3.4-preview.2/DESKTOP_APP_TASKS.md) | 历史任务完成与验收记录 |
 | [桌面 D01 基线](history/desktop-0.3.4-preview.2/DESKTOP_BASELINE.md) | 历史工具链与架构快照 |
+| [桌面工作台设计](history/desktop-workbench/STUDIO_DESIGN.md) | 历史黑白工作台布局、主题与交互快照 |
+| [桌面工作台后续计划](history/desktop-workbench/WORKBENCH_DEVELOPMENT_PLAN.md) | 历史工作台 W/P 阶段任务、验收 gate 与进度记录 |
+| [桌面工作台 UX 规范](history/desktop-workbench/WORKBENCH_UX_PLAN.md) | 历史工作台布局与斜杠命令设计快照 |
+| [桌面模型与工作台改进方案](history/desktop-workbench/DESKTOP_REFINEMENT_PLAN.md) | 历史模型选择器与 macOS 侧栏细化记录 |
+| [桌面未签名更新计划](history/desktop-workbench/UPDATE_PLAN.md) | 历史 U01—U04 未签名更新设计快照 |
+| [桌面产品化验收与增量日志](history/desktop-productization-log/ACCEPTANCE_LOG.md) | 按时间顺序记录的桌面产品化增量与验收试跑日志 |
 
 ## 目录结构
 

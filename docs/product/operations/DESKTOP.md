@@ -73,11 +73,11 @@ declarations; source, tests, and the release evidence above remain authoritative
 
 | Record | Status |
 | --- | --- |
-| [Workbench design](../../../apps/desktop/STUDIO_DESIGN.md) | Layout, theming, and interaction behavior of the live workbench |
-| [Workbench follow-up plan](../../../apps/desktop/WORKBENCH_DEVELOPMENT_PLAN.md) | Ordered tasks, acceptance gates, and current progress |
-| [Workbench UX specification](../../../apps/desktop/WORKBENCH_UX_PLAN.md) | Proposed layout and slash-command parity; full parity still pending |
-| [Model and workbench refinement plan](../../../apps/desktop/DESKTOP_REFINEMENT_PLAN.md) | Refinement design and local implementation record |
-| [Unsigned update plan](../../../apps/desktop/UPDATE_PLAN.md) | U01–U04 update flow, published through Preview 2 |
+| [Workbench design](../../history/desktop-workbench/STUDIO_DESIGN.md) | Layout, theming, and interaction behavior of the live workbench |
+| [Workbench follow-up plan](../../history/desktop-workbench/WORKBENCH_DEVELOPMENT_PLAN.md) | Ordered tasks, acceptance gates, and current progress |
+| [Workbench UX specification](../../history/desktop-workbench/WORKBENCH_UX_PLAN.md) | Proposed layout and slash-command parity; full parity still pending |
+| [Model and workbench refinement plan](../../history/desktop-workbench/DESKTOP_REFINEMENT_PLAN.md) | Refinement design and local implementation record |
+| [Unsigned update plan](../../history/desktop-workbench/UPDATE_PLAN.md) | U01–U04 update flow, published through Preview 2 |
 | [Desktop QA record](../../../apps/desktop/design-qa.md) | Command-specific and accessibility limits |
 
 ## Parallel sessions

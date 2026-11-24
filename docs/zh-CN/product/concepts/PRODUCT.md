@@ -1,108 +1,55 @@
-# 产品定义
+# 产品定位
 
-[English](../../../product/concepts/PRODUCT.md) · [中文目录](../../README.md) · [根 README](../../../../README.zh-CN.md)
+[English](../../../product/concepts/PRODUCT.md) · [中文目录](../../README.md)
 
-## 摘要
+Forge 是一个轻量、默认安全的透明化编程代理（Coding Agent），提供公开命令行包（`@jslee124/forge`）与独立的 Electron 桌面预览版。它能检视本地仓库、运行有边界的工具、在越界或执行副作用前请求确认，并把真实过程完整留痕。
 
-Forge 是一个面向学习和作品集展示的 TypeScript coding agent。它不是一个“只要能调用工具就算完成”的 demo，而是一个可以检查、约束、测量和复盘的最小运行时。
+与黑盒封装不同，Forge 尽量让每一步都可检视：模型返回思维链就如实展示、没有返回绝不伪造、所有文件与命令动作必须先过策略内核，并在结束时留下可追溯的真实执行结果，而不只是一段看似合理的文字总结。
 
-Forge 负责模型循环、工具执行、审批策略、上下文、会话和 trace；provider adapter 负责协议转换；CLI 负责交互和展示。这样既能使用成熟 SDK，又能保留 agent 的关键工程边界。
+## 目标读者与适用场景
 
-## 目标用户
+- **想理解或改造 Agent 内核的开发者**：可以通过清晰分层的 TypeScript 代码库直接研究主循环、策略裁决、上下文预算和持久化契约。
+- **偏好可控、可读工作流的日常开发者**：适合在本地仓库中执行调查、小范围修改与测试验证，所有改动与命令都透明可控。
 
-### 主要用户
+## 一次典型任务如何运转
 
-- 正在学习 agent runtime、tool calling、安全边界和评测的开发者。
-- 希望从小型、可运行系统理解 coding-agent 工程的面试官或导师。
-- 需要在本地仓库中使用可检查、可审批工作流的个人开发者。
+```bash
+forge run "Add input validation and update the tests"
+```
 
-### 次要用户
+1. **校验环境与基线**：合并用户级（`~/.forge/`）和项目级配置，加载并冻结当前 `AGENTS.md` 指令，锁定规范工作区根目录。
+2. **调查代码**：在默认 `safe` 档位下，模型可以自动执行工作区内的只读操作（`list_files`、`read_file`、`search`）了解代码上下文。
+3. **审批变更与命令**：在当前运行首次写入工作区文件或准备执行任何外部命令（`run_command`）前，Forge 暂停并等待你的显式同意（无交互通道时自动拒绝）。
+4. **验证并诚实收尾**：运行相关验证命令并据实汇报真实结果，以清晰的终态（`completed`、`failed`、`cancelled`、`denied` 或 `limit_reached`）退出。
 
-- 想比较 provider、模型和 agent-loop 行为的实验者。
-- 希望通过插件扩展工具但不绕过核心策略的项目作者。
+## 核心产品原则
 
-## 核心用例
+- **透明可审计**：思维链（仅在厂商提供时）、工具调用、策略决策、token 估算与结构化 JSONL trace 全面可见。
+- **默认安全边界**：文件工具严格限制在解析符号链接后的工作区根内；整文件重写需核对完整读取哈希；命令通过 `spawn(..., { shell: false })` 启动；风险动作默认需要人工确认。
+- **结果可验证**：模型的自然语言陈述不能掩盖测试或构建失败，真实退出码与工具输出独立呈现。
+- **善用工具库而非被框架绑架**：使用 Commander、Ink、AI SDK 与 Zod 处理外围样板代码，核心循环、预算和策略保持自主可控。
+- **扩展不破坏护栏**：受信任的插件可以注册工具、斜杠命令与单层宿主托管子代理，也可以收紧策略，但永远无法把核心的 `deny` 改成 `allow`。
+- **小而可靠优先**：先把单仓库编码闭环和验证链路做扎实，再谈功能扩展。
 
-给 Forge 一个小型仓库任务，例如“修复失败测试并验证结果”。Forge 应当：
+## 当前已交付能力
 
-1. 读取当前配置和适用的项目指令。
-2. 让模型选择下一步，并通过工具检查相关代码。
-3. 在每个工具调用前执行 `allow`、`confirm` 或 `deny` 策略。
-4. 在获批后修改代码并运行受限的验证命令。
-5. 根据真实的命令结果继续修复，而不是相信模型的乐观总结。
-6. 以真实状态、diff 和 trace 结束，或说明为什么无法完成。
+- **命令行与交互终端（`@jslee124/forge`）**：支持单次任务（`forge run`、`forge codex`）和多行 Ink 终端界面（含 `@` 文件引用、`/` 斜杠命令补全、diff 预览与多会话切换）。
+- **多引擎路由**：支持原生 DeepSeek、OpenAI API 及兼容 OpenAI 协议的自定义端点（`@forge/model-*`），并支持通过 Codex App Server 运行 ChatGPT 订阅路径（`forge codex`）。
+- **配置与项目上下文**：分层配置（`forge config show` 可查看每项配置来源）、层级 `AGENTS.md` 指令、按需加载的便携式 Skills（`load_skill`）以及显式信任授权后的项目本地插件（`.forge/plugins/`）。
+- **持久化与上下文控制**：Schema v3 会话恢复（`forge resume`）、脱敏 JSONL trace（`forge inspect <run-id>`）、上下文压力透视（`/context`）、手动生成检查点（`/compact`）以及可选的自动压缩模式。
+- **桌面工作台预览版**：参见[桌面端指南](../operations/DESKTOP.md)，支持原生 Forge 与 Codex 双引擎、会话保存、文件/变更/活动面板、交互审批与更新下载；尚待关闭的产品级门槛跟踪于[桌面产品化剩余工作](../../development/DESKTOP_PRODUCT_IMPLEMENTATION.md#当前剩余工作2026-10-27)。
 
-## 产品原则
+*（最初核心闭环由 [v0.1 验收合约](../../history/v0.1/ACCEPTANCE.md) 确立。）*
 
-### 透明
+## 明确的能力边界与后续方向
 
-终端应展示有意义的模型和工具活动。只有 provider 实际返回的 reasoning 才能展示或持久化；如果 provider 没有返回，Forge 不会伪造或暗示自己看到了隐藏思维过程。结构化 trace 保留可观察的执行轨迹。
+当前**不提供**以下能力：
 
-### 默认安全
+- 远程执行或跨设备会话同步
+- 向量数据库或全仓 RAG 语义索引
+- 自动 `git commit`、`git push` 或发起 PR
+- 操作系统级进程或插件沙箱（已批准的命令与已信任的本地 JS 插件以当前用户权限运行）
+- 原生 Anthropic Messages 或 Gemini 协议适配器
+- 任意层深的递归多代理编排（插件子代理仅限一层并受宿主策略控制）
 
-文件工具默认限制在选定 workspace 内，命令和执行时间有边界，高风险操作需要审批。非交互模式没有匹配的预先审批时必须拒绝需要审批的操作。
-
-### 可验证
-
-合理的最终文字不是完成证明。任务可以由测试、类型检查、lint 或其他确定性检查验证时，Forge 应执行检查并报告真实结果。
-
-### 理解框架，但不被框架拥有
-
-Forge 可以使用成熟库消除偶然复杂度，但核心运行时概念必须保持可见、可独立测试。
-
-### 扩展不能削弱保护
-
-插件可以添加工具、命令、prompt 贡献和受控生命周期 hook，但不能把核心 `deny` 变为 `allow`，绕过审批或替换策略内核。进程内插件仍是本地代码，需要明确的信任决定。
-
-### 先小后广
-
-一个狭窄但可靠的工作流，比许多未完成的功能更有价值。
-
-## 已发布产品能力
-
-CLI 0.4.0 包括以下已有能力：
-
-- TypeScript CLI 和多行交互式终端。
-- 斜杠命令发现、workspace 文件引用和可读的 diff 审查。
-- Native DeepSeek/OpenAI API adapter、已配置的 OpenAI-compatible route，以及
-  通过 Codex App Server 使用 ChatGPT subscription 的独立路径。
-- 通过当前 provider adapter 流式输出。
-- 有明确停止条件的多步骤 agent 循环。
-- `~/.forge/config.json` 用户级配置和分层 `AGENTS.md` 指令。
-- `forge config show` 可检查配置来源。
-- 列出、读取、搜索、统一 guarded 文件编辑和运行命令工具。
-- workspace 路径校验、命令超时和取消。
-- 敏感操作审批、provider reasoning 展示、结构化事件和 JSONL trace。
-- 可在重启后恢复的本地会话。
-- Resume 时恢复规范的已完成 tool-call/result history，但不恢复审批、待执行
-  action 或 provider continuation。
-- Context budget、手动 checkpoint、opt-in 自动压缩、内存 session scoped grant
-  与 prompt-cache observation。
-- 版本化产品文档、portable Skill 与受信任本地 plugin。
-- runtime/tool 自动化测试、规范 fixture、确定性恢复场景和可复现发布评测。
-
-独立的[桌面预览版](../operations/DESKTOP.md)提供图形工作台，包括 Native Forge
-和 Codex 引擎、保存的任务、文件与文档预览、变更审查、审批、取消及安装器下载。
-其预览状态、平台和发布验证与 CLI 分开记录。当前的
-[桌面产品化工作](../../development/DESKTOP_PRODUCT_IMPLEMENTATION.md#当前剩余工作2026-10-27)
-仍有真实任务、用户、无障碍和发布验收尚未完成。
-
-## 历史 v0.1 基线
-
-详细 gate 见[历史 v0.1 验收与评测](../../history/v0.1/ACCEPTANCE.md)。一次完整仓库任务至少要：读取多个相关文件、进行定向修改、运行自动验证、证明失败恢复、在成功或限制后停止、拒绝 workspace 外文件操作、生成与真实行为一致的 trace 和总结。
-
-## 当前限制
-
-当前不提供远程执行、持久语义记忆、RAG、内置 MCP server
-发现、第三方 plugin 安装器、自动 commit/push/PR、生产级 OS sandbox，以及
-原生 Anthropic Messages/Gemini protocol。Plugin-declared subagent 是有界、
-host-managed 且不可递归的能力，不是通用多 Agent 编排。
-
-仓库提供 MCP stdio 示例 plugin，但 Forge 不会默认发现任意 MCP server。受信任
-plugin 和获批子进程拥有 Forge 进程的本地权限；policy check 不等于 OS sandbox。
-
-## 后续方向
-
-后续可考虑更大的评测套件、LangChain/LangGraph adapter、带 SSE 和人工审批的
-HTTP API、SQLite 索引、session branch 与跨机同步。这些只是方向，不是当前行为
-声明；真正排期工作的完成合约以[路线图](../../development/ROADMAP.md)为准。
+更长期的探索方向（如更丰富的评测集、其他运行时适配、HTTP/SSE 接口或 SQLite 索引）统一记录在[开发路线图](../../development/ROADMAP.md)，排期与验证完成前均不作为当前承诺。

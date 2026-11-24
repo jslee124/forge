@@ -1,7 +1,6 @@
+import type { DetectedStartupResources } from "@forge/application";
 import { Box, Text } from "ink";
 import type React from "react";
-
-import type { DetectedStartupResources } from "../startup-resources.js";
 
 export function PluginsPanel({
   resources,

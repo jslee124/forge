@@ -1,10 +1,8 @@
 import { mkdtemp, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-
+import { resolveImageInputs } from "@forge/application/image-input";
 import { describe, expect, it } from "vitest";
-
-import { resolveImageInputs } from "./image-input.js";
 
 const PNG_HEADER = Buffer.from([
   0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,

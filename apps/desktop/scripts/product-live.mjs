@@ -15,7 +15,7 @@ import {
   PILOT_TASKS,
   pilotDeadlines,
   pilotScenario,
-} from "../src/main/product-live-scenarios.ts";
+} from "../src/main/acceptance/product-live-scenarios.ts";
 
 const { values } = parseArgs({
   options: {

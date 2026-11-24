@@ -48,7 +48,7 @@ D07 与 D08 分别验收，完成一种不能代替另一种。表中顺序是�
 明确关闭窗口、退出应用、跨引擎续聊规则；不能默认具有后台运行或无损引擎切换能力。
 
 **入口**：[run.ts](../../../../apps/cli/src/run.ts)、[TUI](../../../../apps/cli/src/interactive/app.tsx)、
-[会话服务](../../../../apps/cli/src/persistent-session.ts)、[Codex 路径](../../../../apps/cli/src/codex-command.ts)。
+[会话服务](../../../../packages/application/src/persistent-session.ts)、[Codex 路径](../../../../apps/cli/src/codex-command.ts)。
 **验证**：读取当前测试，选择最小离线基线；记录命令和结果，不搬用旧验收数字。
 
 **完成记录（2026-09-06，Complete）**：基线、引擎路径、依赖矩阵、Electron 44.2.0
