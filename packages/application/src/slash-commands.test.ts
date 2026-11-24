@@ -1,18 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { SLASH_COMMANDS as cliCommands } from "../../../apps/cli/src/commands.js";
 import {
   commands as desktopCommands,
   routeCommand,
 } from "../../../apps/desktop/src/renderer/src/slash-commands.js";
 import {
   completeSlashCommand,
+  filterSlashCommands,
   parseSlashCommand,
   SLASH_COMMANDS,
 } from "./slash-commands.js";
 
 describe("shared command contract", () => {
-  it("keeps both clients on the same command catalog", () => {
-    expect(cliCommands).toEqual(SLASH_COMMANDS);
+  it("keeps the shared slash-command catalog aligned with desktop", () => {
+    expect(filterSlashCommands("/")).toEqual(SLASH_COMMANDS);
     expect(desktopCommands.map((x) => `/${x[0]}`)).toEqual(
       SLASH_COMMANDS.map((x) => x.name),
     );

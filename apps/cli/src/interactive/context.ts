@@ -1,4 +1,4 @@
-import type { ContextStatus } from "../persistent-session.js";
+import type { ContextStatus } from "@forge/application/persistent-session";
 
 export interface ContextModeChoice {
   readonly kind: "session" | "default";

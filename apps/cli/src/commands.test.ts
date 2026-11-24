@@ -1,10 +1,9 @@
-import { describe, expect, it } from "vitest";
-
 import {
   filterSlashCommands,
   formatSlashCommandHelp,
   SLASH_COMMANDS,
-} from "./commands.js";
+} from "@forge/application/slash-commands";
+import { describe, expect, it } from "vitest";
 
 describe("slash command registry", () => {
   it("drives both completion and help", () => {

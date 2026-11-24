@@ -1,5 +1,17 @@
 import { randomUUID } from "node:crypto";
-import { BUILTIN_NATIVE_MODELS } from "@forge/application";
+import {
+  changeProjectPluginTrust,
+  type DetectedStartupResources,
+  detectStartupResources,
+  EMPTY_STARTUP_RESOURCES,
+} from "@forge/application";
+import { isSupportedImagePath } from "@forge/application/image-input";
+import {
+  type ContextStatus,
+  createPersistentInteractiveSession,
+  type InteractiveSessionPersistence,
+} from "@forge/application/persistent-session";
+import { filterSlashCommands } from "@forge/application/slash-commands";
 import {
   type ApiKeyProvider,
   AuthenticationManager,
@@ -20,19 +32,14 @@ import type {
   RunEvent,
   RunResult,
 } from "@forge/core";
-import {
-  canonicalText,
-  runConversationMessages,
-  SessionApprovalStore,
-} from "@forge/core";
+import { runConversationMessages, SessionApprovalStore } from "@forge/core";
 import {
   type DiscoverModelsRequest,
   discoverModels,
 } from "@forge/model-compat";
-import type { SessionReasoning, SessionSummary } from "@forge/persistence";
+import type { SessionSummary } from "@forge/persistence";
 import {
   Box,
-  type Key,
   Static,
   Text,
   useApp,
@@ -52,36 +59,18 @@ import {
   runCodexTask,
 } from "../codex-command.js";
 import {
-  filterSlashCommands,
-  formatSlashCommandHelp,
-  parseSlashCommand,
-  type SlashCommand,
-} from "../commands.js";
-import { terminalHyperlink } from "../hyperlink.js";
-import { isSupportedImagePath } from "../image-input.js";
-import {
   activeMentionQuery,
   assemblePrompt,
-  classifySubmissionKey,
   createEditorState,
-  deleteEditorRange,
   discoverWorkspaceFiles,
   type EditorState,
   filterFuzzy,
   filterWorkspaceFiles,
-  insertEditorText,
-  insertFileMention,
   insertPastedEditorText,
-  moveEditorCursor,
   referencedPaths,
   slashCommandQuery,
 } from "../interactive-model.js";
-import {
-  type ContextStatus,
-  createPersistentInteractiveSession,
-  type InteractiveSessionPersistence,
-} from "../persistent-session.js";
-import { ProviderSetup, type ProviderSetupResult } from "../provider-setup.js";
+import type { ProviderSetupResult } from "../provider-setup.js";
 import {
   type CommandApprovalPreview,
   createApprovalChannel,
@@ -92,37 +81,44 @@ import {
   type SubagentApprovalPreview,
 } from "../run.js";
 import {
-  changeProjectPluginTrust,
-  type DetectedStartupResources,
-  detectStartupResources,
-  EMPTY_STARTUP_RESOURCES,
-} from "../startup-resources.js";
-import {
   createUpdateService,
-  FORGE_RELEASES_URL,
   type UpdateService,
   type UpdateState,
 } from "../update.js";
+import { toolRunActivity } from "./activity.js";
 import {
-  formatRunActivity,
-  formatToolCallSummary,
-  toolRunActivity,
-} from "./activity.js";
-import { PermissionsPanel } from "./approvals.js";
-import {
-  contextModeChoices,
-  contextPressureColor,
-  contextRing,
-  formatContextIndicator,
-} from "./context.js";
+  appendTranscriptEntry,
+  conversationTranscript,
+  ForgeHeader,
+  formatModelStatus,
+  PromptFooter,
+  RUN_ACTIVITY_FRAMES,
+  type StaticOutputItem,
+} from "./display.js";
+import { handleInteractiveInput } from "./input-handler.js";
 import { runInteractiveLifecycle } from "./lifecycle.js";
-import { nextCursor, PromptWithCursor, previousCursor } from "./prompt.js";
-import { SignInPanel } from "./providers.js";
-import { PluginsPanel, PluginTrustPanel, ResourcesPanel } from "./resources.js";
+import { type PendingApproval, PhaseOverlays } from "./overlays.js";
+import {
+  type EffortChoice,
+  effortsForModel,
+  type LoginChoice,
+  type LogoutChoice,
+  MODEL_CHOICES,
+  type ModelChoice,
+  modelChoiceSearchFields,
+  providerActions,
+  providerLoginChoices,
+  providerLogoutChoices,
+  providerModelChoices,
+  providerRouteState,
+  type ReasoningEffort,
+  STANDARD_EFFORTS,
+} from "./provider-choices.js";
 import type {
   InteractiveSessionHost,
   TuiSessionStatus,
 } from "./session-host.js";
+import { executeSlashCommand } from "./slash-commands.js";
 import { TranscriptBlock } from "./transcript.js";
 import type {
   PendingSignIn,
@@ -132,340 +128,7 @@ import type {
   TranscriptKind,
 } from "./types.js";
 
-type StaticOutputItem =
-  | {
-      readonly kind: "header";
-      readonly resources: DetectedStartupResources;
-    }
-  | { readonly kind: "transcript"; readonly entry: TranscriptEntry };
-
-interface PendingApproval {
-  readonly prompt: string;
-  readonly allowSession: boolean;
-  readonly command?: CommandApprovalPreview;
-  readonly network?: NetworkApprovalPreview;
-  readonly subagent?: SubagentApprovalPreview;
-  readonly resolve: (answer: string | null) => void;
-}
-
-const RUN_ACTIVITY_FRAMES = [
-  "⠋",
-  "⠙",
-  "⠹",
-  "⠸",
-  "⠼",
-  "⠴",
-  "⠦",
-  "⠧",
-  "⠇",
-  "⠏",
-] as const;
-
-interface ModelChoice {
-  readonly label: string;
-  readonly description: string;
-  readonly selection: PersistedModelSelection;
-  readonly supportedReasoningEfforts: readonly EffortChoice[];
-  readonly defaultReasoningEffort: ReasoningEffort;
-}
-
-type ReasoningEffort = NonNullable<PersistedModelSelection["reasoningEffort"]>;
-
-interface EffortChoice {
-  readonly effort: ReasoningEffort;
-  readonly description: string;
-}
-
-interface LoginChoice {
-  readonly label: string;
-  readonly description: string;
-  readonly kind:
-    | "subscription"
-    | "api-key"
-    | "provider-route"
-    | "configured-provider";
-  readonly provider?: ApiKeyProvider;
-  readonly route?: string;
-  readonly details?: string;
-}
-
-interface LogoutChoice {
-  readonly label: string;
-  readonly description: string;
-  readonly kind: "subscription" | "api-key";
-  readonly provider: string;
-  readonly environmentVariable?: string;
-}
-
-interface ProviderRouteState {
-  readonly ready: boolean;
-  readonly label: string;
-}
-
-interface ProviderActionChoice {
-  readonly kind: "add-model" | "delete-model" | "logout" | "remove";
-  readonly label: string;
-  readonly description: string;
-}
-
-const LOGIN_CHOICES: readonly LoginChoice[] = [
-  {
-    label: "ChatGPT subscription",
-    description: "Official Codex sign-in · subscription usage",
-    kind: "subscription",
-  },
-  {
-    label: "DeepSeek API",
-    description: "Save a DeepSeek API key",
-    kind: "api-key",
-    provider: "deepseek",
-  },
-  {
-    label: "OpenAI API",
-    description: "Save an API key · billed separately from ChatGPT",
-    kind: "api-key",
-    provider: "openai",
-  },
-  {
-    label: "Add third-party provider",
-    description: "OpenAI-compatible endpoint or local server",
-    kind: "provider-route",
-  },
-];
-
-function providerLoginChoices(
-  providers: Readonly<Record<string, ProviderProfile>>,
-  statusFor: (route: string, profile: ProviderProfile) => ProviderRouteState,
-): readonly LoginChoice[] {
-  return [
-    ...LOGIN_CHOICES,
-    ...Object.entries(providers).map(([route, profile]) => {
-      const modelCount = profile.models?.length ?? 0;
-      const status = statusFor(route, profile);
-      return {
-        label: profile.displayName ?? route,
-        description: `${status.label} · ${modelCount} ${modelCount === 1 ? "model" : "models"}`,
-        details: `${profile.baseUrl} · ${profile.api} · ${profile.auth.type === "bearer" ? "bearer" : "no auth"}`,
-        kind: "configured-provider" as const,
-        route,
-      };
-    }),
-  ];
-}
-
-function providerActions(
-  profile: ProviderProfile,
-  status: ProviderRouteState,
-): readonly ProviderActionChoice[] {
-  return [
-    {
-      kind: "add-model",
-      label: status.ready ? "Add model" : "Log in and add model",
-      description: status.ready
-        ? "Discover or enter another model"
-        : "Save a credential, then discover models",
-    },
-    ...((profile.models?.length ?? 0) > 0
-      ? [
-          {
-            kind: "delete-model" as const,
-            label: "Delete model",
-            description: "Remove one configured model",
-          },
-        ]
-      : []),
-    ...(profile.auth.type === "bearer" && status.ready
-      ? [
-          {
-            kind: "logout" as const,
-            label: "Log out",
-            description: "Remove the stored credential",
-          },
-        ]
-      : []),
-    {
-      kind: "remove",
-      label: "Remove provider",
-      description: "Delete the route, models, and stored credential",
-    },
-  ];
-}
-
-function providerCapabilitySummary(profile: ProviderProfile): string {
-  const efforts = [
-    ...new Set(
-      (profile.models ?? []).flatMap((model) =>
-        typeof model.reasoningGears === "object"
-          ? Object.keys(model.reasoningGears)
-          : [],
-      ),
-    ),
-  ];
-  return efforts.length > 0
-    ? `Declared reasoning: ${efforts.join(", ")} · tools: protocol-supported · agent loop: unverified`
-    : "Reasoning controls: provider default · tools: protocol-supported · agent loop: unverified";
-}
-
-function providerModelChoices(
-  providers: Readonly<Record<string, ProviderProfile>>,
-): readonly ModelChoice[] {
-  return Object.entries(providers).flatMap(([route, profile]) =>
-    (profile.models ?? []).map((model) => {
-      const declared = model.reasoningGears;
-      const supported =
-        declared === false || declared === undefined
-          ? [{ effort: "none" as const, description: "No reasoning" }]
-          : STANDARD_EFFORTS.filter(({ effort }) =>
-              Object.hasOwn(declared, effort),
-            );
-      return {
-        label: model.name ?? model.id,
-        description: `${profile.displayName ?? route} · ${profile.api}`,
-        selection: { engine: "forge" as const, provider: route, id: model.id },
-        supportedReasoningEfforts:
-          supported.length > 0
-            ? supported
-            : [{ effort: "none" as const, description: "No reasoning" }],
-        defaultReasoningEffort:
-          supported.find(({ effort }) => effort === "medium")?.effort ??
-          supported[0]?.effort ??
-          "none",
-      };
-    }),
-  );
-}
-
-function providerLogoutChoices(
-  providers: Readonly<Record<string, ProviderProfile>>,
-  env: NodeJS.ProcessEnv,
-): readonly LogoutChoice[] {
-  const authentication = new AuthenticationManager(env);
-  const isAuthenticated = (
-    provider: string,
-    options?: { endpoint?: string; environmentVariable?: string },
-  ): boolean => {
-    try {
-      return authentication.status(provider, options).authenticated;
-    } catch {
-      return false;
-    }
-  };
-  return [
-    {
-      label: "ChatGPT subscription",
-      description: "Codex account",
-      kind: "subscription" as const,
-      provider: "openai",
-    },
-    ...(isAuthenticated("deepseek")
-      ? [
-          {
-            label: "DeepSeek API",
-            description: "Stored or environment credential",
-            kind: "api-key" as const,
-            provider: "deepseek",
-          },
-        ]
-      : []),
-    ...(isAuthenticated("openai")
-      ? [
-          {
-            label: "OpenAI API",
-            description: "Stored or environment credential",
-            kind: "api-key" as const,
-            provider: "openai",
-          },
-        ]
-      : []),
-    ...Object.entries(providers)
-      .filter(
-        ([route, profile]) =>
-          profile.auth.type === "bearer" &&
-          isAuthenticated(route, {
-            endpoint: profile.baseUrl,
-            ...(profile.auth.apiKeyEnv
-              ? { environmentVariable: profile.auth.apiKeyEnv }
-              : {}),
-          }),
-      )
-      .map(([route, profile]) => ({
-        label: profile.displayName ?? route,
-        description: `Provider route · ${route}`,
-        kind: "api-key" as const,
-        provider: route,
-        ...(profile.auth.type === "bearer" && profile.auth.apiKeyEnv
-          ? { environmentVariable: profile.auth.apiKeyEnv }
-          : {}),
-      })),
-  ];
-}
-
-function providerRouteState(
-  route: string,
-  profile: ProviderProfile,
-  env: NodeJS.ProcessEnv,
-  loggedOut: ReadonlySet<string>,
-): ProviderRouteState {
-  if (profile.auth.type === "none") return { ready: true, label: "ready" };
-  if (loggedOut.has(route)) return { ready: false, label: "signed out" };
-  try {
-    const status = new AuthenticationManager(env).status(route, {
-      endpoint: profile.baseUrl,
-      ...(profile.auth.apiKeyEnv
-        ? { environmentVariable: profile.auth.apiKeyEnv }
-        : {}),
-    });
-    if (!status.authenticated) return { ready: false, label: "signed out" };
-    return {
-      ready: true,
-      label:
-        status.source === "environment"
-          ? `ready via ${status.environmentVariable}`
-          : "ready",
-    };
-  } catch {
-    return { ready: false, label: "credential unavailable" };
-  }
-}
-
-function modelChoiceKey(choice: ModelChoice): string {
-  const { selection } = choice;
-  return [selection.engine, selection.provider, selection.id].join("\u0000");
-}
-
-function modelChoiceSearchFields(choice: ModelChoice): readonly string[] {
-  const { selection } = choice;
-  return [
-    choice.label,
-    choice.description,
-    selection.engine,
-    selection.provider,
-    selection.id,
-  ].filter((value): value is string => value !== undefined);
-}
-
-const STANDARD_EFFORTS: readonly EffortChoice[] = [
-  { effort: "none", description: "No reasoning" },
-  { effort: "minimal", description: "Fastest" },
-  { effort: "low", description: "Fast" },
-  { effort: "medium", description: "Balanced" },
-  { effort: "high", description: "Deep" },
-  { effort: "xhigh", description: "Deeper" },
-  { effort: "max", description: "Maximum" },
-];
-
-const MODEL_CHOICES: readonly ModelChoice[] = BUILTIN_NATIVE_MODELS.map(
-  (model) => ({
-    label: model.label,
-    description:
-      model.provider === "openai"
-        ? "OpenAI API key · separately billed"
-        : "DeepSeek API",
-    selection: { engine: "forge", provider: model.provider, id: model.id },
-    supportedReasoningEfforts: STANDARD_EFFORTS,
-    defaultReasoningEffort: model.defaultEffort,
-  }),
-);
+export { UpdateBanner } from "./display.js";
 
 export interface InteractiveUiDependencies {
   readonly env: NodeJS.ProcessEnv;
@@ -482,7 +145,7 @@ export interface InteractiveUiDependencies {
   ) => Promise<number>;
   readonly discoverSubscriptionModels?: (
     dependencies: CodexCommandDependencies,
-  ) => Promise<readonly import("@forge/codex-app-server").CodexModel[]>;
+  ) => Promise<readonly CodexModel[]>;
   readonly executeAuthentication?: (
     dependencies: CodexCommandDependencies,
   ) => Promise<number>;
@@ -944,6 +607,7 @@ export function InteractiveApp({
     [appendOutput],
   );
   const stderr = stdout;
+
   const completeProviderSetup = useCallback(
     async (result: ProviderSetupResult): Promise<void> => {
       let routePersisted = false;
@@ -1054,6 +718,7 @@ export function InteractiveApp({
       sessionPersistence,
     ],
   );
+
   const logoutApiProvider = useCallback(
     (selected: LogoutChoice): void => {
       setPhase("running");
@@ -1092,6 +757,7 @@ export function InteractiveApp({
     },
     [appendEntry, env, providerProfiles, removeApiKey],
   );
+
   const handleCodexOutput = useCallback(
     (event: CodexOutputEvent): void => {
       if (event.type === "login") {
@@ -1111,6 +777,7 @@ export function InteractiveApp({
     },
     [appendEntry],
   );
+
   const handleRunEvent = useCallback(
     (event: RunEvent): void => {
       switch (event.type) {
@@ -1141,8 +808,6 @@ export function InteractiveApp({
           appendEntry("answer", event.text, true);
           break;
         case "model.warning":
-          appendEntry("warning", event.message);
-          break;
         case "context.warning":
           appendEntry("warning", event.message);
           break;
@@ -1330,342 +995,48 @@ export function InteractiveApp({
   };
 
   const executeCommand = (command: string): void => {
-    const parsed = parseSlashCommand(command);
-    if (parsed.kind !== "command") {
-      appendEntry(
-        "warning",
-        `Unknown command or invalid arguments: ${command.trim()}. Type /help for commands.`,
-      );
-      setEditor(createEditorState());
-      return;
-    }
-    const normalizedCommand = command.trim();
-    if (normalizedCommand.startsWith("/effort ")) {
-      const requested = asPersistedReasoningEffort(
-        normalizedCommand.slice("/effort ".length).trim().toLocaleLowerCase(),
-      );
-      if (!requested) {
-        appendEntry(
-          "warning",
-          `Unsupported effort. Choose one of: ${STANDARD_EFFORTS.map(({ effort }) => effort).join(", ")}.`,
-        );
-        setEditor(createEditorState());
-        return;
-      }
-      setEditor(createEditorState());
-      if (
-        activeOptions.engine === "codex" &&
-        !modelChoiceFor(modelChoices, activeOptions)
-      ) {
-        void discoverSubscriptionModels({
-          env,
-          cwd,
-          stdout,
-          stderr,
-          signal: new AbortController().signal,
-          isTTY: true,
-        }).then(
-          (models) => {
-            const subscriptionChoices = subscriptionModelChoices(models);
-            setModelChoices([...subscriptionChoices, ...baseModelChoices]);
-            const matching = modelChoiceFor(subscriptionChoices, activeOptions);
-            if (!matching) {
-              appendEntry(
-                "warning",
-                `Could not find effort metadata for ${activeOptions.model}.`,
-              );
-              return;
-            }
-            const supported = matching.supportedReasoningEfforts;
-            if (supported.some(({ effort }) => effort === requested)) {
-              selectEffort(requested);
-            } else {
-              appendEntry(
-                "warning",
-                `Unsupported effort for ${activeOptions.model}: ${requested}. Choose one of: ${supported.map(({ effort }) => effort).join(", ")}.`,
-              );
-            }
-          },
-          (error: unknown) =>
-            appendEntry(
-              "warning",
-              `Could not discover supported effort levels: ${error instanceof Error ? error.message : "unknown error"}`,
-            ),
-        );
-        return;
-      }
-      const supported = effortsForModel(modelChoices, activeOptions);
-      if (!supported.some(({ effort }) => effort === requested)) {
-        appendEntry(
-          "warning",
-          `Unsupported effort for ${activeOptions.model}: ${requested}. Choose one of: ${supported.map(({ effort }) => effort).join(", ")}.`,
-        );
-        return;
-      }
-      selectEffort(requested);
-      return;
-    }
-    switch (normalizedCommand) {
-      case "/exit":
-        exit(0);
-        return;
-      case "/clear":
-        conversation.current = [];
-        sessionPersistence?.clear();
-        setContextPanel(undefined);
-        setContextOfferDismissed(false);
-        setContextActivity(undefined);
-        setStaticRenderRevision((current) => current + 1);
-        setTranscript([]);
-        nextTranscriptId.current = 0;
-        setEditor(createEditorState());
-        return;
-      case "/new":
-        if (sessionHost) {
-          setEditor(createEditorState());
-          sessionHost.newSession();
-          return;
-        }
-        conversation.current = [];
-        sessionPersistence?.clear();
-        setContextPanel(undefined);
-        setContextOfferDismissed(false);
-        setContextActivity(undefined);
-        setStaticRenderRevision((current) => current + 1);
-        setTranscript([]);
-        nextTranscriptId.current = 0;
-        setEditor(createEditorState());
-        approvalStore.clear();
-        setPermissionRevision((current) => current + 1);
-        appendEntry("system", "Started a new session.");
-        return;
-      case "/context":
-        setEditor(createEditorState());
-        if (sessionPersistence?.contextDetails) {
-          setContextPanel(sessionPersistence.contextDetails());
-        } else {
-          appendEntry(
-            "system",
-            sessionPersistence?.contextStatus?.() ??
-              "Context status is unavailable because persistence is disabled.",
-          );
-        }
-        return;
-      case "/permissions":
-        setEditor(createEditorState());
-        setSelectedIndex(0);
-        setPhase("permissions");
-        return;
-      case "/update-dismiss":
-        setEditor(createEditorState());
-        if (updateState?.latestVersion && updateService) {
-          void updateService.dismiss(updateState.latestVersion);
-        }
-        return;
-      case "/plugins":
-        setEditor(createEditorState());
-        setSelectedIndex(0);
-        setPluginTrustIntent(undefined);
-        setPhase("plugins");
-        return;
-      case "/resources":
-        setEditor(createEditorState());
-        setPhase("resources");
-        return;
-      case "/compact --dry-run":
-      case "/compact": {
-        setEditor(createEditorState());
-        if (!sessionPersistence?.compact) {
-          appendEntry(
-            "warning",
-            "Compaction is unavailable because persistence is disabled.",
-          );
-          return;
-        }
-        const dryRun = command.trim() === "/compact --dry-run";
-        void sessionPersistence.compact(dryRun).then(
-          (message) => {
-            appendEntry("system", message);
-            if (sessionPersistence.contextDetails) {
-              setContextPanel(sessionPersistence.contextDetails());
-            }
-          },
-          (error: unknown) =>
-            appendEntry(
-              "error",
-              `Could not compact session: ${error instanceof Error ? error.message : "unknown error"}`,
-            ),
-        );
-        return;
-      }
-      case "/sessions":
-      case "/resume":
-        if (sessionHost) {
-          setEditor(createEditorState());
-          sessionHost.showSessions();
-          return;
-        }
-        setEditor(createEditorState());
-        setContextPanel(undefined);
-        approvalStore.clear();
-        setPermissionRevision((current) => current + 1);
-        if (!sessionPersistence) {
-          appendEntry("warning", "Persistent sessions are unavailable.\n");
-          return;
-        }
-        setSessions([]);
-        setPhase("resuming");
-        setSelectedIndex(0);
-        void sessionPersistence.list().then(
-          (available) => {
-            if (available.length === 0) {
-              appendEntry(
-                "system",
-                "No saved session exists for this workspace.",
-              );
-              setPhase("editing");
-              return;
-            }
-            setSessions(available);
-          },
-          (error: unknown) => {
-            appendEntry(
-              "error",
-              `Could not list sessions: ${error instanceof Error ? error.message : "unknown error"}`,
-            );
-            setPhase("editing");
-          },
-        );
-        return;
-      case "/login":
-        setEditor(createEditorState());
-        setLoginKey("");
-        setLoginChoice(undefined);
-        setProviderSetupRoute(undefined);
-        setSelectedProviderRoute(undefined);
-        setSelectedIndex(0);
-        setPhase("login-providers");
-        return;
-      case "/logout":
-        setEditor(createEditorState());
-        setSelectedIndex(0);
-        setPhase("logout-providers");
-        return;
-      case "/model":
-        setEditor(createEditorState());
-        setSelectedIndex(0);
-        setModelQuery("");
-        setPhase("models");
-        setModelsLoading(true);
-        void discoverSubscriptionModels({
-          env,
-          cwd,
-          stdout,
-          stderr,
-          signal: new AbortController().signal,
-          isTTY: true,
-        }).then(
-          (models) => {
-            const subscriptionChoices = subscriptionModelChoices(models);
-            setModelChoices([
-              ...subscriptionChoices.slice(0, 40),
-              ...baseModelChoices,
-            ]);
-            setModelsLoading(false);
-          },
-          (error: unknown) => {
-            appendEntry(
-              "warning",
-              `${error instanceof Error ? error.message : "Could not discover Codex models."} API models remain available.`,
-            );
-            setModelChoices(baseModelChoices);
-            setModelsLoading(false);
-          },
-        );
-        return;
-      case "/delete-model": {
-        setEditor(createEditorState());
-        setSelectedIndex(0);
-        setModelQuery("");
-        setPendingModelDeletion(undefined);
-        setDeleteModelReturnPhase("editing");
-        const configured = providerModelChoices(providerProfiles);
-        if (configured.length === 0) {
-          appendEntry("system", "No configured provider model can be deleted.");
-          return;
-        }
-        setModelChoices(configured);
-        setPhase("delete-models");
-        return;
-      }
-      case "/effort": {
-        setEditor(createEditorState());
-        const knownModel = modelChoiceFor(modelChoices, activeOptions);
-        const availableEfforts =
-          activeOptions.engine === "codex" && !knownModel
-            ? []
-            : effortsForModel(modelChoices, activeOptions);
-        setEffortChoices(availableEfforts);
-        setSelectedIndex(
-          Math.max(
-            0,
-            availableEfforts.findIndex(
-              ({ effort }) => effort === activeOptions.reasoningEffort,
-            ),
-          ),
-        );
-        setPhase("effort");
-        if (activeOptions.engine === "codex") {
-          void discoverSubscriptionModels({
-            env,
-            cwd,
-            stdout,
-            stderr,
-            signal: new AbortController().signal,
-            isTTY: true,
-          }).then(
-            (models) => {
-              const subscriptionChoices = subscriptionModelChoices(models);
-              setModelChoices([...subscriptionChoices, ...baseModelChoices]);
-              const matching = modelChoiceFor(
-                subscriptionChoices,
-                activeOptions,
-              );
-              if (!matching) {
-                appendEntry(
-                  "warning",
-                  `Could not find effort metadata for ${activeOptions.model}.`,
-                );
-                setPhase("editing");
-                return;
-              }
-              setEffortChoices(matching.supportedReasoningEfforts);
-              setSelectedIndex(() => {
-                const efforts = matching.supportedReasoningEfforts;
-                return Math.max(
-                  0,
-                  efforts.findIndex(
-                    ({ effort }) => effort === activeOptions.reasoningEffort,
-                  ),
-                );
-              });
-            },
-            () => undefined,
-          );
-        }
-        return;
-      }
-      case "/help":
-        appendEntry("system", formatSlashCommandHelp());
-        setEditor(createEditorState());
-        return;
-      default:
-        appendEntry(
-          "warning",
-          `Unknown command: ${command.trim()}. Type /help for commands.\n`,
-        );
-        setEditor(createEditorState());
-    }
+    executeSlashCommand(command, {
+      activeOptions,
+      env,
+      cwd,
+      stdout,
+      stderr,
+      modelChoices,
+      baseModelChoices,
+      providerProfiles,
+      ...(sessionPersistence ? { sessionPersistence } : {}),
+      ...(sessionHost ? { sessionHost } : {}),
+      approvalStore,
+      ...(updateState ? { updateState } : {}),
+      ...(updateService ? { updateService } : {}),
+      conversationRef: conversation,
+      nextTranscriptIdRef: nextTranscriptId,
+      discoverSubscriptionModels,
+      exit,
+      appendEntry,
+      selectEffort,
+      setEditor,
+      setContextPanel,
+      setContextOfferDismissed,
+      setContextActivity,
+      setStaticRenderRevision,
+      setTranscript,
+      setPermissionRevision,
+      setSelectedIndex,
+      setPhase,
+      setPluginTrustIntent,
+      setSessions,
+      setLoginKey,
+      setLoginChoice,
+      setProviderSetupRoute,
+      setSelectedProviderRoute,
+      setModelQuery,
+      setModelChoices,
+      setModelsLoading,
+      setPendingModelDeletion,
+      setDeleteModelReturnPhase,
+      setEffortChoices,
+    });
   };
 
   const submitPrompt = (): void => {
@@ -1938,1011 +1309,107 @@ export function InteractiveApp({
     isActive: (sessionHost?.focused ?? true) && phase === "login-key",
   });
 
-  const handleInput = (input: string, key: Key): void => {
-    if (sessionHost && key.ctrl && ["n", "p"].includes(input.toLowerCase()))
-      return;
-    if (sessionHost && (key.pageUp || key.pageDown)) {
-      setTranscriptOffset((current) =>
-        key.pageUp
-          ? Math.min(Math.max(0, transcript.length - 1), current + 5)
-          : Math.max(0, current - 5),
-      );
-      return;
-    }
-    if (phase === "provider-setup") return;
-    const interruptCount = Array.from(input).filter(
-      (character) => character === "\u0003",
-    ).length;
-    if ((key.ctrl && input.toLocaleLowerCase() === "c") || interruptCount > 0) {
-      cancelOrExit();
-      if (interruptCount > 1 && phase === "editing" && !completionKind) exit(0);
-      return;
-    }
-
-    if (phase === "editing" && contextPanel) {
-      const answer = input.toLocaleLowerCase();
-      if (contextModeSelector) {
-        const choices = contextModeChoices(contextPanel);
-        if (key.escape) {
-          setContextModeSelector(false);
-        } else if (key.upArrow || key.downArrow) {
-          const delta = key.upArrow ? -1 : 1;
-          setContextModeSelection(
-            (current) => (current + delta + choices.length) % choices.length,
-          );
-        } else if (key.return) {
-          const choice = choices[contextModeSelection];
-          setContextModeSelector(false);
-          if (choice?.kind === "session") {
-            sessionPersistence?.setContextModeForSession?.(choice.mode);
-            appendEntry(
-              "system",
-              `Context mode · ${choice.mode === "automatic" ? "Automatic" : "Manual"} for this session.`,
-            );
-            setContextRevision((current) => current + 1);
-            setContextPanel(sessionPersistence?.contextDetails?.());
-          } else if (
-            choice?.kind === "default" &&
-            sessionPersistence?.saveContextModeDefault
-          ) {
-            void sessionPersistence.saveContextModeDefault(choice.mode).then(
-              (saved) => {
-                appendEntry(
-                  "system",
-                  saved.savedMode === saved.effectiveMode
-                    ? `Saved ${saved.savedMode === "automatic" ? "Automatic" : "Manual"} as the user default in ${saved.path}.`
-                    : `Saved user default: ${saved.savedMode === "automatic" ? "Automatic" : "Manual"}. Effective mode: ${saved.effectiveMode === "automatic" ? "Automatic" : saved.effectiveMode === "manual" ? "Manual" : "Off"} · ${saved.effectiveSource}.`,
-                );
-                setContextRevision((current) => current + 1);
-                setContextPanel(sessionPersistence.contextDetails?.());
-              },
-              (error: unknown) =>
-                appendEntry(
-                  "error",
-                  `Could not save context default: ${error instanceof Error ? error.message : "unknown error"}`,
-                ),
-            );
-          }
-        }
-      } else if (key.escape) {
-        setContextPanel(undefined);
-      } else if (answer === "m") {
-        setContextModeSelection(0);
-        setContextModeSelector(true);
-      } else if (
-        (answer === "c" || answer === "p") &&
-        sessionPersistence?.compact
-      ) {
-        if (answer === "c") setContextActivity("compacting");
-        void sessionPersistence.compact(answer === "p").then(
-          (message) => {
-            appendEntry("system", message);
-            setContextRevision((current) => current + 1);
-            setContextPanel(sessionPersistence.contextDetails?.());
-            if (answer === "c") setContextActivity("compacted");
-          },
-          (error: unknown) =>
-            appendEntry(
-              "error",
-              `Could not compact session: ${error instanceof Error ? error.message : "unknown error"}`,
-            ),
-        );
-      }
-      return;
-    }
-
-    if (contextOfferVisible) {
-      const answer = input.toLocaleLowerCase();
-      if (answer === "d" || key.escape) {
-        setContextOfferDismissed(true);
-      } else if (answer === "a") {
-        sessionPersistence?.setContextModeForSession?.("automatic");
-        setContextOfferDismissed(true);
-        setContextRevision((current) => current + 1);
-        appendEntry("system", "Automatic compaction enabled for this session.");
-      } else if (answer === "c" && sessionPersistence?.compact) {
-        setContextOfferDismissed(true);
-        setContextActivity("compacting");
-        void sessionPersistence.compact(false).then(
-          (message) => {
-            appendEntry("system", message);
-            setContextRevision((current) => current + 1);
-            setContextActivity("compacted");
-          },
-          (error: unknown) =>
-            appendEntry(
-              "error",
-              `Could not compact session: ${error instanceof Error ? error.message : "unknown error"}`,
-            ),
-        );
-      }
-      return;
-    }
-
-    if (phase === "approving") {
-      const answer = input.toLocaleLowerCase();
-      if (answer === "1" || answer === "y") finishApproval("1");
-      else if (answer === "2" && approval?.allowSession) finishApproval("2");
-      else if (answer === "2") {
-        appendEntry(
-          "warning",
-          "Session approval is unavailable for this action. Choose 1 or 3.",
-        );
-      } else if (answer === "3" || answer === "n") {
-        setApprovalFeedback("");
-        setPhase("approval-feedback");
-      } else if (key.escape || key.return) finishApproval("3");
-      return;
-    }
-    if (phase === "approval-feedback") {
-      if (key.escape) {
-        finishApproval("3");
-      } else if (key.return) {
-        finishApproval(
-          approvalFeedback.trim() ? `3: ${approvalFeedback.trim()}` : "3",
-        );
-      } else if (key.backspace || key.delete) {
-        setApprovalFeedback((current) => current.slice(0, -1));
-      } else if (input && approvalFeedback.length < 2_000) {
-        setApprovalFeedback((current) => `${current}${input}`.slice(0, 2_000));
-      }
-      return;
-    }
-    if (phase === "permissions") {
-      const grants = approvalStore.list();
-      if (key.escape) {
-        setPhase("editing");
-      } else if (key.upArrow && grants.length > 0) {
-        setSelectedIndex(
-          (current) => (current - 1 + grants.length) % grants.length,
-        );
-      } else if (key.downArrow && grants.length > 0) {
-        setSelectedIndex((current) => (current + 1) % grants.length);
-      } else if (input.toLocaleLowerCase() === "r" && grants[selectedIndex]) {
-        approvalStore.revoke(grants[selectedIndex].id);
-        setSelectedIndex((current) =>
-          Math.max(0, Math.min(current, grants.length - 2)),
-        );
-        setPermissionRevision((current) => current + 1);
-      } else if (input.toLocaleLowerCase() === "x") {
-        approvalStore.clear();
-        setSelectedIndex(0);
-        setPermissionRevision((current) => current + 1);
-      }
-      return;
-    }
-    if (phase === "plugins") {
-      if (key.escape) {
-        setPhase("editing");
-        return;
-      }
-      const projectPlugins = resources.plugins.filter(
-        ({ scope }) => scope === "project",
-      );
-      const projectTrusted = projectPlugins.some(
-        ({ state }) => state === "trusted",
-      );
-      const answer = input.toLocaleLowerCase();
-      if (answer === "t" && projectPlugins.length > 0 && !projectTrusted) {
-        setPluginTrustIntent("trust");
-        setPhase("plugin-trust");
-      } else if (answer === "u" && projectTrusted) {
-        setPluginTrustIntent("untrust");
-        setPhase("plugin-trust");
-      }
-      return;
-    }
-    if (phase === "resources") {
-      if (key.escape) setPhase("editing");
-      return;
-    }
-    if (phase === "plugin-trust") {
-      const answer = input.toLocaleLowerCase();
-      if (answer === "n" || key.escape || key.return) {
-        setPluginTrustIntent(undefined);
-        setPhase("plugins");
-        return;
-      }
-      if (answer !== "y" || !pluginTrustIntent) return;
-      const trusted = pluginTrustIntent === "trust";
-      setPhase("running");
-      void updateProjectPluginTrust(trusted).then(
-        (nextResources) => {
-          setResources(nextResources);
-          setStaticRenderRevision((current) => current + 1);
-          appendEntry(
-            "system",
-            trusted
-              ? `Trusted project plugins for ${cwd}.\nThey will load on the next Forge task.`
-              : `Removed project plugin trust for ${cwd}.`,
-          );
-          setPluginTrustIntent(undefined);
-          setPhase("editing");
-        },
-        (error: unknown) => {
-          appendEntry(
-            "error",
-            `Could not ${trusted ? "trust" : "untrust"} project plugins: ${error instanceof Error ? error.message : "unknown error"}`,
-          );
-          setPluginTrustIntent(undefined);
-          setPhase("plugins");
-        },
-      );
-      return;
-    }
-    if (phase === "deleting-session") return;
-    if (phase === "delete-session-confirm") {
-      if (key.escape || input.toLowerCase() === "n") {
-        setPhase("resuming");
-        return;
-      }
-      if (key.leftArrow || key.rightArrow || key.upArrow || key.downArrow) {
-        setSessionDeletionConfirmed((current) => !current);
-        return;
-      }
-      if (key.return) {
-        if (!sessionDeletionConfirmed) {
-          setPhase("resuming");
-          return;
-        }
-        const selected = sessions[selectedIndex];
-        if (!selected || !sessionPersistence?.delete) return;
-        const wasCurrent = sessionPersistence.sessionId === selected.id;
-        setPhase("deleting-session");
-        void sessionPersistence.delete(selected.id).then(
-          () => {
-            if (wasCurrent) {
-              conversation.current = [];
-              setTranscript([]);
-              nextTranscriptId.current = 0;
-              setStaticRenderRevision((current) => current + 1);
-              setContextPanel(undefined);
-              setContextOfferDismissed(false);
-              setContextActivity(undefined);
-              approvalStore.clear();
-              setPermissionRevision((current) => current + 1);
-            }
-            const remaining = sessions.filter(({ id }) => id !== selected.id);
-            setSessions(remaining);
-            setSelectedIndex(
-              Math.max(0, Math.min(selectedIndex, remaining.length - 1)),
-            );
-            setPhase(wasCurrent || !remaining.length ? "editing" : "resuming");
-            appendEntry("system", `Deleted session ${selected.id}.`);
-          },
-          (error: unknown) => {
-            appendEntry(
-              "error",
-              `Could not delete session: ${error instanceof Error ? error.message : "unknown error"}`,
-            );
-            setPhase("resuming");
-          },
-        );
-      }
-      return;
-    }
-    if (phase === "resuming") {
-      if (key.ctrl && input === "d") {
-        if (sessions[selectedIndex] && sessionPersistence?.delete) {
-          setSessionDeletionConfirmed(false);
-          setPhase("delete-session-confirm");
-        }
-        return;
-      }
-      if (key.leftArrow || key.rightArrow || key.pageUp || key.pageDown) {
-        const direction = key.leftArrow || key.pageUp ? -1 : 1;
-        setSelectedIndex((current) =>
-          Math.max(0, Math.min(sessions.length - 1, current + direction * 10)),
-        );
-        return;
-      }
-      if (key.escape) {
-        setSessions([]);
-        setPhase("editing");
-        return;
-      }
-      if (key.upArrow || key.downArrow) {
-        setSelectedIndex((current) => {
-          if (sessions.length === 0) return 0;
-          const delta = key.upArrow ? -1 : 1;
-          return (current + delta + sessions.length) % sessions.length;
-        });
-        return;
-      }
-      if (key.return) {
-        const selected = sessions[Math.min(selectedIndex, sessions.length - 1)];
-        if (selected && sessionPersistence) {
-          void sessionPersistence.resume(selected.id).then(
-            (messages) => {
-              conversation.current = [
-                ...(sessionPersistence.history ?? messages),
-              ];
-              const restored = conversationTranscript(
-                sessionPersistence.history ?? messages,
-                sessionPersistence.reasoning ?? [],
-                sessionPersistence.historyEvents,
-              );
-              nextTranscriptId.current = restored.length;
-              setStaticRenderRevision((current) => current + 1);
-              setTranscript(restored);
-              setSessions([]);
-              setPhase("editing");
-              setContextOfferDismissed(false);
-              setContextActivity(undefined);
-              appendEntry("system", `Resumed session ${selected.id}.`);
-            },
-            (error: unknown) => {
-              appendEntry(
-                "error",
-                `Could not resume session: ${error instanceof Error ? error.message : "unknown error"}`,
-              );
-              setPhase("editing");
-            },
-          );
-        }
-        return;
-      }
-      return;
-    }
-    if (phase === "login-providers") {
-      if (key.escape) {
-        setPhase("editing");
-        return;
-      }
-      if (key.upArrow || key.downArrow) {
-        setSelectedIndex((current) => {
-          const delta = key.upArrow ? -1 : 1;
-          return (current + delta + loginChoices.length) % loginChoices.length;
-        });
-        return;
-      }
-      if (key.return) {
-        const selected = loginChoices[selectedIndex];
-        if (!selected) return;
-        if (selected.kind === "api-key") {
-          setLoginChoice(selected);
-          setLoginKey("");
-          setPhase("login-key");
-          return;
-        }
-        if (selected.kind === "provider-route") {
-          setProviderSetupRoute(undefined);
-          setPhase("provider-setup");
-          return;
-        }
-        if (selected.kind === "configured-provider" && selected.route) {
-          setSelectedProviderRoute(selected.route);
-          setSelectedIndex(0);
-          setPhase("provider-actions");
-          return;
-        }
-        const controller = new AbortController();
-        activeController.current = controller;
-        setPhase("running");
-        void executeAuthentication({
-          env,
-          cwd,
-          stdout,
-          stderr,
-          onOutput: handleCodexOutput,
-          signal: controller.signal,
-          isTTY: true,
-        })
-          .then((code) => {
-            appendEntry(
-              code === 0 ? "system" : "error",
-              code === 0
-                ? "ChatGPT subscription sign-in completed. Use /model to choose a Codex model."
-                : "ChatGPT subscription sign-in did not complete.",
-            );
-          })
-          .catch((error: unknown) =>
-            appendEntry(
-              "error",
-              `Could not sign in: ${error instanceof Error ? error.message : "unknown error"}`,
-            ),
-          )
-          .finally(() => {
-            activeController.current = undefined;
-            setLoginPrompt(undefined);
-            setPhase("editing");
-          });
-        return;
-      }
-      return;
-    }
-    if (phase === "login-key") {
-      if (key.escape) {
-        setLoginKey("");
-        setLoginChoice(undefined);
-        setPhase("login-providers");
-        return;
-      }
-      if (key.return) {
-        const apiKey = loginKey.trim();
-        const provider = loginChoice?.provider;
-        if (!provider || apiKey === "") return;
-        setLoginKey("");
-        setPhase("running");
-        void saveApiKey({ provider, apiKey, env }).then(
-          (credentialPath) => {
-            appendEntry(
-              "system",
-              `Saved ${loginChoice.label} credential to ${credentialPath}. Environment variables take precedence. Use /model to choose a model.`,
-            );
-            setLoginChoice(undefined);
-            setPhase("editing");
-          },
-          (error: unknown) => {
-            appendEntry(
-              "error",
-              `Could not save credential: ${error instanceof Error ? error.message : "unknown error"}`,
-            );
-            setPhase("login-key");
-          },
-        );
-        return;
-      }
-      if (key.backspace || key.delete) {
-        setLoginKey((current) => Array.from(current).slice(0, -1).join(""));
-        return;
-      }
-      if (!key.ctrl && !key.meta && input !== "") {
-        setLoginKey((current) => current + input);
-      }
-      return;
-    }
-    if (phase === "provider-actions") {
-      if (key.escape) {
-        setSelectedProviderRoute(undefined);
-        setSelectedIndex(0);
-        setPhase("login-providers");
-        return;
-      }
-      if (key.upArrow || key.downArrow) {
-        setSelectedIndex((current) => {
-          if (providerActionChoices.length === 0) return 0;
-          const delta = key.upArrow ? -1 : 1;
-          return (
-            (current + delta + providerActionChoices.length) %
-            providerActionChoices.length
-          );
-        });
-        return;
-      }
-      if (key.return) {
-        const action = providerActionChoices[selectedIndex];
-        const route = selectedProviderRoute;
-        const profile = route ? providerProfiles[route] : undefined;
-        if (!action || !route || !profile) return;
-        if (action.kind === "add-model") {
-          setProviderSetupRoute(route);
-          setPhase("provider-setup");
-          return;
-        }
-        if (action.kind === "delete-model") {
-          const configured = providerModelChoices({ [route]: profile });
-          if (configured.length === 0) return;
-          setDeleteModelReturnPhase("provider-actions");
-          setPendingModelDeletion(undefined);
-          setModelQuery("");
-          setSelectedIndex(0);
-          setModelChoices(configured);
-          setPhase("delete-models");
-          return;
-        }
-        if (action.kind === "logout") {
-          logoutApiProvider({
-            label: profile.displayName ?? route,
-            description: `Provider route · ${route}`,
-            kind: "api-key",
-            provider: route,
-            ...(profile.auth.type === "bearer" && profile.auth.apiKeyEnv
-              ? { environmentVariable: profile.auth.apiKeyEnv }
-              : {}),
-          });
-          return;
-        }
-        if (activeOptions.provider === route) {
-          appendEntry(
-            "warning",
-            `Choose a model from another provider before removing "${route}".`,
-          );
-          setSelectedProviderRoute(undefined);
-          setPhase("editing");
-          return;
-        }
-        setPhase("provider-remove-confirm");
-        return;
-      }
-      return;
-    }
-    if (phase === "provider-remove-confirm") {
-      if (key.escape || input.toLocaleLowerCase() === "n") {
-        setPhase("provider-actions");
-        return;
-      }
-      if (input.toLocaleLowerCase() === "y") {
-        const route = selectedProviderRoute;
-        const profile = route ? providerProfiles[route] : undefined;
-        if (!route || !profile) {
-          setPhase("editing");
-          return;
-        }
-        setPhase("running");
-        void removeProviderRoute({ cwd, env, route }).then(
-          async ({ path, removed }) => {
-            if (!removed) {
-              appendEntry(
-                "warning",
-                `Provider route "${route}" was not configured.`,
-              );
-            } else {
-              let credentialRemoved = false;
-              if (profile.auth.type === "bearer") {
-                credentialRemoved = await removeApiKey({
-                  provider: route,
-                  env,
-                }).catch(() => false);
-              }
-              const nextProviders = { ...providerProfiles };
-              delete nextProviders[route];
-              setProviderProfiles(nextProviders);
-              setModelChoices([
-                ...providerModelChoices(nextProviders),
-                ...MODEL_CHOICES,
-              ]);
-              setLoggedOutProviderRoutes((current) => {
-                const next = new Set(current);
-                next.delete(route);
-                return next;
-              });
-              appendEntry(
-                "system",
-                `Removed provider "${route}" and its model configuration from ${path}.${credentialRemoved ? " Removed its stored credential." : ""}`,
-              );
-            }
-            setSelectedProviderRoute(undefined);
-            setPhase("editing");
-          },
-          (error: unknown) => {
-            appendEntry(
-              "error",
-              `Could not remove provider: ${error instanceof Error ? error.message : "unknown error"}`,
-            );
-            setPhase("provider-actions");
-          },
-        );
-        return;
-      }
-      return;
-    }
-    if (phase === "logout-providers") {
-      if (key.escape) {
-        setPhase("editing");
-        return;
-      }
-      if (key.upArrow || key.downArrow) {
-        setSelectedIndex((current) => {
-          const delta = key.upArrow ? -1 : 1;
-          return (
-            (current + delta + logoutChoices.length) % logoutChoices.length
-          );
-        });
-        return;
-      }
-      if (key.return) {
-        const selected = logoutChoices[selectedIndex];
-        if (!selected) return;
-        setPhase("running");
-        if (selected.kind === "subscription") {
-          const controller = new AbortController();
-          activeController.current = controller;
-          void executeLogout({
-            env,
-            cwd,
-            stdout,
-            stderr,
-            onOutput: handleCodexOutput,
-            signal: controller.signal,
-            isTTY: true,
-          })
-            .then((code) => {
-              if (code !== 0) {
-                appendEntry("error", "ChatGPT subscription logout failed.");
-              }
-            })
-            .catch((error: unknown) =>
-              appendEntry(
-                "error",
-                `Could not log out: ${error instanceof Error ? error.message : "unknown error"}`,
-              ),
-            )
-            .finally(() => {
-              activeController.current = undefined;
-              setPhase("editing");
-            });
-          return;
-        }
-        logoutApiProvider(selected);
-        return;
-      }
-      return;
-    }
-    if (phase === "delete-models") {
-      if (key.escape) {
-        setModelQuery("");
-        setModelChoices(baseModelChoices);
-        setSelectedIndex(0);
-        setPhase(deleteModelReturnPhase);
-        return;
-      }
-      if (key.upArrow || key.downArrow) {
-        setSelectedIndex((current) => {
-          if (visibleModelChoices.length === 0) return 0;
-          const delta = key.upArrow ? -1 : 1;
-          return (
-            (current + delta + visibleModelChoices.length) %
-            visibleModelChoices.length
-          );
-        });
-        return;
-      }
-      if (key.return) {
-        const selected = visibleModelChoices[selectedModelIndex];
-        if (!selected) return;
-        if (
-          activeOptions.provider === selected.selection.provider &&
-          activeOptions.model === selected.selection.id
-        ) {
-          appendEntry(
-            "warning",
-            `Choose another model before deleting ${selected.selection.provider}/${selected.selection.id}.`,
-          );
-          setModelChoices(baseModelChoices);
-          setSelectedIndex(0);
-          setPhase(deleteModelReturnPhase);
-          return;
-        }
-        setPendingModelDeletion(selected);
-        setPhase("delete-model-confirm");
-        return;
-      }
-      if (key.backspace || key.delete) {
-        setModelQuery((current) => Array.from(current).slice(0, -1).join(""));
-        setSelectedIndex(0);
-        return;
-      }
-      if (!key.ctrl && !key.meta && input !== "") {
-        setModelQuery((current) => current + input);
-        setSelectedIndex(0);
-      }
-      return;
-    }
-    if (phase === "delete-model-confirm") {
-      if (key.escape || input.toLocaleLowerCase() === "n") {
-        setPendingModelDeletion(undefined);
-        setPhase("delete-models");
-        return;
-      }
-      if (input.toLocaleLowerCase() === "y") {
-        const selected = pendingModelDeletion;
-        if (!selected) {
-          setModelChoices(baseModelChoices);
-          setPhase(deleteModelReturnPhase);
-          return;
-        }
-        setPhase("running");
-        void removeProviderModel({
-          cwd,
-          env,
-          route: selected.selection.provider,
-          model: selected.selection.id,
-        }).then(
-          ({ path, removed }) => {
-            if (!removed) {
-              appendEntry(
-                "warning",
-                `Model ${selected.selection.provider}/${selected.selection.id} was not configured.`,
-              );
-              setModelChoices(baseModelChoices);
-            } else {
-              const profile = providerProfiles[selected.selection.provider];
-              const nextProviders = { ...providerProfiles };
-              if (profile) {
-                nextProviders[selected.selection.provider] = {
-                  ...profile,
-                  models: (profile.models ?? []).filter(
-                    ({ id }) => id !== selected.selection.id,
-                  ),
-                };
-              }
-              setProviderProfiles(nextProviders);
-              setModelChoices([
-                ...providerModelChoices(nextProviders),
-                ...MODEL_CHOICES,
-              ]);
-              appendEntry(
-                "system",
-                `Deleted model configuration ${selected.selection.provider}/${selected.selection.id} from ${path}.`,
-              );
-            }
-            setPendingModelDeletion(undefined);
-            setModelQuery("");
-            setSelectedIndex(0);
-            setPhase(deleteModelReturnPhase);
-          },
-          (error: unknown) => {
-            appendEntry(
-              "error",
-              `Could not delete model configuration: ${error instanceof Error ? error.message : "unknown error"}`,
-            );
-            setPendingModelDeletion(undefined);
-            setModelChoices(baseModelChoices);
-            setSelectedIndex(0);
-            setPhase(deleteModelReturnPhase);
-          },
-        );
-        return;
-      }
-      return;
-    }
-    if (phase === "effort") {
-      if (key.escape) {
-        setPhase("editing");
-        return;
-      }
-      if (key.upArrow || key.downArrow || key.leftArrow || key.rightArrow) {
-        setSelectedIndex((current) => {
-          if (effortChoices.length === 0) return 0;
-          const delta = key.upArrow || key.leftArrow ? -1 : 1;
-          return (
-            (current + delta + effortChoices.length) % effortChoices.length
-          );
-        });
-        return;
-      }
-      if (key.return) {
-        const selected =
-          effortChoices[Math.min(selectedIndex, effortChoices.length - 1)];
-        if (selected) selectEffort(selected.effort);
-        return;
-      }
-      return;
-    }
-    if (phase === "models") {
-      if (key.escape) {
-        setModelQuery("");
-        setPhase("editing");
-        return;
-      }
-      if (key.upArrow || key.downArrow) {
-        setSelectedIndex((current) => {
-          if (visibleModelChoices.length === 0) return 0;
-          const delta = key.upArrow ? -1 : 1;
-          return (
-            (current + delta + visibleModelChoices.length) %
-            visibleModelChoices.length
-          );
-        });
-        return;
-      }
-      if (key.return) {
-        const selected = visibleModelChoices[selectedModelIndex];
-        if (!selected) return;
-        const currentEffort = asPersistedReasoningEffort(
-          activeOptions.reasoningEffort ?? "",
-        );
-        const reasoningEffort =
-          currentEffort &&
-          selected.supportedReasoningEfforts.some(
-            ({ effort }) => effort === currentEffort,
-          )
-            ? currentEffort
-            : selected.defaultReasoningEffort;
-        const thinking =
-          selected.selection.provider === "deepseek"
-            ? reasoningEffort === "none"
-              ? "disabled"
-              : "enabled"
-            : undefined;
-        const nextOptions: AskOptions = {
-          ...activeOptions,
-          engine: selected.selection.engine,
-          provider: selected.selection.provider,
-          model: selected.selection.id,
-          reasoningEffort,
-          ...(thinking ? { thinking } : {}),
-        };
-        const selection: PersistedModelSelection = {
-          ...selected.selection,
-          reasoningEffort,
-          ...(thinking ? { thinking } : {}),
-        };
-        setActiveOptions(nextOptions);
-        sessionPersistence?.selectModel?.(
-          selected.selection.provider,
-          selected.selection.id,
-          providerProfiles[selected.selection.provider]?.models?.find(
-            (model) => model.id === selected.selection.id,
-          )?.contextWindow,
-        );
-        setPhase("editing");
-        void persistModelSelection({
-          cwd,
-          env,
-          selection,
-        }).then(
-          (configPath) =>
-            appendEntry(
-              "system",
-              `Selected ${selected.label}. Saved to ${configPath}.`,
-            ),
-          (error: unknown) =>
-            appendEntry(
-              "error",
-              `Could not persist model selection: ${error instanceof Error ? error.message : "unknown error"}`,
-            ),
-        );
-        return;
-      }
-      if (key.backspace || key.delete) {
-        setModelQuery((current) => Array.from(current).slice(0, -1).join(""));
-        setSelectedIndex(0);
-        return;
-      }
-      if (!key.ctrl && !key.meta && input !== "") {
-        setModelQuery((current) => current + input);
-        setSelectedIndex(0);
-      }
-      return;
-    }
-    if (phase === "running") return;
-
-    if (key.shift && key.tab) {
-      if (
-        activeOptions.engine === "codex" &&
-        !modelChoiceFor(modelChoices, activeOptions)
-      ) {
-        void discoverSubscriptionModels({
-          env,
-          cwd,
-          stdout,
-          stderr,
-          signal: new AbortController().signal,
-          isTTY: true,
-        }).then(
-          (models) => {
-            const subscriptionChoices = subscriptionModelChoices(models);
-            setModelChoices([...subscriptionChoices, ...baseModelChoices]);
-            if (modelChoiceFor(subscriptionChoices, activeOptions)) {
-              cycleEffort(subscriptionChoices);
-            } else {
-              appendEntry(
-                "warning",
-                `Could not find effort metadata for ${activeOptions.model}.`,
-              );
-            }
-          },
-          (error: unknown) =>
-            appendEntry(
-              "warning",
-              `Could not discover supported effort levels: ${error instanceof Error ? error.message : "unknown error"}`,
-            ),
-        );
-      } else {
-        cycleEffort(modelChoices);
-      }
-      return;
-    }
-
-    const submission = classifySubmissionKey(input, key);
-    if (submission === "newline") {
-      updateEditor((current) => insertEditorText(current, "\n"));
-      return;
-    }
-
-    if (key.escape && completionKind) {
-      setDismissedCompletion(completionSignature);
-      return;
-    }
-    if (completionKind && (key.upArrow || key.downArrow)) {
-      setSelectedIndex((current) => {
-        if (visibleCandidates.length === 0) return 0;
-        const delta = key.upArrow ? -1 : 1;
-        return (
-          (current + delta + visibleCandidates.length) %
-          visibleCandidates.length
-        );
-      });
-      return;
-    }
-    if (
-      completionKind &&
-      (key.return || key.tab) &&
-      visibleCandidates.length > 0
-    ) {
-      const safeIndex = Math.min(selectedIndex, visibleCandidates.length - 1);
-      if (completionKind === "file" && mentionQuery) {
-        const filePath = fileCandidates[safeIndex];
-        if (filePath) {
-          updateEditor((current) =>
-            insertFileMention(current, mentionQuery, filePath),
-          );
-        }
-      } else {
-        const command = visibleCandidates[safeIndex] as
-          | SlashCommand
-          | undefined;
-        if (command) {
-          if (key.return) executeCommand(command.name);
-          else setEditor(createEditorState(`${command.name} `));
-        }
-      }
-      return;
-    }
-    if (submission === "submit") {
-      submitPrompt();
-      return;
-    }
-    if (key.leftArrow) {
-      updateEditor((current) =>
-        moveEditorCursor(current, previousCursor(current)),
-      );
-      return;
-    }
-    if (key.rightArrow) {
-      updateEditor((current) => moveEditorCursor(current, nextCursor(current)));
-      return;
-    }
-    if (key.home) {
-      updateEditor((current) =>
-        moveEditorCursor(
-          current,
-          current.value.lastIndexOf("\n", current.cursor - 1) + 1,
-        ),
-      );
-      return;
-    }
-    if (key.end) {
-      updateEditor((current) => {
-        const lineEnd = current.value.indexOf("\n", current.cursor);
-        return moveEditorCursor(
-          current,
-          lineEnd < 0 ? current.value.length : lineEnd,
-        );
-      });
-      return;
-    }
-    if (key.backspace) {
-      updateEditor((current) => {
-        if (
-          current.cursor === 0 &&
-          current.value === "" &&
-          current.images.length > 0
-        ) {
-          return { ...current, images: current.images.slice(0, -1) };
-        }
-        return deleteEditorRange(
-          current,
-          previousCursor(current),
-          current.cursor,
-        );
-      });
-      return;
-    }
-    if (key.delete) {
-      updateEditor((current) =>
-        deleteEditorRange(current, current.cursor, nextCursor(current)),
-      );
-      return;
-    }
-    if (!key.ctrl && !key.meta && input !== "") {
-      idleExitArmed.current = false;
-      updateEditor((current) => insertEditorText(current, input));
-    }
-  };
-  useInput(handleInput, { isActive: sessionHost?.focused ?? true });
+  useInput(
+    (input, key) =>
+      handleInteractiveInput(input, key, {
+        phase,
+        env,
+        cwd,
+        stdout,
+        stderr,
+        ...(sessionHost ? { sessionHost } : {}),
+        ...(sessionPersistence ? { sessionPersistence } : {}),
+        transcriptLength: transcript.length,
+        activeOptions,
+        approvalStore,
+        ...(approval ? { approval } : {}),
+        approvalFeedback,
+        ...(contextPanel ? { contextPanel } : {}),
+        contextModeSelector,
+        contextModeSelection,
+        contextOfferVisible,
+        ...(completionKind ? { completionKind } : {}),
+        completionSignature,
+        ...(mentionQuery ? { mentionQuery } : {}),
+        fileCandidates,
+        visibleCandidates,
+        selectedIndex,
+        resources,
+        ...(pluginTrustIntent ? { pluginTrustIntent } : {}),
+        sessions,
+        sessionDeletionConfirmed,
+        loginChoices,
+        loginKey,
+        ...(loginChoice ? { loginChoice } : {}),
+        ...(selectedProviderRoute ? { selectedProviderRoute } : {}),
+        providerProfiles,
+        providerActionChoices,
+        logoutChoices,
+        modelChoices,
+        baseModelChoices,
+        visibleModelChoices,
+        selectedModelIndex,
+        ...(pendingModelDeletion ? { pendingModelDeletion } : {}),
+        deleteModelReturnPhase,
+        effortChoices,
+        conversationRef: conversation,
+        activeControllerRef: activeController,
+        idleExitArmedRef: idleExitArmed,
+        nextTranscriptIdRef: nextTranscriptId,
+        cancelOrExit,
+        exit,
+        finishApproval,
+        appendEntry,
+        updateEditor,
+        executeCommand,
+        submitPrompt,
+        selectEffort,
+        cycleEffort,
+        logoutApiProvider,
+        handleCodexOutput,
+        updateProjectPluginTrust,
+        executeAuthentication,
+        executeLogout,
+        saveApiKey,
+        removeApiKey,
+        removeProviderRoute,
+        removeProviderModel,
+        persistModelSelection,
+        discoverSubscriptionModels,
+        setTranscriptOffset,
+        setTranscript,
+        setStaticRenderRevision,
+        setContextModeSelector,
+        setContextModeSelection,
+        setContextRevision,
+        setContextPanel,
+        setContextOfferDismissed,
+        setContextActivity,
+        setApprovalFeedback,
+        setPhase,
+        setSelectedIndex,
+        setPermissionRevision,
+        setPluginTrustIntent,
+        setResources,
+        setSessionDeletionConfirmed,
+        setSessions,
+        setLoginKey,
+        setLoginChoice,
+        setProviderSetupRoute,
+        setSelectedProviderRoute,
+        setLoginPrompt,
+        setProviderProfiles,
+        setModelChoices,
+        setLoggedOutProviderRoutes,
+        setDeleteModelReturnPhase,
+        setPendingModelDeletion,
+        setModelQuery,
+        setActiveOptions,
+        setDismissedCompletion,
+        setEditor,
+      }),
+    { isActive: sessionHost?.focused ?? true },
+  );
 
   useEffect(() => {
     setInputReady(true);
@@ -3010,594 +1477,60 @@ export function InteractiveApp({
         </>
       ) : null}
 
-      {contextPanel ? (
-        <ContextPanel
-          status={contextPanel}
-          modeSelector={contextModeSelector}
-          selectedModeIndex={contextModeSelection}
-        />
-      ) : null}
-
-      {phase === "plugins" ? <PluginsPanel resources={resources} /> : null}
-
-      {phase === "resources" ? <ResourcesPanel resources={resources} /> : null}
-
-      {phase === "permissions" ? (
-        <PermissionsPanel
-          profile={activeOptions.permissionProfile ?? "safe"}
-          provenance={permissionProfileSource}
-          grants={approvalStore.list()}
-          selectedIndex={selectedIndex}
-          revision={permissionRevision}
-        />
-      ) : null}
-
-      {phase === "plugin-trust" && pluginTrustIntent ? (
-        <PluginTrustPanel
-          cwd={cwd}
-          intent={pluginTrustIntent}
-          resources={resources}
-        />
-      ) : null}
-
-      {(phase === "approving" || phase === "approval-feedback") && approval ? (
-        <Box
-          borderStyle="round"
-          borderColor="yellow"
-          flexDirection="column"
-          paddingX={1}
-        >
-          <Text bold color="yellow">
-            Approval required
-          </Text>
-          {approval.command ? (
-            <Box flexDirection="column" marginY={1}>
-              <Text bold>
-                <Text color="cyan">$ </Text>
-                {approval.command.command}
-              </Text>
-              <Text>
-                <Text dimColor>Working directory</Text>
-                {"  "}
-                {approval.command.cwd}
-              </Text>
-              <Text>
-                <Text dimColor>Timeout</Text>
-                {"            "}
-                {formatDuration(approval.command.timeoutMs)}
-              </Text>
-            </Box>
-          ) : null}
-          {approval.network ? (
-            <Box flexDirection="column" marginY={1}>
-              <Text bold>
-                <Text color="cyan">Network </Text>
-                {approval.network.tool}
-              </Text>
-              <Text>
-                <Text dimColor>{approval.network.label}</Text>
-                {"  "}
-                {approval.network.value}
-              </Text>
-            </Box>
-          ) : null}
-          {approval.subagent ? (
-            <Box flexDirection="column" marginY={1}>
-              <Text bold>
-                <Text color="cyan">Subagent </Text>
-                {approval.subagent.tool}
-              </Text>
-              <Text>
-                <Text dimColor>Task</Text>
-                {"  "}
-                {approval.subagent.task}
-              </Text>
-            </Box>
-          ) : null}
-          {phase === "approval-feedback" ? (
-            <>
-              <Text color="red">Deny with optional guidance</Text>
-              <Text>{approvalFeedback || "_"}</Text>
-              <Text dimColor>Enter deny · Esc deny without feedback</Text>
-            </>
-          ) : (
-            <Text>{approval.prompt}</Text>
-          )}
-          {phase === "approving" ? (
-            <Text>
-              <Text bold color="green">
-                1
-              </Text>{" "}
-              allow once
-              {approval.allowSession ? (
-                <>
-                  {" · "}
-                  <Text bold color="green">
-                    2
-                  </Text>{" "}
-                  allow displayed session scope
-                </>
-              ) : null}
-              {" · "}
-              <Text bold color="red">
-                3
-              </Text>{" "}
-              deny
-            </Text>
-          ) : null}
-        </Box>
-      ) : null}
-
-      {updateState?.state === "available" &&
-      updateState.latestVersion &&
-      !updateState.dismissed ? (
-        <UpdateBanner state={updateState} terminalWidth={terminalWidth} />
-      ) : null}
-
-      {phase === "delete-session-confirm" ? (
-        <Box
-          borderStyle="round"
-          borderColor="yellow"
-          flexDirection="column"
-          paddingX={1}
-        >
-          <Text bold>Delete “{sessions[selectedIndex]?.title}”?</Text>
-          <Text>
-            Local conversation, run records and traces will be permanently
-            deleted.
-          </Text>
-          <Text>
-            Project files and external engine history remain unchanged.
-          </Text>
-          <Text>
-            {sessionDeletionConfirmed
-              ? "  Cancel    › Delete"
-              : "› Cancel      Delete"}
-          </Text>
-          <Text dimColor>←→ choose · Enter confirm · Esc cancel</Text>
-        </Box>
-      ) : null}
-      {phase === "deleting-session" ? <Text>Deleting session…</Text> : null}
-      {phase === "resuming" ? (
-        <Box
-          borderStyle="round"
-          borderColor="cyan"
-          flexDirection="column"
-          paddingX={1}
-        >
-          <Text bold color="cyan">
-            Saved sessions
-          </Text>
-          {sessions.length === 0 ? (
-            <Text dimColor>Loading sessions…</Text>
-          ) : null}
-          {sessions
-            .slice(
-              Math.floor(selectedIndex / 10) * 10,
-              Math.floor(selectedIndex / 10) * 10 + 10,
-            )
-            .map((session, offset) => {
-              const index = Math.floor(selectedIndex / 10) * 10 + offset;
-              return (
-                <Text
-                  key={session.id}
-                  bold={index === selectedIndex}
-                  {...(index === selectedIndex
-                    ? { color: "cyan" as const }
-                    : {})}
-                >
-                  {index === selectedIndex ? "› " : "  "}
-                  {session.title} · {session.updatedAt} ·{" "}
-                  {session.id.slice(0, 8)}
-                </Text>
-              );
-            })}
-          <Text dimColor>
-            Page {Math.floor(selectedIndex / 10) + 1}/
-            {Math.max(1, Math.ceil(sessions.length / 10))} · ←→ page · Enter
-            resume{sessionPersistence?.delete ? " · Ctrl+D delete" : ""} · Esc
-            cancel
-          </Text>
-        </Box>
-      ) : null}
-
-      {phase === "models" ? (
-        <Box
-          borderStyle="round"
-          borderColor="cyan"
-          flexDirection="column"
-          paddingX={1}
-        >
-          <Text bold color="cyan">
-            Choose model
-          </Text>
-          <Text>
-            Search models: <Text color="cyan">{modelQuery || "_"}</Text>
-          </Text>
-          {modelsLoading ? (
-            <Text dimColor>Discovering ChatGPT subscription models…</Text>
-          ) : null}
-          {modelQuery.trim() !== "" ? (
-            <Text dimColor>
-              Showing {visibleModelChoices.length} of {modelChoices.length}{" "}
-              matches
-            </Text>
-          ) : null}
-          {visibleModelChoices.length === 0 ? (
-            <Text dimColor>No matching models.</Text>
-          ) : null}
-          {visibleModelChoices.map((choice, index) => (
-            <Text
-              key={modelChoiceKey(choice)}
-              bold={index === selectedModelIndex}
-              {...(index === selectedModelIndex
-                ? { color: "cyan" as const }
-                : {})}
-            >
-              {index === selectedModelIndex ? "› " : "  "}
-              {choice.label} · {choice.description}
-            </Text>
-          ))}
-          <Text dimColor>
-            ChatGPT entries use Codex Engine; OpenAI API-key entries are billed
-            separately · Type to fuzzy search · Enter select · Esc cancel
-          </Text>
-        </Box>
-      ) : null}
-
-      {phase === "delete-models" ? (
-        <Box
-          borderStyle="round"
-          borderColor="red"
-          flexDirection="column"
-          paddingX={1}
-        >
-          <Text bold color="red">
-            Delete configured provider model
-          </Text>
-          <Text>
-            Search models: <Text color="cyan">{modelQuery || "_"}</Text>
-          </Text>
-          {visibleModelChoices.length === 0 ? (
-            <Text dimColor>No matching configured models.</Text>
-          ) : null}
-          {visibleModelChoices.map((choice, index) => (
-            <Text
-              key={modelChoiceKey(choice)}
-              bold={index === selectedModelIndex}
-              {...(index === selectedModelIndex
-                ? { color: "red" as const }
-                : {})}
-            >
-              {index === selectedModelIndex ? "› " : "  "}
-              {choice.label} · {choice.description}
-            </Text>
-          ))}
-          <Text dimColor>
-            Type to fuzzy search · Enter review deletion · Esc cancel
-          </Text>
-        </Box>
-      ) : null}
-
-      {phase === "delete-model-confirm" && pendingModelDeletion ? (
-        <Box
-          borderStyle="round"
-          borderColor="red"
-          flexDirection="column"
-          paddingX={1}
-        >
-          <Text bold color="red">
-            Delete model configuration?
-          </Text>
-          <Text>
-            {pendingModelDeletion.selection.provider}/
-            {pendingModelDeletion.selection.id}
-          </Text>
-          <Text dimColor>
-            The provider route and stored credential will remain.
-          </Text>
-          <Text>
-            <Text bold color="red">
-              y
-            </Text>{" "}
-            delete · <Text bold>n</Text> cancel
-          </Text>
-        </Box>
-      ) : null}
-
-      {phase === "effort" ? (
-        <Box
-          borderStyle="round"
-          borderColor="cyan"
-          flexDirection="column"
-          paddingX={1}
-        >
-          <Text bold color="cyan">
-            Choose thinking effort
-          </Text>
-          <Text dimColor>{activeOptions.model ?? "Current model"}</Text>
-          {effortChoices.length === 0 ? (
-            <Text dimColor>Discovering supported effort levels…</Text>
-          ) : null}
-          {effortChoices.map((choice, index) => (
-            <Text
-              key={choice.effort}
-              bold={index === selectedIndex}
-              {...(index === selectedIndex ? { color: "cyan" as const } : {})}
-            >
-              {index === selectedIndex ? "› " : "  "}
-              {choice.effort} · {choice.description}
-              {choice.effort === activeOptions.reasoningEffort
-                ? " · current"
-                : ""}
-            </Text>
-          ))}
-          <Text dimColor>
-            ↑/↓ or ←/→ adjust · Enter select · Esc cancel · /effort
-            &lt;level&gt; also works
-          </Text>
-        </Box>
-      ) : null}
-
-      {phase === "login-providers" ? (
-        <Box
-          borderStyle="round"
-          borderColor="cyan"
-          flexDirection="column"
-          paddingX={1}
-        >
-          <Text bold color="cyan">
-            Choose model provider
-          </Text>
-          {loginChoices.map((choice, index) => (
-            <Box
-              key={`${choice.kind}:${choice.route ?? choice.provider ?? choice.label}`}
-              flexDirection="column"
-            >
-              <Text
-                bold={index === selectedIndex}
-                {...(index === selectedIndex ? { color: "cyan" as const } : {})}
-              >
-                {index === selectedIndex ? "› " : "  "}
-                {choice.label} · {choice.description}
-              </Text>
-              {choice.details ? (
-                <Text
-                  dimColor
-                  {...(index === selectedIndex
-                    ? { color: "cyan" as const }
-                    : {})}
-                >
-                  {"    "}
-                  {choice.details}
-                </Text>
-              ) : null}
-            </Box>
-          ))}
-          <Text dimColor>Enter continue · Esc cancel</Text>
-        </Box>
-      ) : null}
-
-      {phase === "provider-actions" &&
-      selectedProviderRoute &&
-      selectedProviderProfile &&
-      selectedProviderState ? (
-        <Box
-          borderStyle="round"
-          borderColor="cyan"
-          flexDirection="column"
-          paddingX={1}
-        >
-          <Text bold color="cyan">
-            Manage provider · {selectedProviderRoute}
-          </Text>
-          <Text>
-            {selectedProviderState.label} ·{" "}
-            {selectedProviderProfile.models?.length ?? 0} models
-          </Text>
-          <Text dimColor>{selectedProviderProfile.baseUrl}</Text>
-          <Text dimColor>
-            {providerCapabilitySummary(selectedProviderProfile)}
-          </Text>
-          {providerActionChoices.map((action, index) => (
-            <Text
-              key={action.kind}
-              bold={index === selectedIndex}
-              {...(index === selectedIndex ? { color: "cyan" as const } : {})}
-            >
-              {index === selectedIndex ? "› " : "  "}
-              {action.label} · {action.description}
-            </Text>
-          ))}
-          <Text dimColor>Enter continue · Esc back</Text>
-        </Box>
-      ) : null}
-
-      {phase === "provider-remove-confirm" &&
-      selectedProviderRoute &&
-      selectedProviderProfile ? (
-        <Box
-          borderStyle="round"
-          borderColor="red"
-          flexDirection="column"
-          paddingX={1}
-        >
-          <Text bold color="red">
-            Remove provider "{selectedProviderRoute}"?
-          </Text>
-          <Text>{selectedProviderProfile.baseUrl}</Text>
-          <Text dimColor>
-            This deletes the route, all configured models, and its stored
-            credential. Environment variables cannot be removed by Forge.
-          </Text>
-          <Text>
-            <Text bold color="red">
-              y
-            </Text>{" "}
-            remove · <Text bold>n</Text> cancel
-          </Text>
-        </Box>
-      ) : null}
-
-      {phase === "logout-providers" ? (
-        <Box
-          borderStyle="round"
-          borderColor="cyan"
-          flexDirection="column"
-          paddingX={1}
-        >
-          <Text bold color="cyan">
-            Log out provider
-          </Text>
-          {logoutChoices.map((choice, index) => (
-            <Text
-              key={`${choice.kind}:${choice.provider}`}
-              bold={index === selectedIndex}
-              {...(index === selectedIndex ? { color: "cyan" as const } : {})}
-            >
-              {index === selectedIndex ? "› " : "  "}
-              {choice.label} · {choice.description}
-            </Text>
-          ))}
-          <Text dimColor>
-            Removes stored credentials only · environment variables remain ·
-            Enter log out · Esc cancel
-          </Text>
-        </Box>
-      ) : null}
-
-      {loginPrompt ? <SignInPanel prompt={loginPrompt} env={env} /> : null}
-
-      {phase === "login-key" && loginChoice?.provider ? (
-        <Box
-          borderStyle="round"
-          borderColor="cyan"
-          flexDirection="column"
-          paddingX={1}
-        >
-          <Text bold color="cyan">
-            Enter {loginChoice.label} key
-          </Text>
-          <Text>
-            API key:{" "}
-            <Text color="cyan">
-              {loginKey ? "•".repeat(Array.from(loginKey).length) : "_"}
-            </Text>
-          </Text>
-          <Text dimColor>
-            Saved under $FORGE_HOME/auth.json with owner-only permissions. The
-            key is never shown in the transcript.
-          </Text>
-          <Text dimColor>Enter save · Esc back</Text>
-        </Box>
-      ) : null}
-
-      {phase === "provider-setup" ? (
-        <ProviderSetup
-          existingProviders={providerProfiles}
-          {...(providerSetupRoute ? { initialRoute: providerSetupRoute } : {})}
-          discover={discoverProviderModels}
-          hasExistingCredential={(route, profile) =>
-            profile.auth.type === "none" ||
-            new AuthenticationManager(env).status(route, {
-              endpoint: profile.baseUrl,
-              ...(profile.auth.type === "bearer" && profile.auth.apiKeyEnv
-                ? { environmentVariable: profile.auth.apiKeyEnv }
-                : {}),
-            }).authenticated
-          }
-          discoverExisting={async ({ route, profile, signal }) => {
-            const apiKey =
-              profile.auth.type === "bearer"
-                ? new AuthenticationManager(env).requireApiKey(route, {
-                    endpoint: profile.baseUrl,
-                    ...(profile.auth.apiKeyEnv
-                      ? { environmentVariable: profile.auth.apiKeyEnv }
-                      : {}),
-                  }).apiKey
-                : undefined;
-            return discoverProviderModels({
-              api: profile.api,
-              baseUrl: profile.baseUrl,
-              ...(apiKey === undefined ? {} : { apiKey }),
-              signal,
-            });
-          }}
-          onCancel={() => {
-            setProviderSetupRoute(undefined);
-            setPhase("editing");
-          }}
-          onComplete={(result) => {
-            setPhase("running");
-            void completeProviderSetup(result);
-          }}
-        />
-      ) : null}
-
-      {phase !== "login-providers" &&
-      phase !== "login-key" &&
-      phase !== "provider-setup" ? (
-        <Box
-          borderStyle="round"
-          borderColor={phase === "editing" ? "green" : "gray"}
-          paddingX={1}
-          flexDirection="column"
-          marginTop={1}
-        >
-          {editor.images.length > 0 ? (
-            <Text color="cyan">
-              {editor.images
-                .map(
-                  ({ filename }, index) => `[Image #${index + 1}] ${filename}`,
-                )
-                .join("  ")}
-            </Text>
-          ) : null}
-          <Box>
-            <Text color="green">❯ </Text>
-            <PromptWithCursor state={editor} active={phase === "editing"} />
-          </Box>
-        </Box>
-      ) : null}
-
-      {phase === "editing" && completionKind && visibleCandidates.length > 0 ? (
-        <Box
-          borderStyle="single"
-          borderColor="gray"
-          flexDirection="column"
-          paddingX={1}
-        >
-          {visibleCandidates.map((candidate, index) => {
-            const label =
-              typeof candidate === "string" ? candidate : candidate.name;
-            const description =
-              typeof candidate === "string" ? "" : candidate.description;
-            return (
-              <Text
-                key={label}
-                bold={index === selectedIndex}
-                {...(index === selectedIndex ? { color: "cyan" as const } : {})}
-              >
-                {index === selectedIndex ? "› " : "  "}
-                {label}
-                {description ? `  ${description}` : ""}
-              </Text>
-            );
-          })}
-          {completionKind === "file" && fileCandidates.length > 10 ? (
-            <Text dimColor> More matches—keep typing to narrow the list</Text>
-          ) : null}
-        </Box>
-      ) : null}
-
-      {contextOfferVisible ? (
-        <Box paddingX={1}>
-          <Text color="yellow">
-            Context is nearing its limit · <Text bold>c</Text> compact once ·{" "}
-            <Text bold>a</Text> auto for session · <Text bold>d</Text> dismiss
-          </Text>
-        </Box>
-      ) : null}
+      <PhaseOverlays
+        phase={phase}
+        cwd={cwd}
+        env={env}
+        activeOptions={activeOptions}
+        permissionProfileSource={permissionProfileSource}
+        approvalStore={approvalStore}
+        selectedIndex={selectedIndex}
+        permissionRevision={permissionRevision}
+        resources={resources}
+        pluginTrustIntent={pluginTrustIntent}
+        approval={approval}
+        approvalFeedback={approvalFeedback}
+        updateState={updateState}
+        terminalWidth={terminalWidth}
+        sessions={sessions}
+        sessionDeletionConfirmed={sessionDeletionConfirmed}
+        canDeleteSession={Boolean(sessionPersistence?.delete)}
+        modelQuery={modelQuery}
+        modelsLoading={modelsLoading}
+        modelChoices={modelChoices}
+        visibleModelChoices={visibleModelChoices}
+        selectedModelIndex={selectedModelIndex}
+        pendingModelDeletion={pendingModelDeletion}
+        effortChoices={effortChoices}
+        loginChoices={loginChoices}
+        selectedProviderRoute={selectedProviderRoute}
+        selectedProviderProfile={selectedProviderProfile}
+        selectedProviderState={selectedProviderState}
+        providerActionChoices={providerActionChoices}
+        logoutChoices={logoutChoices}
+        loginPrompt={loginPrompt}
+        loginChoice={loginChoice}
+        loginKey={loginKey}
+        providerProfiles={providerProfiles}
+        providerSetupRoute={providerSetupRoute}
+        discoverProviderModels={discoverProviderModels}
+        onCancelProviderSetup={() => {
+          setProviderSetupRoute(undefined);
+          setPhase("editing");
+        }}
+        onCompleteProviderSetup={(result) => {
+          setPhase("running");
+          void completeProviderSetup(result);
+        }}
+        contextPanel={contextPanel}
+        contextModeSelector={contextModeSelector}
+        contextModeSelection={contextModeSelection}
+        editor={editor}
+        completionKind={completionKind}
+        visibleCandidates={visibleCandidates}
+        fileCandidatesCount={fileCandidates.length}
+        contextOfferVisible={contextOfferVisible}
+      />
 
       <PromptFooter
         activeOptions={activeOptions}
@@ -3610,689 +1543,5 @@ export function InteractiveApp({
         terminalWidth={terminalWidth}
       />
     </Box>
-  );
-}
-
-const FORGE_WORDMARK = [
-  " _____ ___  ____   ____ _____ ",
-  "|  ___/ _ \\|  _ \\ / ___| ____|",
-  "| |_ | | | | |_) | |  _|  _|  ",
-  "|  _|| |_| |  _ <| |_| | |___ ",
-  "|_|   \\___/|_| \\_\\\\____|_____|",
-].join("\n");
-
-function ForgeHeader({
-  resources,
-}: {
-  readonly resources: DetectedStartupResources;
-}): React.JSX.Element {
-  return (
-    <Box
-      borderStyle="round"
-      borderColor="cyan"
-      flexDirection="column"
-      alignItems="flex-start"
-      paddingX={2}
-      paddingY={1}
-    >
-      <Box marginBottom={1}>
-        <Text bold color="cyan">
-          {FORGE_WORDMARK}
-        </Text>
-      </Box>
-      {resources.plugins.length > 0 ? (
-        <Text>
-          <Text bold color="cyan">
-            Plugins
-          </Text>
-          <Text dimColor>
-            {"  "}
-            {resources.plugins.map(formatDetectedPlugin).join(" · ")}
-          </Text>
-        </Text>
-      ) : null}
-      {resources.skills.length > 0 ? (
-        <Text>
-          <Text bold color="cyan">
-            Skills
-          </Text>
-          <Text dimColor>
-            {"   "}
-            {resources.skills
-              .filter(({ status }) => status !== "shadowed")
-              .map(
-                ({ name, source, status, invocation }) =>
-                  `$${name} (${source}, ${status ?? invocation})`,
-              )
-              .join(" · ")}
-          </Text>
-        </Text>
-      ) : null}
-      {resources.plugins.length > 0 || resources.skills.length > 0 ? (
-        <Box marginTop={1} />
-      ) : null}
-      <Text>
-        <Text bold color="cyan">
-          /login
-        </Text>
-        <Text dimColor> provider · </Text>
-        <Text bold color="cyan">
-          /plugins
-        </Text>
-        <Text dimColor> trust · </Text>
-        <Text bold color="cyan">
-          /resources
-        </Text>
-        <Text dimColor> skills · </Text>
-        <Text bold color="cyan">
-          @
-        </Text>
-        <Text dimColor> files</Text>
-      </Text>
-    </Box>
-  );
-}
-
-function formatDetectedPlugin(
-  plugin: DetectedStartupResources["plugins"][number],
-): string {
-  const state =
-    plugin.state === "untrusted" ? "untrusted, skipped" : plugin.state;
-  return `${plugin.name} (${plugin.scope}, ${state})`;
-}
-
-function conversationTranscript(
-  messages: readonly ModelConversationMessage[],
-  reasoning: readonly SessionReasoning[] = [],
-  historyEvents?: readonly RunEvent[],
-): readonly TranscriptEntry[] {
-  if (historyEvents && historyEvents.length > 0) {
-    return runEventTranscript(historyEvents);
-  }
-  const reasoningByMessage = new Map(
-    reasoning.map((entry) => [entry.assistantMessageIndex, entry.content]),
-  );
-  const transcript: TranscriptEntry[] = [];
-  for (const [messageIndex, message] of messages.entries()) {
-    const savedReasoning = reasoningByMessage.get(messageIndex);
-    if (message.role === "assistant" && savedReasoning) {
-      transcript.push({
-        id: transcript.length,
-        kind: "reasoning",
-        text: savedReasoning,
-      });
-    }
-    if (message.role === "tool") {
-      transcript.push({
-        id: transcript.length,
-        kind: "tool",
-        text: `[historical tool result · ${message.toolName} · ${message.isError ? "failed" : "completed"}] ${canonicalText(message)}`,
-      });
-      continue;
-    }
-    const text = canonicalText(message);
-    if (text)
-      transcript.push({
-        id: transcript.length,
-        kind: message.role === "user" ? "user" : "answer",
-        text,
-      });
-    if (message.role === "assistant" && typeof message.content !== "string") {
-      for (const part of message.content) {
-        if (part.type === "tool-call") {
-          transcript.push({
-            id: transcript.length,
-            kind: "tool",
-            text: `[historical tool call · ${part.name} · ${part.id}]`,
-          });
-        }
-      }
-    }
-  }
-  return transcript;
-}
-
-function runEventTranscript(
-  events: readonly RunEvent[],
-): readonly TranscriptEntry[] {
-  let transcript: readonly TranscriptEntry[] = [];
-  const append = (kind: TranscriptKind, text: string, merge = false): void => {
-    transcript = appendTranscriptEntry(
-      transcript,
-      { id: transcript.length, kind, text },
-      merge,
-    );
-  };
-
-  for (const event of events) {
-    switch (event.type) {
-      case "run.started":
-        append(
-          "user",
-          [
-            event.prompt,
-            ...(event.imageCount
-              ? Array.from(
-                  { length: event.imageCount },
-                  (_, index) => `[Image #${index + 1}]`,
-                )
-              : []),
-          ].join("\n"),
-        );
-        break;
-      case "model.reasoning":
-        append("reasoning", event.text, true);
-        break;
-      case "model.reasoning-unavailable":
-        append(
-          "reasoning",
-          `Provider used ${event.reasoningTokens} reasoning tokens but did not return reasoning text.`,
-        );
-        break;
-      case "model.text":
-        append("answer", event.text, true);
-        break;
-      case "model.warning":
-      case "context.warning":
-        append("warning", event.message);
-        break;
-      case "context.auto-paused":
-        append("warning", event.message);
-        break;
-      case "tool.proposed":
-        append("tool", `○ Proposed ${formatToolCallSummary(event.call)}`);
-        break;
-      case "tool.decision":
-        append(
-          "tool",
-          `◇ ${event.decision.kind.toUpperCase()} ${formatToolCallSummary(event.call)} — ${event.decision.reason}`,
-        );
-        break;
-      case "tool.completed":
-        append("tool", `✓ Completed ${formatToolCallSummary(event.call)}`);
-        break;
-      case "tool.failed":
-        append(
-          "error",
-          `✗ Failed ${formatToolCallSummary(event.call)}${event.result.ok ? "" : ` — ${event.result.error.message}`}`,
-        );
-        break;
-      case "docs.search":
-        append(
-          "tool",
-          `Docs · ${event.resultCount} result(s) · ${event.locale}${event.fallback ? " · English fallback" : ""}`,
-        );
-        break;
-      case "docs.read":
-        append("tool", `Docs · ${event.reference}`);
-        break;
-      case "docs.rejected":
-        append("warning", `Docs · ${event.message}`);
-        break;
-      case "run.completed":
-        append("system", "Completed");
-        break;
-      case "run.failed":
-      case "run.denied":
-      case "run.limit_reached":
-      case "run.cancelled":
-        if (event.message) append("error", event.message);
-        break;
-      default:
-        break;
-    }
-  }
-  return transcript;
-}
-
-function formatDuration(milliseconds: number): string {
-  return milliseconds % 1000 === 0
-    ? `${milliseconds / 1000}s`
-    : `${milliseconds}ms`;
-}
-
-function formatModelStatus(options: AskOptions): string {
-  const model = options.model?.trim() || "default";
-  const effort =
-    options.reasoningEffort?.trim() || options.thinking?.trim() || "default";
-  return `${model} · thinking effort: ${effort}`;
-}
-
-function formatCompactModelStatus(options: AskOptions): string {
-  const model = options.model?.trim() || "default";
-  const effort =
-    options.reasoningEffort?.trim() || options.thinking?.trim() || "default";
-  return `${model} · ${effort}`;
-}
-
-function PromptFooter({
-  activeOptions,
-  filesLoading,
-  phase,
-  runActivity,
-  runActivityFrame,
-  contextStatus,
-  contextStateOverride,
-  terminalWidth,
-}: {
-  readonly activeOptions: AskOptions;
-  readonly filesLoading: boolean;
-  readonly phase: Phase;
-  readonly runActivity?: RunActivity;
-  readonly runActivityFrame: number;
-  readonly contextStatus?: ContextStatus;
-  readonly contextStateOverride?: ContextStatus["pressure"]["state"];
-  readonly terminalWidth: number;
-}): React.JSX.Element {
-  if (phase === "editing") {
-    const pressureLabel = contextStatus
-      ? formatContextIndicator(
-          contextStatus,
-          terminalWidth,
-          contextStateOverride,
-        )
-      : undefined;
-    return (
-      <Box paddingX={1} flexDirection="column">
-        <Box justifyContent="space-between">
-          <Text color="blue">{formatCompactModelStatus(activeOptions)}</Text>
-          {pressureLabel ? (
-            <Text
-              color={contextPressureColor(contextStatus?.pressure.ratio ?? 0)}
-            >
-              {pressureLabel}
-            </Text>
-          ) : null}
-        </Box>
-        <Text color="gray">
-          {filesLoading ? "Indexing files · " : ""}
-          <Text color="yellow">Shift+Tab</Text> effort ·{" "}
-          <Text color="green">Enter</Text> submit ·{" "}
-          <Text color="cyan">Shift+Enter/Meta+Enter/Ctrl+J</Text> newline ·{" "}
-          <Text color="red">Ctrl+C</Text> cancel/exit
-        </Text>
-      </Box>
-    );
-  }
-
-  if (phase === "running") {
-    const activity = formatRunActivity(runActivity);
-    const spinner =
-      RUN_ACTIVITY_FRAMES[runActivityFrame % RUN_ACTIVITY_FRAMES.length] ??
-      RUN_ACTIVITY_FRAMES[0];
-    return (
-      <Box paddingX={1}>
-        <Box flexDirection="column">
-          <Text color={runActivity?.kind === "tool" ? "green" : "cyan"}>
-            {spinner} {activity}
-            <Text dimColor> · Ctrl+C cancel</Text>
-          </Text>
-        </Box>
-      </Box>
-    );
-  }
-
-  const status =
-    phase === "approving" || phase === "approval-feedback"
-      ? "Waiting for approval"
-      : phase === "models"
-        ? "Choose a model"
-        : phase === "delete-models"
-          ? "Choose a configured model to delete"
-          : phase === "delete-model-confirm"
-            ? "Confirm model deletion"
-            : phase === "effort"
-              ? "Choose thinking effort"
-              : phase === "plugins"
-                ? "Review project plugins"
-                : phase === "resources"
-                  ? "Review Skills and diagnostics"
-                  : phase === "permissions"
-                    ? "Review session permissions"
-                    : phase === "plugin-trust"
-                      ? "Confirm project plugin trust"
-                      : phase === "login-providers" || phase === "login-key"
-                        ? "Configure a model provider"
-                        : phase === "logout-providers"
-                          ? "Choose a provider to log out"
-                          : phase === "provider-actions"
-                            ? "Manage provider"
-                            : phase === "provider-remove-confirm"
-                              ? "Confirm provider removal"
-                              : phase === "provider-setup"
-                                ? "Configure a provider model"
-                                : "Choose a saved session";
-
-  return (
-    <Box flexDirection="column">
-      <Text dimColor>{status}</Text>
-    </Box>
-  );
-}
-
-function ContextPanel({
-  status,
-  modeSelector,
-  selectedModeIndex,
-}: {
-  readonly status: ContextStatus;
-  readonly modeSelector: boolean;
-  readonly selectedModeIndex: number;
-}): React.JSX.Element {
-  const inputBudget = status.pressure.availableInputTokens;
-  const usageRatio = status.pressure.ratio;
-  const usagePercent = Math.round(usageRatio * 100);
-  const reclaimedTokens = Math.max(
-    0,
-    status.estimatedTranscriptTokens - status.projectedCompactedTokens,
-  );
-  const checkpoint = status.checkpoint;
-  const checkpointLabel =
-    checkpoint.status === "none"
-      ? "not created"
-      : checkpoint.status === "valid"
-        ? `${checkpoint.strategy} ready · ${checkpoint.summarizedMessageCount} messages summarized`
-        : `${checkpoint.strategy} stale · not used`;
-
-  return (
-    <Box
-      borderStyle="round"
-      borderColor="cyan"
-      flexDirection="column"
-      paddingX={1}
-      marginTop={1}
-      marginBottom={1}
-    >
-      <Text>
-        <Text bold color="cyan">
-          Context management
-        </Text>
-        <Text dimColor> · {contextModeLabel(status.pressure.mode)}</Text>
-      </Text>
-
-      <Box flexDirection="column" marginTop={1}>
-        <Text>
-          <Text bold color={contextUsageColor(usagePercent)}>
-            {contextRing(usageRatio)} ~{usagePercent}% projected
-          </Text>
-          <Text dimColor>
-            {" "}
-            · ~{formatTokenCount(status.pressure.estimatedInputTokens)} of{" "}
-            {formatTokenCount(inputBudget)} input tokens
-          </Text>
-        </Text>
-        <Text color={contextUsageColor(usagePercent)}>
-          {contextUsageBar(usageRatio)}
-        </Text>
-      </Box>
-
-      <Box flexDirection="column" marginTop={1}>
-        <Text bold color="gray">
-          Pressure breakdown
-        </Text>
-        <Text>
-          instructions{" "}
-          {formatTokenCount(status.pressure.estimates.instructions)} · tools{" "}
-          {formatTokenCount(status.pressure.estimates.toolSchemas)} · history{" "}
-          {formatTokenCount(status.pressure.estimates.conversationHistory)} ·
-          draft/images{" "}
-          {formatTokenCount(status.pressure.estimates.currentRequest)}
-        </Text>
-        <Text dimColor>
-          {status.pressure.confidence === "unavailable"
-            ? "? incomplete projection"
-            : status.pressure.confidence === "exact"
-              ? "exact projection"
-              : "~ estimated"}{" "}
-          · activation {Math.round(status.activationThreshold * 100)}%
-        </Text>
-      </Box>
-
-      <Box flexDirection="column" marginTop={1}>
-        <Text>
-          <Text bold color="gray">
-            Model
-          </Text>
-          {"  "}
-          {status.provider}/{status.modelId}
-        </Text>
-        <Text>
-          <Text bold color="gray">
-            Window
-          </Text>{" "}
-          {formatTokenCount(status.contextWindowTokens)} total ·{" "}
-          {formatTokenCount(status.availableInputTokens)} input
-        </Text>
-        <Text>
-          <Text bold color="gray">
-            Reserve
-          </Text>{" "}
-          {formatTokenCount(status.reservedOutputTokens)} output +{" "}
-          {formatTokenCount(status.bufferTokens)} safety →{" "}
-          {formatTokenCount(status.effectiveReserveTokens)} effective
-        </Text>
-      </Box>
-
-      <Box flexDirection="column" marginTop={1}>
-        <Text bold color="gray">
-          Conversation
-        </Text>
-        <Text>
-          {status.canonicalMessageCount === 0
-            ? "No messages yet."
-            : `${status.canonicalMessageCount} canonical messages · ~${formatTokenCount(status.estimatedTranscriptTokens)} estimated`}
-        </Text>
-        {status.canonicalMessageCount > 0 ? (
-          <>
-            <Text>
-              Active tail: {status.activeTailMessageCount} messages from index{" "}
-              {status.activeTailStartIndex}
-            </Text>
-            <Text dimColor>
-              /compact → ~{formatTokenCount(status.projectedCompactedTokens)}{" "}
-              tokens
-              {reclaimedTokens > 0
-                ? ` · saves ~${formatTokenCount(reclaimedTokens)}`
-                : " · no estimated savings"}
-            </Text>
-          </>
-        ) : null}
-      </Box>
-
-      <Box flexDirection="column" marginTop={1}>
-        <Text>
-          <Text bold color={checkpoint.status === "stale" ? "yellow" : "gray"}>
-            Checkpoint
-          </Text>
-          {"  "}
-          {checkpointLabel}
-        </Text>
-        <Text dimColor>
-          Canonical transcript is retained · checkpoint is untrusted memory
-        </Text>
-        {status.lastCompaction ? (
-          <Text dimColor>
-            Last compact:{" "}
-            {formatTokenCount(status.lastCompaction.estimatedBeforeTokens)} →{" "}
-            {formatTokenCount(status.lastCompaction.estimatedAfterTokens)} ·{" "}
-            {status.lastCompaction.strategy}
-          </Text>
-        ) : null}
-      </Box>
-
-      {modeSelector ? (
-        <Box flexDirection="column" marginTop={1}>
-          <Text bold color="cyan">
-            Context mode
-          </Text>
-          {contextModeChoices(status).map((choice, index) => (
-            <Text key={`${choice.kind}-${choice.mode}`}>
-              {index === selectedModeIndex ? "› " : "  "}
-              {choice.label}
-            </Text>
-          ))}
-          <Text dimColor>↑/↓ choose · Enter apply · Esc back</Text>
-        </Box>
-      ) : (
-        <Text color="cyan">
-          m change mode · c compact now · p preview · Esc close
-        </Text>
-      )}
-    </Box>
-  );
-}
-
-export function UpdateBanner({
-  state,
-  terminalWidth,
-}: {
-  readonly state: UpdateState;
-  readonly terminalWidth: number;
-}): React.JSX.Element {
-  const latest = state.latestVersion ?? "unknown";
-  const notes = terminalHyperlink(
-    `${FORGE_RELEASES_URL}/tag/v${latest}`,
-    { env: process.env, isTTY: process.stdout.isTTY === true },
-    "release notes",
-  );
-  return (
-    <Box borderStyle="round" borderColor="yellow" paddingX={1}>
-      <Text color="yellow">
-        <Text bold>Update {latest}</Text> · current {state.currentVersion}
-        {terminalWidth >= 64
-          ? ` · forge update · restart required · ${notes} · /update-dismiss`
-          : " · forge update · restart · /update-dismiss"}
-      </Text>
-    </Box>
-  );
-}
-
-function contextUsageBar(ratio: number): string {
-  const width = 28;
-  const filled = Math.max(0, Math.min(width, Math.round(ratio * width)));
-  return `${"█".repeat(filled)}${"░".repeat(width - filled)}`;
-}
-
-function contextUsageColor(percent: number): "green" | "yellow" | "red" {
-  return percent >= 85 ? "red" : percent >= 65 ? "yellow" : "green";
-}
-
-function formatTokenCount(value: number): string {
-  return new Intl.NumberFormat("en-US").format(value);
-}
-
-function contextModeLabel(mode: ContextStatus["pressure"]["mode"]): string {
-  switch (mode) {
-    case "automatic-session":
-      return "Automatic · this session";
-    case "automatic-default":
-      return "Automatic · user default";
-    case "paused":
-      return "Automatic · paused";
-    case "off":
-      return "Off";
-    default:
-      return "Manual · ask before compacting";
-  }
-}
-
-/**
- * A pending browser sign-in.
- *
- * The URL is rendered as its own block rather than as transcript text so it
- * keeps one unbroken clickable run: Ink wraps the visible characters while the
- * surrounding OSC 8 sequence continues to describe a single link target.
- */
-function appendTranscriptEntry(
-  entries: readonly TranscriptEntry[],
-  entry: TranscriptEntry,
-  merge: boolean,
-): readonly TranscriptEntry[] {
-  const next = [...entries];
-  const previous = next.at(-1);
-  if (merge && previous?.kind === entry.kind) {
-    next[next.length - 1] = {
-      id: previous.id,
-      kind: previous.kind,
-      text: `${previous.text}${entry.text}`,
-    };
-  } else {
-    next.push(entry);
-  }
-
-  // Keep the complete UI transcript. Ink.Static moves finalized entries into
-  // terminal scrollback, so trimming here would make older output unrecoverable.
-  return next;
-}
-
-function asPersistedReasoningEffort(
-  value: string,
-): PersistedModelSelection["reasoningEffort"] {
-  if (
-    value === "none" ||
-    value === "minimal" ||
-    value === "low" ||
-    value === "medium" ||
-    value === "high" ||
-    value === "xhigh" ||
-    value === "max" ||
-    value === "ultra"
-  ) {
-    return value;
-  }
-  return undefined;
-}
-
-function subscriptionModelChoices(
-  models: readonly CodexModel[],
-): readonly ModelChoice[] {
-  return models.flatMap((model) => {
-    const supportedReasoningEfforts = model.supportedReasoningEfforts.flatMap(
-      ({ reasoningEffort, description }) => {
-        const effort = asPersistedReasoningEffort(reasoningEffort);
-        return effort ? [{ effort, description }] : [];
-      },
-    );
-    const defaultReasoningEffort = asPersistedReasoningEffort(
-      model.defaultReasoningEffort,
-    );
-    if (!defaultReasoningEffort || supportedReasoningEfforts.length === 0) {
-      return [];
-    }
-    return [
-      {
-        label: model.displayName,
-        description: "ChatGPT subscription · Codex Engine",
-        selection: {
-          engine: "codex" as const,
-          provider: "openai" as const,
-          id: model.id,
-        },
-        supportedReasoningEfforts,
-        defaultReasoningEffort,
-      },
-    ];
-  });
-}
-
-function effortsForModel(
-  choices: readonly ModelChoice[],
-  options: AskOptions,
-): readonly EffortChoice[] {
-  return (
-    modelChoiceFor(choices, options)?.supportedReasoningEfforts ??
-    STANDARD_EFFORTS
-  );
-}
-
-function modelChoiceFor(
-  choices: readonly ModelChoice[],
-  options: AskOptions,
-): ModelChoice | undefined {
-  return choices.find(
-    ({ selection }) =>
-      selection.engine === options.engine &&
-      selection.provider === options.provider &&
-      selection.id === options.model,
   );
 }

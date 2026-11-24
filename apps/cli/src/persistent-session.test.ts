@@ -9,13 +9,12 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { FileSessionStore, JsonlTraceWriter } from "@forge/persistence";
-import { afterEach, describe, expect, it } from "vitest";
-
 import {
   createPersistentInteractiveSession,
   PersistentInteractiveSession,
-} from "./persistent-session.js";
+} from "@forge/application/persistent-session";
+import { FileSessionStore, JsonlTraceWriter } from "@forge/persistence";
+import { afterEach, describe, expect, it } from "vitest";
 
 const temporaryDirectories: string[] = [];
 

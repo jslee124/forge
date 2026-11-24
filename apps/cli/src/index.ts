@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { configureHttpDispatcher } from "./http-dispatcher.js";
+import { configureHttpDispatcher } from "@forge/application";
 import { createProgram } from "./program.js";
 
 configureHttpDispatcher(process.env);

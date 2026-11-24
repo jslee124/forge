@@ -1,9 +1,8 @@
-import { describe, expect, it, vi } from "vitest";
-
 import {
   configureHttpDispatcher,
   resolveHttpProxySettings,
-} from "./http-dispatcher.js";
+} from "@forge/application";
+import { describe, expect, it, vi } from "vitest";
 
 describe("HTTP dispatcher", () => {
   it("reads lowercase proxy variables before uppercase aliases", () => {

@@ -1,12 +1,12 @@
+import type { CreateForgeModelAdapterOptions } from "@forge/application/model-adapter";
+import { formatSlashCommandHelp } from "@forge/application/slash-commands";
 import type {
   ModelAdapter,
   ModelConversationMessage,
   RunResult,
 } from "@forge/core";
 import type { AskOptions, WritableOutput } from "./ask.js";
-import { formatSlashCommandHelp } from "./commands.js";
 import { runInkInteractiveFromCli } from "./interactive-ui.js";
-import type { CreateForgeModelAdapterOptions } from "./model-adapter.js";
 import { createApprovalChannel, type RunDependencies, runTask } from "./run.js";
 
 export interface InteractiveTerminal {
