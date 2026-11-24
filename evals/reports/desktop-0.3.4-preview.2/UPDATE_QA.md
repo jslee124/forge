@@ -1,6 +1,6 @@
 # Desktop update acceptance — 2026-09-22
 
-[简体中文](UPDATE_QA.zh-CN.md) · [Update plan](../../../apps/desktop/UPDATE_PLAN.md) · [Installation](../../../apps/desktop/INSTALL.md)
+[简体中文](UPDATE_QA.zh-CN.md) · [Update plan](../../../docs/history/desktop-workbench/UPDATE_PLAN.md) · [Installation](../../../apps/desktop/INSTALL.md)
 
 U01–U04 implementation and controlled acceptance are complete locally. This is not publication, application replacement, signing/notarization or Intel-hardware acceptance.
 

@@ -1,34 +1,30 @@
 # 快速上手
 
-English · 中文文档目录
+English · 中文目录
 
-这篇指南会带你从全新 checkout 走到一次可验证的 Forge 会话。在真正提交 prompt 之前，所有检查都只在本地执行，不会产生付费模型请求。
+本指南带你从零完成 Forge 的安装、认证、离线校验与首次任务试跑。前三步完全在本地离线运行，只有你主动提交任务时才会请求模型。
 
-## 你将完成什么
+## 环境要求
 
-1. 安装并构建开发 checkout。
-2. 选择一种模型访问方式。
-3. 在不调用 provider 的前提下验证有效配置。
-4. 先执行只读任务，再执行带明确审批的 coding task。
-5. 找到保存的 session 和 run trace。
+- **Node.js** 24.22.1 或更高版本
+- **pnpm** 11.18.0（已在根目录 `packageManager` 字段锁定）
+- **Git**
+- 任选一种模型接入方式：
+  - DeepSeek API 密钥（`DEEPSEEK_API_KEY`）
+  - OpenAI API 密钥（`OPENAI_API_KEY`）
+  - 任意兼容 OpenAI 协议的 HTTP 端点
+  - 已购买有效套餐且登录官方 Codex CLI 的 ChatGPT 账号（用于 Codex 引擎）
 
-## 前置条件
-
-- Node.js 24.22.1 或更高版本
-- pnpm 11.18.0，版本由根目录 `packageManager` 固定
-- Git
-- 以下任意一种模型访问方式：DeepSeek API key、OpenAI API key、已配置的 OpenAI-compatible endpoint，或通过 Codex CLI 使用 ChatGPT 账号
-
-Forge 的开发 workspace 继续保持 private。release 自动化会生成唯一的公共 CLI package `@jslee124/forge`，内部 packages 和插件 SDK 仍保持私有。普通用户应安装已发布的 CLI；参与 Forge 开发时再从源码运行或全局链接当前 checkout。
-
-安装当前稳定版本：
+如果只是日常使用命令行，直接安装公开发布的 `@jslee124/forge` 即可（内部 `@forge/*` 包保持私有，不单独发布）：
 
 ```bash
 npm install --global @jslee124/forge
 forge --version
 ```
 
-## 1. 安装 checkout
+## 1. 构建源码开发版（可选，贡献者路径）
+
+如果你准备修改或调试 Forge 源码：
 
 ```bash
 git clone https://github.com/jslee124/forge.git
@@ -38,43 +34,26 @@ pnpm build
 pnpm forge --version
 ```
 
-最后一条命令会构建 workspace；当前源码 release 应输出 `0.5.0-preview.1`。它不会联系模型 provider。
+执行完后应本地打印 `0.5.0-preview.1`，不会访问网络。开发期建议直接使用 `pnpm forge ...`；如果想让系统全局的 `forge` 命令指向当前源码构建产物（`apps/cli/dist`），可执行 `pnpm link:global`（之后改完 TS 代码记得重新 `pnpm build`，不再需要时用 `pnpm unlink:global` 取消）。
 
-开发期间可以一直使用 `pnpm forge`。如果希望直接输入 `forge`：
+## 2. 选择模型接入方式
 
-```bash
-pnpm link:global
-forge --version
-```
-
-该链接指向构建后的 CLI，因此 TypeScript 源码变动后要再次运行 `pnpm build`。不再需要时执行 `pnpm unlink:global`。
-
-## 2. 选择访问方式
-
-Forge 有两个执行 Engine。认证方式和 runtime 所有权不同，不要把它们混为一谈。
-
-| 访问方式 | Engine | Credential 所有者 | 从哪里开始 |
+| 接入方式 | 驱动引擎 | 凭据归属 | 推荐配置入口 |
 | --- | --- | --- | --- |
-| DeepSeek API | Forge Engine | Forge 保存的 key 或 `DEEPSEEK_API_KEY` | `pnpm forge` 后输入 `/login` |
-| OpenAI API | Forge Engine | Forge 保存的 key 或 `OPENAI_API_KEY` | `pnpm forge` 后输入 `/login` |
-| OpenAI-compatible endpoint | Forge Engine | 配置的环境变量或 Forge 保存的 route key | 通过 `/login` 或用户配置添加 route |
-| ChatGPT 订阅 | Codex Engine | Codex App Server | `pnpm forge auth login openai` |
+| DeepSeek API | Forge 引擎 | Forge 本地凭据或 `DEEPSEEK_API_KEY` | 启动 `pnpm forge` 后输入 `/login` |
+| OpenAI API | Forge 引擎 | Forge 本地凭据或 `OPENAI_API_KEY` | 启动 `pnpm forge` 后输入 `/login` |
+| 兼容 OpenAI 端点 | Forge 引擎 | 路由凭据或环境变量 | 通过 `/login` 或用户配置添加路由 |
+| ChatGPT 订阅 | Codex 引擎 | Codex App Server | `pnpm forge auth login openai` |
 
-OpenAI API 按用量计费，ChatGPT subscription 是另一条访问路径。ChatGPT 订阅不会提供 `OPENAI_API_KEY`，API key 也不会自动变成 Codex 订阅会话。
+> **注意：** OpenAI API 按量计费与 ChatGPT 订阅权限相互独立，订阅账号不能替代 `OPENAI_API_KEY`，API 密钥也不能登录 Codex 引擎。
 
-### 方案 A：交互式保存 API key
+### 方式 A：在终端界面内通过 `/login` 配置（推荐）
 
-```bash
-pnpm forge
-```
+运行 `pnpm forge` 进入交互界面后输入 `/login`，选择 DeepSeek、OpenAI API 或新增第三方兼容端点并输入密钥。Forge 会将其写入仅当前系统用户可读的 `$FORGE_HOME/auth.json`（默认 `~/.forge/auth.json`）。随后可用 `/model` 切换模型，用 `/effort` 或 `Shift+Tab` 调整推理深度。
 
-输入 `/login`，选择 DeepSeek、OpenAI API 或已经配置的 route，再把 key 粘贴到带掩码的输入框。Forge 会把它保存到 `$FORGE_HOME/auth.json`，默认是 `~/.forge/auth.json`，并使用仅 owner 可读的文件权限。环境变量优先于保存的 key。
+### 方式 B：使用环境变量
 
-使用 `/model` 选择 engine、provider 和 model；使用 `/effort` 或 Shift+Tab 独立选择该模型公开支持的 reasoning level。
-
-### 方案 B：环境变量
-
-环境变量适合自动化或临时 shell：
+适合脚本调用或临时会话（同名环境变量优先级始终高于本地保存的密钥）：
 
 ```bash
 export DEEPSEEK_API_KEY="your-api-key"
@@ -82,11 +61,11 @@ export DEEPSEEK_API_KEY="your-api-key"
 export OPENAI_API_KEY="your-api-key"
 ```
 
-不要把 key 写入 `.forge/config.json`、prompt、提交到 Git 的 shell 文件、issue 或 trace 示例。用户和项目配置 schema 都不接受 secret 字段。
+切勿把密钥写进项目 `.forge/config.json`、提交记录或反馈贴中——项目配置 schema 也会主动拒绝密钥字段，保护工作区安全。
 
-### 方案 C：通过 Codex 使用 ChatGPT 订阅
+### 方式 C：通过 Codex App Server 使用 ChatGPT 订阅
 
-先安装 Codex CLI，再让官方 App Server 负责 browser 或 device-code 登录：
+先安装官方 Codex CLI，再让 Forge 触发标准 OAuth 或设备码登录：
 
 ```bash
 pnpm forge auth login openai
@@ -94,17 +73,17 @@ pnpm forge auth status openai
 pnpm forge models list --provider openai
 ```
 
-无头环境使用：
+无浏览器环境（如远程服务器）请使用设备码流程：
 
 ```bash
 pnpm forge auth login openai --method device-code
 ```
 
-Codex Engine 自己拥有 agent runtime、sandbox、tools、审批和 conversation state。Native Forge plugin 与 JSONL run trace 不会包裹这条路径。完整边界见认证模型。
+Codex 引擎完全运行在官方 Codex App Server 内，自行负责工具、沙箱、审批和会话状态；原生 Forge 插件与 JSONL trace 不介入该引擎。详见认证说明。
 
-## 3. 在本地验证配置
+## 3. 调用模型前先做本地校验
 
-以下命令只解析和合并配置，不发起模型请求：
+在真正消耗任何 token 前，建议先运行以下三条完全离线的命令核对配置与扩展状态：
 
 ```bash
 pnpm forge config validate
@@ -112,82 +91,68 @@ pnpm forge config show
 pnpm forge plugins list
 ```
 
-`config show` 会展示每个有效值及其来源。全新配置默认使用 `safe` permission profile、不设置固定的模型步骤／工具调用总上限、60 秒 command timeout、开启 trace，并使用 `manual` context mode。
+默认初始配置会启用 `safe` 安全档位、60 秒单命令超时、开启运行 trace 以及 `manual` 上下文管理模式。需注意：仓库内的 `.forge/config.json` 只能收紧预算或安全阈值，无法篡改你的默认模型、偷偷启用插件或放宽审批规则。配置合并顺序详见配置说明。
 
-如果结果与预期不同，先阅读配置参考。特别注意：项目 `.forge/config.json` 只能收紧 limits 和 context，不能选择模型、启用 plugin 或扩大权限。
+## 4. 运行你的第一个任务
 
-## 4. 完成第一次任务
-
-### 先从只读任务开始
-
-在一个你熟悉的小仓库里启动：
+进入一个熟悉的小仓库，启动交互界面：
 
 ```bash
 pnpm forge
 ```
 
-先问一个边界明确的问题：
+先试一个纯只读任务（在 `safe` 档位下，工作区内列表、读取与搜索会自动放行）：
 
 ```text
-检查这个仓库，总结 package 结构，并告诉我修改后应该运行哪些验证命令。不要修改文件。
+Inspect this repository. Summarize the package structure and name the commands
+that verify a change. Do not modify files.
 ```
 
-默认 `safe` profile 会自动允许 workspace 内的 list、read 和 search。Native Forge Engine 会分别流式展示模型回答与 provider 实际暴露的 reasoning，并记录结构化事件。
-
-### 再尝试 coding task
+接着试一个会触发人工审批的改代码任务：
 
 ```text
-修复一个失败测试。先展示 proposed diff，再运行最小且相关的验证命令，最后报告真实结果。
+Fix one failing test. Show the proposed diff and run the narrowest relevant
+verification command before reporting success.
 ```
 
-在 `safe` 下，每次 run 的首次 workspace 写入和每一条进程命令都要确认。批准前应检查完整 diff、程序与参数、工作目录和 timeout。审批不是隔离：获批程序会以当前用户权限运行。
+进入首次文件修改或执行 `run_command` 外部程序前，Forge 会暂停并完整展示待改 diff 或命令的工作目录、参数与超时限制。请确认无误后再批准——被批准的命令会以你当前系统用户权限运行；如果选择拒绝，Forge 会如实记录并告知模型，绝不绕过策略重试。
 
-拒绝操作时，Forge 会记录 denial，不会自动放宽策略，也不会把没有输入解释成同意。
+### 单次命令行模式（非交互界面）
 
-### One-shot 命令
-
-不进入交互 UI，直接使用 native Forge Engine：
+无需进入 TUI，可直接从终端发起单次运行：
 
 ```bash
-pnpm forge run "检查仓库并总结其架构"
+pnpm forge run "Inspect the repository and summarize its architecture"
+pnpm forge codex "Inspect the repository and summarize its architecture"
+# 等价写法：
+pnpm forge run --engine codex "Inspect the repository"
 ```
 
-使用独立 Codex Engine：
+如果标准输入或错误输出被重定向（例如在管道或 CI 脚本里没有 TTY 交互通道），所有需要确认的操作都会自动拒绝，因此自动化脚本请保持只读任务或提前配置窄范围许可。
 
-```bash
-pnpm forge codex "检查仓库并总结其架构"
-# 等价的 engine 选择：
-pnpm forge run --engine codex "检查仓库"
-```
+## 5. 会话恢复与事后审计
 
-在 TTY 中，one-shot native run 可以展示审批问题；如果 stdin/stderr 被重定向，就没有审批通道，所有仍需确认的操作都会 fail closed。
+在交互界面中常用命令：
 
-## 5. 继续会话与检查证据
+- `/context` — 查看当前上下文预算占用与检查点详情
+- `/compact` — 立即生成一个对话检查点（完整历史原文仍保留在磁盘上）
+- `/resume` — 选择并恢复当前工作区的历史会话
+- `/help` — 查看完整斜杠命令列表
 
-交互 UI 中常用：
-
-```text
-/context    展示当前 context budget 与 checkpoint 状态
-/compact    显式创建 conversation checkpoint
-/resume     选择当前 workspace 的已保存 session
-/help       展示全部交互命令
-```
-
-Shell 中可用：
+在 shell 中查看历史与轨迹：
 
 ```bash
 pnpm forge resume --last
 pnpm forge inspect <run-id>
 ```
 
-Session 保存规范 conversation context；run 是一次带独立 ID 和 JSONL event trace 的有界 agent-loop 执行。交互式 Resume 会重放可用的历史模型与工具事件，但不会重新激活旧审批、待执行 tool call、子进程或 provider continuation state。详见会话与 trace。
+恢复会话时会重新校验当前工作区并读取最新配置与 `AGENTS.md`，不会复活旧审批、遗留后台子进程或厂商续接令牌。详见持久化会话与 Trace。
 
-## 下一步
+## 下一步阅读
 
-- 在 CLI UI 中学习全部快捷键和斜杠命令。
-- 通过配置参考定制模型、limits 与 context。
-- 在打开不受信任仓库或信任 plugin 前阅读安全模型。
-- 通过项目上下文添加 `AGENTS.md` 或 Skill。
-- 通过插件开发扩展 Forge。
-- 运行 `pnpm eval:deterministic` 并阅读评测指南，复现不产生付费调用的证据。
-- 如果行为与文档不符，使用故障排查。
+- CLI UI 使用参考 — 快捷键、`@` 文件引用、图片粘贴与多会话切换
+- 配置说明 — 用户配置与项目配置的优先级及安全边界
+- 安全模型 — 文件系统、插件信任与子进程执行边界详解
+- 项目上下文 与 插件开发指南 — 编写 `AGENTS.md`、便携式 Skills 与本地插件
+- 评测指南 — 如何本地运行零付费请求的 `pnpm eval:deterministic`
+- 故障排查 — 认证、终端按键与插件问题的快速定位

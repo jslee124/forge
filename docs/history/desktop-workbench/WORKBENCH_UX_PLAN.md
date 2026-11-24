@@ -1,12 +1,14 @@
 # Workbench layout and slash-command plan
 
+> Document role: historical. Workbench UX and slash-command design snapshot.
+
 See the [follow-up development plan](WORKBENCH_DEVELOPMENT_PLAN.md) for ordered tasks and acceptance gates.
 
 Status: implementation approved; workbench layout and initial command integrations implemented. Full command parity remains pending. 2026-09-15.
 
 This is the next proposed iteration after the monochrome/anvil refresh, not a
 statement of shipped behavior. The detailed review specification is the
-[Chinese design and implementation plan](WORKBENCH_UX_PLAN.zh-CN.md).
+[Chinese design and implementation plan](../../zh-CN/history/desktop-workbench/WORKBENCH_UX_PLAN.md).
 
 ## Visual source of truth
 
@@ -14,11 +16,11 @@ Both comparison boards are stored in the repository and embedded here.
 
 ### Original reference
 
-![Original light workbench and dark command menu](design/reference/workbench-v2-original.png)
+![Original light workbench and dark command menu](../../../apps/desktop/design/reference/workbench-v2-original.png)
 
 ### Revised visual target
 
-![Revised light workbench and dark command menu](design/reference/workbench-v2-revised.png)
+![Revised light workbench and dark command menu](../../../apps/desktop/design/reference/workbench-v2-revised.png)
 
 Only three changes are intended: move collapse inside the sidebar; add current
 permissions beside plus; add Engine/Model labels and a context ring before Engine.
@@ -167,25 +169,25 @@ These four visual references extend the revised design; they are not implemented
 
 ### Collapsed sidebar
 
-![Collapsed sidebar](design/reference/workbench-v2-sidebar-collapsed.png)
+![Collapsed sidebar](../../../apps/desktop/design/reference/workbench-v2-sidebar-collapsed.png)
 
 Hide task navigation completely; restore it with the square anvil. Keep conversation and composer centered.
 
 ### Open workbench
 
-![Open workbench](design/reference/workbench-v2-workbench-open.png)
+![Open workbench](../../../apps/desktop/design/reference/workbench-v2-workbench-open.png)
 
 Files, Changes and Activity share a closable right panel. The composer stays within the conversation column. Implementation must keep tree selection and preview title consistent; pictured paths, code and conversation are illustrative.
 
 ### Settings
 
-![Settings](design/reference/workbench-v2-settings.png)
+![Settings](../../../apps/desktop/design/reference/workbench-v2-settings.png)
 
 Settings groups appearance, language and connections, hides the composer/workbench and offers return to conversation. The web toggle does not replace installation/configuration; availability follows actual plugin state.
 
 ### Empty new task
 
-![Empty new task](design/reference/workbench-v2-empty.png)
+![Empty new task](../../../apps/desktop/design/reference/workbench-v2-empty.png)
 
 Keep the anvil, introduction and three suggestions, which populate drafts only. Unknown context uses a neutral ring and dash. Before workspace selection, show the chooser instead of the illustrative forge directory.
 
@@ -199,8 +201,8 @@ The slash menu supports filtering, arrows, Tab, Enter, Esc, and IME protection. 
 
 Pending: command arguments, a shared TUI command registry, /resources, /logout, /delete-model, /effort, /update-dismiss, and complete searchable model management. Unsupported commands are explicitly reported and never sent to a model. The preceding specification remains the target rather than a claim of full implementation.
 
-Validation: 15 focused tests, production build, and TypeScript checks passed. Actual Electron checks cover locales, themes, panels, home, Settings, and slash entry; see [visual QA](design-qa.md). Root pnpm check is blocked by existing design/prototype formatting errors; modified files pass focused checks. No commit, release, or paid-provider verification.
+Validation: 15 focused tests, production build, and TypeScript checks passed. Actual Electron checks cover locales, themes, panels, home, Settings, and slash entry; see [visual QA](../../../apps/desktop/design-qa.md). Root pnpm check is blocked by existing design/prototype formatting errors; modified files pass focused checks. No commit, release, or paid-provider verification.
 
 ## Update entry (2026-09-22)
 
-The [unsigned update design](UPDATE_PLAN.md) specifies a Download update / Open installer action beside Settings, including collapsed-sidebar and failure states. U01–U04 are implemented and have controlled acceptance recorded in [update QA](../../evals/reports/desktop-0.3.4-preview.2/UPDATE_QA.md); the published [Preview 2](../../evals/reports/desktop-0.3.4-preview.2/README.md) includes them. Existing reference images do not depict these new states. The real unauthenticated update API check and manual application replacement remain unverified.
+The [unsigned update design](UPDATE_PLAN.md) specifies a Download update / Open installer action beside Settings, including collapsed-sidebar and failure states. U01–U04 are implemented and have controlled acceptance recorded in [update QA](../../../evals/reports/desktop-0.3.4-preview.2/UPDATE_QA.md); the published [Preview 2](../../../evals/reports/desktop-0.3.4-preview.2/README.md) includes them. Existing reference images do not depict these new states. The real unauthenticated update API check and manual application replacement remain unverified.

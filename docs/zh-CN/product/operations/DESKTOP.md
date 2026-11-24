@@ -64,11 +64,11 @@ macOS 13、VoiceOver 和签名/公证安装。
 
 | 记录 | 状态 |
 | --- | --- |
-| [工作台设计](../../../../apps/desktop/STUDIO_DESIGN.zh-CN.md) | 当前工作台的布局、主题与交互行为 |
-| [工作台后续开发计划](../../../../apps/desktop/WORKBENCH_DEVELOPMENT_PLAN.zh-CN.md) | 有序任务、验收 gate 与当前进度 |
-| [工作台 UX 规范](../../../../apps/desktop/WORKBENCH_UX_PLAN.zh-CN.md) | 拟定的布局与斜杠命令对齐度；尚未完全对齐 |
-| [模型与工作台细化方案](../../../../apps/desktop/DESKTOP_REFINEMENT_PLAN.zh-CN.md) | 细化设计与本地实现记录 |
-| [未签名更新方案](../../../../apps/desktop/UPDATE_PLAN.zh-CN.md) | U01–U04 更新流程，随 Preview 2 发布 |
+| [工作台设计](../../history/desktop-workbench/STUDIO_DESIGN.md) | 当前工作台的布局、主题与交互行为 |
+| [工作台后续开发计划](../../history/desktop-workbench/WORKBENCH_DEVELOPMENT_PLAN.md) | 有序任务、验收 gate 与当前进度 |
+| [工作台 UX 规范](../../history/desktop-workbench/WORKBENCH_UX_PLAN.md) | 拟定的布局与斜杠命令对齐度；尚未完全对齐 |
+| [模型与工作台细化方案](../../history/desktop-workbench/DESKTOP_REFINEMENT_PLAN.md) | 细化设计与本地实现记录 |
+| [未签名更新方案](../../history/desktop-workbench/UPDATE_PLAN.md) | U01–U04 更新流程，随 Preview 2 发布 |
 | [桌面 QA 记录](../../../../apps/desktop/design-qa.md) | 命令级与无障碍限制 |
 
 ## 并行会话

@@ -1,20 +1,22 @@
 # Forge Desktop 模型与工作台视觉交互改进方案
 
+> 文档角色：历史。模型选择器、macOS 侧栏折叠与视觉改进方案快照。
+
 原方案日期：2026-09-25。macOS 侧栏设计决定：2026-09-26。状态：**设计记录与本地实施记录**；方案中的原始源码描述是当时的快照，下述实现进度以当前源码和本地验证为准，不代表 Preview 3 已发布行为。
 
-[English](DESKTOP_REFINEMENT_PLAN.md) · [工作台开发计划](WORKBENCH_DEVELOPMENT_PLAN.zh-CN.md) · [当前桌面产品说明](../../docs/zh-CN/product/operations/DESKTOP.md)
+[English](../../../history/desktop-workbench/DESKTOP_REFINEMENT_PLAN.md) · [工作台开发计划](WORKBENCH_DEVELOPMENT_PLAN.md) · [当前桌面产品说明](../../product/operations/DESKTOP.md)
 
 ## 视觉参考（图片生成草案）
 
-![设置页分区与模型连接参考](design/refinement-2026-09-25/settings-reference.png)
+![设置页分区与模型连接参考](../../../../apps/desktop/design/refinement-2026-09-25/settings-reference.png)
 
-![工作台、模型选择器与 macOS 窗口顶部参考](design/refinement-2026-09-25/workbench-model-reference.png)
+![工作台、模型选择器与 macOS 窗口顶部参考](../../../../apps/desktop/design/refinement-2026-09-25/workbench-model-reference.png)
 
-![较早的 macOS 折叠侧栏构想，已由 2026-09-26 的决定取代](design/refinement-2026-09-25/workbench-collapsed-macos-reference.png)
+![较早的 macOS 折叠侧栏构想，已由 2026-09-26 的决定取代](../../../../apps/desktop/design/refinement-2026-09-25/workbench-collapsed-macos-reference.png)
 
 **选定的 macOS 侧栏方向（2026-09-26）：**左侧为展开态，右侧为完全折叠态。此图替代较早的窄侧栏构想；它是生成的设计预览，不是应用截图。
 
-![选定的 macOS 侧栏方向：折叠后完全隐藏侧栏](design/refinement-2026-09-26/macos-sidebar-hidden-reference.png)
+![选定的 macOS 侧栏方向：折叠后完全隐藏侧栏](../../../../apps/desktop/design/refinement-2026-09-26/macos-sidebar-hidden-reference.png)
 
 这四张图片用于确认视觉方向和布局层级，不是应用截图或可执行原型。图片中的示例状态、辅助文案、任务列表、按钮细节与实际产品数据应以本方案的交互要求和当前源码为准；实现前还需分别检查 Windows 布局、键盘操作和窄窗口。
 

@@ -1,5 +1,9 @@
 # Desktop workbench design
 
+> Document role: historical. Early monochrome studio UI design snapshot preserved for reference.
+
+[简体中文](../../zh-CN/history/desktop-workbench/STUDIO_DESIGN.md) · [Documentation](../../README.md)
+
 The live Electron workbench uses a monochrome black, white and neutral-gray palette, compact task navigation,
 a focused conversation, and an optional file/change/activity panel. The browser-only
 simulation remains a separate development fixture.

@@ -61,7 +61,7 @@ and retains reservations after failure. An existing ledger prevents automatic
 resume/retry; critical, provider, infrastructure and source-drift failures stop
 the batch. Reporting remains available after a stop. Wiring validation used local
 tests and build checks. The later paid attempt and its critical stop are recorded
-in the [implementation record](DESKTOP_PRODUCT_IMPLEMENTATION.md#full-acceptance-attempt-stopped-at-a-critical-protocol-failure-2026-10-30).
+in the [chronological acceptance log](../history/desktop-productization-log/ACCEPTANCE_LOG.md#full-acceptance-attempt-stopped-at-a-critical-protocol-failure-2026-10-30).
 
 Fresh source/build freezing and semantic review remain necessary. Do not combine
 old diagnostic results into the denominator. Every dimension of the manifest

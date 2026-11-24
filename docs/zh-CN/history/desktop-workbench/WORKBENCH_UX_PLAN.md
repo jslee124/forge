@@ -1,12 +1,14 @@
 # 桌面工作台布局与斜杠命令设计
 
-后续执行顺序、任务与验收门槛见 [后续开发计划](WORKBENCH_DEVELOPMENT_PLAN.zh-CN.md)。
+> 文档角色：历史。桌面工作台视觉与交互设计快照。
+
+后续执行顺序、任务与验收门槛见 [后续开发计划](WORKBENCH_DEVELOPMENT_PLAN.md)。
 
 状态：用户已批准实现；工作台布局及首批命令已接入，完整命令兼容仍待完成。2026-09-15。
 
 本方案承接已经实现的黑白主题与铁砧品牌，描述下一轮布局和交互改造。
 当前产品行为仍以源代码为准；本文不是已交付能力说明。
-英文版：[Workbench UX plan](WORKBENCH_UX_PLAN.md)。
+英文版：[Workbench UX plan](../../../history/desktop-workbench/WORKBENCH_UX_PLAN.md)。
 
 ## 视觉基准与修订图
 
@@ -15,11 +17,11 @@
 
 ### 原始参考（保留视觉语言）
 
-![原始浅色工作台与深色命令菜单](design/reference/workbench-v2-original.png)
+![原始浅色工作台与深色命令菜单](../../../../apps/desktop/design/reference/workbench-v2-original.png)
 
 ### 最新修订（当前视觉基准）
 
-![修订后的浅色工作台与深色命令菜单](design/reference/workbench-v2-revised.png)
+![修订后的浅色工作台与深色命令菜单](../../../../apps/desktop/design/reference/workbench-v2-revised.png)
 
 仅变更三处：折叠按钮移入侧栏右上角；加号旁新增当前权限选择；引擎/模型前新增提示文本，引擎左侧新增上下文用量圆环。
 保留原图的消息气泡、圆形铁砧头像、工具卡片、侧栏图标、选中行、按钮边框、圆角、间距和深浅层次。
@@ -211,25 +213,25 @@ Figma: [Forge — Workbench UX v2](https://www.figma.com/design/sk9IZlKqoRF8PEpA
 
 ### 左侧栏收起
 
-![左侧栏收起](design/reference/workbench-v2-sidebar-collapsed.png)
+![左侧栏收起](../../../../apps/desktop/design/reference/workbench-v2-sidebar-collapsed.png)
 
 完整收起任务导航，通过左上角方形铁砧重新展开；对话和输入框保持居中阅读宽度。
 
 ### 右侧工作台展开
 
-![右侧工作台展开](design/reference/workbench-v2-workbench-open.png)
+![右侧工作台展开](../../../../apps/desktop/design/reference/workbench-v2-workbench-open.png)
 
 右侧提供文件、变更、活动标签及关闭入口，输入框仅占中间对话列。文件树选中项与预览标题在实现时必须一致；图中代码、目录和对话仅为示例。
 
 ### 设置界面
 
-![设置界面](design/reference/workbench-v2-settings.png)
+![设置界面](../../../../apps/desktop/design/reference/workbench-v2-settings.png)
 
 设置页集中展示外观、语言和连接，隐藏输入框与右侧工作台，提供返回对话入口。网页搜索开关不能替代安装与配置流程，实际可用性仍由插件状态决定。
 
 ### 无对话的新任务首页
 
-![无对话的新任务首页](design/reference/workbench-v2-empty.png)
+![无对话的新任务首页](../../../../apps/desktop/design/reference/workbench-v2-empty.png)
 
 保留铁砧、引导文字和三个建议入口，点击只填写草稿。上下文未知显示空环和破折号，不伪报 0%。未选择目录时顶部只显示选择工作区，不显示示例 forge 目录。
 
@@ -243,8 +245,8 @@ Figma: [Forge — Workbench UX v2](https://www.figma.com/design/sk9IZlKqoRF8PEpA
 
 尚未完成：命令参数、共享 TUI 命令目录、/resources、/logout、/delete-model、/effort、/update-dismiss，以及完整的可搜索模型管理。未接入命令明确提示，绝不作为模型提示词发送。上述设计章节描述最终目标，不代表全部已经实现。
 
-验证：15 项定向测试、生产构建和 TypeScript 检查通过；实际 Electron 检查覆盖中英文、深浅色、左右面板、空白页、设置和命令入口。截图与限制见 [visual QA](design-qa.md)。根级 pnpm check 被已有 design/prototype 的格式问题阻塞，本次修改文件单独检查通过。未提交、打包发布或验证付费模型请求。
+验证：15 项定向测试、生产构建和 TypeScript 检查通过；实际 Electron 检查覆盖中英文、深浅色、左右面板、空白页、设置和命令入口。截图与限制见 [visual QA](../../../../apps/desktop/design-qa.md)。根级 pnpm check 被已有 design/prototype 的格式问题阻塞，本次修改文件单独检查通过。未提交、打包发布或验证付费模型请求。
 
 ## 更新入口（2026-09-22）
 
-[未签名更新设计](UPDATE_PLAN.zh-CN.md)规定设置旁的「下载更新／打开安装包」入口，包含收起侧栏及失败状态。U01—U04 已实现，受控验收见[更新 QA](../../evals/reports/desktop-0.3.4-preview.2/UPDATE_QA.zh-CN.md)，公开发布的 [Preview 2](../../evals/reports/desktop-0.3.4-preview.2/README.zh-CN.md) 包含这些功能。原参考图未展示这些新增状态；真实未认证更新 API 检查和手动替换应用仍未验收。
+[未签名更新设计](UPDATE_PLAN.md)规定设置旁的「下载更新／打开安装包」入口，包含收起侧栏及失败状态。U01—U04 已实现，受控验收见[更新 QA](../../../../evals/reports/desktop-0.3.4-preview.2/UPDATE_QA.zh-CN.md)，公开发布的 [Preview 2](../../../../evals/reports/desktop-0.3.4-preview.2/README.zh-CN.md) 包含这些功能。原参考图未展示这些新增状态；真实未认证更新 API 检查和手动替换应用仍未验收。

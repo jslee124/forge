@@ -1,8 +1,10 @@
 # Forge workbench follow-up development plan
 
+> Document role: historical. Follow-up workbench development plan snapshot.
+
 Date: 2026-09-15. Development plan, not a shipped-feature declaration.
 
-[中文（详细任务说明）](WORKBENCH_DEVELOPMENT_PLAN.zh-CN.md) · [UX specification](WORKBENCH_UX_PLAN.md) · [Model and workbench refinement proposal](DESKTOP_REFINEMENT_PLAN.md) · [Visual QA](design-qa.md)
+[中文（详细任务说明）](../../zh-CN/history/desktop-workbench/WORKBENCH_DEVELOPMENT_PLAN.md) · [UX specification](WORKBENCH_UX_PLAN.md) · [Model and workbench refinement proposal](DESKTOP_REFINEMENT_PLAN.md) · [Visual QA](../../../apps/desktop/design-qa.md)
 
 ## Parallel sessions (2026-11-03, development checkout)
 
@@ -18,11 +20,11 @@ Validation covers the real channel/scheduler, queue bounds and order, cross-sess
 
 Local verification on 2026-11-03: 215 desktop tests passed (6 opt-in live tests skipped), 223 cross-layer deterministic tests passed, and `pnpm check`, `pnpm check:docs` and `pnpm desktop:build` passed. The Electron acceptance harness also passed with a loopback scripted provider, including two concurrent approvals, third-session queuing, cancellation isolation and narrow-window captures. These checks do not establish live external-provider or installed-app acceptance.
 
-Desktop and TUI now use `SessionScheduler` and `createSessionWorkspace` from the private application package. The terminal interaction is documented in the [CLI UI guide](../../docs/product/reference/CLI_UI.md#parallel-sessions-in-the-preview).
+Desktop and TUI now use `SessionScheduler` and `createSessionWorkspace` from the private application package. The terminal interaction is documented in the [CLI UI guide](../../product/reference/CLI_UI.md#parallel-sessions-in-the-preview).
 
 ## Unsigned updates (2026-09-22)
 
-Without a signing certificate, use startup background checks, explicit verified DMG downloads and manual replacement. See the [update design and U01–U04 plan](UPDATE_PLAN.md). U01–U04 local implementation and controlled acceptance are complete; see [update QA](../../evals/reports/desktop-0.3.4-preview.2/UPDATE_QA.md) for current evidence. P0–P4 historical acceptance is unchanged.
+Without a signing certificate, use startup background checks, explicit verified DMG downloads and manual replacement. See the [update design and U01–U04 plan](UPDATE_PLAN.md). U01–U04 local implementation and controlled acceptance are complete; see [update QA](../../../evals/reports/desktop-0.3.4-preview.2/UPDATE_QA.md) for current evidence. P0–P4 historical acceptance is unchanged.
 
 ## P4 progress (2026-09-22)
 
@@ -30,7 +32,7 @@ W18–W20 complete within local implementation and automated acceptance scope. M
 
 Long model names truncate with their full accessible label/title retained. At widths up to 900 px, an open workbench stacks below the conversation so it does not cover composer controls; wide windows retain the right panel. Narrow Settings wrap safely, popovers remain bounded, loading indicators are neutral and reduced-motion preferences are respected.
 
-Fresh validation: 135 related tests passed, six opt-in live tests skipped; 71 deterministic evaluations, root check, desktop production build and documentation checks passed. Electron completed 49 captures and assertions covering bilingual themes, modal focus/centering, narrow layout, approval/completion/stop/failure and close/quit draft guards. Four scripted loopback HTTP requests exercised the real adapter/Agent/IPC and an approved `pwd` tool; they are not external-model evidence. See [P4 QA and screenshots](design-qa.md) and [capture manifest](design/p4-validation/ui.json).
+Fresh validation: 135 related tests passed, six opt-in live tests skipped; 71 deterministic evaluations, root check, desktop production build and documentation checks passed. Electron completed 49 captures and assertions covering bilingual themes, modal focus/centering, narrow layout, approval/completion/stop/failure and close/quit draft guards. Four scripted loopback HTTP requests exercised the real adapter/Agent/IPC and an approved `pwd` tool; they are not external-model evidence. See [P4 QA and screenshots](../../../apps/desktop/design-qa.md) and [capture manifest](../../../apps/desktop/design/p4-validation/ui.json).
 
 P0–P4 local milestones are complete. Full TUI parity, live expired-account recovery, remote cancellation, manual assistive-technology/native-dialog checks and installed/release acceptance remain separate follow-ups. File preview is path-based, not a directory tree. No commit, installed-app replacement or publication.
 
@@ -42,7 +44,7 @@ Configured model removal requires confirmation and reuses the existing user-conf
 
 Management slash commands navigate to their relevant settings section. /exit is available during runs and uses the normal window close path. All unsent drafts and active work trigger a keep-working/exit choice, including native window close and application quit; Agent shutdown retains its bounded cancellation/kill fallback. Remote cancellation is not asserted merely because a local process exits.
 
-Validation: 135 related tests passed; six opt-in live tests skipped. Root check, production build, 71 deterministic evaluations, packed CLI install and documentation checks passed. Electron completed 34 captures with resource navigation and beforeunload protection assertions. See [P3 compatibility and QA](design-qa.md). No commit, installed desktop replacement or publication.
+Validation: 135 related tests passed; six opt-in live tests skipped. Root check, production build, 71 deterministic evaluations, packed CLI install and documentation checks passed. Electron completed 34 captures with resource navigation and beforeunload protection assertions. See [P3 compatibility and QA](../../../apps/desktop/design-qa.md). No commit, installed desktop replacement or publication.
 
 Next is P4 (W18–W20), visual/accessibility and delivery acceptance. Full TUI parity is not claimed: new provider route setup and non-bundled plugin installation still use CLI; macOS dialog interaction and live expired-account refresh remain outside offline proof.
 
@@ -54,7 +56,7 @@ Compact now executes dry-run and real compaction through the session service, re
 
 The searchable model picker uses shared native/configured metadata and Codex discovery, validates model/effort combinations, and distinguishes temporary task selection from explicit default saving. /effort with an argument saves the default, matching TUI behavior. Built-in entries were consolidated from existing code, not independently verified as live provider capabilities. History search matches title and workspace; resume retains the canonical workspace boundary and clears transient state only after success.
 
-Validation: 118 related tests passed, six opt-in live tests skipped; 27 Agent/Codex tests passed again after the final default-selection guard. Root check, desktop build, 71 deterministic evaluations and packed-install verification passed. Electron completed 32 captures with model, context and permissions checks. See [QA](design-qa.md). No live-provider proof, installed-app update, commit or release is claimed.
+Validation: 118 related tests passed, six opt-in live tests skipped; 27 Agent/Codex tests passed again after the final default-selection guard. Root check, desktop build, 71 deterministic evaluations and packed-install verification passed. Electron completed 32 captures with model, context and permissions checks. See [QA](../../../apps/desktop/design-qa.md). No live-provider proof, installed-app update, commit or release is claimed.
 
 Next is P3 (W14–W17): management commands and Settings. Login/logout, model deletion, plugins/resources and platform exit handling still require their own acceptance; full sixteen-command parity is not claimed.
 
@@ -66,7 +68,7 @@ Command spelling follows TUI case rules; effort values are case insensitive. Par
 
 The menu has combobox/listbox relationships, option IDs, visible selection, Tab/Enter/Esc and IME protection. Invalid commands retain drafts and offer an explicit send-as-message action, never automatic fallback. An immediate pending lock prevents duplicate management submissions; completion preserves drafts edited while awaiting results. Help/context remain available during runs; mutations return busy, with Agent enforcement covered by a new regression test.
 
-Validation: 112 related tests passed, six opt-in live tests skipped; root check, desktop build, 71 deterministic evaluations and packed-install verification passed. Electron completed 29 captures and added keyboard, completion, error and IME assertions. See [QA](design-qa.md). No commit or release.
+Validation: 112 related tests passed, six opt-in live tests skipped; root check, desktop build, 71 deterministic evaluations and packed-install verification passed. Electron completed 29 captures and added keyboard, completion, error and IME assertions. See [QA](../../../apps/desktop/design-qa.md). No commit or release.
 
 Next is P2 (W08–W13). New/clear authorization semantics, actual compact dry-run, context details, grant revocation, model/effort management and searchable resume are still pending; parsing success does not imply execution parity.
 
@@ -75,7 +77,7 @@ Next is P2 (W08–W13). New/clear authorization semantics, actual compact dry-ru
 
 P0 (W01–W03) is complete. The starting worktree was clean. Root `pnpm check` now passes; the old prototype formatting blocker is gone, with non-blocking lint diagnostics remaining. Extracted WorkspaceHeader, ComposerControls, ModelSelector, SlashCommandMenu and SettingsView; retained orchestration in LiveWorkbench and moved workspace switching into a callback. Consolidated duplicate v2 CSS without changing command semantics or IPC.
 
-Validation: 60 desktop tests passed, 6 opt-in live tests skipped; type checks, release routing checks and desktop build passed. Electron completed 29 captures plus new cross-session draft isolation and engine/default-policy callback assertions. 25 captures are pixel-identical; four Settings captures differ only in the temporary Forge home suffix. See [QA](design-qa.md). No commit or release.
+Validation: 60 desktop tests passed, 6 opt-in live tests skipped; type checks, release routing checks and desktop build passed. Electron completed 29 captures plus new cross-session draft isolation and engine/default-policy callback assertions. 25 captures are pixel-identical; four Settings captures differ only in the temporary Forge home suffix. See [QA](../../../apps/desktop/design-qa.md). No commit or release.
 
 Next: P1 (W04–W07), shared command registry/parser, structured results, keyboard/argument interaction and running-state availability. Full TUI parity is not claimed.
 

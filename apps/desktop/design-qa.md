@@ -149,7 +149,7 @@ Reviewed full views and composer/menu details. Changes retain the monochrome anv
 ![Settings](design/implementation-v2/dark-zh-CN-settings.png)
 ![Commands](design/implementation-v2/commands-light.png)
 
-Intentional/current differences: native window chrome is outside webContents captures; actual file controls replace the illustrative file tree; narrow conversation widths wrap composer controls. Model uses native input/datalist rather than the planned searchable management popover. Some slash management entries remain explicitly unavailable, as tracked in WORKBENCH_UX_PLAN.md; full TUI parity is not claimed.
+Intentional/current differences: native window chrome is outside webContents captures; actual file controls replace the illustrative file tree; narrow conversation widths wrap composer controls. Model uses native input/datalist rather than the planned searchable management popover. Some slash management entries remain explicitly unavailable, as tracked in [WORKBENCH_UX_PLAN.md](../../docs/history/desktop-workbench/WORKBENCH_UX_PLAN.md); full TUI parity is not claimed.
 
 Validation: 15 focused tests, TypeScript project and test checks, desktop production build, 71 deterministic evaluations, and documentation checks passed. Modified source files passed focused Biome checks. Root `pnpm check` encounters 37 existing errors in the separate design/prototype tree; those unrelated files were not changed. No commit or release was made.
 
@@ -178,7 +178,7 @@ Validation: 112 related tests passed and six opt-in live tests skipped, includin
 
 ## P2 sessions, permissions and models — 2026-09-21
 
-W08–W13 complete; see the [development record](WORKBENCH_DEVELOPMENT_PLAN.md). Actual Electron acceptance completed 32 captures and retained existing theme, panel, draft, keyboard and IME assertions. Added compact dry-run local-result, permissions detail, context detail, model search empty-state and popup-bound checks. The first capture exposed popup clipping; anchoring popovers to the composer corrected it, and the final captures below were inspected. [Full run manifest](design/p2-validation/ui.json); only the three new detail captures are retained here, while the earlier baseline images remain above.
+W08–W13 complete; see the [development record](../../docs/history/desktop-workbench/WORKBENCH_DEVELOPMENT_PLAN.md). Actual Electron acceptance completed 32 captures and retained existing theme, panel, draft, keyboard and IME assertions. Added compact dry-run local-result, permissions detail, context detail, model search empty-state and popup-bound checks. The first capture exposed popup clipping; anchoring popovers to the composer corrected it, and the final captures below were inspected. [Full run manifest](design/p2-validation/ui.json); only the three new detail captures are retained here, while the earlier baseline images remain above.
 
 ![Searchable model and effort selection](design/p2-validation/models-light.png)
 ![Context details](design/p2-validation/context-light.png)
@@ -201,7 +201,7 @@ Validation: 135 related tests passed, six opt-in live tests skipped; root check,
 
 ### Command compatibility / 命令兼容矩阵
 
-“Verified / 已验证” below means the stated local behavior, not live-provider proof. Test sources: [routing](../../packages/application/src/slash-commands.test.ts), [Agent](src/agent/application.test.ts), [Codex fixtures](src/agent/codex.test.ts), [resource discovery/trust](../cli/src/startup-resources.test.ts), [shutdown](src/main/agent-process.test.ts), [Electron scenarios](src/main/acceptance-ui.ts).
+“Verified / 已验证” below means the stated local behavior, not live-provider proof. Test sources: [routing](../../packages/application/src/slash-commands.test.ts), [Agent](src/agent/application.test.ts), [Codex fixtures](src/agent/codex.test.ts), [resource discovery/trust](../cli/src/startup-resources.test.ts), [shutdown](src/main/agent-process.test.ts), [Electron scenarios](src/main/acceptance/acceptance-ui.ts).
 
 | Command | Status / 状态 | Evidence and boundary / 证据与边界 |
 | --- | --- | --- |
@@ -267,7 +267,7 @@ The P3 command matrix remains applicable. For `/exit`, P4 adds close/quit event-
 
 ## T12 reading and zoom audit — 2026-10-25
 
-Current source and repeatable acceptance: [implementation progress](../../docs/development/DESKTOP_PRODUCT_IMPLEMENTATION.md#reading-zoom-and-accessibility-follow-up-2026-10-25).
+Current source and repeatable acceptance: [implementation progress](../../docs/history/desktop-productization-log/ACCEPTANCE_LOG.md#reading-zoom-and-accessibility-follow-up-2026-10-25).
 This increment supersedes earlier notes about transcript live regions and pinned
 terminal cards. It is local development evidence, not release acceptance.
 
@@ -300,7 +300,7 @@ No external provider quality, performance benchmark, packaging or release claim.
 
 ## First-send setup and failure guidance — 2026-10-26
 
-[Implementation and limits](../../docs/development/DESKTOP_PRODUCT_IMPLEMENTATION.md#first-send-setup-and-actionable-failures-2026-10-26).
+[Implementation and limits](../../docs/history/desktop-productization-log/ACCEPTANCE_LOG.md#first-send-setup-and-actionable-failures-2026-10-26).
 This source increment addresses the configuration/native-language findings from
 the previous packaged probe; it does not update that installed build.
 

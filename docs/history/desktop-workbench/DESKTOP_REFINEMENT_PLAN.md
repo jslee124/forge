@@ -1,20 +1,22 @@
 # Forge Desktop model and workbench interaction refinement plan
 
+> Document role: historical. Model picker, sidebar collapse, and visual refinement plan snapshot.
+
 Original plan: 2026-09-25. macOS sidebar decision: 2026-09-26. Status: **design and local implementation record**. The original source descriptions are dated snapshots; the implementation status below reflects current source and local checks, not behavior shipped in Preview 3.
 
-[简体中文](DESKTOP_REFINEMENT_PLAN.zh-CN.md) · [Workbench development plan](WORKBENCH_DEVELOPMENT_PLAN.md) · [Current desktop guide](../../docs/product/operations/DESKTOP.md)
+[简体中文](../../zh-CN/history/desktop-workbench/DESKTOP_REFINEMENT_PLAN.md) · [Workbench development plan](WORKBENCH_DEVELOPMENT_PLAN.md) · [Current desktop guide](../../product/operations/DESKTOP.md)
 
 ## Visual references (generated concepts)
 
-![Settings sections and model access reference](design/refinement-2026-09-25/settings-reference.png)
+![Settings sections and model access reference](../../../apps/desktop/design/refinement-2026-09-25/settings-reference.png)
 
-![Workbench, model picker, and macOS window top reference](design/refinement-2026-09-25/workbench-model-reference.png)
+![Workbench, model picker, and macOS window top reference](../../../apps/desktop/design/refinement-2026-09-25/workbench-model-reference.png)
 
-![Earlier collapsed macOS sidebar concept, superseded by the 2026-09-26 decision](design/refinement-2026-09-25/workbench-collapsed-macos-reference.png)
+![Earlier collapsed macOS sidebar concept, superseded by the 2026-09-26 decision](../../../apps/desktop/design/refinement-2026-09-25/workbench-collapsed-macos-reference.png)
 
 **Selected macOS sidebar direction (2026-09-26):** expanded on the left, fully collapsed on the right. This replaces the earlier narrow-rail concept; it is a generated design preview, not an application capture.
 
-![Selected macOS sidebar direction with the sidebar fully hidden when collapsed](design/refinement-2026-09-26/macos-sidebar-hidden-reference.png)
+![Selected macOS sidebar direction with the sidebar fully hidden when collapsed](../../../apps/desktop/design/refinement-2026-09-26/macos-sidebar-hidden-reference.png)
 
 These images establish a visual direction and layout hierarchy. They are not screenshots of implemented behavior or runnable prototypes. Example statuses, helper copy, task names, and button details must yield to this plan's interaction requirements and the current source. Check Windows layout, keyboard behavior, and narrow windows separately before implementation.
 

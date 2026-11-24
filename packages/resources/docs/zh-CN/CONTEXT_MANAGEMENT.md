@@ -2,133 +2,46 @@
 
 English · 中文目录
 
-## 状态
+长对话或高频读取工具的会话最终都会逼近模型的上下文窗口上限。Forge 在处理这个问题时坚持一条核心原则：**磁盘上的规范对话记录（canonical transcript）永远完整无损，而每次真正发送给模型的只是一份有容量上限的活动视图（active view）。**
 
-Roadmap Milestone 10 与 Milestone 13.0-13.5 已实现。产品默认永久保持 **Manual**，自动生成 checkpoint 始终由用户主动开启。TUI 现在会预计完整的下一次请求输入、常驻显示分段压力 indicator，并通过 `/context` 为当前 session 选择 Manual/Automatic，或明确持久化任一 user default。Manual 存储为 `manual`，Automatic 存储为 `automatic`；旧版 `warn`/`compact` 只在加载边界迁移。Manual 与自动压缩在取消、无效输出、重复失败或低回收后进入的安全 `paused` 状态不同。当前 checkpoint 使用确定性、脱敏的 extractive summarizer，因此默认测试和手动 `/compact` 不会产生付费模型调用。它在所有可用历史消息之间分配有界空间，移除类似 authority 的审批声明，并把验证文字标记为历史信息。
-
-Checkpoint schema 和 adapter capability contract 支持 provider-native opaque state；但当前 OpenAI AI SDK 和 DeepSeek adapter 因 transport 尚未提供安全的 compact-item round trip，声明 native compaction 不支持。
-
-初始 activation threshold 是 `0.78`。Input capacity 只扣除一次 `max(output reserve, safety buffer)`。压缩被取消、输出无效，或回收量小于 8,000 token 与 projected input 20% 两者的较大值时，auto mode 会暂停。Stable-prefix 与 cache observation 只把 hash metadata 写入 trace；provider 没有报告的 cache usage 保持 unavailable。
-
-## 为什么要做
-
-Forge 已经区分项目指令、完成对话、当前 user request 和 provider continuation，也限制指令文件、工具输出、模型步骤、工具调用和持久化 session 大小。但长 session 的 token window 仍可能在 provider 边界失败：每次 native request 都会重新发送完成的 user/assistant turn，run 内的 assistant tool call 和 tool result 也会累积到 continuation。
-
-仓库检索与对话压缩是两件不同的事：`list_files`、`search`、`read_file` 决定读取哪些源码；conversation management 决定哪些历史 turn 能放进下一次 model request；persistent semantic memory 决定哪些知识跨 transcript 存活，仍不在 Milestone 10 范围内。
-
-## 市场复核结论
-
-本设计曾根据 OpenAI Responses API、OpenCode V2 和 Claude Code 的一手资料复核。外部链接用于说明设计来源，不代表这些产品此后没有变化。实现原则是：保留无损 transcript，派生有界 active view，把 summary 放在当前指令之下，先不添加 vector RAG。
-
-- OpenAI 支持阈值式 server compaction 和独立 compact endpoint；返回的 compact item 是加密、opaque、需作为 provider state 继续传递。因此 compaction 应是 adapter capability，而不是所有 provider 都必须提供可读 summary。
-- OpenCode 估算最终 prompt/messages/tools，在调用前 compact，保留 serialized recent tail，并对一次干净 overflow 做 retry。Forge 采用有界 tail、保留 transcript 和一次性恢复。
-- Claude Code 会先清理旧 tool output，再总结历史，提供 `/context`、`/compact`，重新加载持久指令，并在反复无效压缩时停止。Forge 将 tool output、tool schema 和 no-progress guard 都纳入预算。
-
-当前 runtime 有两条路径：Native Forge Engine 可用 Forge checkpoint 或 adapter 的 provider-native compaction；Codex Engine 会把同一份 bounded active view 传给 `codexPrompt` 并报告 wrapper 成本。Codex 内部 compaction 不能去掉这段新注入 wrapper 的成本，Forge 也不能声称控制 Codex 内部 threshold。
-
-## 目标
-
-1. 在付费 provider 请求前阻止可预见的 context-window failure。
-2. 让每次 context selection 都出现在结构化 event 和 `forge inspect` 中。
-3. 保留最近连续性，只压缩较旧且已完成的 turn。
-4. 保持规范 transcript 无损，并与较小的 active model context 分离。
-5. 保持安全边界：旧文本和 summary 不能恢复审批或覆盖当前指令。
-6. 跨 native adapter 工作，而不把 provider-specific message 规则放进 `@forge/core`。
-7. 用确定性及 opt-in live evaluation 证明收益。
-8. 在 provider-native compaction 能更好保留 protocol state 时优先使用它。
-
-## 非目标
-
-本 milestone 不包括 vector embedding/database、仓库级语义索引、跨 workspace/user memory、恢复进行中的工具或 provider stream、删除原始 transcript、重构 provider 未返回的 reasoning、把 model summary 当可信事实或 policy，或隐藏 context loss 让请求看似成功。
-
-## 设计原则
-
-### 先预算，再压缩
-
-先测量实际发送的内容。没有预算就先做 summary，会让失败更难解释，也无法与旧行为客观比较。
-
-### 无损记录，有界视图
-
-持久化 transcript 是审计记录；模型收到的是从它派生的有界视图。压缩只改变 active view，不改变原始消息。
-
-### 强制上下文不能静默丢弃
-
-当前有效指令、当前 user request、运行所需 tool definition 和 adapter 要求的 pending tool-call state 都是 mandatory。如果扣除 reserve 后仍放不下，Forge 应在 provider call 前停止，并解释哪部分预算耗尽。
-
-### Summary 是不可信 memory
-
-Summary 来自过去的 user/assistant text，必须标记为 conversation memory，并位于新加载的 system instruction 下方。它不能包含有效审批、permission grant、当前验证状态，或覆盖当前 user request 的 claim。
-
-### Provider 边界明确
-
-`@forge/core` 只处理抽象 context cost 和消息分类；adapter 负责 token estimation、message encoding、tool-call pairing、reasoning block 和 opaque continuation。
-
-### 指令范围有意固定
-
-每次 run 开始重新加载指令，然后冻结本次 run 的 snapshot，并记录指令路径和内容 hash。即使工具修改了 `AGENTS.md`，也不会静默改变同一次任务中间的 active prompt。
-
-## Context 模型
-
-| 类别 | 示例 | 保留规则 |
-| --- | --- | --- |
-| Mandatory instructions | 当前 `AGENTS.md`、有界 Skill catalog/selection directive、plugin prompt contribution | 每次 run reload，永不 summary；加载的 Skill 正文作为有界 tool result 进入 |
-| Current request | active user prompt、引用路径 | 不 summary、不丢弃 |
-| Protocol state | pending assistant tool call、匹配 result、provider continuation | 按 adapter 要求精确保留 |
-| Recent conversation | 最近完成的 user/assistant turn | 在可配置 tail budget 内原样保留 |
-| Older conversation | 更早完成 turn 的 prefix | 可进入 checkpoint summary |
-| Repository observations | file read、search、command output | tool 边界有界，必要时重新读取 |
-| Advertised tools | 名称、描述、schema | 每次请求计入；只通过显式 capability narrow/defer |
-| Audit evidence | 完整 transcript、JSONL trace | 另行持久化，不自动注入 |
-
-初始 request 的概念顺序是：
+## 核心心智模型
 
 ```text
-current effective instructions
-derived conversation-memory checkpoint, if any
-recent verbatim conversation turns
-current user request
-tool definitions
+磁盘持久化（规范对话记录 — 完整无损）
+┌────────────────────────────────────────────────────────┐
+│ 历史用户/助手回合 + 配对的 tool-call / tool-result     │  ◄── 审计与恢复的事实来源，压缩不会删除它
+└────────────────────────────────────────────────────────┘
+                           │
+               每次模型请求前按预算裁剪视图
+                           ▼
+发送给模型（有界活动视图）
+┌────────────────────────────────────────────────────────┐
+│ 1. 本次运行重新加载的指令（AGENTS.md + 工具 schema）   │  ◄── 最高指令优先级
+│ 2. 可选的历史压缩检查点（untrusted memory）            │  ◄── 位置严格低于系统与项目指令
+│ 3. 保留原样的最近对话尾部（默认约 12k tokens）         │
+│ 4. 当前用户输入与附加图片                              │
+└────────────────────────────────────────────────────────┘
 ```
 
-run 内的 adapter continuation 和 Forge tool result 会按 provider protocol 扩展它。
+由此引出三条不可动摇的设计原则：
 
-## Token budget
+1. **只派生视图，不销毁原文**：`/compact` 只会生成新的检查点用于缩小后续请求的输入规模，绝不会改写或删除早期对话原文。
+2. **必要上下文宁可显式报错也不静默丢弃**：当前有效指令、工具定义、当前请求以及协议要求配对的挂起工具状态都属于强制保留项；如果扣减预留配额后仍放不下，Forge 会诚实地以 `limit_reached` 终止并报告各分类用量，而不会偷偷裁掉约束。
+3. **摘要只是不可信的历史记忆**：检查点摘要源自旧对话文本，会被贴上 `untrusted-conversation-memory`、`no-approval-state` 与 `no-policy-authority` 安全标签并排在当前指令之后。摘要绝不能授予权限、恢复旧审批，或把早期一次测试通过说成当前代码已经验证。
 
-Adapter 暴露 provider-neutral capability：
+## 模式与默认预算
 
-```ts
-interface ModelContextCapabilities {
-  contextWindowTokens: number;
-  maxOutputTokens?: number;
-  estimateRequestTokens(request: ModelRequest): Promise<TokenEstimate>;
-  nativeCompaction: "unsupported" | "opaque-provider-item";
-  continuationProjection: "unsupported" | "adapter-owned";
-}
-interface TokenEstimate {
-  tokens: number;
-  method: "provider-tokenizer" | "sdk" | "conservative-fallback";
-  confidence: "exact" | "estimated";
-}
-```
+Forge 永久默认采用 **Manual（手动模式）**：先测算预算压力并提示，由你决定何时压缩；**Automatic（自动模式）**必须由用户主动选择启用。
 
-Capability 必须来自显式且测试过的 adapter table 或 provider API。未知 model 使用保守 fallback，不能继承乐观 window，并公开 provenance。
+| 模式（`context.mode`） | 行为说明 |
+| --- | --- |
+| `manual` *（默认）* | 每次请求前测算输入预算，达到阈值后在界面提示压力；仅当强制保留项超出上限时才拦截。你可以通过 `/compact` 或交互提示主动触发压缩。 |
+| `automatic` *（需主动开启）* | 当预估输入达到激活阈值（`0.78`）时自动复用或重建检查点。可在 `/context` 面板中选择仅对当前会话开启，或写入用户配置作为个人默认值。 |
+| `off` | 关闭基于预算的历史裁剪与检查点压缩，但仍记录并展示模型返回的真实用量。 |
 
-每个 model step 前计算：
+> 旧版本配置中的 `warn` 和 `compact` 会在加载时分别规范化为 `manual` 与 `automatic`。项目级 `.forge/config.json` 只能选择更严格的模式或下调预算上限，不能放宽用户侧护栏。
 
-```text
-available input budget
-  = model context window
-  - max(requested output tokens, safety buffer tokens)
-
-remaining history budget
-  = available input budget
-  - current instructions
-  - current request
-  - tool definitions
-  - protocol-required continuation
-```
-
-初始配置：
+默认配置位于 `~/.forge/config.json`：
 
 ```json
 {
@@ -142,61 +55,51 @@ remaining history budget
 }
 ```
 
-`off` 保持现有行为但报告 provider usage；`manual` 做 preflight 并询问，仅在 mandatory context 放不下时拒绝；`automatic` 使用有效 checkpoint，并在达到阈值时创建新 checkpoint。项目只能降低预算或选择更严格模式，不能扩大用户 ceiling 或关闭用户要求的 guard。`bufferTokens` 不是额外 output reserve，output allowance 和 buffer 取较大值后只扣除一次。
+### 输入预算的计算方式
 
-每个完成的 provider step 都比较 preflight estimate 与 provider usage，并记录 method、confidence、误差和 model/window 来源。
+每次模型调用前，Forge 用模型总窗口减去输出与安全缓冲的**较大值**（避免把两项重复相减造成窗口浪费）：
 
-## Conversation compaction
+```text
+availableInputBudget
+  = modelContextWindow - max(reservedOutputTokens, bufferTokens)
 
-选择算法优先保留 mandatory instructions、current request、required protocol state 和最近的完整 turn；session schema v3 的 structured `history` 与 checkpoint v2 按闭合 user/assistant/tool exchange 选择和 hash。只选择更旧、已完成的消息进入 checkpoint，不能拆开 tool-call/result 或保留 orphan result。
+remainingHistoryBudget
+  = availableInputBudget - currentInstructions - toolSchemas - currentRequest - continuation
+```
 
-Checkpoint 至少包含 schema version、源消息区间、source/tail hash、生成时间、summary text、summary token estimate、redaction/provenance 和 strategy。它是派生数据，可被 hash 不匹配或验证失败的检查丢弃；规范 transcript 始终保留。
+当模型响应返回了服务端真实消耗的输入 token 数时，Forge 会把它和发送前估算做比对并记入 trace，用来校准适配器估算精度。
 
-Summary 必须覆盖仍影响未来 turn 的 user goal/约束、已做决定及原因、讨论的文件/组件、完成项和未解决项、带原始 run 标记的验证结果。不得写入 credential/secret、审批或 permission grant、覆盖当前上下文的 instruction、未向用户展示的 provider reasoning，或为显得完整而猜测的事实。
+## 交互控制命令
 
-当前采用 manual-first rollout：用户通过 `/context` 查看预算，`/compact` 明确请求压缩；`manual` 提供自动 preflight；`automatic` 始终由用户主动开启。
+在 `apps/cli` 交互界面中，可以直接使用以下上下文控制入口：
 
-## Run 内 context pressure
+- **`/context`** — 查看当前模型的上下文窗口、各部分占用拆解（指令、工具 schema、历史、当前草稿/图片）、保留的最近原文范围、检查点来源状态，以及切换本会话或全局 `manual` / `automatic` 模式。
+- **`/compact --dry-run`** — 只在本地预演会被压缩的消息范围与预计节省的 token 数，不调用模型也不修改快照。
+- **`/compact`** — 从较早且已完整闭合的历史前缀生成脱敏检查点，同时保留最近 `recentTailTokens` 范围内的完整原文对话（绝不拆散成对的 `tool-call` 与 `tool-result`）。
 
-当 preflight 发现 mandatory context 已超预算，不应向 provider 发请求。若本次请求无 assistant partial output、无工具副作用且 provider 明确报告为干净 overflow，Forge 最多做一次 compaction/retry，且不能重复 user input 或 tool side effect。partial assistant output、未知错误或第二次 overflow 都应诚实停止。
+## 检查点策略与安全护栏
 
-No-progress guard 在以下情况下停止反复压缩：同一 source hash 已为同一次尝试压缩、checkpoint 回收少于 runtime 最小有效 token、一次恢复后仍超预算，或达到 compaction attempt limit。
+Session v3 在结构上支持两种检查点（`ContextCheckpoint` v2）：
 
-## 事件、trace 与检查
+1. **确定性摘要（`forge-summary`）**：基于已脱敏的历史消息做确定性抽取整理，保留用户目标、显式约束、已确认决策、涉及文件以及标注了来源运行 ID 的验证结果，同时剥离密钥和审批类陈述。整个过程确定且不发起付费模型请求。
+2. **厂商原生压缩状态（`provider-native`）**：如果某个适配器支持服务端不透明压缩项（如加密的 compaction state），Forge 只记录其哈希和体积，并严格绑定生成它的适配器与模型版本；一旦切换了模型或适配器且不兼容，会自动回到规范原文记录重建上下文。*（当前内置的 DeepSeek 与 OpenAI AI SDK 适配器均声明不支持原生压缩，统一使用 `forge-summary`。）*
 
-上下文事件至少记录 adapter/model、window 来源、estimation method、按类别的 token estimate、requested output、buffer、effective reserve、原样保留消息数、summary 区间/checkpoint ID、strategy、回收 token、retry reason、instruction hash、tool schema cost 和 provider 完成后的 input usage。`forge inspect` 和 `/context` 使用同一 metadata，展示 active view、历史省略和估算误差。
+### 防空转守卫与 `paused` 状态
 
-## 安全与正确性不变量
+为了避免固定指令或工具定义占满窗口时反复无效压缩，自动压缩内置严格停机条件：
 
-- 规范 transcript 永不被 checkpoint 替换或删除。
-- checkpoint 和 summary 永远是 untrusted memory，不能携带 approval、trust、permission 或当前 status。
-- 每次 run 重新加载 instructions，并冻结物理 model attempt 使用的 snapshot。
-- provider-native opaque item 只回传同一 adapter/model，不传给 plugin observer 或无关 provider。
-- secrets 在 summary 生成前脱敏。
-- 压缩失败保留上一个有效 checkpoint；取消不会损坏 session。
-- context stop 发生在 provider call 前，并有明确 terminal status。
-- Codex wrapper 使用与 native engine 相同的 bounded active view，但 Forge 不声称控制 Codex 内部 compaction。
+- 当自动压缩被用户取消、产物未通过校验、同一源码哈希重复触发、或单次回收空间低于 **`max(8,000 tokens, 预估输入的 20%)`** 时，自动模式会立即切入 **`paused`** 安全态（触发 `context.auto-paused`），保留当前完整状态并交由用户处理。
+- 如果在单步尚未流式收到任何推理内容、助手文本或工具调用前，底层对干净的运行中续接请求返回了上下文超限错误（且适配器支持 `projectContinuation`），Forge 会通过 `projectContinuation(continuation, 0)` 对已完成工具结果做一次投影并原样重试该请求（绝不重复拼接用户输入或重放副作用）；若再次超限则直接失败。
 
-## Package 边界与 rollout 状态
+## Codex 引擎与 RAG 取舍
 
-Core 拥有类别、预算算术、事件和 stop decision；adapter 拥有 window、estimate、overflow classification 和 continuation projection；persistence 拥有 session schema v3 与 checkpoint v2；CLI 拥有 `/context`、`/compact`、Codex wrapper 和渲染；evals 记录质量和安全 gate。
+- **Codex 引擎边界**：将多轮 Forge 对话交给 Codex App Server（`codexPrompt`）时，CLI 会把经过预算控制后的**有界活动视图**而非无限增长的全量日志包装进去；接入后其内部上下文管理仍归 Codex 自身所有。
+- **不内置向量 RAG**：单次运行中的仓库感知依赖有边界的 `list_files`、`search` 与分段 `read_file`，这样可以确保模型读取的都是工作区当前真实文件，避免向量索引引入陈旧上下文误判。
 
-测量基础、派生 active context、checkpoint 生成、run 内 guard 和确定性对比矩阵已经实现。默认永久保持 Manual；用户可以手动预览/创建 checkpoint、仅为当前进程启用 Automatic，或明确持久化该偏好。Quality evaluation 仍用于改进 Automatic，但不能静默改变默认值。
+## 安全不变量
 
-## 测试计划
-
-单测覆盖精确边界预算、未知 model 保守 fallback、空/奇数/最大 history 的 turn selection、checkpoint range/hash、配置 strictness/provenance、summary 前脱敏和失败保留旧 checkpoint。Runtime/adapter 测试覆盖每一步 estimate、usage 关联、OpenAI/DeepSeek continuation、provider opaque item、mandatory overflow 不发请求、干净 overflow 单次 retry、partial output 不 retry、低价值压缩停止、取消期间 session 有效、resume 当前指令和匹配 checkpoint、Codex bounded view，以及切换 provider 后从规范 transcript 重建。
-
-端到端 fixture 使用短/中/长 session、重复 tool output、关键约束、恶意历史、失败/取消/resume 和多个 provider-capability 情况。
-
-## 评测指标与发布 gate
-
-记录任务/grader 通过率、provider input/output token、估算绝对/相对误差、summary token/延迟/失败、压缩次数和消息数、保留的 recent turn、context stop/provider error、overflow retry/duplicate-input 检查、tool/schema token cost、每次回收 token、no-progress stop、约束/决定 recall 和安全不变量失败。
-
-Opt-in Automatic 的目标 quality gate 是：确定性测试无安全回归；失败/取消/resume 不破坏 transcript；没有请求超过声明预算；长 session fixture 中位 input token 至少下降 30%；相对 Manual 任务通过率回退不超过 5 个百分点；显式 seeded durable constraint recall 至少 95%。这些 gate 不会改变 Manual 默认值。
-
-## 风险与 RAG 决定
-
-summary 丢约束用 recent verbatim tail、seeded recall 和完整 transcript 缓解；prompt injection 通过 untrusted 标记和 hostile-history 测试缓解；estimator 少算使用 conservative fallback 和 buffer；provider tool protocol 由 adapter 保持，不做通用重写；重复低价值压缩由最小回收量和 attempt limit 防止。
-
-Milestone 10 不加入 vector RAG。先测量失败来自 conversation 增长、重复 tool observation 还是仓库发现不足；只有 lexical search 和定向 read_file 确实遗漏相关代码时，才单独比较 lexical、semantic、hybrid retrieval 的任务成功率、准确率、token、延迟和索引成本，再决定是否写入路线图。
+1. 最新加载的 `AGENTS.md` 与系统指令优先级始终高于任何历史消息或压缩摘要。
+2. 压缩检查点永远不能恢复历史审批、权限档位、环境变量或插件信任。
+3. 所有凭据与敏感字段在进入检查点生成与 trace 之前完成脱敏。
+4. 不透明的厂商压缩状态不会明文暴露给插件观察者。
+5. 上下文耗尽一律以显式的 `limit_reached` 终态暴露，从不伪装成成功返回。

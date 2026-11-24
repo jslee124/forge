@@ -105,6 +105,12 @@ Use source, tests, and recorded acceptance results to establish completion.
 | [Desktop implementation contract](history/desktop-0.3.4-preview.2/DESKTOP_APP_PLAN.md) | Historical desktop scope and coding-agent handoff |
 | [Desktop D01–D13 checklist](history/desktop-0.3.4-preview.2/DESKTOP_APP_TASKS.md) | Historical task completion and acceptance record |
 | [Desktop D01 baseline](history/desktop-0.3.4-preview.2/DESKTOP_BASELINE.md) | Historical toolchain and architecture snapshot |
+| [Desktop workbench design](history/desktop-workbench/STUDIO_DESIGN.md) | Historical monochrome workbench layout, theme, and interaction snapshot |
+| [Desktop workbench follow-up plan](history/desktop-workbench/WORKBENCH_DEVELOPMENT_PLAN.md) | Historical W/P workbench tasks, acceptance gates, and progress |
+| [Desktop workbench UX specification](history/desktop-workbench/WORKBENCH_UX_PLAN.md) | Historical workbench layout and slash-command design snapshot |
+| [Desktop refinement plan](history/desktop-workbench/DESKTOP_REFINEMENT_PLAN.md) | Historical model picker and macOS sidebar refinement record |
+| [Desktop unsigned update plan](history/desktop-workbench/UPDATE_PLAN.md) | Historical U01–U04 unsigned update design snapshot |
+| [Desktop productization acceptance log](history/desktop-productization-log/ACCEPTANCE_LOG.md) | Chronological desktop productization increments and acceptance trial log |
 
 ## Directory layout
 

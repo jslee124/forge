@@ -44,7 +44,7 @@ Forge 是兼顾代码项目和日常工作的桌面 AI 助手。清晰、易用�
 | TUI 提交通过事件、取消和审批接口调用执行层 | [interactive/app.tsx](../../../../apps/cli/src/interactive/app.tsx) | 桌面消费结构化接口，不解析终端文本 |
 | `runTask` 组装配置、指令、模型、工具、插件、策略，再调用 `runAgent` | [run.ts](../../../../apps/cli/src/run.ts) | 将非终端应用逻辑共享，避免复制组装逻辑 |
 | Core 拥有模型/工具循环、策略、事件与终止结果 | [runtime.ts](../../../../packages/core/src/runtime.ts) | 不在桌面 UI 中重写 agent loop |
-| 会话服务准备运行、记录结果、列出和恢复当前 workspace 的历史 | [persistent-session.ts](../../../../apps/cli/src/persistent-session.ts) | UI 的任务映射到 Session |
+| 会话服务准备运行、记录结果、列出和恢复当前 workspace 的历史 | [persistent-session.ts](../../../../packages/application/src/persistent-session.ts) | UI 的任务映射到 Session |
 | Session 存于 Forge home 的 `sessions/`，运行 trace 存于 `runs/` | [session-store.ts](../../../../packages/persistence/src/session-store.ts)、[trace-store.ts](../../../../packages/persistence/src/trace-store.ts) | 复用持久化与恢复合约 |
 | 内置工具是列表、读取、搜索、编辑和命令执行 | [registry.ts](../../../../packages/tools/src/registry.ts) | 通用文档预览与研究能力需另行补齐 |
 

@@ -53,7 +53,7 @@ and large changes before locking it.
 **Accept:** supported decisions and reproducible checks, unknowns labeled, no loop rewrite.
 **Verify:** current focused offline baseline, not old test counts.
 **Entry points:** [run.ts](../../../apps/cli/src/run.ts), [TUI](../../../apps/cli/src/interactive/app.tsx),
-[sessions](../../../apps/cli/src/persistent-session.ts), [Codex](../../../apps/cli/src/codex-command.ts).
+[sessions](../../../packages/application/src/persistent-session.ts), [Codex](../../../apps/cli/src/codex-command.ts).
 
 **Completion record (2026-09-06, Complete):** baseline, engine paths, dependency
 matrix, Electron 44.2.0 (bundled Node 24.20.0), dynamic plugin/resource checks,

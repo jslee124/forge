@@ -2,175 +2,54 @@
 
 简体中文 · Documentation index
 
-## Summary
+Forge is a lightweight, transparent, safe-by-default coding agent that inspects local repositories, runs bounded tools, asks before risky actions, and records what happened. You can use it in the terminal (`@jslee124/forge`) or through the separate Electron desktop preview.
 
-Forge is a lightweight, safe-by-default terminal coding agent that can inspect a
-local codebase, use tools, modify files, run commands, and adapt its next action
-to the observed result. Trusted plugins can extend its capabilities without
-replacing mandatory runtime safeguards.
+Unlike opaque agent wrappers, Forge tries to make every step inspectable: provider-supplied reasoning stays visible when returned, policy decisions happen before execution, and every run leaves an auditable trace rather than just a confident final paragraph.
 
-Its distinguishing feature is transparency. A developer should be able to see
-model-provided reasoning when available, what Forge did, why execution stopped,
-how much it cost, and whether the result passed an objective evaluation.
+## Who it is for
 
-## Target users
+- **Agent builders & contributors** who want an explicit, modular TypeScript codebase to inspect, test, and experiment with runtime, policy, and context mechanics.
+- **Individual developers** who want a focused local coding assistant with explicit workspace boundaries, readable diffs, and reproducible checks instead of black-box automation.
 
-### Primary user
-
-A developer who wants to understand and experiment with the internal behavior
-of a coding agent.
-
-### Secondary user
-
-A developer who wants a small, inspectable coding assistant for local tasks and
-prefers explicit behavior over a large, opaque feature set.
-
-## Core use case
+## Core workflow
 
 ```bash
 forge run "Add input validation and update the tests"
 ```
 
-The expected user journey is:
-
-1. Forge validates its configuration and workspace.
-2. Forge merges user settings from `~/.forge/` with applicable project settings
-   and instructions, recording their source paths.
-3. Forge asks the model to choose the next action.
-4. The model uses tools to inspect relevant files.
-5. Forge checks each proposed action against its safety policy.
-6. Forge asks for approval when an action crosses a configured boundary.
-7. Forge executes approved actions and records their results.
-8. The model uses those results to decide what to do next.
-9. Forge modifies the code and runs an appropriate verification command.
-10. Forge stops with a truthful summary, or explains why it could not finish.
+1. **Validate setup**: Forge resolves user (`~/.forge/`) and project settings, freezes active `AGENTS.md` instructions for the run, and binds to the workspace root.
+2. **Reason & inspect**: The active model selects read-only tools (`list_files`, `read_file`, `search`) to explore the codebase—allowed automatically inside the workspace under the `safe` profile.
+3. **Approve changes & commands**: Before the first workspace edit or any process command (`run_command`), Forge pauses for explicit approval (or denies automatically in non-interactive runs without an approval channel).
+4. **Verify & report**: Forge runs targeted checks requested or appropriate for the change, then ends with a terminal status (`completed`, `failed`, `cancelled`, `denied`, or `limit_reached`) grounded in observed tool results.
 
 ## Product principles
 
-### Transparent
+- **Transparent**: Provider reasoning blocks, tool calls, policy decisions, token estimates, and costs are exposed cleanly in the terminal and saved to redacted JSONL traces. When a model does not return reasoning text, Forge never fabricates it.
+- **Safe by default**: Filesystem tools stay confined to the workspace (after resolving symlinks), edits require exact matches or complete-read hashes, commands use `spawn` with `shell: false`, and risky actions wait for explicit consent.
+- **Verifiable**: Natural-language summaries never substitute for failing tests or builds; runtime stop conditions keep tool exits and narrative output distinct.
+- **Modular, not framework-owned**: Forge uses focused libraries (Commander, Ink, AI SDK, Zod) where they eliminate boilerplate while keeping core loop, policy, and persistence logic under explicit repository control.
+- **Extensible without weakening safeguards**: Trusted plugins can add tools, commands, prompt snippets, and single-depth host-managed subagents, and may tighten policy decisions—but never relax a core `deny` or `confirm`.
+- **Small before broad**: Depth and reliability on core coding workflows matter more than shipping dozens of half-verified integrations.
 
-The terminal should show meaningful model and tool activity. Reasoning or
-thinking content returned by the model provider should be visible to the user by
-default and represented honestly as provider-supplied content. If a model does
-not return reasoning content, Forge must not fabricate or imply access to it. A
-structured trace should preserve the observable execution trajectory for later
-inspection.
+## What ships today
 
-### Safe by default
+- **Public CLI (`@jslee124/forge`)**: Non-interactive runs (`forge run`, `forge codex`) plus a multi-line Ink terminal UI with `@` file mentions, `/` slash commands, diff previews, and parallel session switching.
+- **Model & engine routing**: Native DeepSeek, OpenAI API, and custom OpenAI-compatible HTTP routes (`@forge/model-*`), alongside official ChatGPT subscription runs via Codex App Server (`forge codex`).
+- **Configuration & project context**: Hierarchical `~/.forge/config.json` and `.forge/config.json` with `forge config show` provenance, layered `AGENTS.md` instructions, portable Skills (`load_skill`), and explicitly trusted `.forge/plugins/`.
+- **Sessions, context & traces**: Schema v3 session persistence (`forge resume`), redacted JSONL traces (`forge inspect <run-id>`), context budgeting (`/context`), manual checkpoints (`/compact`), and opt-in automatic compaction.
+- **Desktop preview**: An Electron workbench (Desktop guide) supporting both Native Forge and Codex engines, saved sessions, file/change/activity panels, approvals, and installer downloads. See desktop productization work for open acceptance gates.
 
-Forge should restrict filesystem access to the selected workspace, limit
-commands and execution time, and require approval for risky operations.
+*(Originally anchored by the v0.1 Acceptance Contract.)*
 
-Read-only operations inside the workspace may run automatically. The first
-workspace write requires approval by default, every process command requires
-approval by default, and built-in file tools deny operations outside the
-workspace in v0.1. In non-interactive operation, an action that requires
-approval is denied unless a matching narrow approval was supplied in advance.
+## Intentional boundaries & future directions
 
-### Verifiable
+Forge does **not** currently include:
 
-Forge should not treat a plausible final message as proof of completion. When a
-task can be verified with tests, type checking, linting, or another deterministic
-check, Forge should run that check and report its real result.
+- Remote execution or multi-machine session sync
+- Vector RAG / repository-wide embedding indexes
+- Automatic git commits, pushes, or pull requests
+- OS-level process/plugin sandboxing (approved commands and trusted local JS plugins run with your OS user privileges)
+- Built-in Anthropic Messages or Gemini adapters
+- Arbitrary recursive multi-agent swarms (plugin subagents run one level deep under host control)
 
-### Framework-aware, not framework-owned
-
-Forge will use established libraries where they remove incidental complexity,
-but its central runtime concepts should remain visible and independently
-testable.
-
-### Extensible without weakening safeguards
-
-Plugins may add tools, commands, prompt contributions, and controlled lifecycle
-hooks. They must not turn a core `deny` into `allow`, bypass approval, or replace
-the policy kernel. Trusted in-process plugins still execute as local code and
-therefore require an explicit trust decision.
-
-### Small before broad
-
-A narrow, reliable workflow is more valuable than many incomplete features.
-
-## Shipped product surface
-
-CLI 0.4.0 includes these established capabilities:
-
-- A TypeScript command-line interface
-- A multi-line interactive terminal UI with slash-command discovery,
-  workspace-file mentions, and readable diff review
-- Native DeepSeek and OpenAI API adapters, configured OpenAI-compatible routes,
-  and a separate ChatGPT-subscription path through Codex App Server
-- Streaming model responses through the active provider adapter
-- A multi-step agent loop with explicit stop conditions
-- User-wide configuration through `~/.forge/config.json`
-- Hierarchical repository instructions through `AGENTS.md`
-- Inspectable configuration provenance through `forge config show`
-- Tools for listing, reading, searching, unified guarded file editing, and
-  running commands
-- Workspace path validation
-- Command timeout and cancellation
-- Approval decisions for sensitive actions
-- Visible provider-supplied reasoning when available
-- Structured terminal events and JSONL traces
-- Persistent local sessions that can be resumed after restarting Forge
-- Canonical completed tool-call/result history across resume without restoring
-  approvals, pending execution, or provider continuation state
-- Context budgeting, manual checkpoints, opt-in automatic compaction, scoped
-  in-memory permission grants, and prompt-cache observations
-- Versioned product documentation, portable Skills, and trusted local plugins
-- Automated tests for the runtime and tools
-- A canonical fixture task, deterministic recovery scenario, and reproducible
-  release evaluation
-
-The separate Desktop preview provides a graphical
-workbench with Native Forge and Codex engines, saved tasks, file and document
-previews, reviewable changes, approvals, cancellation and installer downloads.
-Its preview status and platform/release validation are separate from the CLI.
-The current desktop productization work
-still has open real-task, user, accessibility and release gates.
-
-## Historical v0.1 baseline
-
-Forge v0.1 established the concrete release gates in v0.1 Acceptance and
-Evaluation, including a small repository task from
-end to end:
-
-1. Inspect more than one relevant file.
-2. Make a targeted code change.
-3. Run an automated verification command.
-4. Demonstrate recovery from a failed verification in a deterministic runtime
-   scenario.
-5. Stop after success or a configured limit.
-6. Deny built-in file operations outside the selected workspace.
-7. Produce a trace consistent with its real actions.
-8. Produce a final summary consistent with the actual file changes and command
-   results.
-
-## Current limitations
-
-- Remote execution
-- Persistent semantic memory
-- Retrieval-augmented generation
-- MCP server discovery
-- Third-party plugin package installation
-- Automatic commits, pushes, or pull requests
-- Production-grade operating-system sandboxing
-- Native Anthropic Messages or Gemini protocols
-- General recursive multi-agent orchestration; plugin-declared subagents are
-  bounded, host-managed, and non-recursive
-
-Forge does support an MCP stdio example plugin, but does not discover arbitrary
-MCP servers as a built-in default. Trusted plugins and approved child processes
-run with the local privileges of Forge; policy checks are not an OS sandbox.
-
-## Later direction
-
-Later work may add:
-
-- A broader evaluation suite with more tasks, trials, graders, and reports
-- A LangChain or LangGraph runtime adapter evaluated on the same tasks
-- An HTTP API with Server-Sent Events, cancellation, and human approval
-- SQLite-backed indexing, session branching, and cross-machine synchronization
-
-These are directions, not claims about current behavior. The
-Roadmap is the completion contract for work that is actually
-scheduled.
+Future exploratory directions (broader evaluations, alternative runtime adapters, HTTP/SSE control surfaces, SQLite indexing) are tracked on the Roadmap and carry no release promises until scheduled and verified.
