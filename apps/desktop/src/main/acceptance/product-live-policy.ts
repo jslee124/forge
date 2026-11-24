@@ -1,4 +1,4 @@
-import type { RunPayload } from "../shared/run-protocol.js";
+import type { RunPayload } from "../../shared/run-protocol.js";
 
 import {
   CANCEL_COMMAND,

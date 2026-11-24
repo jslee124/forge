@@ -2,7 +2,7 @@ import {
   UPDATE_CHANNEL,
   updateCommandSchema,
 } from "../shared/update-protocol.js";
-import { runUpdateUiAcceptance } from "./update-acceptance.js";
+import { runUpdateUiAcceptance } from "./acceptance/update-acceptance.js";
 import { createUpdateFetch } from "./update-network.js";
 import { UpdateService } from "./update-service.js";
 
@@ -43,10 +43,10 @@ import {
   previewRequestSchema,
   relativeFilePathSchema,
 } from "../shared/file-protocol.js";
-import { runUiAcceptance } from "./acceptance-ui.js";
+import { runUiAcceptance } from "./acceptance/acceptance-ui.js";
+import { runInstallAcceptance } from "./acceptance/install-acceptance.js";
 import { AgentProcess } from "./agent-process.js";
 import { FileService } from "./file-service.js";
-import { runInstallAcceptance } from "./install-acceptance.js";
 
 let agent: AgentProcess | undefined;
 let mainWindow: BrowserWindow | undefined;
@@ -455,7 +455,7 @@ async function run(): Promise<void> {
   if (process.argv.includes("--desktop-product-live")) {
     const window = await createWindow(false);
     const { runProductLivePilot } = await import(
-      "./product-live-acceptance.js"
+      "./acceptance/product-live-acceptance.js"
     );
     await runProductLivePilot(window, agent, files);
     window.destroy();

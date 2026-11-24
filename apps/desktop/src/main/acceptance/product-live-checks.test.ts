@@ -1,6 +1,6 @@
 import { projectActionEvent } from "@forge/application";
 import { expect, it } from "vitest";
-import type { RunEvent, RunPayload } from "../shared/run-protocol.js";
+import type { RunEvent, RunPayload } from "../../shared/run-protocol.js";
 import {
   pilotFaultChecks,
   recordedCommandFailureThenSuccess,

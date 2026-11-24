@@ -2,10 +2,10 @@ import { createHash, randomUUID } from "node:crypto";
 import { lstat, readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { BrowserWindow } from "electron";
-import type { RunEvent } from "../shared/run-protocol.js";
+import type { RunEvent } from "../../shared/run-protocol.js";
+import type { AgentProcess } from "../agent-process.js";
+import type { FileService } from "../file-service.js";
 import { acceptanceProvider } from "./acceptance-provider.js";
-import type { AgentProcess } from "./agent-process.js";
-import type { FileService } from "./file-service.js";
 import { savePilotFailure } from "./product-attempt-evidence.js";
 import {
   type PilotCancellation,

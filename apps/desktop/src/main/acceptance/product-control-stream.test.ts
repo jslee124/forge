@@ -1,7 +1,7 @@
 import type { ModelStreamEvent } from "@forge/core";
 import { expect, it } from "vitest";
 import { z } from "zod";
-import { AiSdkCompatTransport } from "../../../../packages/model-compat/src/ai-sdk-transport.js";
+import { AiSdkCompatTransport } from "../../../../../packages/model-compat/src/ai-sdk-transport.js";
 import { controlStressEvents } from "./product-control-stream.js";
 import { CANCEL_COMMAND } from "./product-live-scenarios.js";
 

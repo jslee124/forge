@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { projectActionEvent } from "@forge/application";
 import { expect, it } from "vitest";
-import type { RunEvent, RunPayload } from "../shared/run-protocol.js";
+import type { RunEvent, RunPayload } from "../../shared/run-protocol.js";
 import {
   autonomousRegressionChecks,
   observeRegressionInputs,

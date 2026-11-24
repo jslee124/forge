@@ -12,7 +12,7 @@ import {
   PILOT_TASKS,
   pilotDeadlines,
   pilotScenario,
-} from "../src/main/product-live-scenarios.ts";
+} from "../src/main/acceptance/product-live-scenarios.ts";
 import { snapshotMatrixInputs } from "./product-matrix-inputs.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
@@ -80,13 +80,13 @@ const buildFiles = [
   "apps/desktop/out/main/agent.js",
 ];
 const files = [
-  "apps/desktop/src/main/product-control-acceptance.ts",
-  "apps/desktop/src/main/product-control-faults.ts",
-  "apps/desktop/src/main/product-control-stream.ts",
-  "apps/desktop/src/main/product-live-scenarios.ts",
-  "apps/desktop/src/main/product-live-policy.ts",
-  "apps/desktop/src/main/product-live-acceptance.ts",
-  "apps/desktop/src/main/product-regression-checks.ts",
+  "apps/desktop/src/main/acceptance/product-control-acceptance.ts",
+  "apps/desktop/src/main/acceptance/product-control-faults.ts",
+  "apps/desktop/src/main/acceptance/product-control-stream.ts",
+  "apps/desktop/src/main/acceptance/product-live-scenarios.ts",
+  "apps/desktop/src/main/acceptance/product-live-policy.ts",
+  "apps/desktop/src/main/acceptance/product-live-acceptance.ts",
+  "apps/desktop/src/main/acceptance/product-regression-checks.ts",
   "apps/desktop/scripts/product-live.mjs",
   "apps/desktop/scripts/product-matrix.mjs",
   "apps/desktop/scripts/product-matrix-inputs.mjs",

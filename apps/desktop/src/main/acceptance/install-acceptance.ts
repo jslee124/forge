@@ -4,8 +4,8 @@ import { access, mkdir, realpath, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { FileSessionStore, recordRunInSession } from "@forge/persistence";
 import { app, type BrowserWindow } from "electron";
-import type { AgentProcess } from "./agent-process.js";
-import type { FileService } from "./file-service.js";
+import type { AgentProcess } from "../agent-process.js";
+import type { FileService } from "../file-service.js";
 
 /** Opt-in installed-app probe. Uses only an explicitly supplied isolated home. */
 export async function runInstallAcceptance(

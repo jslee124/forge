@@ -2,8 +2,8 @@ import { randomUUID } from "node:crypto";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { BrowserWindow } from "electron";
-import type { RunEvent } from "../shared/run-protocol.js";
-import type { AgentProcess } from "./agent-process.js";
+import type { RunEvent } from "../../shared/run-protocol.js";
+import type { AgentProcess } from "../agent-process.js";
 
 /** Explicit pilot-only review/summary flow; never an automatic product retry. */
 export async function runPilotSummaryRecovery(options: {

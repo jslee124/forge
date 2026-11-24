@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { constants } from "node:fs";
 import { lstat, open } from "node:fs/promises";
 import { join } from "node:path";
-import type { RunEvent } from "../shared/run-protocol.js";
+import type { RunEvent } from "../../shared/run-protocol.js";
 
 interface ObservedFile {
   sha256: string | null;

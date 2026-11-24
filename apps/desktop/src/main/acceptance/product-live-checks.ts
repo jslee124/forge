@@ -1,4 +1,4 @@
-import type { RunEvent } from "../shared/run-protocol.js";
+import type { RunEvent } from "../../shared/run-protocol.js";
 
 export function recordedCommandFailureThenSuccess(
   events: readonly RunEvent[],

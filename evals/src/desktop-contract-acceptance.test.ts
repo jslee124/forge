@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { expect, it } from "vitest";
-import { pilotScenario } from "../../apps/desktop/src/main/product-live-scenarios.js";
+import { pilotScenario } from "../../apps/desktop/src/main/acceptance/product-live-scenarios.js";
 import { prepareDesktopProductRound } from "./desktop-product-evaluation.js";
 
 const { checkProductEdit } = await import(

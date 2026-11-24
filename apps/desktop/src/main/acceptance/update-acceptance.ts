@@ -1,8 +1,8 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { BrowserWindow } from "electron";
-import type { UpdateStatus } from "../shared/update-protocol.js";
-import type { UpdateService } from "./update-service.js";
+import type { UpdateStatus } from "../../shared/update-protocol.js";
+import type { UpdateService } from "../update-service.js";
 
 /** Explicit offline UI fixtures; never used by normal startup or real release checks. */
 export async function runUpdateUiAcceptance(

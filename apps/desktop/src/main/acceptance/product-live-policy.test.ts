@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import type { RunPayload } from "../shared/run-protocol.js";
+import type { RunPayload } from "../../shared/run-protocol.js";
 import { allowPilotApproval } from "./product-live-policy.js";
 import {
   acceptanceProtocol,
